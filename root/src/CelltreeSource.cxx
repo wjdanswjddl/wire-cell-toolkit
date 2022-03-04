@@ -3,6 +3,7 @@
 #include "WireCellIface/SimpleFrame.h"
 
 #include "WireCellUtil/NamedFactory.h"
+#include "WireCellUtil/String.h"
 
 #include "TFile.h"
 #include "TTree.h"
@@ -43,6 +44,10 @@ WireCell::Configuration Root::CelltreeSource::default_configuration() const
     // Tree: Sim, Wf: raw_wf
     cfg["frames"][0] = "orig";
 
+    cfg["in_branch"] = "raw";
+
+    cfg["time_scale"] = 4;
+
     return cfg;
 }
 
@@ -82,10 +87,13 @@ bool Root::CelltreeSource::operator()(IFrame::pointer& out)
     std::vector<int>* channelid = new std::vector<int>;
     TClonesArray* esignal = new TClonesArray;
 
-    tree->SetBranchStatus("raw_channelId", 1);
-    tree->SetBranchAddress("raw_channelId", &channelid);
-    tree->SetBranchStatus("raw_wf", 1);
-    tree->SetBranchAddress("raw_wf", &esignal);
+    auto br_name_channelId = String::format("%s_channelId",m_cfg["in_branch"].asString());
+    auto br_name_wf = String::format("%s_wf",m_cfg["in_branch"].asString());
+
+    tree->SetBranchStatus(br_name_channelId.c_str(), 1);
+    tree->SetBranchAddress(br_name_channelId.c_str(), &channelid);
+    tree->SetBranchStatus(br_name_wf.c_str(), 1);
+    tree->SetBranchAddress(br_name_wf.c_str(), &esignal);
 
     int frame_number = std::stoi(m_cfg["EventNo"].asString());
 
@@ -102,10 +110,12 @@ bool Root::CelltreeSource::operator()(IFrame::pointer& out)
     // need run number and subrunnumber
     int frame_ident = event_no;
     double frame_time = 0;
+    int time_scale = m_cfg["time_scale"].asInt();
 
     // some output using eventNo, runNo, subRunNO, ...
-    std::cerr << "CelltreeSource: frame " << frame_number << "\n";
+    std::cerr << "CelltreeSource: frame_number " << frame_number << ", frame_ident " << frame_ident << ", siz " << siz << "\n";
     std::cerr << "CelltreeSource: runNo " << run_no << ", subrunNo " << subrun_no << ", eventNo " << event_no << "\n";
+    std::cerr << "CelltreeSource: time_scale " << time_scale << "\n";
 
     ITrace::vector all_traces;
     std::unordered_map<IFrame::tag_t, IFrame::trace_list_t> tagged_traces;
@@ -141,16 +151,22 @@ bool Root::CelltreeSource::operator()(IFrame::pointer& out)
                 nticks = signal_f->GetNbinsX();
             else
                 nticks = signal_s->GetNbinsX();
-            // std::cerr<<"CelltreeSource: tick "<<nticks<<"\n";
+            // if (ind==0) std::cerr<<"CelltreeSource: tick "<<nticks<<"\n";
             // nticks = 9600,  this could be an issue cause just 9594 have non-ZERO value around baseline
             for (int itickbin = 0; itickbin != nticks; itickbin++) {
                 if (flag_float == 1) {
-                    if (signal_f->GetBinContent(itickbin + 1) != 0) {
+                    // if (signal_f->GetBinContent(itickbin + 1) != 0) {
+                    //     charges.push_back(signal_f->GetBinContent(itickbin + 1));
+                    // }
+                    for (int i=0; i<time_scale; ++i) {
                         charges.push_back(signal_f->GetBinContent(itickbin + 1));
                     }
                 }
                 else {
-                    if (signal_s->GetBinContent(itickbin + 1) != 0) {
+                    // if (signal_s->GetBinContent(itickbin + 1) != 0) {
+                    //     charges.push_back(signal_s->GetBinContent(itickbin + 1));
+                    // }
+                    for (int i=0; i<time_scale; ++i) {
                         charges.push_back(signal_s->GetBinContent(itickbin + 1));
                     }
                 }
@@ -158,7 +174,7 @@ bool Root::CelltreeSource::operator()(IFrame::pointer& out)
 
             const size_t index = all_traces.size();
             tagged_traces[frametag].push_back(index);
-
+            // std::cerr<<"CelltreeSource: charges.size() "<<charges.size()<<"\n";
             all_traces.push_back(std::make_shared<SimpleTrace>(channel_number, 0, charges));
         }
         auto sframe = new SimpleFrame(frame_ident, frame_time, all_traces, 0.5 * units::microsecond, cmm);
