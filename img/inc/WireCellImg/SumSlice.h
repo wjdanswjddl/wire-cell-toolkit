@@ -54,6 +54,24 @@ namespace WireCell {
            protected:
             typedef std::map<size_t, Data::Slice*> slice_map_t;
             void slice(const IFrame::pointer& in, slice_map_t& sm);
+            ISlice::pointer make_empty(const IFrame::pointer& inframe);
+
+            // If true, the subclasses will add an EOS at end of
+            // slices from one input frame.  See also pad_empty.
+            //
+            // Note, if slice-level EOS is enabled then it is up to
+            // the graph designer to assure something "eats up" the
+            // extra EOS.
+            //
+            // As an alternative, consider leaving this false and rely
+            // on a downstream node to re-sync by watching the ID of
+            // the frame associated with each slice to change.  Again,
+            // see pad_empty.
+            bool m_slice_eos{false};
+
+            // If true, then a frame which produces no nominal slices
+            // will instead produce a single empty slice.
+            bool m_pad_empty{true};
 
            private:
             IAnodePlane::pointer m_anode;

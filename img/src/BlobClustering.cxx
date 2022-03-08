@@ -24,11 +24,13 @@ void Img::BlobClustering::configure(const WireCell::Configuration& cfg) { m_span
 WireCell::Configuration Img::BlobClustering::default_configuration() const
 {
     Configuration cfg;
-    // A number multiplied to the span of the current slice when
-    // determining it a gap exists between the next slice.  Default is
-    // 1.0.  Eg, if set to 2.0 then a single missing slice won't be
-    // grounds for considering a gap in the cluster.  A number less
-    // than 1.0 will cause each "cluster" to consist of only one blob.
+
+    // The number "spans" is a multplier on the last slice time span
+    // to give "maxgap".  If the next slice starts maxgap later than
+    // the start time of the current slice then the new slice is
+    // considered not temporally connected to the current slice.  The
+    // blobs in the new slice will not be added to the current cluster
+    // but to the subsequent cluster.
     cfg["spans"] = m_spans;
     return cfg;
 }
@@ -49,15 +51,17 @@ bool Img::BlobClustering::judge_gap(const input_pointer& newbs)
 {
     const double epsilon = 1 * units::ns;
 
-    if (m_spans <= epsilon) {
-        return false;  // never break on gap.
-    }
-
     auto nslice = newbs->slice();
     auto oslice = m_last_bs->slice();
 
-    const double dt = nslice->start() - oslice->start();
-    return std::abs(dt - m_spans * oslice->span()) > epsilon;
+    const double frame_dt = nslice->frame()->time() - oslice->frame()->time();
+    const double rel_dt = nslice->start()           - oslice->start();
+    const double dt = frame_dt + rel_dt;
+    const double slab_dt = m_spans * oslice->span();
+
+    // log->debug("frame_dt={} rel_dt={} dt={} slab_dt={}",
+    //            frame_dt, rel_dt, dt, slab_dt);
+    return dt - slab_dt > epsilon;
 }
 
 void Img::BlobClustering::add_slice(const ISlice::pointer& islice)
@@ -152,8 +156,8 @@ bool Img::BlobClustering::operator()(const input_pointer& blobset, output_queue&
     bool gap = graph_bs(blobset);
     if (gap) {
         flush(clusters);
-        log->debug("sending {} clusters after gap",
-                   clusters.size());
+        // log->debug("sending {} clusters after gap",
+        //            clusters.size());
         // note: flush fast to keep memory usage in this component
         // down and because in an MT job, downstream components might
         // benefit to start consuming clusters ASAP.  We do NOT want
@@ -164,9 +168,14 @@ bool Img::BlobClustering::operator()(const input_pointer& blobset, output_queue&
 
     intern(blobset);
 
+    // log->debug("got {} blobs, holding graph with {}, time={} ms",
+    //            blobset->blobs().size(),
+    //            boost::num_vertices(m_grind.graph()),
+    //            blobset->slice()->frame()->time()/units::ms
+    //     );
+
     SPDLOG_LOGGER_TRACE(log, "got {} blobs, holding graph with {}",
                         blobset->blobs().size(),
                         boost::num_vertices(m_grind.graph()));
-
     return true;
 }

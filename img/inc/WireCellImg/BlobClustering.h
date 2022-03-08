@@ -68,7 +68,7 @@ namespace WireCell {
             // Add the newbs to the graph.  Return true if a flush is needed (eg, because of a gap)
             bool graph_bs(const input_pointer& newbs);
 
-            // return true if a gap exists between the slice of newbs and the last bs.
+            // Return true if a gap exists between the slice of newbs and the last bs.
             bool judge_gap(const input_pointer& newbs);
 
             // Blob set must be kept, this saves them.

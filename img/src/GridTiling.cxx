@@ -2,6 +2,7 @@
 
 #include "WireCellUtil/RayTiling.h"
 #include "WireCellUtil/NamedFactory.h"
+#include "WireCellUtil/Units.h"
 #include "WireCellIface/SimpleBlob.h"
 
 WIRECELL_FACTORY(GridTiling, WireCell::Img::GridTiling,
@@ -43,6 +44,11 @@ WireCell::Configuration Img::GridTiling::default_configuration() const
     return cfg;
 }
 
+IBlobSet::pointer Img::GridTiling::make_empty(const input_pointer& slice)
+{
+    return std::make_shared<SimpleBlobSet>(slice->ident(), slice);
+}
+
 bool Img::GridTiling::operator()(const input_pointer& slice, output_pointer& out)
 {
     out = nullptr;
@@ -58,7 +64,10 @@ bool Img::GridTiling::operator()(const input_pointer& slice, output_pointer& out
     auto chvs = slice->activity();
 
     if (chvs.empty()) {
-        log->debug("anode={} face={} slice={} no activity", anodeid, faceid, slice->ident());
+        log->debug("anode={} face={} slice={}, time={} ms no activity",
+                   anodeid, faceid, slice->ident(),
+                   slice->frame()->time()/units::ms);
+        out = make_empty(slice);
         return true;
     }
 
