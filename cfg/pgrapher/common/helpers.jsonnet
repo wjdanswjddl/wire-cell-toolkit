@@ -7,5 +7,8 @@
     nf :: import "helpers/nf.jsonnet",
     sp :: import "helpers/sp.jsonnet",
     dnnroi :: import "helpers/dnnroi.jsonnet",
+    img :: import "helpers/img.jsonnet",
+    frames :: import "helpers/frames.jsonnet",
+    magnify :: import "helpers/magnify.jsonnet",
 }
     
