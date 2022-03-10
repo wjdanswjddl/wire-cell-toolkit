@@ -3,7 +3,9 @@
 #include "WireCellIface/SimpleCluster.h"
 #include "WireCellUtil/NamedFactory.h"
 
-#include <boost/graph/graphviz.hpp>
+#include "WireCellUtil/IndexedGraph.h"
+
+// #include <boost/graph/graphviz.hpp>
 
 WIRECELL_FACTORY(BlobClustering, WireCell::Img::BlobClustering,
                  WireCell::INamed,
@@ -13,80 +15,56 @@ using namespace WireCell;
 
 Img::BlobClustering::BlobClustering()
     : Aux::Logger("BlobClustering", "img")
-    , m_spans(1.0)
-    , m_last_bs(nullptr)
 {
 }
 Img::BlobClustering::~BlobClustering() {}
 
-void Img::BlobClustering::configure(const WireCell::Configuration& cfg) { m_spans = get(cfg, "spans", m_spans); }
+void Img::BlobClustering::configure(const WireCell::Configuration& cfg)
+{
+    m_spans = get(cfg, "spans", m_spans);
+}
 
 WireCell::Configuration Img::BlobClustering::default_configuration() const
 {
     Configuration cfg;
 
-    // The number "spans" is a multplier on the last slice time span
-    // to give "maxgap".  If the next slice starts maxgap later than
-    // the start time of the current slice then the new slice is
-    // considered not temporally connected to the current slice.  The
-    // blobs in the new slice will not be added to the current cluster
-    // but to the subsequent cluster.
+    // maxgap = spans*span of current slice.  If next slice starts
+    // later than this relative to current slice then a gap exists.
     cfg["spans"] = m_spans;
+
     return cfg;
 }
 
-void Img::BlobClustering::flush(output_queue& clusters)
+
+// add a slice to the graph.
+static
+void add_slice(cluster_indexed_graph_t& grind,
+               const ISlice::pointer& islice)
 {
-    if (0 == boost::num_vertices(m_grind.graph())) {
-        return;
-    }
-    clusters.push_back(std::make_shared<SimpleCluster>(m_grind.graph()));
-    m_grind.clear();
-    m_last_bs = nullptr;
-}
-
-void Img::BlobClustering::intern(const input_pointer& newbs) { m_last_bs = newbs; }
-
-bool Img::BlobClustering::judge_gap(const input_pointer& newbs)
-{
-    const double epsilon = 1 * units::ns;
-
-    auto nslice = newbs->slice();
-    auto oslice = m_last_bs->slice();
-
-    const double frame_dt = nslice->frame()->time() - oslice->frame()->time();
-    const double rel_dt = nslice->start()           - oslice->start();
-    const double dt = frame_dt + rel_dt;
-    const double slab_dt = m_spans * oslice->span();
-
-    // log->debug("frame_dt={} rel_dt={} dt={} slab_dt={}",
-    //            frame_dt, rel_dt, dt, slab_dt);
-    return dt - slab_dt > epsilon;
-}
-
-void Img::BlobClustering::add_slice(const ISlice::pointer& islice)
-{
-    if (m_grind.has(islice)) {
+    if (grind.has(islice)) {
         return;
     }
 
     for (const auto& ichv : islice->activity()) {
         const IChannel::pointer ich = ichv.first;
-        if (m_grind.has(ich)) {
+        if (grind.has(ich)) {
             continue;
         }
         for (const auto& iwire : ich->wires()) {
-            m_grind.edge(ich, iwire);
+            grind.edge(ich, iwire);
         }
     }
 }
 
-void Img::BlobClustering::add_blobs(const input_pointer& newbs)
+// add blobs to the graph
+static 
+void add_blobs(cluster_indexed_graph_t& grind,
+               const IBlob::vector& iblobs)
 {
-    for (const auto& iblob : newbs->blobs()) {
+    for (const auto& iblob : iblobs) {
         auto islice = iblob->slice();
-        add_slice(islice);
-        m_grind.edge(islice, iblob);
+        add_slice(grind, islice);
+        grind.edge(islice, iblob);
 
         auto iface = iblob->face();
         auto wire_planes = iface->planes();
@@ -103,32 +81,50 @@ void Img::BlobClustering::add_blobs(const input_pointer& newbs)
             const auto& wires = wire_planes[iplane]->wires();
             for (int wip = strip.bounds.first; wip < strip.bounds.second and wip < int(wires.size()); ++wip) {
                 auto iwire = wires[wip];
-                m_grind.edge(iblob, iwire);
+                grind.edge(iblob, iwire);
             }
         }
     }
 }
 
-bool Img::BlobClustering::graph_bs(const input_pointer& newbs)
-{
-    add_blobs(newbs);
 
-    if (!m_last_bs) {
-        // need to wait for next one to do anything.
-        // note, caller interns.
-        return false;
+// return the time between two blob sets relative to the slice span of
+// the first.
+static
+double rel_time_diff(const IBlobSet::pointer& one,
+                     const IBlobSet::pointer& two)
+{
+    const auto here = one->slice();
+
+    return (two->slice()->start() - here->start())/here->span();
+}
+
+
+static
+IBlobSet::vector::iterator
+intern_one(cluster_indexed_graph_t& grind,
+           IBlobSet::vector::iterator beg,
+           IBlobSet::vector::iterator end,
+           double spans)
+{
+    add_blobs(grind, (*beg)->blobs());
+
+    auto next = beg+1;
+
+    if (next == end) {
+        return end;
     }
-    if (judge_gap(newbs)) {
-        // nothing to do, but pass on that we hit a gap
-        return true;
+
+    if (rel_time_diff(*beg, *next) > spans) {
+        return next;
     }
 
     // handle each face separately faces
-    IBlob::vector iblobs1 = newbs->blobs();
-    IBlob::vector iblobs2 = m_last_bs->blobs();
+    IBlob::vector iblobs1 = (*next)->blobs();
+    IBlob::vector iblobs2 = (*beg)->blobs();
 
-    RayGrid::blobs_t blobs1 = newbs->shapes();
-    RayGrid::blobs_t blobs2 = m_last_bs->shapes();
+    RayGrid::blobs_t blobs1 = (*next)->shapes();
+    RayGrid::blobs_t blobs2 = (*beg)->shapes();
 
     const auto beg1 = blobs1.begin();
     const auto beg2 = blobs2.begin();
@@ -136,15 +132,58 @@ bool Img::BlobClustering::graph_bs(const input_pointer& newbs)
     auto assoc = [&](RayGrid::blobref_t& a, RayGrid::blobref_t& b) {
         int an = a - beg1;
         int bn = b - beg2;
-        m_grind.edge(iblobs1[an], iblobs2[bn]);
+        grind.edge(iblobs1[an], iblobs2[bn]);
     };
     RayGrid::associate(blobs1, blobs2, assoc);
 
-    return false;
+    return next;
 }
 
-bool Img::BlobClustering::operator()(const input_pointer& blobset, output_queue& clusters)
+void Img::BlobClustering::flush(output_queue& clusters)
 {
+    // 1) sort cache
+    std::sort(m_cache.begin(), m_cache.end(), [](const auto& a, const auto& b) {
+        return a->slice()->start() < b->slice()->start();
+    });
+
+    cluster_indexed_graph_t grind;
+
+    // 2) intern the cached blob sets
+    auto bsit = m_cache.begin();
+    auto bend = m_cache.end();
+    while (bsit != bend) {
+        bsit = intern_one(grind, bsit, bend, m_spans);
+    }
+
+    // 3) pack and clear
+    clusters.push_back(std::make_shared<SimpleCluster>(grind.graph()));
+    m_cache.clear();
+}
+
+
+// dig out the frame ID
+static int frame_ident(const IBlobSet::pointer& bs)
+{
+    return bs->slice()->frame()->ident();
+}
+
+// Determine if we have a BlobSet from a fresh frame
+bool Img::BlobClustering::new_frame(const input_pointer& newbs) const
+{
+    if (m_cache.empty()) return false;
+    return frame_ident(newbs) != frame_ident(m_cache[0]);
+}
+
+bool Img::BlobClustering::operator()(const input_pointer& blobset,
+                                     output_queue& clusters)
+{
+    // wrt to last blobset, the input may be:
+    // - EOS
+    // - empty and same frame
+    // - empty and new frame
+    // - not empty and same frame
+    // - not empty and new frame
+    
     if (!blobset) {  // eos
         flush(clusters);
         log->debug("flush {} clusters + EOS on EOS",
@@ -153,29 +192,11 @@ bool Img::BlobClustering::operator()(const input_pointer& blobset, output_queue&
         return true;
     }
 
-    bool gap = graph_bs(blobset);
-    if (gap) {
+    if (new_frame(blobset)) {
         flush(clusters);
-        // log->debug("sending {} clusters after gap",
-        //            clusters.size());
-        // note: flush fast to keep memory usage in this component
-        // down and because in an MT job, downstream components might
-        // benefit to start consuming clusters ASAP.  We do NOT want
-        // to intern() the new blob set BEFORE a flush if there is a
-        // gap because newbs is needed for next time and fush clears
-        // the cache.
     }
 
-    intern(blobset);
+    m_cache.push_back(blobset);
 
-    // log->debug("got {} blobs, holding graph with {}, time={} ms",
-    //            blobset->blobs().size(),
-    //            boost::num_vertices(m_grind.graph()),
-    //            blobset->slice()->frame()->time()/units::ms
-    //     );
-
-    SPDLOG_LOGGER_TRACE(log, "got {} blobs, holding graph with {}",
-                        blobset->blobs().size(),
-                        boost::num_vertices(m_grind.graph()));
     return true;
 }

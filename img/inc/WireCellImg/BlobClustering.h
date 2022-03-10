@@ -1,19 +1,25 @@
 /** Cluster blobs.
 
     This takes a stream of IBlobSets and mints a new ICluster on EOS
-    or earlier if a gap in time slice is found.
+    when the frame ident changes.
 
-    It assumes each blob set represents all blobs found in one time
-    slice (including none) and that blob sets are delivered in time
-    order.  Blobs in the set may span both faces of an anode plane.
-    Gaps in time between blob sets will be determined by the set's
-    slice.
+    An output ICluster will have the same ident number as the frame
+    from which the input blobsets originated.
 
-    Clusters will not span a gap.  Likewise, when an EOS is
-    encountered, all clusters are flushed to the output queue.  If the
-    "spans" config param is 0 then no gap testing is done.
+    The produced ICluster has b, w, c and s nodes with edges:
 
-    The produced ICluster has b, w, c and s nodes.
+    - slice-blob
+    - blob-wire
+    - channel-wire
+    - blob-blob
+
+    The input IBlobSets need not be delivered in time order but the
+    input stream must not mix IBlobSets between frame boundaries.
+
+    The blob-blob edges will only be formed if their slices that have
+    no large "gap" with the maximum gap given by the "spans"
+    configuraiton parameter multiplied by the current slice being
+    considered.
 
     Note, that input blob sets and thus their blobs may be held
     between calls (via their shared pointers).
@@ -31,7 +37,6 @@
 #include "WireCellIface/ISlice.h"
 #include "WireCellIface/IBlobSet.h"
 
-#include "WireCellUtil/IndexedGraph.h"
 #include "WireCellAux/Logger.h"
 
 namespace WireCell {
@@ -48,19 +53,16 @@ namespace WireCell {
             virtual bool operator()(const input_pointer& blobset, output_queue& clusters);
 
            private:
-            // User may configure how many slices can go missing
-            // before breaking the clusters.  Default is 1.0, slices
-            // must be adjacent in time or clusters will flush.
-            double m_spans;
+            // Define how many spans away from the current slice may
+            // the next slice be and still be considered not to form a
+            // "gap".  This is multiplier to the current slice so that
+            // a value of 1.0 means that if the next slice does not
+            // abut the current slice end time then it would indicate
+            // a "gap"
+            double m_spans{1.0};
 
-            // for judging gap and spatial clustering.
-            IBlobSet::pointer m_last_bs;
-
-            cluster_indexed_graph_t m_grind;
-
-            // internal methods
-            void add_slice(const ISlice::pointer& islice);
-            void add_blobs(const input_pointer& newbs);
+            // Collect blob sets
+            IBlobSet::vector m_cache;
 
             // flush graph to output queue
             void flush(output_queue& clusters);
@@ -68,11 +70,8 @@ namespace WireCell {
             // Add the newbs to the graph.  Return true if a flush is needed (eg, because of a gap)
             bool graph_bs(const input_pointer& newbs);
 
-            // Return true if a gap exists between the slice of newbs and the last bs.
-            bool judge_gap(const input_pointer& newbs);
-
-            // Blob set must be kept, this saves them.
-            void intern(const input_pointer& newbs);
+            // Return true if newbs is from a new frame
+            bool new_frame(const input_pointer& newbs) const;
 
         };
     }  // namespace Img
