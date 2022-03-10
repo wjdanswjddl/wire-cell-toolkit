@@ -74,16 +74,6 @@ void Img::MaskSliceBase::slice(const IFrame::pointer& in, slice_map_t& svcmap)
     const double tick = in->tick();
     const double span = tick * m_tick_span;
 
-    auto cmm = in->masks()["bad"];
-    for( auto ch_tbins : cmm) {
-        log->debug("ch_tbins: {} {}", ch_tbins.first, ch_tbins.second.size());
-        for (auto tbin : ch_tbins.second) {
-            log->debug("tbin: {} {}", tbin.first, tbin.second);
-            break;
-        }
-        break;
-    }
-
     // active slices
     for (auto trace : Aux::tagged_traces(in, m_tag)) {
         const int tbin = trace->tbin();
@@ -112,15 +102,7 @@ void Img::MaskSliceBase::slice(const IFrame::pointer& in, slice_map_t& svcmap)
     }
 
     // masked slices
-
-    for( auto ch_tbins : cmm) {
-        log->debug("ch_tbins: {} {}", ch_tbins.first, ch_tbins.second.size());
-        for (auto tbin : ch_tbins.second) {
-            log->debug("tbin: {} {}", tbin.first, tbin.second);
-            break;
-        }
-        break;
-    }
+    auto cmm = in->masks()["bad"];
     for (auto ch_tbins : cmm) {
         const int chid = ch_tbins.first;
         auto tbins = ch_tbins.second;
@@ -143,15 +125,6 @@ void Img::MaskSliceBase::slice(const IFrame::pointer& in, slice_map_t& svcmap)
                 if(m_tmax > 0 && t > m_tmax) break;
             }
         }
-    }
-
-    for( auto ch_tbins : cmm) {
-        log->debug("ch_tbins: {} {}", ch_tbins.first, ch_tbins.second.size());
-        for (auto tbin : ch_tbins.second) {
-            log->debug("tbin: {} {}", tbin.first, tbin.second);
-            break;
-        }
-        break;
     }
 
     log->debug("Img::MaskSliceBase::slice done.");
