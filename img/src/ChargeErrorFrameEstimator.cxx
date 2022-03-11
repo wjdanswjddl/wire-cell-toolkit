@@ -23,10 +23,10 @@ WireCell::Configuration ChargeErrorFrameEstimator::default_configuration() const
 {
     Configuration cfg;
 
-    ///
+    /// traces that will be used for error estimation
     cfg["input_tag"] = "gauss";
 
-    ///
+    /// the tag for the output error traces
     cfg["output_tag"] = "error";
 
     return cfg;
@@ -42,9 +42,11 @@ ITrace::vector ChargeErrorFrameEstimator::error_traces(const ITrace::vector& int
     ITrace::vector ret;
     for (ITrace::pointer intrace : intraces) {
         auto error = intrace->charge();
+        // ---------- begin of the stub for Xin ---------- 
         for (auto& e : error) {
             e /= 10.;
         }
+        // ---------- end of the stub for Xin ---------- 
         SimpleTrace* outtrace = new SimpleTrace(intrace->channel(), intrace->tbin(), error);
         ret.push_back(ITrace::pointer(outtrace));
     }
@@ -61,16 +63,18 @@ bool ChargeErrorFrameEstimator::operator()(const input_pointer& in, output_point
 
     log->debug("input: {}", Aux::taginfo(in));
 
+    // calculate error traces
     ITrace::vector err_traces = error_traces(Aux::tagged_traces(in, m_input_tag));
+
+    // make a copy of all input trace pointers
     ITrace::vector out_traces(*in->traces());
-    IFrame::trace_list_t out_trace_indices;
-    {
-        auto index = out_traces.size();
-        out_traces.insert(out_traces.end(), err_traces.begin(), err_traces.end());
-        for (; index < out_traces.size(); ++index) {
-            out_trace_indices.push_back(index);
-        }
-    }
+
+    // list used for the new error trace tagging
+    IFrame::trace_list_t out_trace_indices(err_traces.size());
+    std::generate(out_trace_indices.begin(), out_trace_indices.end(), [n = out_traces.size()] () mutable {return n++;});
+
+    // merge error traces to the output copy
+    out_traces.insert(out_traces.end(), err_traces.begin(), err_traces.end());
 
     // Basic frame stays the same.
     auto sfout = new SimpleFrame(in->ident(), in->time(), out_traces, in->tick(), in->masks());
@@ -78,6 +82,7 @@ bool ChargeErrorFrameEstimator::operator()(const input_pointer& in, output_point
     // tag err traces
     sfout->tag_traces(m_output_tag, out_trace_indices);
 
+    // passing through other parts of the original frame
     for (auto ftag : in->frame_tags()) {
         sfout->tag_frame(ftag);
     }
