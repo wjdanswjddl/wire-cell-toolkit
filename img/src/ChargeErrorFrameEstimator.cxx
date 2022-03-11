@@ -1,5 +1,6 @@
 #include "WireCellImg/ChargeErrorFrameEstimator.h"
 #include "WireCellIface/SimpleFrame.h"
+#include "WireCellIface/SimpleTrace.h"
 #include "WireCellAux/FrameTools.h"
 
 #include "WireCellUtil/NamedFactory.h"
@@ -37,6 +38,19 @@ void ChargeErrorFrameEstimator::configure(const WireCell::Configuration& cfg)
     m_output_tag = get<std::string>(cfg, "output_tag", m_output_tag);
 }
 
+ITrace::vector ChargeErrorFrameEstimator::error_traces(const ITrace::vector& intraces) const {
+    ITrace::vector ret;
+    for (ITrace::pointer intrace : intraces) {
+        auto error = intrace->charge();
+        for (auto& e : error) {
+            e /= 10.;
+        }
+        SimpleTrace* outtrace = new SimpleTrace(intrace->channel(), intrace->tbin(), error);
+        ret.push_back(ITrace::pointer(outtrace));
+    }
+    return ret;
+}
+
 bool ChargeErrorFrameEstimator::operator()(const input_pointer& in, output_pointer& out)
 {
     out = nullptr;
@@ -45,11 +59,24 @@ bool ChargeErrorFrameEstimator::operator()(const input_pointer& in, output_point
         return true;  // eos
     }
 
-    std::stringstream info;
-    info << "input " << Aux::taginfo(in) << " ";
+    log->debug("input: {}", Aux::taginfo(in));
+
+    ITrace::vector err_traces = error_traces(Aux::tagged_traces(in, m_input_tag));
+    ITrace::vector out_traces(*in->traces());
+    IFrame::trace_list_t out_trace_indices;
+    {
+        auto index = out_traces.size();
+        out_traces.insert(out_traces.end(), err_traces.begin(), err_traces.end());
+        for (; index < out_traces.size(); ++index) {
+            out_trace_indices.push_back(index);
+        }
+    }
 
     // Basic frame stays the same.
-    auto sfout = new SimpleFrame(in->ident(), in->time(), *in->traces(), in->tick(), in->masks());
+    auto sfout = new SimpleFrame(in->ident(), in->time(), out_traces, in->tick(), in->masks());
+
+    // tag err traces
+    sfout->tag_traces(m_output_tag, out_trace_indices);
 
     for (auto ftag : in->frame_tags()) {
         sfout->tag_frame(ftag);
@@ -62,9 +89,7 @@ bool ChargeErrorFrameEstimator::operator()(const input_pointer& in, output_point
     };
 
     out = IFrame::pointer(sfout);
-    info << "output " << Aux::taginfo(out) << " ";
-
-    log->debug(info.str());
+    log->debug("out: {}", Aux::taginfo(out));
 
     return true;
 }

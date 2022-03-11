@@ -31,6 +31,7 @@ namespace WireCell {
             virtual WireCell::Configuration default_configuration() const;
 
            private:
+            ITrace::vector error_traces(const ITrace::vector& intraces) const;
             std::string m_input_tag;
             std::string m_output_tag;
         };
