@@ -60,8 +60,13 @@ namespace WireCell {
      spline(42);
      *
      * More info here:
-     https://www.boost.org/doc/libs/1_65_0/libs/math/doc/html/math_toolkit/interpolate/cubic_b.html
-    */
+     * https://www.boost.org/doc/libs/1_78_0/libs/math/doc/html/interpolation.html
+     */
+    // for now, we do not force this as Boost gives internal
+    // deprecation warnings at compile time.
+    // template <class Real>
+    // using cubterp = boost::math::cubic_b_spline<Real>;
+
 
 }  // namespace WireCell
 

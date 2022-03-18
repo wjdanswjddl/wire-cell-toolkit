@@ -94,6 +94,7 @@
 #include "WireCellIface/ITiling.h"
 #include "WireCellIface/ITrace.h"
 #include "WireCellIface/IWaveform.h"
+#include "WireCellIface/IWaveformMap.h"
 #include "WireCellIface/IWireGenerator.h"
 #include "WireCellIface/IWireParameters.h"
 #include "WireCellIface/IWireSchema.h"
@@ -192,6 +193,7 @@ ITerminal::~ITerminal() {}
 ITiling::~ITiling() {}
 ITrace::~ITrace() {}
 IWaveform::~IWaveform() {}
+IWaveformMap::~IWaveformMap() {}
 IWireGenerator::~IWireGenerator() {}
 IWireParameters::~IWireParameters() {}
 IWireSchema::~IWireSchema() {}
