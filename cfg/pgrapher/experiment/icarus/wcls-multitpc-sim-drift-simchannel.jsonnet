@@ -195,10 +195,6 @@ local add_coherent_noise = function(n) g.pnode({
 	  map_file: params.files.wiregroups,
           rng: wc.tn(tools.random),
           nsamples: params.daq.nticks,
-          random_fluctuation_amplitude: 0.1,
-	  random_shift_amplitude: 0.9,
-          period: params.daq.tick,
-          normalization: 1
       }}, nin=1, nout=1, uses=[]);
 local coherent_noises = [add_coherent_noise(n) for n in std.range(0,3)];
 
