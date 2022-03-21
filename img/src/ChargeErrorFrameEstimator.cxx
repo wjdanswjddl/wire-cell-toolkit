@@ -29,6 +29,7 @@ WireCell::Configuration ChargeErrorFrameEstimator::default_configuration() const
     /// the tag for the output error traces
     cfg["output_tag"] = "error";
 
+
     return cfg;
 }
 
@@ -46,6 +47,9 @@ ITrace::vector ChargeErrorFrameEstimator::error_traces(const ITrace::vector& int
         for (auto& e : error) {
             e /= 10.;
         }
+
+	log->debug("test Xin Qian");
+	
         // ---------- end of the stub for Xin ---------- 
         SimpleTrace* outtrace = new SimpleTrace(intrace->channel(), intrace->tbin(), error);
         ret.push_back(ITrace::pointer(outtrace));

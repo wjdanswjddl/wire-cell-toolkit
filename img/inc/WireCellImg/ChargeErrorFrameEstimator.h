@@ -30,10 +30,14 @@ namespace WireCell {
             virtual void configure(const WireCell::Configuration& config);
             virtual WireCell::Configuration default_configuration() const;
 
+	    
+	    
            private:
             ITrace::vector error_traces(const ITrace::vector& intraces) const;
             std::string m_input_tag;
             std::string m_output_tag;
+
+	    	    
         };
     }  // namespace Img
 }  // namespace WireCell
