@@ -9,6 +9,7 @@
 #include "WireCellIface/IFrameFilter.h"
 #include "WireCellIface/IConfigurable.h"
 #include "WireCellAux/Logger.h"
+#include "WireCellIface/IAnodePlane.h"
 
 #include <string>
 
@@ -32,8 +33,24 @@ namespace WireCell {
 
            private:
             ITrace::vector error_traces(const ITrace::vector& intraces) const;
-            std::string m_input_tag;
-            std::string m_output_tag;
+
+            // This will map from plane index to a vector of ROI errors indexed by
+            // ROI duration according to the binning.
+            std::vector<std::vector<float>> m_errs;
+
+            // The binning that the above is using.  This will be subject to user
+            // configuration and used to interpolate the IWaveforms.
+            Binning m_bins;
+
+            // We will only process one set of input tagged traces and produce one
+            // set of output tagged traces.  User may create a small subgraph
+            // bound by FrameFanout and FrameFanin to operate on other tagged
+            // trace sets as well as pass-through the input tagged traces.
+            std::string m_intag{"gauss"};
+            std::string m_outtag{"gauss_error"};
+
+            // Needed for channel lookups
+            IAnodePlane::pointer m_anode{nullptr};
         };
     }  // namespace Img
 }  // namespace WireCell
