@@ -23,8 +23,8 @@ struct InterpolatedWaveform : public IWaveform {
     interp_f interp;
 
     InterpolatedWaveform(double start, double period,
-                         IWaveform::sequence_type sequence)
-        : start(start), period(period), sequence(std::move(sequence))
+                         IWaveform::sequence_type seq)
+        : start(start), period(period), sequence(std::move(seq))
     {
         interp = WireCell::linterp<float>(sequence.begin(), sequence.end(), start, period);
     }
