@@ -32,15 +32,8 @@ namespace WireCell {
             virtual WireCell::Configuration default_configuration() const;
 
 	    
-	    
            private:
             ITrace::vector error_traces(const ITrace::vector& intraces) const;
-<<<<<<< HEAD
-            std::string m_input_tag;
-            std::string m_output_tag;
-
-	    	    
-=======
 
             // This will map from plane index to a vector of ROI errors indexed by
             // ROI duration according to the binning.
@@ -57,9 +50,13 @@ namespace WireCell {
             std::string m_intag{"gauss"};
             std::string m_outtag{"gauss_error"};
 
+	    int m_rebin{4};
+	    std::vector<float> m_fudge_factors{1,1,1};
+	    std::pair<float,float> m_time_limits{12,800};
+	    
             // Needed for channel lookups
             IAnodePlane::pointer m_anode{nullptr};
->>>>>>> 82c8eda8ea43866eb76d0ccb18c89f662d31f2b9
+
         };
     }  // namespace Img
 }  // namespace WireCell
