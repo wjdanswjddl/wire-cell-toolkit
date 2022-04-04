@@ -64,6 +64,13 @@ static double blob_weight(IBlob::pointer iblob, ISlice::pointer islice, const cl
 
 static void solve_slice(cluster_indexed_graph_t& grind, ISlice::pointer islice)
 {
+    // fixme: make blob-measure and find connected components.
+
+    // fixme: for each subgraph determine if needs L1
+    // - one blob: no
+    // - no small eigenvalues: no
+    // - o.w. yes
+
     std::vector<std::vector<int> > b2minds;
     IndexedSet<IBlob::pointer> blobs;
     IndexedSet<IChannel::shared_vector> measures;
@@ -74,6 +81,7 @@ static void solve_slice(cluster_indexed_graph_t& grind, ISlice::pointer islice)
             if (neigh.code() == 'm') {
                 IChannel::shared_vector imeas = std::get<IChannel::shared_vector>(neigh.ptr);
                 int mind = measures(imeas);
+                // fixme: check if "dead" and do not save.
                 minds.push_back(mind);
                 continue;
             }
@@ -111,6 +119,8 @@ static void solve_slice(cluster_indexed_graph_t& grind, ISlice::pointer islice)
             }
         }
     }
+
+    // fixme: add stable ordering.
 
     Ress::Params params;
     params.model = Ress::lasso;

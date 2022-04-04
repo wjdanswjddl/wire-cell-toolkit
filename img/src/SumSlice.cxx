@@ -39,6 +39,9 @@ WireCell::Configuration Img::SumSliceBase::default_configuration() const
     // If given, use tagged traces.  Otherwise use all traces.
     cfg["tag"] = m_tag;
 
+    // If true, emit an EOS at end of one input frame's slices
+    cfg["slice_eos"] = m_slice_eos;
+
     return cfg;
 }
 
@@ -47,14 +50,23 @@ void Img::SumSliceBase::configure(const WireCell::Configuration& cfg)
     m_anode = Factory::find_tn<IAnodePlane>(cfg["anode"].asString());  // throws
     m_tick_span = get(cfg, "tick_span", m_tick_span);
     m_tag = get<std::string>(cfg, "tag", m_tag);
+    m_slice_eos = get<bool>(cfg, "slice_eos", m_slice_eos);
+    m_pad_empty = get<bool>(cfg, "pad_empty", m_pad_empty);
 }
 
-void Img::SumSliceBase::slice(const IFrame::pointer& in, slice_map_t& svcmap)
+ISlice::pointer Img::SumSliceBase::make_empty(const IFrame::pointer& inframe)
 {
-    const double tick = in->tick();
+    const double tick = inframe->tick();
+    const double span = tick * m_tick_span;
+    return std::make_shared<Img::Data::Slice>(inframe, 0, 0, span);
+}
+
+void Img::SumSliceBase::slice(const IFrame::pointer& inframe, slice_map_t& svcmap)
+{
+    const double tick = inframe->tick();
     const double span = tick * m_tick_span;
 
-    for (auto trace : Aux::tagged_traces(in, m_tag)) {
+    for (auto trace : Aux::tagged_traces(inframe, m_tag)) {
         const int tbin = trace->tbin();
         const int chid = trace->channel();
         IChannel::pointer ich = m_anode->channel(chid);
@@ -69,7 +81,7 @@ void Img::SumSliceBase::slice(const IFrame::pointer& in, slice_map_t& svcmap)
             auto s = svcmap[slicebin];
             if (!s) {
                 const double start = slicebin * span;  // thus relative to slice frame's time.
-                svcmap[slicebin] = s = new Img::Data::Slice(in, slicebin, start, span);
+                svcmap[slicebin] = s = new Img::Data::Slice(inframe, slicebin, start, span);
             }
             s->sum(ich, q);
         }
@@ -93,14 +105,17 @@ bool Img::SumSlicer::operator()(const input_pointer& in, output_pointer& out)
         auto s = sit.second;
         islices.push_back(ISlice::pointer(s));
     }
+    if (m_slice_eos) {
+        islices.push_back(nullptr);
+    }
     out = make_shared<Img::Data::SliceFrame>(islices, in->ident(), in->time());
 
     return true;
 }
 
-bool Img::SumSlices::operator()(const input_pointer& in, output_queue& slices)
+bool Img::SumSlices::operator()(const input_pointer& inframe, output_queue& slices)
 {
-    if (!in) {
+    if (!inframe) {
         log->debug("EOS");
         slices.push_back(nullptr);
         return true;  // eos
@@ -108,7 +123,7 @@ bool Img::SumSlices::operator()(const input_pointer& in, output_queue& slices)
 
     // Slices will be sparse in general.  Index by a "slice bin" number
     slice_map_t svcmap;
-    slice(in, svcmap);
+    slice(inframe, svcmap);
 
     // intern
     for (auto sit : svcmap) {
@@ -123,9 +138,21 @@ bool Img::SumSlices::operator()(const input_pointer& in, output_queue& slices)
         slices.push_back(ISlice::pointer(s));
     }
 
-    log->debug("frame={}, make {} slices in [{},{}] from {}",
-               in->ident(), slices.size(),
-               slices.front()->ident(), slices.back()->ident(),
-               svcmap.size());
+    if (slices.empty()) {
+        log->warn("frame={} time={} ms, made no slices",
+                  inframe->ident(), inframe->time()/units::ms);
+        if (m_pad_empty) {
+            slices.push_back(make_empty(inframe));
+        }
+    }
+    else {
+        log->debug("frame={}, made {} slices in [{},{}] from {}",
+                   inframe->ident(), slices.size(),
+                   slices.front()->ident(), slices.back()->ident(),
+                   svcmap.size());
+    }
+    if (m_slice_eos) {
+        slices.push_back(nullptr);
+    }
     return true;
 }

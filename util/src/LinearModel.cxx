@@ -1,4 +1,4 @@
-#include "WireCellRess/LinearModel.h"
+#include "WireCellUtil/LinearModel.h"
 
 #include <Eigen/Dense>
 using namespace Eigen;

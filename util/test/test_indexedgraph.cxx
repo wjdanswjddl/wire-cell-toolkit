@@ -94,13 +94,40 @@ int main()
         Assert(g2.has(n));
     }
 
-    std::vector<std::string> names{"one", "two", "tre"};
-    std::unordered_map<indexed_graph_t::vdesc_t, std::string> ids;
-    for (auto u : boost::make_iterator_range(vertices(g2.graph()))) {
-        ids[u] = names[ids.size()];
+    {
+        std::vector<if_node_t> bigf;
+        g.neighbors(back_inserter(bigf), one,
+                    [](const if_node_t& vp){
+                        if (std::holds_alternative<fptr_t>(vp.ptr)) {
+                            auto f = std::get<fptr_t>(vp.ptr);
+                            return *f>10.0;
+                        }
+                        return false;
+                    });
+        Assert (bigf.size() == 1);
+        float val = *std::get<fptr_t>(bigf[0].ptr);
+        Assert (val == 33);
     }
+
+    
     boost::default_writer w;
-    boost::write_graphviz(std::cout, g2.graph(), w, w, w, boost::make_assoc_property_map(ids));
+    std::vector<std::string> names{"one", "two", "tre"};
+    {
+        std::unordered_map<indexed_graph_t::vdesc_t, std::string> ids;
+        for (auto u : boost::make_iterator_range(vertices(g2.graph()))) {
+            ids[u] = names[ids.size()];
+        }
+        boost::write_graphviz(std::cout, g2.graph(), w, w, w, boost::make_assoc_property_map(ids));
+    }
+    {
+        std::vector<if_node_t> ss{one, two};
+        indexed_graph_t sg = g.induced_subgraph(ss.begin(), ss.end());
+        std::unordered_map<indexed_graph_t::vdesc_t, std::string> ids;
+        for (auto u : boost::make_iterator_range(vertices(sg.graph()))) {
+            ids[u] = names[ids.size()];
+        }
+        boost::write_graphviz(std::cerr, sg.graph(), w, w, w, boost::make_assoc_property_map(ids));    
+    }
 
     return 0;
 }

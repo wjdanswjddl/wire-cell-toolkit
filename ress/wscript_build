@@ -1,1 +1,0 @@
-bld.smplpkg('WireCellRess', use='EIGEN ZLIB')

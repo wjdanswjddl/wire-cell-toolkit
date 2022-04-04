@@ -1,9 +1,4 @@
-/** BlobSolving takes in a cluster graph and produces another.
- *
- * It is assumed that the graph is composed of s-nodes, b-nodes and m-nodes.
- *
- * A solution is performed on sets of b-nodes attached to an s-node
- * with weighting based on existence of (b-b) edges.
+/** BlobSolving takes in a cluster graph and produces another with values assigned to blobs.
  */
 #ifndef WIRECELL_BLOBSOLVING_H
 #define WIRECELL_BLOBSOLVING_H

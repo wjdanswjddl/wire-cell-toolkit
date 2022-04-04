@@ -1,7 +1,7 @@
-#ifndef WIRECELLRESS_LASSOMODEL_H
-#define WIRECELLRESS_LASSOMODEL_H
+#ifndef WIRECELLUTIL_LASSOMODEL_H
+#define WIRECELLUTIL_LASSOMODEL_H
 
-#include "WireCellRess/ElasticNetModel.h"
+#include "ElasticNetModel.h"
 
 namespace WireCell {
 

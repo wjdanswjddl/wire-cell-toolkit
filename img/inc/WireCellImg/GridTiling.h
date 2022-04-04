@@ -39,6 +39,8 @@ namespace WireCell {
             IAnodeFace::pointer m_face;
             double m_threshold;
 
+            IBlobSet::pointer make_empty(const input_pointer& slice);
+
         };
     }  // namespace Img
 }  // namespace WireCell

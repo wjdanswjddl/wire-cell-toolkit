@@ -1,6 +1,19 @@
-/** A "cluster" (as defined here) is a graph connecting shared points
- * to instances of a specific set of types of WCT data classes related
- * to WC imaging.  See node_t below for the supported types.
+/** An ICluster is predominantly a graph of typed nodes.
+ *
+ * Node types are shared pointers to types in a fixed set of types
+ * related to WC 3D imaging.  An ICluster is more than a "cluster of
+ * blobs" (aka more than a "geometric" or "trajectory" cluster).  Node
+ * types with their code letters inlcude:
+ *
+ * - c :: IChannel
+ * - w :: IWire
+ * - b :: IBlob 
+ * - m :: IMeasure
+ * - s :: ISlice
+ *
+ * An ICluster is indirectly associated to one or more IFrames through
+ * its ISlice nodes.  Thus it may "span" less than, more than or
+ * exactly one IFrame.
  */
 
 #ifndef WIRECELL_ICLUSTER
@@ -146,6 +159,7 @@ namespace WireCell {
         return ret;
     }
 
+    // 
     template <typename Type>
     std::vector<Type> neighbors_oftype(const cluster_indexed_graph_t& g, const cluster_node_t& n)
     {
@@ -157,6 +171,7 @@ namespace WireCell {
         }
         return ret;
     }
+
 
 }  // namespace WireCell
 

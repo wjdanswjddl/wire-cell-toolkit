@@ -2,6 +2,7 @@
 
 #include "WireCellUtil/RayTiling.h"
 #include "WireCellUtil/NamedFactory.h"
+#include "WireCellUtil/Units.h"
 #include "WireCellIface/SimpleBlob.h"
 
 WIRECELL_FACTORY(GridTiling, WireCell::Img::GridTiling,
@@ -24,6 +25,10 @@ void Img::GridTiling::configure(const WireCell::Configuration& cfg)
 {
     m_anode = Factory::find_tn<IAnodePlane>(cfg["anode"].asString());
     m_face = m_anode->face(cfg["face"].asInt());
+    if (!m_face) {
+        log->error("no such face: {}", cfg["face"]);
+        THROW(ValueError() << errmsg{"APA lacks face"});
+    }
     m_threshold = get(cfg, "threshold", m_threshold);
     log->debug("configured with anode={} face={}",
                m_anode->ident(), m_face->ident());
@@ -39,14 +44,31 @@ WireCell::Configuration Img::GridTiling::default_configuration() const
     return cfg;
 }
 
+IBlobSet::pointer Img::GridTiling::make_empty(const input_pointer& slice)
+{
+    return std::make_shared<SimpleBlobSet>(slice->ident(), slice);
+}
+
 bool Img::GridTiling::operator()(const input_pointer& slice, output_pointer& out)
 {
     out = nullptr;
     if (!slice) {
         m_blobs_seen = 0;
         log->debug("EOS");
-        // SPDLOG_LOGGER_TRACE(log, "GridTiling: EOS");
         return true;  // eos
+    }
+
+    const auto anodeid = m_anode->ident();
+    const auto faceid = m_face->ident();
+
+    auto chvs = slice->activity();
+
+    if (chvs.empty()) {
+        log->debug("anode={} face={} slice={}, time={} ms no activity",
+                   anodeid, faceid, slice->ident(),
+                   slice->frame()->time()/units::ms);
+        out = make_empty(slice);
+        return true;
     }
 
     const int sbs_ident = slice->ident();
@@ -58,14 +80,6 @@ bool Img::GridTiling::operator()(const input_pointer& slice, output_pointer& out
     std::vector<std::vector<Activity::value_t> > measures(nlayers);
     measures[0].push_back(1);  // assume first two layers in RayGrid::Coordinates
     measures[1].push_back(1);  // are for horiz/vert bounds
-
-    const auto anodeid = m_anode->ident();
-    const auto faceid = m_face->ident();
-    auto chvs = slice->activity();
-    if (chvs.empty()) {
-        SPDLOG_LOGGER_TRACE(log, "anode={} face={} slice={} no activity", anodeid, faceid, slice->ident());
-        return true;
-    }
 
     const int nactivities = slice->activity().size();
     int total_activity = 0;
