@@ -31,6 +31,7 @@ namespace WireCell {
             virtual void configure(const WireCell::Configuration& config);
             virtual WireCell::Configuration default_configuration() const;
 
+	    
            private:
             ITrace::vector error_traces(const ITrace::vector& intraces) const;
 
@@ -49,8 +50,13 @@ namespace WireCell {
             std::string m_intag{"gauss"};
             std::string m_outtag{"gauss_error"};
 
+	    int m_rebin{4};
+	    std::vector<float> m_fudge_factors{1,1,1};
+	    std::pair<float,float> m_time_limits{12,800};
+	    
             // Needed for channel lookups
             IAnodePlane::pointer m_anode{nullptr};
+
         };
     }  // namespace Img
 }  // namespace WireCell

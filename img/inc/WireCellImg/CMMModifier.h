@@ -39,6 +39,26 @@ namespace WireCell {
 
             // Traces that would be used in the CM processing
             std::string m_trace_tag{"gauss"};
+
+	    int m_start;
+	    int m_end;
+	    
+	    //continuity veto
+	    int m_ncount_cont_ch{1};
+	    std::vector<int> m_cont_ch_llimit{0};
+	    std::vector<int> m_cont_ch_hlimit{0};
+	    
+	    // directly veto
+	    int m_ncount_veto_ch{1};
+	    std::vector<int> m_veto_ch_llimit{0};
+	    std::vector<int> m_veto_ch_hlimit{0};
+
+	    // dead level veto
+	    int m_dead_ch_ncount{0};
+	    float m_dead_ch_charge{1000};
+	    int m_ncount_dead_ch{1};
+	    std::vector<int> m_dead_ch_llimit{0};
+	    std::vector<int> m_dead_ch_hlimit{0};
         };
     }  // namespace Img
 }  // namespace WireCell
