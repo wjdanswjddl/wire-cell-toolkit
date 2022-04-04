@@ -1,5 +1,5 @@
 /**
-   Modify the Channel Mask Map and pass through everything else
+   Apply a ChannelMask to a set of trace
  */
 
 #ifndef WIRECELLIMG_FRAMEMASKING
@@ -34,7 +34,7 @@ namespace WireCell {
             // Needed for channel lookups
             IAnodePlane::pointer m_anode{nullptr};
 
-            // ChannelMast to be processed
+            // ChannelMask to be processed
             std::string m_cm_tag{"bad"};
 
             // Traces that would be used in the CM processing

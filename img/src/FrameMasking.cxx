@@ -62,11 +62,11 @@ bool FrameMasking::operator()(const input_pointer& in, output_pointer& out)
         THROW(RuntimeError()<< errmsg{"no ChannelMask with name "+m_cm_tag});
     }
     auto& cm = cmm[m_cm_tag];
-    log->debug("input: {} size: {}", m_cm_tag, cm.size());
+    log->debug("input: {}", Aux::taginfo(in));
 
     // make a copy of all input trace pointers
     ITrace::vector out_traces;
-    IFrame::trace_list_t out_trace_indices;
+    std::unordered_map<std::string, IFrame::trace_list_t> out_trace_indices;
     for (auto tag : m_trace_tags) {
         for (auto trace : Aux::tagged_traces(in, tag)) {
             const int tbin = trace->tbin();
@@ -81,7 +81,7 @@ bool FrameMasking::operator()(const input_pointer& in, output_pointer& out)
                     std::generate(out_charge.begin()+mask_start, out_charge.begin()+mask_end, [] () mutable {return 0;});
                 }
             }
-            out_trace_indices.push_back(out_traces.size());
+            out_trace_indices[tag].push_back(out_traces.size());
             out_traces.push_back(
                 std::make_shared<SimpleTrace>(chid, tbin, out_charge));
         }
@@ -90,20 +90,22 @@ bool FrameMasking::operator()(const input_pointer& in, output_pointer& out)
     // Basic frame stays the same.
     auto sfout = new SimpleFrame(in->ident(), in->time(), out_traces, in->tick(), cmm);
 
+    // tag traces
+    for (auto tag : m_trace_tags) {
+        log->debug("out_trace_indices: {} {} {}", tag, out_trace_indices[tag].front(), out_trace_indices[tag].back());
+        // TODO: pass through summary?
+        const auto& summary = in->trace_summary(tag);
+        sfout->tag_traces(tag, out_trace_indices[tag], summary);
+    }
+
     // passing through other parts of the original frame
     for (auto ftag : in->frame_tags()) {
         sfout->tag_frame(ftag);
     }
 
-    for (auto inttag : in->trace_tags()) {
-        const auto& traces = in->tagged_traces(inttag);
-        const auto& summary = in->trace_summary(inttag);
-        sfout->tag_traces(inttag, traces, summary);
-    };
-
     out = IFrame::pointer(sfout);
 
-    log->debug("output: {} size: {}", m_cm_tag, out->masks()[m_cm_tag].size());
+    log->debug("out: {}", Aux::taginfo(out));
 
     return true;
 }
