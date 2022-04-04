@@ -13,7 +13,7 @@
 
 namespace WireCell {
 
-    class IWaveform : IData<IWaveform> {
+    class IWaveform : public IData<IWaveform> {
        public:
         typedef std::vector<float> sequence_type;
 
