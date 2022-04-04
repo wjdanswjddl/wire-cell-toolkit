@@ -198,6 +198,7 @@ local add_coherent_noise = function(n) g.pnode({
           rng: wc.tn(tools.random),
           dft: wc.tn(tools.dft),
           nsamples: params.daq.nticks,
+	  spec_scale: 1.1,
       }}, nin=1, nout=1, uses=[tools.random, tools.dft]);
 local coherent_noises = [add_coherent_noise(n) for n in std.range(0,3)];
 

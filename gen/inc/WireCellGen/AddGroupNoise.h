@@ -38,8 +38,8 @@ private:
   IRandom::pointer m_rng;
 
   std::string m_spectra_file, m_map_file, m_rng_tn;
+  double m_spec_scale;  
   int m_nsamples;
-  double m_rep_percent;
   IDFT::pointer m_dft;
   std::unordered_map<int, int> m_ch2grp;
   std::unordered_map<int, std::vector<float>> m_grp2spec;

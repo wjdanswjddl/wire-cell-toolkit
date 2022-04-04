@@ -5,10 +5,11 @@
 #include "WireCellIface/SimpleFrame.h"
 #include "WireCellIface/SimpleTrace.h"
 
+#include "Noise.h"
 #include "WireCellUtil/NamedFactory.h"
 #include "WireCellUtil/Persist.h"
-
-#include "Noise.h"
+#include <Eigen/Core>
+#include <unsupported/Eigen/FFT>
 
 #include <iostream>
 
@@ -22,7 +23,7 @@ Gen::AddGroupNoise::AddGroupNoise(const std::string &spectra_file,
                                   const std::string &map_file,
                                   const std::string &rng)
     : Aux::Logger("AddNoise", "gen"), m_spectra_file(spectra_file),
-      m_map_file(map_file), m_rng_tn(rng), m_nsamples(4096),
+      m_map_file(map_file), m_rng_tn(rng), m_spec_scale(1), m_nsamples(4096),
       log(Log::logger("sim")) {}
 
 Gen::AddGroupNoise::~AddGroupNoise() {}
@@ -33,7 +34,7 @@ WireCell::Configuration Gen::AddGroupNoise::default_configuration() const {
   cfg["spectra_file"] = m_spectra_file;
   cfg["map_file"] = m_map_file;
   cfg["rng"] = m_rng_tn;
-  cfg["replacement_percentage"] = m_rep_percent;
+  cfg["spec_scale"] = m_spec_scale;
   cfg["nsamples"] = m_nsamples;
   cfg["dft"] = "FftwDFT";
 
@@ -46,7 +47,7 @@ void Gen::AddGroupNoise::configure(const WireCell::Configuration &cfg) {
   m_spectra_file = get(cfg, "spectra_file", m_spectra_file);
   m_map_file = get(cfg, "map_file", m_map_file);
   m_nsamples = get<int>(cfg, "nsamples", m_nsamples);
-  m_rep_percent = get<double>(cfg, "replacement_percentage", m_rep_percent);
+  m_spec_scale = get<double>(cfg, "spec_scale", m_spec_scale);
   std::string dft_tn = get<std::string>(cfg, "dft", "FftwDFT");
   m_dft = Factory::find_tn<IDFT>(dft_tn);
 
@@ -63,12 +64,12 @@ void Gen::AddGroupNoise::configure(const WireCell::Configuration &cfg) {
 
   m_grp2spec.clear();
   auto specdata = Persist::load(m_spectra_file);
-  for (unsigned int i = 0; i < mapdata.size(); ++i) {
+  for (unsigned int i = 0; i < specdata.size(); ++i) {
     auto jdata = specdata[i];
     int groupID = jdata["groupID"].asInt();
     auto spec_freq = jdata["freqs"];
     auto spec_amps = jdata["amps"];
-    std::vector<float> spec(spec_freq.size());
+    std::vector<float> spec(spec_amps.size());
     for (unsigned int j = 0; j < spec.size(); ++j) {
       spec[j] = spec_amps[j].asFloat();
     }
@@ -85,8 +86,29 @@ bool Gen::AddGroupNoise::operator()(const input_pointer &inframe,
   m_grp2noise.clear();
   for (const auto &[key, value] : m_grp2spec) {
     int groupID = key;
-    auto cspec = Gen::Noise::generate_spectrum(value, m_rng, m_rep_percent);
-    m_grp2noise.insert({groupID, cspec});
+    WireCell::Waveform::compseq_t noise_freq(value.size(), 0);
+    static std::vector<double> random_real_part;
+    static std::vector<double> random_imag_part;
+    random_real_part.resize(value.size(), 0);
+    random_imag_part.resize(value.size(), 0);
+    for (unsigned int i = 0; i < value.size() / 2; i++) {
+      random_real_part.at(i) = m_rng->normal(0, 1);
+      random_imag_part.at(i) = m_rng->normal(0, 1);
+    }
+    double sigma = 1.2;
+    for (int i = 0; i < int(value.size()) / 2; i++) {
+      const double amplitude =
+          value.at(i) * sqrt(2. / 3.1415926) * m_spec_scale; // / units::mV;
+      noise_freq.at(i).real(random_real_part.at(i) * amplitude);
+      noise_freq.at(i).imag(random_imag_part.at(i) * amplitude);
+    }
+    noise_freq.at(int(value.size()) / 2).real(0);
+    noise_freq.at(int(value.size()) / 2).imag(0);
+    for (int i = int(value.size()) / 2; i < int(value.size()); i++) {
+      noise_freq.at(i).real(noise_freq.at(int(value.size()) - i).real());
+      noise_freq.at(i).imag((-1) * noise_freq.at(int(value.size()) - i).imag());
+    }
+    m_grp2noise.insert({groupID, noise_freq});
   }
 
   ITrace::vector outtraces;
