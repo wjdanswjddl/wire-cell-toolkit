@@ -95,7 +95,6 @@ bool Gen::AddGroupNoise::operator()(const input_pointer &inframe,
       random_real_part.at(i) = m_rng->normal(0, 1);
       random_imag_part.at(i) = m_rng->normal(0, 1);
     }
-    double sigma = 1.2;
     for (int i = 0; i < int(value.size()) / 2; i++) {
       const double amplitude =
           value.at(i) * sqrt(2. / 3.1415926) * m_spec_scale; // / units::mV;
