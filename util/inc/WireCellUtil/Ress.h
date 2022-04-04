@@ -1,4 +1,14 @@
-/** Ress is an interface to wire-cell-ress
+/** This provides a single interface to Lasso and ElasticNet models.
+
+    References:
+
+  - Regularization Paths for Generalized Linear Models via Coordinate
+    Descent, Jerome Friedman, Trevor Hastie and Rob Tibshirani,
+    Journal of Statistical Software, Volume 33, Issue 1, (2010).
+
+  - Pathwise Corrdinate Optimization, Jerome Friedman, Trevor Hastie
+    and Rob Tibshirani, https://arxiv.org/abs/0708.1485
+
  */
 #ifndef WIRECELL_RESS_HEADER_SEEN
 #define WIRECELL_RESS_HEADER_SEEN

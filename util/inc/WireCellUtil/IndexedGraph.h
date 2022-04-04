@@ -7,7 +7,7 @@
  * To do this, a mapping is used so it will slow down operation.  Any
  * graph operations can still make use of boost implementations.
  *
- * See test_indexedgraph.cxx
+ * See test_indexedgraph.cxx for example usage.
  */
 
 #ifndef WIRECELL_INDEXEDGRAPH
@@ -89,6 +89,30 @@ namespace WireCell {
             return ret;
         }
 
+        // Fill an output iterator with nearest neighbors of seed
+        // vertex for which the predicate returns true.
+        template<typename vertex_output_iterator>
+        vertex_output_iterator
+        neighbors(vertex_output_iterator out, vertex_t seed, 
+                  std::function<bool(const vertex_t& v)> predicate
+                  = [](const vertex_t&){return true;})
+        {
+            auto it = m_index.find(seed);
+            if (it == m_index.end()) {
+                return out;
+            }
+            vdesc_t vd = it->second;
+            for (auto edge : boost::make_iterator_range(boost::out_edges(vd, m_graph))) {
+                vdesc_t neigh = boost::target(edge, m_graph);
+                auto maybe = m_graph[neigh];
+                if (predicate(maybe)) {
+                    out = maybe;
+                }
+            }
+            return out;
+        }
+
+
         // return true if graph has vertex object
         bool has(vertex_t vobj) const
         {
@@ -148,6 +172,35 @@ namespace WireCell {
                 ret[vg.second].push_back(m_graph[vg.first]);
             }
             return ret;
+        }
+
+        // Return an IndexedGraph<VertexType> which is a subgraph
+        // induced on the set of input vertex_t's.  An empty graph
+        // will be returned if any vertex is not in this graph.
+        template<typename vertex_iterator>
+        IndexedGraph<VertexType> 
+        induced_subgraph(vertex_iterator first, vertex_iterator end)
+        {
+            IndexedGraph<VertexType> ret;
+            // First add input vertices or bail if any are not in this graph
+            for (vertex_iterator vit=first; vit != end; ++vit) {
+                vertex_t want = *vit;
+                if (not has(want)) {
+                    return IndexedGraph<VertexType>();
+                }
+                ret.vertex(want);
+            }
+            // One more time to add edges
+            for (vertex_iterator vit=first; vit != end; ++vit) {
+                vertex_t want = *vit;
+                for (const auto& nn : neighbors(want)) {
+                    if (not ret.has(nn)) {
+                        continue;
+                    }
+                    ret.edge(want, nn);
+                }
+            }
+            return ret;            
         }
 
         // Access underlying Boost graph, read-only.

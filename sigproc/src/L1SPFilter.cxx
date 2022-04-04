@@ -6,8 +6,7 @@
 #include "WireCellIface/SimpleFrame.h"
 #include "WireCellIface/IFieldResponse.h"
 
-#include "WireCellRess/LassoModel.h"
-#include "WireCellRess/ElasticNetModel.h"
+#include "WireCellUtil/LassoModel.h"
 
 #include "WireCellUtil/NamedFactory.h"
 

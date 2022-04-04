@@ -1,7 +1,7 @@
-#ifndef WIRECELLRESS_ELASTICNETMODEL_H
-#define WIRECELLRESS_ELASTICNETMODEL_H
+#ifndef WIRECELLUTIL_ELASTICNETMODEL_H
+#define WIRECELLUTIL_ELASTICNETMODEL_H
 
-#include "WireCellRess/LinearModel.h"
+#include "LinearModel.h"
 #include <vector>
 #include <Eigen/Dense>
 

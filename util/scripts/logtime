@@ -1,0 +1,16 @@
+#!/bin/bash
+
+# give me a log, I spit it back in time order an as realtive seconds
+
+log="$1"
+
+first=""
+sort $log | grep '\[' | while read line
+do
+    t=$(date --date=${line:1:8} +%s)
+    if [ -z "$first" ] ; then
+        first=$t
+    fi
+    t=$(( $t - $first ))
+    printf "%-6d %s\n" "$t" "${line:15}"
+done

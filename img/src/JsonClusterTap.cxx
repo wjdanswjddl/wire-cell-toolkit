@@ -155,8 +155,10 @@ Json::Value slice_jsoner(const cluster_node_t& n)
     ret["start"] = islice->start();
     ret["span"] = islice->span();
     Json::Value jact = Json::objectValue;
+    Json::Value jerr = Json::objectValue;
     for (const auto& it : islice->activity()) {
-        jact[String::format("%d", it.first->ident())] = it.second;
+        jact[String::format("%d", it.first->ident())] = it.second.value();
+        jerr[String::format("%d", it.first->ident())] = it.second.uncertainty();
     }
     ret["activity"] = jact;
     return ret;

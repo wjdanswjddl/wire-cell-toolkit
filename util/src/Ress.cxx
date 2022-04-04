@@ -1,6 +1,6 @@
 #include "WireCellUtil/Ress.h"
 
-#include "WireCellRess/LassoModel.h"
+#include "WireCellUtil/LassoModel.h"
 
 using namespace WireCell;
 

@@ -17,6 +17,8 @@ application-dependent.
 #include "WireCellIface/IData.h"
 #include "WireCellIface/IFrame.h"
 
+#include "WireCellUtil/Measurement.h"
+
 #include <unordered_map>
 
 namespace WireCell {
@@ -25,8 +27,10 @@ namespace WireCell {
        public:
         virtual ~ISlice();
 
-        // The type for the value of the per channel metric (aka charge)
-        typedef float value_t;
+        // The type for the value of the per channel metric (aka
+        // charge and its uncertainty).
+        using value_t = WireCell::Measurement::float32;
+        // typedef float value_t;
 
         // A sample is a channels value in the time slice.
         typedef std::pair<IChannel::pointer, value_t> pair_t;

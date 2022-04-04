@@ -1,5 +1,5 @@
-#ifndef WIRECELLRESS_LINEARMODEL_H
-#define WIRECELLRESS_LINEARMODEL_H
+#ifndef WIRECELLUTIL_LINEARMODEL_H
+#define WIRECELLUTIL_LINEARMODEL_H
 
 #include <Eigen/Dense>
 #include <string>
