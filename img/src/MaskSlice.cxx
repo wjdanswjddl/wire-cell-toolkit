@@ -98,6 +98,8 @@ void Img::MaskSliceBase::slice(const IFrame::pointer& in, slice_map_t& svcmap)
                 svcmap[slicebin] = s;
             }
             s->sum(ich, q);
+
+            if(m_tmax > 0 && (tbin + (int)qind) > m_tmax) break;
         }
     }
 
@@ -120,7 +122,7 @@ void Img::MaskSliceBase::slice(const IFrame::pointer& in, slice_map_t& svcmap)
                     s = new Img::Data::Slice(in, slicebin, start, span);
                     svcmap[slicebin] = s;
                 }
-                s->sum(ich, q);
+                s->assign(ich, q);
 
                 if(m_tmax > 0 && t > m_tmax) break;
             }
