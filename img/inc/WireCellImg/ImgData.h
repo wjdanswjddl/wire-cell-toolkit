@@ -48,6 +48,7 @@ namespace WireCell {
                 // used prior to interment in the ISlice::pointer.
 
                 void sum(const IChannel::pointer& ch, value_t val) { m_activity[ch] += val; }
+                void assign(const IChannel::pointer& ch, value_t val) { m_activity[ch] = val; }
             };
 
             // simple collection
