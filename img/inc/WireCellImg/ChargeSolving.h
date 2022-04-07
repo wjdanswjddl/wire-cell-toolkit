@@ -32,7 +32,7 @@ namespace WireCell {
     namespace Img {
 
         class ChargeSolving : public Aux::Logger, public IClusterFilter, public IConfigurable {
-           public:
+          public:
             ChargeSolving();
             virtual ~ChargeSolving();
 
@@ -41,15 +41,38 @@ namespace WireCell {
 
             virtual bool operator()(const input_pointer& in, output_pointer& out);
 
-           private:
+          private:
 
-            // config.  only measures with more than this much charge
-            // are considered.
-            double m_minimum_measure{0.0};
-            // config.  the tolerance passed to LassoModel solver.
+            // Used to hold measurement and blob values
+            // (central+uncertainty).
+            using value_t = ISlice::value_t;
+
+            // Config: meas_{value,error}_threshold. Only measures
+            // with central value strictly less than this or with
+            // uncertainty greater than this are not considered.
+            // Note, this threshold is placed on the sum of channels
+            // in a measure, not on the individual channel values.
+            // Units are numbers of electrons.
+            value_t m_meas_thresh{0,1e9};
+            // Config: blob_{value,error}_threshold. A blob with
+            // central value less than this is dropped.  The
+            // uncertainty is not currently considered.
+            value_t m_blob_thresh{0,1};
+            // config. The tolerance passed to LassoModel solver.
             double m_lasso_tolerance{1e-3};
-            // config.  the minimum norm passed to LassoModel solver.
+            // config. The minimum norm passed to LassoModel solver.
             double m_lasso_minnorm{1e-6};
+            // config. The blob weighting strategies for each of a
+            // number of solving rounds.  This is an arbitrary long
+            // sequence of strategy names from the set: "uniform" (all
+            // blob weights same), "simple" (weights based on simple
+            // overlap connectivity measure), "distance" (weights
+            // based on a distance between neighbors).  Each strategy
+            // will correspond to one round of solving with that
+            // strategy followed by a selection based on
+            // m_minimum_charge.
+            std::vector<std::string> m_weighting_strategies{"uniform", "simple"};
+
         };
 
     }  // namespace Img

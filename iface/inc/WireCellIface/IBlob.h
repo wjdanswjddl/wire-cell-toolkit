@@ -46,6 +46,7 @@ namespace WireCell {
         virtual const RayGrid::Blob& shape() const = 0;
     };
 
+
 }  // namespace WireCell
 
 #endif
