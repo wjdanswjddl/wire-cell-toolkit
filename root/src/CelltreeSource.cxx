@@ -101,7 +101,7 @@ bool Root::CelltreeSource::read_traces(
         int nticks = signal->GetNbinsX();
         for (int itickbin = 0; itickbin != nticks; itickbin++) {
             for (int i=0; i<time_scale; ++i) {
-                charges.push_back(signal->GetBinContent(itickbin + 1));
+                charges.push_back(signal->GetBinContent(itickbin + 1)/time_scale);
             }
         }
 
