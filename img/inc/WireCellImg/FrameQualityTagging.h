@@ -34,8 +34,16 @@ namespace WireCell {
             // Needed for channel lookups
             IAnodePlane::pointer m_anode{nullptr};
 
-            // Traces that would be used in the CM processing
-            std::string m_trace_tag{"gauss"};
+            // Gauss
+            std::string m_gauss_trace_tag{"gauss"};
+            // Wiener
+            std::string m_wiener_trace_tag{"wiener"};
+            // CMM tag
+            std::string m_cm_tag{"bad"};
+            // tick0
+            int m_tick0{0};
+            // nticks
+            int m_nticks{9592};
         };
     }  // namespace Img
 }  // namespace WireCell
