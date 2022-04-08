@@ -48,14 +48,20 @@ WireCell::Configuration Root::CelltreeSource::default_configuration() const
     // branch name, raw: orig, calibGaussian: gauss, calibWiener, wiener
     cfg["out_trace_tags"][0] = "orig";
 
+    // only wiener has threshold for now, channelThreshold
+    cfg["in_branch_thresholds"][0] = "";
+
     cfg["time_scale"] = 4;
 
     return cfg;
 }
 
-bool Root::CelltreeSource::read_traces(
-    ITrace::vector& all_traces, std::unordered_map<IFrame::tag_t, IFrame::trace_list_t>& tagged_traces, std::string& fname,
-    const std::string& br_name, const std::string& frametag, const unsigned int entry, const int time_scale) const
+bool Root::CelltreeSource::read_traces(ITrace::vector& all_traces,
+                                       std::unordered_map<IFrame::tag_t, IFrame::trace_list_t>& tagged_traces,
+                                       std::unordered_map<IFrame::tag_t, IFrame::trace_summary_t>& tagged_threshold,
+                                       const std::string& fname, const std::string& br_name,
+                                       const std::string& br_name_threshold, const std::string& frametag,
+                                       const unsigned int entry, const int time_scale) const
 {
     TFile* tfile = TFile::Open(fname.c_str());
     TTree* tree = (TTree*) tfile->Get("/Event/Sim");
@@ -63,16 +69,21 @@ bool Root::CelltreeSource::read_traces(
         THROW(IOError() << errmsg{"No tree: /Event/Sim in input file"});
     }
 
+    bool trace_has_threshold = false;
+    if (tree->GetBranch(br_name_threshold.c_str()) != nullptr) trace_has_threshold = true;
+
     std::vector<int>* channelid = new std::vector<int>;
+    std::vector<double>* channel_threshold = new std::vector<double>;
     TClonesArray* esignal = new TClonesArray;
 
-    auto br_name_channelId = String::format("%s_channelId",br_name);
+    auto br_name_channelId = String::format("%s_channelId", br_name);
     auto br_name_wf = String::format("%s_wf",br_name);
 
     // tree->SetBranchStatus(br_name_channelId.c_str(), 1);
     tree->SetBranchAddress(br_name_channelId.c_str(), &channelid);
     // tree->SetBranchStatus(br_name_wf.c_str(), 1);
     tree->SetBranchAddress(br_name_wf.c_str(), &esignal);
+    if (trace_has_threshold) tree->SetBranchAddress(br_name_threshold.c_str(), &channel_threshold);
 
     int size = tree->GetEntry(entry);
     if (!(size>0)) {
@@ -83,7 +94,11 @@ bool Root::CelltreeSource::read_traces(
 
     int channel_number = 0;
     std::cout << "CelltreeSource: loading " << frametag << " " << nchannels << " channels \n";
+    std::cout << "CelltreeSource: channel_threshold->GetSize(): " << channel_threshold->size() << "\n";
     std::cout << "CelltreeSource: esignal->GetSize(): " << esignal->GetSize() << "\n";
+    if (nchannels != esignal->GetSize() || (trace_has_threshold && nchannels != (int) channel_threshold->size())) {
+        THROW(RuntimeError() << errmsg{"nchannels != channel_threshold->size() || nchannels != esignal->GetSize()"});
+    }
 
     // fill waveform ...
     TH1* signal;
@@ -109,6 +124,7 @@ bool Root::CelltreeSource::read_traces(
         tagged_traces[frametag].push_back(index);
         // std::cout<<"CelltreeSource: charges.size() "<<charges.size()<<"\n";
         all_traces.push_back(std::make_shared<SimpleTrace>(channel_number, 0, charges));
+        if(trace_has_threshold) tagged_threshold[frametag].push_back(channel_threshold->at(ind));
     }
 
     tfile->Close();
@@ -214,6 +230,7 @@ bool Root::CelltreeSource::operator()(IFrame::pointer& out)
 
     ITrace::vector all_traces;
     std::unordered_map<IFrame::tag_t, IFrame::trace_list_t> tagged_traces;
+    std::unordered_map<IFrame::tag_t, IFrame::trace_summary_t> tagged_threshold;
 
     if (m_cfg["in_branch_base_names"].size() != m_cfg["out_trace_tags"].size()) {
         THROW(ValueError() << errmsg{"#in_branch_base_names != #out_trace_tags"});
@@ -222,7 +239,8 @@ bool Root::CelltreeSource::operator()(IFrame::pointer& out)
     for (Json::ArrayIndex i = 0; i < m_cfg["in_branch_base_names"].size(); ++i) {
         auto branch_base_name = m_cfg["in_branch_base_names"][i].asString();
         auto frame_tag = m_cfg["out_trace_tags"][i].asString();
-        read_traces(all_traces, tagged_traces, url, branch_base_name, frame_tag, ent, time_scale);
+        auto branch_threshold = m_cfg["in_branch_thresholds"][i].asString();
+        read_traces(all_traces, tagged_traces, tagged_threshold, url, branch_base_name, branch_threshold, frame_tag, ent, time_scale);
     }
     
     WireCell::Waveform::ChannelMaskMap cmm;
@@ -231,7 +249,7 @@ bool Root::CelltreeSource::operator()(IFrame::pointer& out)
 
     auto sframe = new SimpleFrame(frame_ident, frame_time, all_traces, 0.5 * units::microsecond, cmm);
     for (auto const& it : tagged_traces) {
-        sframe->tag_traces(it.first, it.second);
+        sframe->tag_traces(it.first, it.second, tagged_threshold[it.first]);
         std::cout << "CelltreeSource: tag " << it.second.size() << " traces as: \"" << it.first << "\"\n";
     }
 
