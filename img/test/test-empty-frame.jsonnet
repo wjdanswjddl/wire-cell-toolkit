@@ -25,8 +25,9 @@ local anode = anodes[0];
 
 local imgpipe(anode) = pg.pipeline([
     hs.img(anode).nominal(),
-    hs.io.cluster_file(anode.data.ident,
-                       "test-empty-frame-clusters-%d.tar.bz2"%anode.data.ident)
+    hs.io.cluster_file_sink(
+        anode.data.ident,
+        "test-empty-frame-clusters-%d.tar.bz2"%anode.data.ident)
 ], "img-" + anode.name);
 
 local graph = pg.pipeline([src, imgpipe(anodes[0])], "main");

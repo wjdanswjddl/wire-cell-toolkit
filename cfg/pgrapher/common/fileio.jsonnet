@@ -1,5 +1,5 @@
 // This file provides configuration pnodes for various WCT components
-// that perform *file* I/O.
+// that perform *file* I/O.  See helpers/io.jsonnet for more/better.
 
 local wc = import "wirecell.jsonnet";
 local g = import "pgraph.jsonnet";
