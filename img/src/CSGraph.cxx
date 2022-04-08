@@ -269,14 +269,13 @@ void CS::unpack(const cluster_graph_t& cgraph,
     }
 }
 
-// Replace the IBlob pointer with one differing only in its value...
-void replace_blob_value(value_t nv, cluster_vertex_t v, cluster_graph_t& g)
+// Return new blob same as the old blob, but new value
+IBlob::pointer replace_blob_value(value_t nv, cluster_vertex_t v, const cluster_graph_t& g)
 {
     IBlob::pointer ob = get<IBlob::pointer>(g[v].ptr);
-    auto nb = std::make_shared<SimpleBlob>(
+    return std::make_shared<SimpleBlob>(
         ob->ident(), nv.value(), nv.uncertainty(), 
         ob->shape(), ob->slice(), ob->face());
-    g[v].ptr = nb;    
 }
 
 // The csgs provide b-m graph with vdesc into cgraph.  These {b} and
@@ -286,47 +285,80 @@ void replace_blob_value(value_t nv, cluster_vertex_t v, cluster_graph_t& g)
 cluster_graph_t CS::repack(const cluster_graph_t& cgin,
                            const std::vector<graph_t>& csgs)
 {
-    cluster_graph_t cgout;
-    boost::copy_graph(cgin, cgout);
+    // Note, removal of vertices from cluster_graph_t is dreadfully
+    // slow due to using vecS to hold vertices.  Thus, we use a
+    // somewhat verbose construction instead of copy+remove.
 
-    // holds original b or m from the csgs.
-    std::unordered_set<cluster_vertex_t> live;
+    // Map old blob vertex to new blob value.
+    std::unordered_map<cluster_vertex_t, value_t> live_bs;
+    // Just remember which m's survive
+    std::unordered_set<cluster_vertex_t> live_ms;
 
+    // Pass over result graphs to index the live-{b,m}'s by their
+    // vertex descriptors of cgin.
     for (const graph_t& csg : csgs) {
         for (auto v : vertex_range(csg)) {
             const auto& node = csg[v];
-            live.insert(node.orig_desc);
-            if (node.kind == node_t::blob) {
-                replace_blob_value(node.value, node.orig_desc, cgout);
-            }
-        }
-    }
-
-    // Remove any b's or m's not in live
-    for (auto v : vertex_range(cgout)) {
-        auto& node = cgout[v];
-        char code = node.code();
-        if (code == 'b' or code == 'm') {
-            if (live.count(v)) {
+            if (node.kind == node_t::meas) {
+                live_ms.insert(node.orig_desc);
                 continue;
             }
-            boost::clear_vertex(v, cgout);
-            boost::remove_vertex(v, cgout);
-        }
-    }
-
-    // And one more time to remove any neighborless b's or m's
-    for (auto v : vertex_range(cgout)) {
-        auto& node = cgout[v];
-        char code = node.code();
-        if (code == 'b' or code == 'm') {
-            const auto& [eit, end] = boost::out_edges(v, cgout);
-            if (eit == end) {
-                boost::remove_vertex(v, cgout);
+            if (node.kind == node_t::blob) {
+                live_bs[node.orig_desc] = node.value;
+                continue;
             }
         }
     }
 
-    return cgout;
+    // Pass over input graph and copy any non-{b,m} and any
+    // live-{b,m}.
+    cluster_graph_t cgtmp;
+    std::unordered_map<cluster_vertex_t, cluster_vertex_t> old2new;
+    for (auto oldv : vertex_range(cgin)) {
+        const auto& node = cgin[oldv];
+        const char code = node.code();
+        if (code == 'b') {
+            auto it = live_bs.find(oldv);
+            if (it == live_bs.end()) {
+                continue;
+            }
+            auto newb = replace_blob_value(it->second, oldv, cgin);
+            auto newv = boost::add_vertex(newb, cgtmp);
+            old2new[oldv] = newv;
+            continue;
+        }
+
+        if (code == 'm') {
+            if (live_ms.count(oldv)) {
+                auto newv = boost::add_vertex(node, cgtmp);
+                old2new[oldv] = newv;
+            }
+            continue;
+        }
+        // o.w. its a non-{b,m}
+        auto newv = boost::add_vertex(node, cgtmp);
+        old2new[oldv] = newv;
+    }
+
+    // Pass over input graph edges and transfer any we know of.
+    for (auto edge : mir(boost::edges(cgin))) {
+        auto old_tail = boost::source(edge, cgin);
+        auto old_head = boost::target(edge, cgin);
+
+        auto old_tit = old2new.find(old_tail);
+        if (old_tit == old2new.end()) {
+            continue;
+        }
+        auto old_hit = old2new.find(old_head);
+        if (old_hit == old2new.end()) {
+            continue;
+        }
+        boost::add_edge(old_tit->second, old_hit->second, cgtmp);
+    }
+
+    // At this point the graph may have neighborless b's and m's.  We
+    // could do another pass on cgtmp to construct a final out, but
+    // for now leave these orphans as-is.
+    return cgtmp;
 }
 
