@@ -59,6 +59,11 @@ namespace WireCell {
 	    int m_ncount_dead_ch{1};
 	    std::vector<int> m_dead_ch_llimit{0};
 	    std::vector<int> m_dead_ch_hlimit{0};
+
+	    // organize boundary for dead channels
+	    int m_dead_org{0};
+	    std::vector<int> m_dead_org_llimit{0};
+	    std::vector<int> m_dead_org_hlimit{0};
         };
     }  // namespace Img
 }  // namespace WireCell

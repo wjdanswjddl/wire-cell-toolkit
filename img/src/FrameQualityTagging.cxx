@@ -95,7 +95,7 @@ bool FrameQualityTagging::operator()(const input_pointer& in, output_pointer& ou
         arr_wiener.push_back(Array::array_xxf::Zero(nchannels[iplane], m_nticks));
         Aux::fill(arr_wiener.back(), trace_wiener, chbyplane[iplane].begin(), chbyplane[iplane].end(), m_tick0);
     }
-    std::cout << arr_gauss[0] << std::endl;
+    //    std::cout << arr_gauss[0] << std::endl;
 
     // Prepare threshold for wiener
     auto threshold = in->trace_summary(m_wiener_trace_tag);
