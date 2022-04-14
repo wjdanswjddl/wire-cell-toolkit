@@ -40,16 +40,3 @@ Ress::vector_t Ress::solve(Ress::matrix_t matrix, Ress::vector_t measured, const
     return Ress::vector_t();
 }
 
-double Ress::chi2_l1(vector_t measured, vector_t solved, double lambda)
-{
-    return 2 * lambda * solved.lpNorm<1>() * measured.size();
-}
-
-Ress::vector_t Ress::predict(matrix_t response, vector_t source) { return response * source; }
-
-double Ress::chi2(vector_t measured, vector_t predicted) { return (measured - predicted).squaredNorm(); }
-
-double Ress::mean_residual(vector_t measured, vector_t predicted)
-{
-    return (measured - predicted).norm() / measured.size();
-}

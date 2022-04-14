@@ -92,10 +92,29 @@ function(anode)
         }
     }, nin=1, nout=1),
 
-
     // A node that "solves" for blob charge given blob-measure edges.
-    // Only blobs with charge above threshold are kept.
-    solving :: function(name=apaid, threshold=0.0) pg.pnode({
+    // Only blobs with charge above threshold are kept.  
+    charge_solving :: function(name=apaid,
+                               meas_val_thresh=10.0,
+                               meas_err_thresh=1.0e9,
+                               blob_val_thresh=0,
+                               // fixme; there are more with
+                               // reasonable defaults that could be
+                               // filled in.
+    )
+        pg.pnode({
+            type: "ChargeSolving",
+            name: name,
+            data:  {
+                meas_value_threshold: meas_val_thresh,
+                meas_error_threshold: meas_err_thresh,
+                blob_value_threshold: blob_val_thresh,
+            }
+        }, nin=1, nout=1),
+
+    // This uses a simpler, less effective solving algorithm.  Use
+    // charge_solving for the big guns.
+    blob_solving :: function(name=apaid, threshold=0.0) pg.pnode({
         type: "BlobSolving",
         name: name,
         data:  { threshold: threshold }
@@ -106,14 +125,15 @@ function(anode)
     // form a full chain.  This is but one which implements the graph
     // in the raygrid.pdf figure 12 but starting with IFrame input and
     // ending with a solving.
-    nominal :: function(name=apaid, tag="", span=4, spans=1.0, threshold=0.0) pg.pipeline([
+    simple :: function(name=apaid, tag="", span=4, spans=1.0, threshold=0.0) pg.pipeline([
         $.slicing(name, tag, span),
         $.tiling(name),
         $.clustering(name, spans),
         $.grouping(name),
-        $.solving(name, threshold)
+        $.blob_solving(name, threshold)
     ]),
 
+    
 
     // A function that projects blobs back to frames.  
     reframing :: function(name=apaid, tag="") pg.pnode({

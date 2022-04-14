@@ -102,9 +102,11 @@ bool Img::BlobGrouping::operator()(const input_pointer& in, output_pointer& out)
         fill_slice(grind, islice);
     }
 
-    log->debug("have {} graph nodes",
-               boost::num_vertices(grind.graph()));
+    log->debug("cluster {}: nvertices={} nedges={}",
+               in->ident(),
+               boost::num_vertices(grind.graph()),
+               boost::num_edges(grind.graph()));
 
-    out = std::make_shared<SimpleCluster>(grind.graph());
+    out = std::make_shared<SimpleCluster>(grind.graph(), in->ident());
     return true;
 }

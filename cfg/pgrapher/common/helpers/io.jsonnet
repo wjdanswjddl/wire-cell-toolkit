@@ -26,6 +26,16 @@ local wc = import "wirecell.jsonnet";
             },
         }, nin=1, nout=0),
         
+    /// Source a stream of frames from file.
+    frame_file_source(filename, tags=[]) ::
+        pg.pnode({
+            type: "FrameFileSource",
+            name: filename,
+            data: {
+                inname: filename,
+                tags: tags,
+            },
+        }, nin=0, nout=1),
 
 
     // Like a frame_file_sink but pass input frames both to output
@@ -57,7 +67,7 @@ local wc = import "wirecell.jsonnet";
     }, nin=1, nout=0),
 
     // Write out in a WCT cluster file format (json+tar[+compression])
-    cluster_file :: function(name, filename=null) pg.pnode({
+    cluster_file_sink :: function(name, filename=null) pg.pnode({
         type: 'ClusterFileSink',
         name: name,
         data: {

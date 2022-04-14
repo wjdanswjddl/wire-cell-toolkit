@@ -37,74 +37,82 @@ using sqr_namespace::sqr;
 template<class Y>
 class measurement
 {    
-    public:
-        typedef measurement<Y>                  this_type;
-        typedef Y                               value_type;
+  public:
+    typedef measurement<Y>                  this_type;
+    typedef Y                               value_type;
         
-        constexpr measurement(const value_type& val = value_type(),
-                    const value_type& err = value_type()) : 
-            value_(val),
-            uncertainty_(std::abs(err)) 
-        { }
+    constexpr measurement(const value_type& val = value_type(),
+                          const value_type& err = value_type()) : 
+        value_(val),
+        uncertainty_(std::abs(err)) 
+    { }
         
-        constexpr measurement(const this_type& source) : 
-            value_(source.value_),
-            uncertainty_(source.uncertainty_) 
-        { }
+    constexpr measurement(const this_type& source) : 
+        value_(source.value_),
+        uncertainty_(source.uncertainty_) 
+    { }
         
-        //~measurement() { }
+    //~measurement() { }
         
-        constexpr this_type& operator=(const this_type& source)
-        {
-            if (this == &source) return *this;
+    constexpr this_type& operator=(const this_type& source)
+    {
+        if (this == &source) return *this;
             
-            value_ = source.value_;
-            uncertainty_ = source.uncertainty_;
+        value_ = source.value_;
+        uncertainty_ = source.uncertainty_;
             
-            return *this;
-        }
+        return *this;
+    }
         
-        constexpr operator value_type() const    { return value_; }
+    constexpr operator value_type() const    { return value_; }
         
-        constexpr value_type value() const       { return value_; }
-        constexpr value_type uncertainty() const { return uncertainty_; }
-        constexpr value_type lower_bound() const { return value_-uncertainty_; }
-        constexpr value_type upper_bound() const { return value_+uncertainty_; }
+    constexpr value_type value() const       { return value_; }
+    constexpr value_type uncertainty() const { return uncertainty_; }
+    constexpr value_type lower_bound() const { return value_-uncertainty_; }
+    constexpr value_type upper_bound() const { return value_+uncertainty_; }
         
-        constexpr this_type& operator+=(const value_type& val)            
-        { 
-            value_ += val; 
-            return *this; 
-        }
+    constexpr this_type& value(const value_type& value) {
+        value_ = value;
+        return *this;
+    }
+    constexpr this_type& uncertainty(const value_type& unc) {
+        uncertainty_ = unc;
+        return *this;
+    }
+    
+    constexpr this_type& operator+=(const value_type& val)            
+    { 
+        value_ += val; 
+        return *this; 
+    }
         
-        constexpr this_type& operator-=(const value_type& val)            
-        { 
-            value_ -= val; 
-            return *this; 
-        }
+    constexpr this_type& operator-=(const value_type& val)            
+    { 
+        value_ -= val; 
+        return *this; 
+    }
         
-        constexpr this_type& operator*=(const value_type& val)            
-        { 
-            value_ *= val; 
-            uncertainty_ *= val; 
-            return *this; 
-        }
+    constexpr this_type& operator*=(const value_type& val)            
+    { 
+        value_ *= val; 
+        uncertainty_ *= val; 
+        return *this; 
+    }
         
-        constexpr this_type& operator/=(const value_type& val)            
-        { 
-            value_ /= val; 
-            uncertainty_ /= val; 
-            return *this; 
-        }
+    constexpr this_type& operator/=(const value_type& val)            
+    { 
+        value_ /= val; 
+        uncertainty_ /= val; 
+        return *this; 
+    }
         
-        constexpr this_type& operator+=(const this_type& /*source*/);
-        constexpr this_type& operator-=(const this_type& /*source*/);        
-        constexpr this_type& operator*=(const this_type& /*source*/);        
-        constexpr this_type& operator/=(const this_type& /*source*/);
+    constexpr this_type& operator+=(const this_type& /*source*/);
+    constexpr this_type& operator-=(const this_type& /*source*/);        
+    constexpr this_type& operator*=(const this_type& /*source*/);        
+    constexpr this_type& operator/=(const this_type& /*source*/);
 
-    private:
-        value_type          value_,
-                            uncertainty_;
+  private:
+    value_type value_{0}, uncertainty_{0};
 };
 
 }
@@ -119,225 +127,225 @@ BOOST_TYPEOF_REGISTER_TEMPLATE(boost::units::measurement, 1)
 
 namespace boost {
 
-namespace units {
+    namespace units {
 
-template<class Y>
-inline
-constexpr
-measurement<Y>&
-measurement<Y>::operator+=(const this_type& source)
-{
-    uncertainty_ = std::sqrt(sqr(uncertainty_)+sqr(source.uncertainty_));
-    value_ += source.value_;
+        template<class Y>
+        inline
+        constexpr
+        measurement<Y>&
+        measurement<Y>::operator+=(const this_type& source)
+        {
+            uncertainty_ = std::sqrt(sqr(uncertainty_)+sqr(source.uncertainty_));
+            value_ += source.value_;
     
-    return *this;
-}
+            return *this;
+        }
 
-template<class Y>
-inline
-constexpr
-measurement<Y>&
-measurement<Y>::operator-=(const this_type& source)
-{
-    uncertainty_ = std::sqrt(sqr(uncertainty_)+sqr(source.uncertainty_));
-    value_ -= source.value_;
+        template<class Y>
+        inline
+        constexpr
+        measurement<Y>&
+        measurement<Y>::operator-=(const this_type& source)
+        {
+            uncertainty_ = std::sqrt(sqr(uncertainty_)+sqr(source.uncertainty_));
+            value_ -= source.value_;
     
-    return *this;
-}
+            return *this;
+        }
 
-template<class Y>
-inline
-constexpr
-measurement<Y>&
-measurement<Y>::operator*=(const this_type& source)
-{
-    uncertainty_ = (value_*source.value_)*
-              std::sqrt(sqr(uncertainty_/value_)+
-                        sqr(source.uncertainty_/source.value_));
-    value_ *= source.value_;
+        template<class Y>
+        inline
+        constexpr
+        measurement<Y>&
+        measurement<Y>::operator*=(const this_type& source)
+        {
+            uncertainty_ = (value_*source.value_)*
+                std::sqrt(sqr(uncertainty_/value_)+
+                          sqr(source.uncertainty_/source.value_));
+            value_ *= source.value_;
     
-    return *this;
-}
+            return *this;
+        }
 
-template<class Y>
-inline
-constexpr
-measurement<Y>&
-measurement<Y>::operator/=(const this_type& source)
-{
-    uncertainty_ = (value_/source.value_)*
-              std::sqrt(sqr(uncertainty_/value_)+
-                        sqr(source.uncertainty_/source.value_));
-    value_ /= source.value_;
+        template<class Y>
+        inline
+        constexpr
+        measurement<Y>&
+        measurement<Y>::operator/=(const this_type& source)
+        {
+            uncertainty_ = (value_/source.value_)*
+                std::sqrt(sqr(uncertainty_/value_)+
+                          sqr(source.uncertainty_/source.value_));
+            value_ /= source.value_;
     
-    return *this;
-}
+            return *this;
+        }
 
 // value_type op measurement
-template<class Y>
-inline
-constexpr
-measurement<Y>
-operator+(Y lhs,const measurement<Y>& rhs)
-{
-    return (measurement<Y>(lhs,Y(0))+=rhs);
-}
+        template<class Y>
+        inline
+        constexpr
+        measurement<Y>
+        operator+(Y lhs,const measurement<Y>& rhs)
+        {
+            return (measurement<Y>(lhs,Y(0))+=rhs);
+        }
 
-template<class Y>
-inline
-constexpr
-measurement<Y>
-operator-(Y lhs,const measurement<Y>& rhs)
-{
-    return (measurement<Y>(lhs,Y(0))-=rhs);
-}
+        template<class Y>
+        inline
+        constexpr
+        measurement<Y>
+        operator-(Y lhs,const measurement<Y>& rhs)
+        {
+            return (measurement<Y>(lhs,Y(0))-=rhs);
+        }
 
-template<class Y>
-inline
-constexpr
-measurement<Y>
-operator*(Y lhs,const measurement<Y>& rhs)
-{
-    return (measurement<Y>(lhs,Y(0))*=rhs);
-}
+        template<class Y>
+        inline
+        constexpr
+        measurement<Y>
+        operator*(Y lhs,const measurement<Y>& rhs)
+        {
+            return (measurement<Y>(lhs,Y(0))*=rhs);
+        }
 
-template<class Y>
-inline
-constexpr
-measurement<Y>
-operator/(Y lhs,const measurement<Y>& rhs)
-{
-    return (measurement<Y>(lhs,Y(0))/=rhs);
-}
+        template<class Y>
+        inline
+        constexpr
+        measurement<Y>
+        operator/(Y lhs,const measurement<Y>& rhs)
+        {
+            return (measurement<Y>(lhs,Y(0))/=rhs);
+        }
 
 // measurement op value_type
-template<class Y>
-inline
-constexpr
-measurement<Y>
-operator+(const measurement<Y>& lhs,Y rhs)
-{
-    return (measurement<Y>(lhs)+=measurement<Y>(rhs,Y(0)));
-}
+        template<class Y>
+        inline
+        constexpr
+        measurement<Y>
+        operator+(const measurement<Y>& lhs,Y rhs)
+        {
+            return (measurement<Y>(lhs)+=measurement<Y>(rhs,Y(0)));
+        }
 
-template<class Y>
-inline
-constexpr
-measurement<Y>
-operator-(const measurement<Y>& lhs,Y rhs)
-{
-    return (measurement<Y>(lhs)-=measurement<Y>(rhs,Y(0)));
-}
+        template<class Y>
+        inline
+        constexpr
+        measurement<Y>
+        operator-(const measurement<Y>& lhs,Y rhs)
+        {
+            return (measurement<Y>(lhs)-=measurement<Y>(rhs,Y(0)));
+        }
 
-template<class Y>
-inline
-constexpr
-measurement<Y>
-operator*(const measurement<Y>& lhs,Y rhs)
-{
-    return (measurement<Y>(lhs)*=measurement<Y>(rhs,Y(0)));
-}
+        template<class Y>
+        inline
+        constexpr
+        measurement<Y>
+        operator*(const measurement<Y>& lhs,Y rhs)
+        {
+            return (measurement<Y>(lhs)*=measurement<Y>(rhs,Y(0)));
+        }
 
-template<class Y>
-inline
-constexpr
-measurement<Y>
-operator/(const measurement<Y>& lhs,Y rhs)
-{
-    return (measurement<Y>(lhs)/=measurement<Y>(rhs,Y(0)));
-}
+        template<class Y>
+        inline
+        constexpr
+        measurement<Y>
+        operator/(const measurement<Y>& lhs,Y rhs)
+        {
+            return (measurement<Y>(lhs)/=measurement<Y>(rhs,Y(0)));
+        }
 
 // measurement op measurement
-template<class Y>
-inline
-constexpr
-measurement<Y>
-operator+(const measurement<Y>& lhs,const measurement<Y>& rhs)
-{
-    return (measurement<Y>(lhs)+=rhs);
-}
+        template<class Y>
+        inline
+        constexpr
+        measurement<Y>
+        operator+(const measurement<Y>& lhs,const measurement<Y>& rhs)
+        {
+            return (measurement<Y>(lhs)+=rhs);
+        }
 
-template<class Y>
-inline
-constexpr
-measurement<Y>
-operator-(const measurement<Y>& lhs,const measurement<Y>& rhs)
-{
-    return (measurement<Y>(lhs)-=rhs);
-}
+        template<class Y>
+        inline
+        constexpr
+        measurement<Y>
+        operator-(const measurement<Y>& lhs,const measurement<Y>& rhs)
+        {
+            return (measurement<Y>(lhs)-=rhs);
+        }
 
-template<class Y>
-inline
-constexpr
-measurement<Y>
-operator*(const measurement<Y>& lhs,const measurement<Y>& rhs)
-{
-    return (measurement<Y>(lhs)*=rhs);
-}
+        template<class Y>
+        inline
+        constexpr
+        measurement<Y>
+        operator*(const measurement<Y>& lhs,const measurement<Y>& rhs)
+        {
+            return (measurement<Y>(lhs)*=rhs);
+        }
 
-template<class Y>
-inline
-constexpr
-measurement<Y>
-operator/(const measurement<Y>& lhs,const measurement<Y>& rhs)
-{
-    return (measurement<Y>(lhs)/=rhs);
-}
+        template<class Y>
+        inline
+        constexpr
+        measurement<Y>
+        operator/(const measurement<Y>& lhs,const measurement<Y>& rhs)
+        {
+            return (measurement<Y>(lhs)/=rhs);
+        }
 
 /// specialize power typeof helper
-template<class Y,long N,long D> 
-struct power_typeof_helper<measurement<Y>,static_rational<N,D> >
-{ 
-    typedef measurement<
-        typename power_typeof_helper<Y,static_rational<N,D> >::type
-    > type; 
+        template<class Y,long N,long D> 
+        struct power_typeof_helper<measurement<Y>,static_rational<N,D> >
+        { 
+            typedef measurement<
+                typename power_typeof_helper<Y,static_rational<N,D> >::type
+                > type; 
     
-    static constexpr type value(const measurement<Y>& x)  
-    { 
-        const static_rational<N,D>  rat;
+            static constexpr type value(const measurement<Y>& x)  
+            { 
+                const static_rational<N,D>  rat;
 
-        const Y m = Y(rat.numerator())/Y(rat.denominator()),
-                newval = std::pow(x.value(),m),
-                err = newval*std::sqrt(std::pow(m*x.uncertainty()/x.value(),2));
+                const Y m = Y(rat.numerator())/Y(rat.denominator()),
+                    newval = std::pow(x.value(),m),
+                    err = newval*std::sqrt(std::pow(m*x.uncertainty()/x.value(),2));
         
-        return type(newval,err);
-    }
-};
+                return type(newval,err);
+            }
+        };
 
 /// specialize root typeof helper
-template<class Y,long N,long D> 
-struct root_typeof_helper<measurement<Y>,static_rational<N,D> >                
-{ 
-    typedef measurement<
-        typename root_typeof_helper<Y,static_rational<N,D> >::type
-    > type; 
+        template<class Y,long N,long D> 
+        struct root_typeof_helper<measurement<Y>,static_rational<N,D> >                
+        { 
+            typedef measurement<
+                typename root_typeof_helper<Y,static_rational<N,D> >::type
+                > type; 
     
-    static constexpr type value(const measurement<Y>& x)  
-    { 
-        const static_rational<N,D>  rat;
+            static constexpr type value(const measurement<Y>& x)  
+            { 
+                const static_rational<N,D>  rat;
 
-        const Y m = Y(rat.denominator())/Y(rat.numerator()),
-                newval = std::pow(x.value(),m),
-                err = newval*std::sqrt(std::pow(m*x.uncertainty()/x.value(),2));
+                const Y m = Y(rat.denominator())/Y(rat.numerator()),
+                    newval = std::pow(x.value(),m),
+                    err = newval*std::sqrt(std::pow(m*x.uncertainty()/x.value(),2));
         
-        return type(newval,err);
-    }
-};
+                return type(newval,err);
+            }
+        };
 
 // stream output
-template<class Y>
-inline
-std::ostream& operator<<(std::ostream& os,const measurement<Y>& val)
-{
-    boost::io::ios_precision_saver precision_saver(os);
-    boost::io::ios_flags_saver flags_saver(os);
+        template<class Y>
+        inline
+        std::ostream& operator<<(std::ostream& os,const measurement<Y>& val)
+        {
+            boost::io::ios_precision_saver precision_saver(os);
+            boost::io::ios_flags_saver flags_saver(os);
     
-    os << val.value() << "(+/-" << val.uncertainty() << ")";
+            os << val.value() << "(+/-" << val.uncertainty() << ")";
     
-    return os;
-}
+            return os;
+        }
 
-} // namespace units
+    } // namespace units
 
 } // namespace boost
 

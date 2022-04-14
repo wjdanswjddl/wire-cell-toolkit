@@ -18,7 +18,7 @@ local pg = import "pgraph.jsonnet";
     
     local app_plugins = {
         'TbbFlow': ["WireCellTbb"],
-        'PGrapher': ["WireCellPgrapher"],
+        'Pgrapher': ["WireCellPgraph"],
     },
 
     main(graph, app='Pgrapher', extra_plugins = []) :: 

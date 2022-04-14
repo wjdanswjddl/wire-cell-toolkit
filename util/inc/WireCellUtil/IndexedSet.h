@@ -14,6 +14,23 @@ namespace WireCell {
        public:
         // the passed objects in order of first seen
 
+        IndexedSet() = default;
+        ~IndexedSet() = default;
+
+        template<typename Sequence>
+        IndexedSet(const Sequence& seq) {
+            for (const auto& val : seq) {
+                (*this)(val);
+            };
+        }
+        template<typename iterator>
+        IndexedSet(iterator beg, iterator end) {
+            while (beg != end) {
+                (*this)(*beg);
+                ++beg;
+            }
+        }
+
         typedef std::unordered_map<TYPE, int> index_type;
         typedef std::vector<TYPE> collection_type;
         typedef typename collection_type::size_type size_type;
@@ -23,6 +40,10 @@ namespace WireCell {
         size_type size() { return collection.size(); }
 
         int operator()(const TYPE& obj) const
+        {
+            return get(obj);
+        }
+        int get(const TYPE& obj) const
         {
             auto mit = index.find(obj);
             if (mit != index.end()) {

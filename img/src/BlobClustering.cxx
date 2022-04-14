@@ -188,6 +188,13 @@ bool Img::BlobClustering::operator()(const input_pointer& blobset,
         flush(clusters);
         log->debug("flush {} clusters + EOS on EOS",
                  clusters.size());
+        for (const auto& cl : clusters) {
+            const auto& gr = cl->graph();
+            
+            log->debug("cluster {}: nvertices={} nedges={}",
+                       cl->ident(), boost::num_vertices(gr),
+                       boost::num_edges(gr));
+        }
         clusters.push_back(nullptr);  // forward eos
         return true;
     }

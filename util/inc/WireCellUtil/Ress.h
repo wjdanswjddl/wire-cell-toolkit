@@ -1,5 +1,9 @@
 /** This provides a single interface to Lasso and ElasticNet models.
 
+    Given m = R*s, measurement vector m, response matrix R it attempts
+    to solve for vector s with chi2 with a bias term linear in s.  The
+    vector s is called also "source" in this code.
+
     References:
 
   - Regularization Paths for Generalized Linear Models via Coordinate
@@ -50,13 +54,34 @@ namespace WireCell {
             // optional initial measurement weights
             vector_t weights = Eigen::VectorXd());
 
-        vector_t predict(matrix_t response, vector_t source);
+        // These function provide values derived from a solution
+        // ("solved"/"source") and the input response and measured
+        // vectors.
 
-        double chi2(vector_t measured, vector_t predicted);
+        // Return a prediction for a measure vector.
+        inline vector_t predict(matrix_t response, vector_t source)
+        {
+            return response * source;
+        }
 
-        double mean_residual(vector_t measured, vector_t predicted);
+        // Return the unbiased part of the chi2.
+        inline double chi2_base(vector_t measured, vector_t predicted)
+        {
+            return (measured - predicted).squaredNorm();
+        }
 
-        double chi2_l1(vector_t measured, vector_t solved, double lambda = 1.0);
+        // Return the linear bias term
+        inline double chi2_l1(vector_t measured, vector_t solved, double lambda=1.0)
+        {
+            return 2 * lambda * solved.lpNorm<1>() * measured.size();
+        }
+
+        // Return the average residual.
+        inline double mean_residual(vector_t measured, vector_t predicted)
+        {
+            return (measured - predicted).norm() / measured.size();
+        }
+
 
     }  // namespace Ress
 
