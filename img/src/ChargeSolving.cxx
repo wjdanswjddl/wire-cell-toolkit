@@ -116,11 +116,72 @@ void Img::ChargeSolving::configure(const WireCell::Configuration& cfg)
     }
 }
 
+static void dump_cg(const cluster_graph_t& cg, Log::logptr_t& log)
+{
+    size_t mcount{0};
+    value_t bval;
+    for (const auto& vtx : mir(boost::vertices(cg))) {
+        const auto& node = cg[vtx];
+        if (node.code() == 'b') {
+            const auto iblob = get<blob_node_t>(node.ptr);
+            bval += value_t(iblob->value(), iblob->uncertainty());
+            continue;
+        }
+        if (node.code() == 'm') {
+            const auto imeas = get<meas_node_t>(node.ptr);
+            mcount += imeas->size();
+        }
+    }
+    log->debug("cluster graph: vertices={} edges={} bval={} #chan={}",
+               boost::num_vertices(cg), boost::num_edges(cg),
+               bval, mcount);
+}
+
+static void dump_sg(const graph_t& sg, Log::logptr_t& log)
+{
+    value_t bval, mval;
+    const auto& gval = sg[boost::graph_bundle];
+
+    int nblob{0}, nmeas{0};
+
+    for (const auto& vtx : mir(boost::vertices(sg))) {
+        const auto& node = sg[vtx];
+        
+        if (node.kind == node_t::blob) {
+            bval += node.value;
+            ++nblob;
+            continue;
+        }
+        if (node.kind == node_t::meas) {
+            mval += node.value;
+            ++nmeas;
+            continue;
+        }
+    }
+
+    log->debug("cs graph: slice={} index={} vertices={} edges={} nblob={} bval={} nmeas={} mval={}",
+               gval.islice->ident(), gval.index,
+               boost::num_vertices(sg), boost::num_edges(sg),
+               nblob, bval, nmeas, mval);
+}
+
+value_t total_value(const graph_t& sg, node_t::Kind kind)
+{
+    value_t ret;
+    for (auto desc : vertex_range(sg)) {
+        const auto& node = sg[desc];
+        if (node.kind == kind) {
+            ret += node.value;
+        }
+    }
+    return ret;
+}
+
 
 bool Img::ChargeSolving::operator()(const input_pointer& in, output_pointer& out)
 {
+    out = nullptr;
     if (!in) {
-        out = nullptr;
         log->debug("EOS");
         return true;
     }
@@ -129,15 +190,12 @@ bool Img::ChargeSolving::operator()(const input_pointer& in, output_pointer& out
     // b-m subgraphs with all the info needed for solving each round.
     graph_vector_t sgs;
     const auto in_graph = in->graph();
+    dump_cg(in_graph, log);
     unpack(in_graph, std::back_inserter(sgs), m_meas_thresh);
 
-    log->debug("cluster: {} input nvertices={} nedges={} found nsubgraphs={}",
-               in->ident(),
-               boost::num_vertices(in_graph),
-               boost::num_edges(in_graph),
-               sgs.size()
-        );
-
+    // for (const auto& sg : sgs) {
+    //     dump_sg(sg, log);
+    // }
 
     const size_t nstrats = m_weighting_strategies.size();
 
@@ -151,21 +209,17 @@ bool Img::ChargeSolving::operator()(const input_pointer& in, output_pointer& out
 
         std::transform(sgs.begin(), sgs.end(), sgs.begin(),
                        [&](graph_t& sg) {
+                           //dump_sg(sg, log);
                            blob_weighter(in_graph, sg);
                            auto new_csg = solve(sg, sparams);
-                           SPDLOG_LOGGER_TRACE(
-                               log,
-                               "cluster={} slice={} subcluster={} solved nvertices={} nedges={}",
-                               in->ident(),
-                               new_csg[boost::graph_bundle].islice->ident(),
-                               new_csg[boost::graph_bundle].index,
-                               boost::num_vertices(new_csg),
-                               boost::num_edges(new_csg));
 
                            // fixme: add blob threshold pruning
 
                            return new_csg;
                        });
+    }
+    for (const auto& sg : sgs) {
+        dump_sg(sg, log);
     }
     log->debug("cluster={} solved nsubclusters={} over nstrategies={}",
                in->ident(), sgs.size(), m_weighting_strategies.size());

@@ -1,3 +1,10 @@
+/**
+   CSGraph - charge solving graph
+
+   This is used internally by ChargeSolving.
+
+ */
+
 #ifndef WIRECELLIMG_CSGRAPH
 #define WIRECELLIMG_CSGRAPH
 
@@ -72,7 +79,9 @@ namespace WireCell::Img::CS {
         value_t value;
     };
 
-    // New type of graph with just b's and m's holding ready to use info
+    //
+    // The grpah type.  Just b's and m's holding ready to use info
+    //
     using graph_t = boost::adjacency_list<boost::setS, boost::vecS, boost::undirectedS,
                                           node_t, boost::no_property, graphprop_t>;
     using vdesc_t = boost::graph_traits<graph_t>::vertex_descriptor;
@@ -94,33 +103,24 @@ namespace WireCell::Img::CS {
         return mir(boost::vertices(g));
     }
 
-
     // Used, eg when forming subgraphs.
     using graph_vector_t = std::vector<graph_t>;
-
 
     // Return selection of vertex descriptions of kind ordered by
     // .ordering and as an indexed set.
     using indexed_vdescs_t = IndexedSet<CS::vdesc_t>;
     indexed_vdescs_t select_ordered(const graph_t& csg,
                                     node_t::Kind kind);
-
                            
+    // Convert IChannel::shared_vector into a value.
     value_t measure_sum(const meas_node_t& imeas, const slice_node_t& islice);
-
-    // Return a CS graph built from the slice.  Any measurement
-    // central value must be above the theshold and the uncertainy
-    // must be below.
-    graph_t unpack_slice(const cluster_graph_t& cgraph,
-                         cluster_vertex_t sd,
-                         const value_t& meas_thresh);
 
     // Break up input CS graph into "connected subgraphs".
     void connected_subgraphs(const graph_t& slice_graph,
                              std::back_insert_iterator<graph_vector_t> subgraphs_out);
 
-    // Simply, loop over all slices in cluster graph, form a slice
-    // graph and apply connected subgraphs.  
+    // Break a cluster_graph into a vector of connected subgraphs
+    // represented by a CS graph_t.
     void unpack(const cluster_graph_t& cgraph,
                 std::back_insert_iterator<graph_vector_t> subgraphs,
                 const value_t& meas_thresh);

@@ -71,7 +71,8 @@ namespace WireCell {
             // will correspond to one round of solving with that
             // strategy followed by a selection based on
             // m_minimum_charge.
-            std::vector<std::string> m_weighting_strategies{"uniform", "simple"};
+            //std::vector<std::string> m_weighting_strategies{"uniform", "simple"};
+            std::vector<std::string> m_weighting_strategies{"uniform"};
 
         };
 

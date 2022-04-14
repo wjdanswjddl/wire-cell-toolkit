@@ -112,8 +112,7 @@ class measurement
     constexpr this_type& operator/=(const this_type& /*source*/);
 
   private:
-    value_type          value_,
-        uncertainty_;
+    value_type value_{0}, uncertainty_{0};
 };
 
 }

@@ -148,66 +148,10 @@ graph_t CS::solve(const graph_t& csg, const SolveParams& params)
     // Update outgoing blob nodes with their solution
     for (size_t ind=0; ind<nblob; ++ind) {
         auto& bvalue = csg_out[blob_desc_out.collection[ind]];
-        bvalue.value.value(solution[ind]);
+        //bvalue.value.value(solution[ind]);
+        bvalue.value = solution[ind]; // drops weight
     }
     return csg_out;
-}
-
-
-graph_t CS::unpack_slice(const cluster_graph_t& cgraph,
-                         cluster_vertex_t sd,
-                         const value_t& meas_thresh)
-{
-    graph_t slice_graph;
-
-    const auto svtx = cgraph[sd];
-    if (svtx.code() != 's') {
-        return slice_graph;
-    }
-    slice_node_t islice = std::get<slice_node_t>(svtx.ptr);
-
-    slice_graph[boost::graph_bundle].islice = islice;
-    slice_graph[boost::graph_bundle].index = islice->ident();
-
-    // get the blobs's
-    for (auto sb_edge : mir(boost::out_edges(sd, cgraph))) {
-        cluster_vertex_t bd = boost::target(sb_edge, cgraph);
-        const auto& bvtx = cgraph[bd];
-        if (bvtx.code() != 'b') { continue; }
-                
-        auto bptr = std::get<blob_node_t>(bvtx.ptr);
-        node_t blob{bd, node_t::blob, ordering(bptr), value_t(0,1)};
-        auto blob_desc = boost::add_vertex(blob, slice_graph);
-
-        // collect the blobs's and the measures's
-        int nsaved = 0;
-        for (auto bx_edge : mir(boost::out_edges(bd, cgraph))) {
-            cluster_vertex_t xd = boost::target(bx_edge, cgraph);
-            const auto& xvtx = cgraph[xd];
-            char code = xvtx.code();
-            if (code != 'm') {
-                continue;
-            }
-            auto mptr = std::get<meas_node_t>(xvtx.ptr);
-            const auto msum = measure_sum(mptr, islice);
-            if (msum.value() < meas_thresh.value() or
-                msum.uncertainty() > meas_thresh.uncertainty()) {
-                continue;
-            }
-            node_t meas{xd, node_t::meas, ordering(mptr), msum};
-                    
-            auto meas_desc = boost::add_vertex(meas, slice_graph);
-            boost::add_edge(blob_desc, meas_desc, slice_graph);
-            ++nsaved;
-        }
-
-        // In principle, all measures supporting a blob can fail the
-        // threshold.
-        if (!nsaved) {
-            boost::remove_vertex(blob_desc, slice_graph);
-        }
-    }
-    return slice_graph;
 }
 
 
@@ -247,25 +191,92 @@ void CS::connected_subgraphs(const graph_t& slice_graph,
     }
 }
 
+
 void CS::unpack(const cluster_graph_t& cgraph,
                 std::back_insert_iterator<graph_vector_t> subgraphs,
                 const value_t& meas_thresh)
 {
-    // get the slices's
-    for (const auto& sd : vertex_range(cgraph)) {
-        const auto svtx = cgraph[sd];
-        if (svtx.code() != 's') {
+    auto cnull = boost::graph_traits<cluster_graph_t>::null_vertex();
+    auto sgnull = boost::graph_traits<graph_t>::null_vertex();
+
+    // map slice to the slice graph
+    std::unordered_map<slice_node_t, graph_t> s2slg;
+    // map some cg vertices to slice graph vertices.  This is sparse
+    // and spans the slice graphs.
+    std::vector<vdesc_t> c2slg(boost::num_vertices(cgraph), sgnull);
+
+    for (auto bvtx : vertex_range(cgraph)) {
+        const auto& bnode = cgraph[bvtx];
+        if (bnode.code() != 'b') {
             continue;
         }
-        auto slice_graph = unpack_slice(cgraph, sd, meas_thresh);
-        if (! boost::num_vertices(slice_graph)) {
+
+        cluster_vertex_t svtx = cnull;
+        std::vector<cluster_vertex_t> mvtxs;
+
+        // find neighbor s-node and m-nodes
+        for (auto nnvtx : mir(boost::adjacent_vertices(bvtx, cgraph))) {
+            const auto& cnode = cgraph[nnvtx];
+            char code = cnode.code();
+            switch(code) {
+                case 's': svtx=nnvtx; break;
+                case 'm': mvtxs.push_back(nnvtx); break;
+                default: continue;
+            }
+        }
+        if (svtx == cnull) {
+            THROW(ValueError() << errmsg{"Slice graph has no slice"});
+        }
+        if (mvtxs.empty()) {
+            THROW(ValueError() << errmsg{"Blob has no measures"});
+        }
+
+        // get slice graph, initialize if new
+        const auto& islice = std::get<slice_node_t>(cgraph[svtx].ptr);
+        auto& slg = s2slg[islice];
+        auto& slgprop = slg[boost::graph_bundle];
+        if (! slgprop.islice) {
+            slgprop.islice = islice;
+            slgprop.index = s2slg.size() - 1;
+        }
+
+        // add new or reuse prior mnodes, applying threshold on new
+        std::vector<vdesc_t> meas_descs;
+        for (auto mvtx : mvtxs) {
+            auto meas_desc = c2slg[mvtx];
+            if (meas_desc == sgnull) {
+                auto mptr = std::get<meas_node_t>(cgraph[mvtx].ptr);
+                const auto msum = measure_sum(mptr, islice);
+                if (msum.value() < meas_thresh.value() or
+                    msum.uncertainty() > meas_thresh.uncertainty()) {
+                    continue;
+                }
+                node_t meas{mvtx, node_t::meas, ordering(mptr), msum};
+                meas_desc = boost::add_vertex(meas, slg);
+                c2slg[mvtx] = meas_desc;
+            }
+            meas_descs.push_back(meas_desc);
+        }
+        if (meas_descs.empty()) {
             continue;
         }
-        // log->debug("slice_graph {}: nvertices={} nedges={}",
-        //            slice_graph[boost::graph_bundle].index,
-        //            boost::num_vertices(slice_graph),
-        //            boost::num_edges(slice_graph));
-        connected_subgraphs(slice_graph, subgraphs);
+        
+        // make b-m edges
+        auto bptr = std::get<blob_node_t>(bnode.ptr);
+        node_t blob{bvtx, node_t::blob, ordering(bptr), value_t(0,1)};
+        auto blob_desc = boost::add_vertex(blob, slg);
+
+        for (auto meas_desc : meas_descs) {
+            boost::add_edge(blob_desc, meas_desc, slg);
+        }
+    }
+
+    // c2slg now holds per slice b-m graphs.  Each of those graphs are
+    // now factored into connected subgraphs.
+
+    for (const auto& slit : s2slg) {
+        connected_subgraphs(slit.second, subgraphs);
+        // subgraphs = slit.second;
     }
 }
 
