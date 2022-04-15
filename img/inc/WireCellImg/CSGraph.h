@@ -133,6 +133,10 @@ namespace WireCell::Img::CS {
     struct SolveParams {
         Ress::Params ress;
         double scale{1000};
+        // If true, apply matrix transform of the cholesky
+        // decomposition on the measure covariance matrix.  If False,
+        // measurement uncertainties are not considered.
+        bool whiten{true};
     };
     graph_t solve(const graph_t& csg, const SolveParams& params);
 

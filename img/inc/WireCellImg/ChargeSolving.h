@@ -73,6 +73,11 @@ namespace WireCell {
             // m_minimum_charge.
             //std::vector<std::string> m_weighting_strategies{"uniform", "simple"};
             std::vector<std::string> m_weighting_strategies{"uniform"};
+            // Config: if false, any measurement uncertainty is
+            // ignored.  If true, the measurement covariance matrix is
+            // formed on the measurement uncertainties and is
+            // "whitened" via Cholesky decomposition.
+            bool m_whiten{true};
 
         };
 

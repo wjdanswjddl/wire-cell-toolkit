@@ -98,6 +98,7 @@ function(anode)
                                meas_val_thresh=10.0,
                                meas_err_thresh=1.0e9,
                                blob_val_thresh=0,
+                               whiten=true,
                                // fixme; there are more with
                                // reasonable defaults that could be
                                // filled in.
@@ -109,6 +110,7 @@ function(anode)
                 meas_value_threshold: meas_val_thresh,
                 meas_error_threshold: meas_err_thresh,
                 blob_value_threshold: blob_val_thresh,
+                whiten: whiten,
             }
         }, nin=1, nout=1),
 

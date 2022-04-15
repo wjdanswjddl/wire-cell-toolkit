@@ -66,40 +66,65 @@ graph_t CS::solve(const graph_t& csg, const SolveParams& params)
     // Copy graph level properties
     csg_out[boost::graph_bundle] = csg[boost::graph_bundle];
 
-    IndexedSet<vdesc_t> blob_desc_out;
-    auto blob_desc = select_ordered(csg, node_t::blob);
+    IndexedSet<vdesc_t> blob_descs_out;
+    auto blob_descs = select_ordered(csg, node_t::blob);
+    const size_t nblob = blob_descs.size();
+    if (!nblob) {
+        // std::cerr << "no blobs from graph with " << boost::num_vertices(csg) << std::endl;
+        return csg_out;
+    }
 
-    const size_t nblob = blob_desc.size();
+    IndexedSet<vdesc_t> meas_descs_out;
+    auto meas_descs = select_ordered(csg, node_t::meas);
+    const size_t nmeas = meas_descs.size();
+    if (!nmeas) {
+        // std::cerr << "no meas from graph with " << boost::num_vertices(csg) << std::endl;
+        return csg_out;
+    }
+
     double_vector_t source = double_vector_t::Zero(nblob);
     double_vector_t weight = double_vector_t::Zero(nblob);
     for (size_t bind=0; bind<nblob; ++bind) {
-        const auto& blob_in = csg[blob_desc.collection[bind]];
+        const auto& blob_in = csg[blob_descs.collection[bind]];
 
         const auto valerr = blob_in.value;
         source(bind) = valerr.value();
         weight(bind) = valerr.uncertainty();
 
         auto desc_out = boost::add_vertex(blob_in, csg_out);
-        blob_desc_out(desc_out);        
+        blob_descs_out(desc_out);        
     }
 
-    IndexedSet<vdesc_t> meas_desc_out;
-    auto meas_desc = select_ordered(csg, node_t::meas);
-
-    const size_t nmeas = meas_desc.size();
     double_vector_t measure = double_vector_t::Zero(nmeas);
     double_matrix_t mcov = double_matrix_t::Zero(nmeas, nmeas);
     for (size_t mind=0; mind<nmeas; ++mind) {
-        const auto& meas_in = csg[meas_desc.collection[mind]];
+        const auto& meas_in = csg[meas_descs.collection[mind]];
         const auto valerr = meas_in.value;
         measure(mind) = valerr.value();
         mcov(mind, mind) = valerr.uncertainty();
 
         auto desc_out = boost::add_vertex(meas_in, csg_out);
-        meas_desc_out(desc_out);        
+        meas_descs_out(desc_out);        
+    }
+    if (params.whiten and mcov.sum() == 0.0) {
+        // std::cerr << "zero measure covariance from " << boost::num_vertices(csg) << " node graph\n";
+        return csg_out;
     }
 
-    double_matrix_t A = double_matrix_t::Zero(meas_desc.size(), blob_desc.size());
+    // special case of one blob
+    if (blob_descs.size() == 1) {
+        auto nbdesc = blob_descs_out.collection[0];
+        value_t val;
+        for (size_t mind=0; mind < nmeas; ++mind) {
+            auto nmdesc = meas_descs_out.collection[mind];
+            boost::add_edge(nbdesc, nmdesc, csg_out);
+            val += csg_out[nmdesc].value;
+        }
+        csg_out[nbdesc].value = val / nmeas;
+        return csg_out;
+    }
+        
+    double_matrix_t A = double_matrix_t::Zero(nmeas, nblob);
 
     for (auto [ei, ei_end] = boost::edges(csg); ei != ei_end; ++ei) {
         const vdesc_t tail = boost::source(*ei, csg);
@@ -109,12 +134,12 @@ graph_t CS::solve(const graph_t& csg, const SolveParams& params)
         const auto kind2 = csg[head].kind;
         int bind{0}, mind{0};
         if (kind1 == node_t::blob and kind2 == node_t::meas) {
-            bind = blob_desc.get(tail);
-            mind = meas_desc.get(head);
+            bind = blob_descs.get(tail);
+            mind = meas_descs.get(head);
         }        
         else if (kind2 == node_t::blob and kind1 == node_t::meas) {
-            bind = blob_desc.get(head);
-            mind = meas_desc.get(tail);
+            bind = blob_descs.get(head);
+            mind = meas_descs.get(tail);
         }
         else {
             // someone has violated my requirements with this edge!
@@ -122,32 +147,42 @@ graph_t CS::solve(const graph_t& csg, const SolveParams& params)
         }
         A(mind, bind) = 1;
 
-        boost::add_edge(blob_desc_out.collection[bind],
-                        meas_desc_out.collection[mind],
+        boost::add_edge(blob_descs_out.collection[bind],
+                        meas_descs_out.collection[mind],
                         csg_out);
     }
 
-    Eigen::LLT<double_matrix_t> llt(mcov.inverse());
-    double_matrix_t U = llt.matrixL().transpose();
+    
+    double_vector_t m_vec = measure;
+    double_matrix_t R_mat = A;
 
-    // The measure vector in a "whitened" basis
-    double_vector_t m_white = params.scale*U*measure;
+    if (params.whiten) {
 
-    // The blob-measure association in "whitened" basis (becomes
-    // the "reasponse" matrix in ress solving).
-    double_matrix_t R_white = U * A;
+        // std::cerr << "A:\n" << A << "\nmcov:\n" << mcov << "\nmcovinv:\n" << mcov.inverse() << std::endl;
+        Eigen::LLT<double_matrix_t> llt(mcov.inverse());
+        double_matrix_t U = llt.matrixL().transpose();
+        // std::cerr << "U:\n" << U << std::endl;
+ 
+        // The measure vector in a "whitened" basis
+        m_vec = params.scale*U*measure;
 
-    auto solution = Ress::solve(R_white, m_white, params.ress,
+        // The blob-measure association in "whitened" basis (becomes
+        // the "reasponse" matrix in ress solving).
+        R_mat = U * A;
+    }
+
+    // std::cerr << "R:\n" << R_mat << "\nm:\n" << m_vec << std::endl;
+    auto solution = Ress::solve(R_mat, m_vec, params.ress,
                                 source, weight);
-    auto predicted = Ress::predict(R_white, solution);
+    auto predicted = Ress::predict(R_mat, solution);
 
     auto& gp_out = csg_out[boost::graph_bundle];
-    gp_out.chi2_base = Ress::chi2_base(m_white, predicted);
-    gp_out.chi2_l1 = Ress::chi2_l1(m_white, solution, params.ress.lambda);
+    gp_out.chi2_base = Ress::chi2_base(m_vec, predicted);
+    gp_out.chi2_l1 = Ress::chi2_l1(m_vec, solution, params.ress.lambda);
 
     // Update outgoing blob nodes with their solution
     for (size_t ind=0; ind<nblob; ++ind) {
-        auto& bvalue = csg_out[blob_desc_out.collection[ind]];
+        auto& bvalue = csg_out[blob_descs_out.collection[ind]];
         //bvalue.value.value(solution[ind]);
         bvalue.value = solution[ind]; // drops weight
     }

@@ -28,7 +28,7 @@ local imgpipe(anode, outfile) = {
         img.tiling(),
         img.clustering(spans=spans),
         img.grouping(),
-        img.charge_solving(),
+        img.charge_solving(whiten=false),
         hs.io.cluster_file_sink(anode.data.ident, outfile),
     ], "img-" + anode.name),
 }.ret;

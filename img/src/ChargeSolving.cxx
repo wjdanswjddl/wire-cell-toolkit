@@ -43,9 +43,11 @@ WireCell::Configuration Img::ChargeSolving::default_configuration() const
     for (const auto& one : m_weighting_strategies) {
         cfg["weighting_strategies"].append(one);
     }
+    cfg["whiten"] = m_whiten;
 
     return cfg;
 }
+
 
 
 void blob_weight_uniform(const cluster_graph_t& /*cgraph*/, graph_t& csg)
@@ -58,6 +60,7 @@ void blob_weight_uniform(const cluster_graph_t& /*cgraph*/, graph_t& csg)
         vtx.value.uncertainty(1.0);
     }
 }
+
 void blob_weight_simple(const cluster_graph_t& cgraph, graph_t& csg)
 {
     for (auto desc : vertex_range(csg)) {
@@ -92,7 +95,7 @@ static blob_weighting_lut gStrategies{
     // distance....
 };
 
-
+// this depends on gStrategies.
 void Img::ChargeSolving::configure(const WireCell::Configuration& cfg)
 {
     float mt_val = get(cfg,"meas_value_threshold", m_meas_thresh.value());
@@ -114,7 +117,9 @@ void Img::ChargeSolving::configure(const WireCell::Configuration& cfg)
             THROW(ValueError() << errmsg{"Unknown weighting strategy: " + strat});
         }
     }
+    m_whiten = get<bool>(cfg, "whiten", m_whiten);
 }
+
 
 static void dump_cg(const cluster_graph_t& cg, Log::logptr_t& log)
 {
@@ -199,7 +204,7 @@ bool Img::ChargeSolving::operator()(const input_pointer& in, output_pointer& out
 
     const size_t nstrats = m_weighting_strategies.size();
 
-    SolveParams sparams{Ress::Params{Ress::lasso}};
+    SolveParams sparams{Ress::Params{Ress::lasso}, 1000, m_whiten};
     for (size_t ind = 0; ind < nstrats; ++ind) {
         const auto& strategy = m_weighting_strategies[ind];
         log->debug("cluster: {} strategy={}",
