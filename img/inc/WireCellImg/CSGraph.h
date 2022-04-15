@@ -140,6 +140,9 @@ namespace WireCell::Img::CS {
     };
     graph_t solve(const graph_t& csg, const SolveParams& params);
 
+    // Return a copy of the input retaining only blobs with charge
+    // above threshold.  Any blobless measures are also removed.
+    graph_t prune(const graph_t& csg, float threshold=0);
 }
 
 namespace std {

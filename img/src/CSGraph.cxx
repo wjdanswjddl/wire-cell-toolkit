@@ -189,6 +189,46 @@ graph_t CS::solve(const graph_t& csg, const SolveParams& params)
     return csg_out;
 }
 
+graph_t CS::prune(const graph_t& csg, float threshold)
+{
+    graph_t csg_out;
+
+    // Copy graph level properties
+    csg_out[boost::graph_bundle] = csg[boost::graph_bundle];
+    
+    size_t nblobs = 0;
+    std::unordered_map<vdesc_t, vdesc_t> old2new;
+    for (auto oldv : vertex_range(csg)) {
+        const auto& node = csg[oldv];
+        if (node.kind == node_t::blob) {
+            if (node.value.value() <= threshold) {
+                continue;
+            }
+            ++nblobs;
+        }
+        old2new[oldv] = boost::add_vertex(node, csg_out);
+    }
+    
+    if (!nblobs) {
+        return csg_out;
+    }
+
+    for (auto edge : mir(boost::edges(csg))) {
+        auto old_tail = boost::source(edge, csg);
+        auto old_head = boost::target(edge, csg);
+
+        auto old_tit = old2new.find(old_tail);
+        if (old_tit == old2new.end()) {
+            continue;
+        }
+        auto old_hit = old2new.find(old_head);
+        if (old_hit == old2new.end()) {
+            continue;
+        }
+        boost::add_edge(old_tit->second, old_hit->second, csg_out);
+    }    
+    return csg_out;
+}
 
 void CS::connected_subgraphs(const graph_t& slice_graph,
                              std::back_insert_iterator<graph_vector_t> subgraphs_out)
@@ -351,6 +391,8 @@ cluster_graph_t CS::repack(const cluster_graph_t& cgin,
             }
             if (node.kind == node_t::blob) {
                 live_bs[node.orig_desc] = node.value;
+                std::cerr << "blob " << node.orig_desc
+                          << " q=" << node.value << "\n";
                 continue;
             }
         }
@@ -386,7 +428,8 @@ cluster_graph_t CS::repack(const cluster_graph_t& cgin,
         old2new[oldv] = newv;
     }
 
-    // Pass over input graph edges and transfer any we know of.
+    // Pass over input graph edges and transfer any where we know both
+    // ends.
     for (auto edge : mir(boost::edges(cgin))) {
         auto old_tail = boost::source(edge, cgin);
         auto old_head = boost::target(edge, cgin);

@@ -203,6 +203,7 @@ bool Img::ChargeSolving::operator()(const input_pointer& in, output_pointer& out
     // }
 
     const size_t nstrats = m_weighting_strategies.size();
+    std::vector<float> blob_threshold(nstrats, 0); // fixme make configurable
 
     SolveParams sparams{Ress::Params{Ress::lasso}, 1000, m_whiten};
     for (size_t ind = 0; ind < nstrats; ++ind) {
@@ -216,11 +217,8 @@ bool Img::ChargeSolving::operator()(const input_pointer& in, output_pointer& out
                        [&](graph_t& sg) {
                            //dump_sg(sg, log);
                            blob_weighter(in_graph, sg);
-                           auto new_csg = solve(sg, sparams);
-
-                           // fixme: add blob threshold pruning
-
-                           return new_csg;
+                           auto tmp_csg = solve(sg, sparams);
+                           return prune(tmp_csg, blob_threshold[ind]);
                        });
     }
     for (const auto& sg : sgs) {
