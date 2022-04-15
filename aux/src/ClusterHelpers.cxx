@@ -129,9 +129,10 @@ Json::Value slice_jsoner(const cluster_node_t& n)
     Json::Value jerr = Json::objectValue;
     for (const auto& it : islice->activity()) {
         jact[String::format("%d", it.first->ident())] = it.second.value();
-        jact[String::format("%d", it.first->ident())] = it.second.uncertainty();
+        jerr[String::format("%d", it.first->ident())] = it.second.uncertainty();
     }
     ret["activity"] = jact;
+    ret["uncertainty"] = jerr;
     return ret;
 }
 

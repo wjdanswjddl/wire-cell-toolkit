@@ -391,8 +391,8 @@ cluster_graph_t CS::repack(const cluster_graph_t& cgin,
             }
             if (node.kind == node_t::blob) {
                 live_bs[node.orig_desc] = node.value;
-                std::cerr << "blob " << node.orig_desc
-                          << " q=" << node.value << "\n";
+                // std::cerr << "blob " << node.orig_desc
+                //           << " q=" << node.value << "\n";
                 continue;
             }
         }
@@ -426,6 +426,16 @@ cluster_graph_t CS::repack(const cluster_graph_t& cgin,
         // o.w. its a non-{b,m}
         auto newv = boost::add_vertex(node, cgtmp);
         old2new[oldv] = newv;
+
+        // debug
+        // if (code == 's') {
+        //     auto islice = get<ISlice::pointer>(node.ptr);
+        //     ISlice::value_t tot;
+        //     for (const auto& [ich, val] : islice->activity()) {
+        //         tot += val;
+        //     }
+        //     std::cerr << "slice " << islice->ident() << " " << tot << std::endl;
+        // }
     }
 
     // Pass over input graph edges and transfer any where we know both
