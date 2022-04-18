@@ -44,6 +44,32 @@ namespace WireCell {
             int m_tick0{0};
             // nticks
             int m_nticks{9592};
+
+	    //
+	    int m_nrebin{4};
+	    int m_length_cut{12};
+	    int m_time_cut{12};
+
+	    //
+	    int m_ch_threshold{100};
+
+	    int m_n_cover_cut1{12};
+	    int m_n_fire_cut1{14};
+	    int m_n_cover_cut2{6};
+	    int m_n_fire_cut2{6};
+	    float m_fire_threshold{0.22};
+	    
+	    std::vector<int> m_n_cover_cut3{1200,1200,1800};
+	    std::vector<float> m_percent_threshold{0.25,0.25,0.2};
+	    std::vector<float> m_threshold1{300,300,360};
+	    std::vector<float> m_threshold2{150,150,180};
+
+	    int m_min_time{3180};
+	    int m_max_time{7870};
+	    int m_flag_corr{0};
+
+	    float m_global_threshold{0.048};
+	    
         };
     }  // namespace Img
 }  // namespace WireCell
