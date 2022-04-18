@@ -10,5 +10,6 @@
     img :: import "helpers/img.jsonnet",
     frames :: import "helpers/frames.jsonnet",
     magnify :: import "helpers/magnify.jsonnet",
+    old_params :: import "helpers/old_params.jsonnet",
 }
     

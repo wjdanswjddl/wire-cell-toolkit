@@ -70,7 +70,10 @@ bool Sio::ClusterFileSink::operator()(const ICluster::pointer& cluster)
     }
     
     auto frame = Aux::find_frame(cluster);
-    auto cname = Aux::name(frame);
+    std::string cname = "noframe";
+    if (frame) {
+        cname = Aux::name(frame);
+    }
     cname += "_";
     cname += Aux::name(cluster);
     cname += ".json";
@@ -81,7 +84,10 @@ bool Sio::ClusterFileSink::operator()(const ICluster::pointer& cluster)
     auto tops = topss.str();
 
 
-    log->debug("call={} output {} with {} bytes to {}",
+    log->debug("cluster: {}, nvertices={} nedges={} call={} output {} with {} bytes to {}",
+               cluster->ident(),
+               boost::num_vertices(cluster->graph()),
+               boost::num_edges(cluster->graph()),
                m_count, cname, tops.size(), m_outname );
 
     m_out << "name " << cname << "\n"

@@ -3,9 +3,14 @@
 // and
 // https://github.com/BNLIF/wire-cell-2dtoy/blob/master/src/MatrixSolver.cxx
 
+
 #include "WireCellImg/ChargeSolving.h"
+#include "WireCellImg/CSGraph.h"
+
+#include "WireCellIface/SimpleCluster.h"
 #include "WireCellUtil/NamedFactory.h"
 #include "WireCellUtil/Logging.h"
+
 #include <iterator>
 
 WIRECELL_FACTORY(ChargeSolving, WireCell::Img::ChargeSolving,
@@ -13,6 +18,10 @@ WIRECELL_FACTORY(ChargeSolving, WireCell::Img::ChargeSolving,
                  WireCell::IClusterFilter, WireCell::IConfigurable)
 
 using namespace WireCell;
+using namespace WireCell::Img;
+using namespace WireCell::Img::CS;
+
+
 
 Img::ChargeSolving::ChargeSolving()
     : Aux::Logger("ChargeSolving", "img")
@@ -21,220 +30,209 @@ Img::ChargeSolving::ChargeSolving()
 
 Img::ChargeSolving::~ChargeSolving() {}
 
-void Img::ChargeSolving::configure(const WireCell::Configuration& cfg)
-{
-    m_minimum_measure = get(cfg, "minimum_measure", m_minimum_measure);
-    m_lasso_tolerance = get(cfg, "lasso_tolerance", m_lasso_tolerance);
-    m_lasso_minnorm = get(cfg, "lasso_minnorm", m_lasso_minnorm);
-}
-
 WireCell::Configuration Img::ChargeSolving::default_configuration() const
 {
     WireCell::Configuration cfg;
-    cfg["minimum_measure"] = m_minimum_measure;
+    cfg["meas_value_threshold"] = m_meas_thresh.value();
+    cfg["meas_error_threshold"] = m_meas_thresh.uncertainty();
+    cfg["blob_value_threshold"] = m_blob_thresh.value();
+    cfg["blob_error_threshold"] = m_blob_thresh.uncertainty();
+
     cfg["lasso_tolerance"] = m_lasso_tolerance;
     cfg["lasso_minnorm"] = m_lasso_minnorm;
+    for (const auto& one : m_weighting_strategies) {
+        cfg["weighting_strategies"].append(one);
+    }
+
     return cfg;
 }
 
-// Return a vector of connected b-m (only) graphs from the slice.
-static std::vector<cluster_indexed_graph_t>
-slice_graph_groups(cluster_indexed_graph_t& grind, ISlice::pointer islice)
+
+void blob_weight_uniform(const cluster_graph_t& /*cgraph*/, graph_t& csg)
 {
-    // Get the blobs in the slice.
-    std::vector<cluster_node_t> bms;
-    grind.neighbors(back_inserter(bms), cluster_node_t(islice),
-                    [](const cluster_node_t& cn) {
-                        return cn.code() == 'b';
-                    });
-
-    // find the m's neighbors to these b's
-    std::unordered_set<cluster_node_t> mnodes;
-    for (auto& bnode : bms) {
-        grind.neighbors(std::inserter(mnodes, mnodes.end()), bnode, 
-                        [](const cluster_node_t& cn) {
-                            return cn.code() == 'm';
-                        });
-    }
-
-    // Collect b's and m's
-    bms.insert(bms.end(), mnodes.begin(), mnodes.end());
-
-    // Induce a subgraph with just the b's and m's from the slice.
-    auto sg = grind.induced_subgraph(bms.begin(), bms.end());
-
-    // Partition b's and m's into connected sub sets.  This is a map
-    // from group number to vector.  Group number doesn't have any
-    // particular meaning.
-    auto groups = sg.groups();
-
-    // Convert each group of vertices into a subgraph
-    std::vector<cluster_indexed_graph_t> ret;
-    for (auto& group : groups) {
-        ret.push_back(sg.induced_subgraph(group.second.begin(), group.second.end()));
-    }
-    return ret;
-}
-
-
-// Return an inherent ordering value for a blob.  It does not matter
-// what ordering results but it must be stable on re-running.  So, no
-// pointers.  The Blob ident is set at blob creation so is inherent
-// and stable in that scope if the same slice is re-tiled.
-int blob_ordering(const IBlob::pointer& blob)
-{
-    return blob->ident();
-}
-
-    
-// Return an inherent ordering value for a measure.  It does not
-// matter what ordering results but it must be stable on re-running.
-// We return the smallest channel ident in the measure on the
-// assumption that each measure has a unique set of channels w/in
-// its slice.
-static int measure_ordering(const IChannel::shared_vector& m)
-{
-    int order = 0x7fffffff;
-    for (const auto& one : *m) {
-        int ident = one->ident();
-        if (ident < order) {
-            order = ident;
-        }
-    }
-    return order;
-}
-
-// Return the sum of values on channels in the meaure
-static ISlice::value_t measure_sum(const IChannel::shared_vector& imeas, const ISlice::pointer& islice)
-{
-    // Use double for the sum for a little extra precision.
-    WireCell::Measurement::float64 value = 0;
-
-    const auto& activity = islice->activity();
-    for (const auto& ich : *(imeas.get())) {
-        const auto& it = activity.find(ich);
-        if (it == activity.end()) {
+    for (auto desc : vertex_range(csg)) {
+        auto& vtx = csg[desc];
+        if (vtx.kind != node_t::blob) {
             continue;
         }
-        value += it->second;
+        vtx.value.uncertainty(1.0);
     }
-    return ISlice::value_t(value);
 }
+void blob_weight_simple(const cluster_graph_t& cgraph, graph_t& csg)
+{
+    for (auto desc : vertex_range(csg)) {
+        auto& vtx = csg[desc];
+        if (vtx.kind != node_t::blob) {
+            continue;
+        }
+        // get neighbors in original cluster graph
+        // count how many unique slices have connected blobs
+        // add 1.0.  that's the simple weight.
+        std::unordered_set<int> slice_idents;
+        slice_idents.insert(csg[boost::graph_bundle].islice->ident());
+        for (auto edge : mir(boost::out_edges(vtx.orig_desc, cgraph)))
+        {
+            vdesc_t ndesc = boost::target(edge, cgraph);
+            const auto& nnode = cgraph[ndesc];
+            if (nnode.code() == 'b') {
+                slice_idents.insert(get<blob_node_t>(nnode.ptr)->slice()->ident());
+            }
+        }
+        vtx.value.uncertainty((float) slice_idents.size());
+    }
+}
+// fixme: implement distance.
 
-
-
-
-// using ress_vector_t = WireCell::Ress::vector_t;
-// using ress_matrix_t = WireCell::Ress::matrix_t;
-
-// We need to associate some things with a "measure"
-struct MeasureInfo {
-    // Some value on which an arbitrary but stable sort order can be
-    // formed.
-    int ordering;
-    // The measure representation in the indexed graph
-    IChannel::shared_vector node;
-    // The value+error summed over the measure
-    ISlice::value_t value;
+// Weighting function lookup
+using blob_weighting_f = std::function<void(const cluster_graph_t& cgraph, graph_t& csg)>;
+using blob_weighting_lut = std::unordered_map<std::string, blob_weighting_f>;
+static blob_weighting_lut gStrategies{
+    {"uniform", blob_weight_uniform},
+    {"simple", blob_weight_simple},
+    // distance....
 };
-using minfo_vector_t = std::vector<MeasureInfo>;
 
-// This will return an ordered vector of measure info for
-// measures in the graph with passes threshold.  Threshold value
-// is taken as a minimum and threshold error as a maximum, but with
-// either <= 0, either theshold condition is not applied.
-static
-minfo_vector_t make_minfos(ISlice::pointer islice,
-                           cluster_indexed_graph_t sg,
-                           ISlice::value_t threshold)
+
+void Img::ChargeSolving::configure(const WireCell::Configuration& cfg)
 {
-    minfo_vector_t ret;
-    for (auto imeas : oftype<IChannel::shared_vector>(sg)) {
-        auto valerr = measure_sum(imeas, islice);
-        const auto tvalue = threshold.value();
-        if (tvalue > 0 and valerr.value() < tvalue) {
-            continue;
-        }
-        const auto terror = threshold.uncertainty();        
-        if (tvalue > 0 and valerr.uncertainty() > terror) {
-            continue;
-        }
-        auto ordering = measure_ordering(imeas);
-        ret.emplace_back(MeasureInfo{ordering, imeas, valerr});
-    }
-    std::sort(ret.begin(), ret.end(), [](const MeasureInfo& a,
-                                         const MeasureInfo& b) {
-        return a.ordering < b.ordering;
-    });
+    float mt_val = get(cfg,"meas_value_threshold", m_meas_thresh.value());
+    float mt_err = get(cfg,"meas_error_threshold", m_meas_thresh.uncertainty());
+    m_meas_thresh = value_t(mt_val, mt_err);
 
+    float bt_val = get(cfg,"blob_value_threshold", m_blob_thresh.value());
+    float bt_err = get(cfg,"blob_error_threshold", m_blob_thresh.uncertainty());
+    m_blob_thresh = value_t(bt_val, bt_err);
+
+    m_lasso_tolerance = get(cfg, "lasso_tolerance", m_lasso_tolerance);
+    m_lasso_minnorm = get(cfg, "lasso_minnorm", m_lasso_minnorm);
+
+    m_weighting_strategies =
+        get<std::vector<std::string>>(cfg, "weighting_strategies",
+                                      m_weighting_strategies);
+    for (const auto& strat : m_weighting_strategies) {
+        if (gStrategies.find(strat) == gStrategies.end()) {
+            THROW(ValueError() << errmsg{"Unknown weighting strategy: " + strat});
+        }
+    }
+}
+
+static void dump_cg(const cluster_graph_t& cg, Log::logptr_t& log)
+{
+    size_t mcount{0};
+    value_t bval;
+    for (const auto& vtx : mir(boost::vertices(cg))) {
+        const auto& node = cg[vtx];
+        if (node.code() == 'b') {
+            const auto iblob = get<blob_node_t>(node.ptr);
+            bval += value_t(iblob->value(), iblob->uncertainty());
+            continue;
+        }
+        if (node.code() == 'm') {
+            const auto imeas = get<meas_node_t>(node.ptr);
+            mcount += imeas->size();
+        }
+    }
+    log->debug("cluster graph: vertices={} edges={} bval={} #chan={}",
+               boost::num_vertices(cg), boost::num_edges(cg),
+               bval, mcount);
+}
+
+static void dump_sg(const graph_t& sg, Log::logptr_t& log)
+{
+    value_t bval, mval;
+    const auto& gval = sg[boost::graph_bundle];
+
+    int nblob{0}, nmeas{0};
+
+    for (const auto& vtx : mir(boost::vertices(sg))) {
+        const auto& node = sg[vtx];
+        
+        if (node.kind == node_t::blob) {
+            bval += node.value;
+            ++nblob;
+            continue;
+        }
+        if (node.kind == node_t::meas) {
+            mval += node.value;
+            ++nmeas;
+            continue;
+        }
+    }
+
+    log->debug("cs graph: slice={} index={} vertices={} edges={} nblob={} bval={} nmeas={} mval={}",
+               gval.islice->ident(), gval.index,
+               boost::num_vertices(sg), boost::num_edges(sg),
+               nblob, bval, nmeas, mval);
+}
+
+value_t total_value(const graph_t& sg, node_t::Kind kind)
+{
+    value_t ret;
+    for (auto desc : vertex_range(sg)) {
+        const auto& node = sg[desc];
+        if (node.kind == kind) {
+            ret += node.value;
+        }
+    }
     return ret;
 }
 
-struct BlobInfo {
-    int ordering;
-    IBlob::pointer node;
-    double weight{0};
-};
-using binfo_vector_t = std::vector<BlobInfo>;
-
-static
-binfo_vector_t make_binfos(ISlice::pointer islice,
-                           cluster_indexed_graph_t sg)
-{
-    binfo_vector_t ret;
-    for (auto iblob : oftype<IBlob::pointer>(sg)) {
-        auto ordering = blob_ordering(iblob);
-        ret.emplace_back(BlobInfo{ordering, iblob});
-    }
-    
-    std::sort(ret.begin(), ret.end(), [](const BlobInfo& a,
-                                         const BlobInfo& b) {
-        return a.ordering < b.ordering;
-    });
-
-    return ret;
-}
-
-
-
-static
-void solve(cluster_indexed_graph_t& full, ISlice::pointer islice,
-           cluster_indexed_graph_t sg)
-{
-    // Get ordered blob info
-    auto binfos = make_binfos(islice, sg);
-
-    // Get ordered measure info
-    auto minfos = make_minfos(islice, sg, 0.0);
-
-
-    // get sum for each measure.  value makes vector m and uncertainty
-    // makes diagonal matrix C_m.
-    
-
-    // get overlap with neighboring blobs as a form of weight.  This
-    // is the beta of Lasso.
-}
 
 bool Img::ChargeSolving::operator()(const input_pointer& in, output_pointer& out)
 {
+    out = nullptr;
     if (!in) {
-        out = nullptr;
         log->debug("EOS");
         return true;
     }
 
-    cluster_indexed_graph_t grind(in->graph());
+    // Separate the big graph spanning the whole frame into connected
+    // b-m subgraphs with all the info needed for solving each round.
+    graph_vector_t sgs;
+    const auto in_graph = in->graph();
+    dump_cg(in_graph, log);
+    unpack(in_graph, std::back_inserter(sgs), m_meas_thresh);
 
-    for (auto islice : oftype<ISlice::pointer>(grind)) {
-        // For each of connected b-m graphs from the slice
-        for (const auto& sg : slice_graph_groups(grind, islice)) {
-            solve(grind, islice, sg);
+    // for (const auto& sg : sgs) {
+    //     dump_sg(sg, log);
+    // }
 
-            // update blobs in grind from solved versions
-        }
-        
+    const size_t nstrats = m_weighting_strategies.size();
+
+    SolveParams sparams{Ress::Params{Ress::lasso}};
+    for (size_t ind = 0; ind < nstrats; ++ind) {
+        const auto& strategy = m_weighting_strategies[ind];
+        log->debug("cluster: {} strategy={}",
+                   in->ident(), strategy);
+
+        auto& blob_weighter = gStrategies[strategy];
+
+        std::transform(sgs.begin(), sgs.end(), sgs.begin(),
+                       [&](graph_t& sg) {
+                           //dump_sg(sg, log);
+                           blob_weighter(in_graph, sg);
+                           auto new_csg = solve(sg, sparams);
+
+                           // fixme: add blob threshold pruning
+
+                           return new_csg;
+                       });
     }
+    for (const auto& sg : sgs) {
+        dump_sg(sg, log);
+    }
+    log->debug("cluster={} solved nsubclusters={} over nstrategies={}",
+               in->ident(), sgs.size(), m_weighting_strategies.size());
 
+    auto packed = repack(in_graph, sgs);
+
+    log->debug("cluster={} nvertices={} nedges={}",
+               in->ident(),
+               boost::num_vertices(packed),
+               boost::num_edges(packed));
+
+    out = std::make_shared<SimpleCluster>(packed, in->ident());
     return true;
 }
+
+
