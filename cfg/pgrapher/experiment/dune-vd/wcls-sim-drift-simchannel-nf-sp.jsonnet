@@ -21,6 +21,7 @@ local fcl_params = {
     nticks: std.extVar('nticks'),
     ncrm: std.extVar('ncrm'),
     use_dnnroi: std.extVar('use_dnnroi'),
+    process_crm: std.extVar('process_crm'),
 };
 local params = params_maker(fcl_params) {
   lar: super.lar {
@@ -40,7 +41,11 @@ local params = params_maker(fcl_params) {
   },
 };
 
-local tools = tools_maker(params);
+local tools_all = tools_maker(params);
+local tools =
+if fcl_params.process_crm == "partial"
+then tools_all {anodes: [tools_all.anodes[n] for n in std.range(32, 79)]}
+else tools_all;
 
 local sim_maker = import 'pgrapher/experiment/dune-vd/sim.jsonnet';
 local sim = sim_maker(params, tools);
@@ -188,7 +193,7 @@ local wcls_simchannel_sink = g.pnode({
 }, nin=1, nout=1, uses=tools.anodes);
 
 local magoutput = 'mag-sim-sp.root';
-local magnify = import 'pgrapher/experiment/pdsp/magnify-sinks.jsonnet';
+local magnify = import 'pgrapher/experiment/dune-vd/magnify-sinks.jsonnet';
 local sinks = magnify(tools, magoutput);
 
 local multipass = [
@@ -213,7 +218,7 @@ local outtags = ['orig%d' % n for n in anode_iota];
 local bi_manifold =
     if fcl_params.ncrm == 36
     then f.multifanpipe('DepoSetFanout', multipass, 'FrameFanin', [1,6], [6,6], [1,6], [6,6], 'sn_mag', outtags)
-    else if fcl_params.ncrm == 48
+    else if fcl_params.ncrm == 48 || fcl_params.process_crm == "partial"
     then f.multifanpipe('DepoSetFanout', multipass, 'FrameFanin', [1,8], [8,6], [1,8], [8,6], 'sn_mag', outtags)
     else if fcl_params.ncrm == 112
     then f.multifanpipe('DepoSetFanout', multipass, 'FrameFanin', [1,8,16], [8,2,7], [1,8,16], [8,2,7], 'sn_mag', outtags);
@@ -239,7 +244,7 @@ local retagger = g.pnode({
 local sink = sim.frame_sink;
 
 local graph = g.pipeline([wcls_input.depos, drifter, wcls_simchannel_sink, bagger, bi_manifold, retagger, wcls_output.sp_signals, sink]);
-// local graph = g.pipeline([wcls_input.depos, drifter, wcls_simchannel_sink, bagger, multipass[15], retagger, wcls_output.sp_signals, sink]);
+// local graph = g.pipeline([wcls_input.depos, drifter, wcls_simchannel_sink, bagger, multipass[36], retagger, wcls_output.sp_signals, sink]);
 
 local app = {
     type: 'Pgrapher', //Pgrapher, TbbFlow
