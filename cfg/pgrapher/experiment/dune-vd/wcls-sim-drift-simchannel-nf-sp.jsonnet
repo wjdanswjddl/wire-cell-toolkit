@@ -45,6 +45,8 @@ local tools_all = tools_maker(params);
 local tools =
 if fcl_params.process_crm == "partial"
 then tools_all {anodes: [tools_all.anodes[n] for n in std.range(32, 79)]}
+else if fcl_params.process_crm == "test"
+then tools_all {anodes: [tools_all.anodes[n] for n in [36, 44]]}
 else tools_all;
 
 local sim_maker = import 'pgrapher/experiment/dune-vd/sim.jsonnet';
@@ -78,6 +80,15 @@ local mega_anode = {
     anodes_tn: [wc.tn(anode) for anode in tools.anodes],
   },
 };
+
+// WirePlaneLayer_t -> geo::_plane_proj
+// U, V, W (1, 2, 4) -> U, V, W, Y (0, 1, 2, 3)
+local planemaps = {
+ dunevd_3view: {"1":0, "2":3, "4":2},
+ default: {"1":0, "2":1, "4":2}
+};
+local planemap = planemaps[std.extVar("geo_planeid_labels")];
+
 local wcls_output = {
   // ADC output from simulation
   // sim_digits: wcls.output.digits(name="simdigits", tags=["orig"]),
@@ -95,21 +106,24 @@ local wcls_output = {
     },
   }, nin=1, nout=1, uses=[mega_anode]),
 
-  // The noise filtered "ADC" values.  These are truncated for
-  // art::Event but left as floats for the WCT SP.  Note, the tag
-  // "raw" is somewhat historical as the output is not equivalent to
-  // "raw data".
-  nf_digits: wcls.output.digits(name='nfdigits', tags=['raw']),
-
   // The output of signal processing.  Note, there are two signal
   // sets each created with its own filter.  The "gauss" one is best
   // for charge reconstruction, the "wiener" is best for S/N
   // separation.  Both are used in downstream WC code.
-  sp_signals: wcls.output.signals(name='spsignals', tags=['gauss', 'wiener']),
-
-  // save "threshold" from normal decon for each channel noise
-  // used in imaging
-  sp_thresholds: wcls.output.thresholds(name='spthresholds', tags=['threshold']),
+  // sp_signals: wcls.output.signals(name='spsignals', tags=['gauss', 'wiener']),
+  sp_signals: g.pnode({
+    type: 'wclsFrameSaver',
+    name: 'spsignals',
+    data: {
+      plane_map: planemap,
+      anode: wc.tn(mega_anode),
+      digitize: false,  // true means save as RawDigit, else recob::Wire
+      frame_tags: ['gauss', 'wiener'],
+      frame_scale: [0.005, 0.005],
+      chanmaskmaps: [],
+      nticks: params.daq.nticks,
+    },
+  }, nin=1, nout=1, uses=[mega_anode]),
 };
 
 //local deposio = io.numpy.depos(output);
@@ -214,12 +228,14 @@ local multipass = [
 ];
 
 local f = import 'pgrapher/experiment/dune-vd/funcs.jsonnet';
-local outtags = ['orig%d' % n for n in anode_iota];
+local outtags = ['gauss%d' % anode.data.ident for anode in tools.anodes];
 local bi_manifold =
     if fcl_params.ncrm == 36
     then f.multifanpipe('DepoSetFanout', multipass, 'FrameFanin', [1,6], [6,6], [1,6], [6,6], 'sn_mag', outtags)
     else if fcl_params.ncrm == 48 || fcl_params.process_crm == "partial"
     then f.multifanpipe('DepoSetFanout', multipass, 'FrameFanin', [1,8], [8,6], [1,8], [8,6], 'sn_mag', outtags)
+    else if fcl_params.process_crm == "test"
+    then f.multifanpipe('DepoSetFanout', multipass, 'FrameFanin', [1,2], [2,1], [1,2], [2,1], 'sn_mag', outtags)
     else if fcl_params.ncrm == 112
     then f.multifanpipe('DepoSetFanout', multipass, 'FrameFanin', [1,8,16], [8,2,7], [1,8,16], [8,2,7], 'sn_mag', outtags);
 
@@ -231,10 +247,11 @@ local retagger = g.pnode({
       // Retagger also handles "frame" and "trace" like fanin/fanout
       // merge separately all traces like gaussN to gauss.
       frame: {
-        '.*': 'orig',
+        '.*': 'retagger',
       },
       merge: {
-        'orig\\d+': 'daq',
+        'gauss\\d+': 'gauss',
+        'wiener\\d+': 'wiener',
       },
     }],
   },

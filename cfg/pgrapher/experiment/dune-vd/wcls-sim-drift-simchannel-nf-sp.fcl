@@ -13,7 +13,7 @@ physics :{
             apps: ["Pgrapher"]
             # apps: ["TbbFlow"]
 
-            logsinks: ["stdout:info", "wcls-sim-drift-simchannel.log:debug"]
+            logsinks: ["stdout:info", "wcls-sim-drift-simchannel-nf-sp.log:debug"]
             loglevels: ["debug"]
 
             plugins: ["WireCellPgraph", "WireCellGen","WireCellSio","WireCellRoot","WireCellLarsoft"
@@ -52,8 +52,12 @@ physics :{
               # dunevd10kt-1x6x6-3view30deg-noise-spectra-v1.json.bz2
               # dunevd10kt-1x6x6-2view-noise-spectra-v1.json.bz2
               files_noise: "dunevd10kt-1x6x6-3view-noise-spectra-v1.json.bz2"
-              # process pratial or all CRMs: all or partial
-              process_crm: "partial"
+                # set mapping between internal wct plane ids and larsoft
+                # default is to assume WireCell::kU->geo::kU, kV->kV, kW->kW
+                # 3view-30deg: default, 3view: dunevd_3view
+                geo_planeid_labels: "dunevd_3view"
+                # process pratial or all CRMs: all or partial
+                process_crm: "test"
             }
             structs: {
               # number of time samples
