@@ -57,7 +57,7 @@ physics :{
                 # 3view-30deg: default, 3view: dunevd_3view
                 geo_planeid_labels: "dunevd_3view"
                 # process pratial or all CRMs: all or partial
-                process_crm: "test"
+                process_crm: "partial"
             }
             structs: {
               # number of time samples

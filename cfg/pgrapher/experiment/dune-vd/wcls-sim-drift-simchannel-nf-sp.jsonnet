@@ -45,7 +45,9 @@ local tools_all = tools_maker(params);
 local tools =
 if fcl_params.process_crm == "partial"
 then tools_all {anodes: [tools_all.anodes[n] for n in std.range(32, 79)]}
-else if fcl_params.process_crm == "test"
+else if fcl_params.process_crm == "test1"
+then tools_all {anodes: [tools_all.anodes[n] for n in [36]]}
+else if fcl_params.process_crm == "test2"
 then tools_all {anodes: [tools_all.anodes[n] for n in [36, 44]]}
 else tools_all;
 
@@ -214,14 +216,14 @@ local multipass = [
   g.pipeline([
                 // wcls_simchannel_sink[n],
                 sn_pipes[n],
-                sinks.orig_pipe[n],
+                // sinks.orig_pipe[n],
                 // nf_pipes[n],
                 sp_pipes[n],
-                sinks.decon_pipe[n],
+                // sinks.decon_pipe[n],
                 // sinks.debug_pipe[n], // use_roi_debug_mode=true in sp.jsonnet
              ] + if fcl_params.use_dnnroi then [
                  hs.dnnroi(tools.anodes[n], ts, output_scale=1.2),
-                 sinks.dnnroi_pipe[n],
+                //  sinks.dnnroi_pipe[n],
              ] else [],
              'multipass%d' % n)
   for n in anode_iota
@@ -244,7 +246,9 @@ local bi_manifold =
     then f.multifanpipe('DepoSetFanout', multipass, 'FrameFanin', [1,6], [6,6], [1,6], [6,6], 'sn_mag', outtags, tag_rules)
     else if fcl_params.ncrm == 48 || fcl_params.process_crm == "partial"
     then f.multifanpipe('DepoSetFanout', multipass, 'FrameFanin', [1,8], [8,6], [1,8], [8,6], 'sn_mag', outtags, tag_rules)
-    else if fcl_params.process_crm == "test"
+    else if fcl_params.process_crm == "test1"
+    then f.multifanpipe('DepoSetFanout', multipass, 'FrameFanin', [1,1], [1,1], [1,1], [1,1], 'sn_mag', outtags, tag_rules)
+    else if fcl_params.process_crm == "test2"
     then f.multifanpipe('DepoSetFanout', multipass, 'FrameFanin', [1,2], [2,1], [1,2], [2,1], 'sn_mag', outtags, tag_rules)
     else if fcl_params.ncrm == 112
     then f.multifanpipe('DepoSetFanout', multipass, 'FrameFanin', [1,8,16], [8,2,7], [1,8,16], [8,2,7], 'sn_mag', outtags, tag_rules);
