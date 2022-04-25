@@ -118,8 +118,8 @@ local wcls_output = {
       plane_map: planemap,
       anode: wc.tn(mega_anode),
       digitize: false,  // true means save as RawDigit, else recob::Wire
-      frame_tags: ['gauss', 'wiener'],
-      frame_scale: [0.005, 0.005],
+      frame_tags: ['gauss', 'wiener','dnnsp'],
+      frame_scale: [0.005, 0.005, 0.005],
       chanmaskmaps: [],
       nticks: params.daq.nticks,
     },
@@ -175,7 +175,7 @@ local ts = {
     type: "TorchService",
     name: "dnnroi",
     data: {
-        model: "unet-l23-cosmic500-e50.ts",
+        model: "ts-model/unet-l23-cosmic500-e50.ts",
         device: "gpucpu",
         concurrency: 1,
     },
@@ -228,16 +228,26 @@ local multipass = [
 ];
 
 local f = import 'pgrapher/experiment/dune-vd/funcs.jsonnet';
-local outtags = ['gauss%d' % anode.data.ident for anode in tools.anodes];
+// local outtags = ['gauss%d' % anode.data.ident for anode in tools.anodes];
+local outtags = [];
+local tag_rules = {
+    frame: {
+        '.*': 'framefanin',
+    },
+    trace: {['gauss%d' % anode.data.ident]: ['gauss%d' % anode.data.ident] for anode in tools.anodes}
+        + {['wiener%d' % anode.data.ident]: ['wiener%d' % anode.data.ident] for anode in tools.anodes}
+        + {['threshold%d' % anode.data.ident]: ['threshold%d' % anode.data.ident] for anode in tools.anodes}
+        + {['dnnsp%d' % anode.data.ident]: ['dnnsp%d' % anode.data.ident] for anode in tools.anodes},
+};
 local bi_manifold =
     if fcl_params.ncrm == 36
-    then f.multifanpipe('DepoSetFanout', multipass, 'FrameFanin', [1,6], [6,6], [1,6], [6,6], 'sn_mag', outtags)
+    then f.multifanpipe('DepoSetFanout', multipass, 'FrameFanin', [1,6], [6,6], [1,6], [6,6], 'sn_mag', outtags, tag_rules)
     else if fcl_params.ncrm == 48 || fcl_params.process_crm == "partial"
-    then f.multifanpipe('DepoSetFanout', multipass, 'FrameFanin', [1,8], [8,6], [1,8], [8,6], 'sn_mag', outtags)
+    then f.multifanpipe('DepoSetFanout', multipass, 'FrameFanin', [1,8], [8,6], [1,8], [8,6], 'sn_mag', outtags, tag_rules)
     else if fcl_params.process_crm == "test"
-    then f.multifanpipe('DepoSetFanout', multipass, 'FrameFanin', [1,2], [2,1], [1,2], [2,1], 'sn_mag', outtags)
+    then f.multifanpipe('DepoSetFanout', multipass, 'FrameFanin', [1,2], [2,1], [1,2], [2,1], 'sn_mag', outtags, tag_rules)
     else if fcl_params.ncrm == 112
-    then f.multifanpipe('DepoSetFanout', multipass, 'FrameFanin', [1,8,16], [8,2,7], [1,8,16], [8,2,7], 'sn_mag', outtags);
+    then f.multifanpipe('DepoSetFanout', multipass, 'FrameFanin', [1,8,16], [8,2,7], [1,8,16], [8,2,7], 'sn_mag', outtags, tag_rules);
 
 local retagger = g.pnode({
   type: 'Retagger',
@@ -252,6 +262,7 @@ local retagger = g.pnode({
       merge: {
         'gauss\\d+': 'gauss',
         'wiener\\d+': 'wiener',
+        'dnnsp\\d+': 'dnnsp',
       },
     }],
   },
