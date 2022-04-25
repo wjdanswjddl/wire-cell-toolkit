@@ -1,8 +1,9 @@
 #include "WireCellSio/ClusterFileSink.h"
 
 #include "WireCellAux/ClusterHelpers.h"
+#include "WireCellAux/ClusterArrays.h"
 
-#include "WireCellUtil/Units.h"
+#include "WireCellUtil/Stream.h"
 #include "WireCellUtil/Exceptions.h"
 #include "WireCellUtil/NamedFactory.h"
 
@@ -77,7 +78,21 @@ void dotify(Sio::ClusterFileSink::ostream_t& out, const ICluster& cluster, const
 static 
 void numpify(Sio::ClusterFileSink::ostream_t& out, const ICluster& cluster, const std::string& prefix)
 {
-
+    Aux::ClusterArrays ca(cluster.graph());
+    
+    std::stringstream ss;
+    ss << prefix << "_" << cluster.ident() << "_";
+    std::string arrpre = ss.str();
+    
+    Stream::write(out, arrpre + "idents", ca.idents());
+    Stream::write(out, arrpre + "edges", ca.edges());
+    Stream::write(out, arrpre + "ranges", ca.node_ranges());
+    Stream::write(out, arrpre + "signals", ca.signals());
+    Stream::write(out, arrpre + "slice_durations", ca.slice_durations());
+    Stream::write(out, arrpre + "wire_endpoints", ca.wire_endpoints());
+    Stream::write(out, arrpre + "wire_addresses", ca.wire_addresses());
+    Stream::write(out, arrpre + "blob_shapes", ca.blob_shapes());
+    out.flush();
 }
 
 void Sio::ClusterFileSink::configure(const WireCell::Configuration& cfg)

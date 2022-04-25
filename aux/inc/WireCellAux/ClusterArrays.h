@@ -53,7 +53,7 @@ namespace WireCell::Aux {
         // vertex descriptors) holding node array indices.  This array
         // is only required if node arrays are accessed in graph node
         // order.
-        using vdesc_indices_t = boost::multi_array<size_t, 1>;
+        using vdesc_indices_t = boost::multi_array<size_t, 1ul>;
         const vdesc_indices_t& vdesc_indices() const;
       private:
         mutable vdesc_indices_t m_vdesc_indices;
@@ -62,7 +62,7 @@ namespace WireCell::Aux {
         // A node array giving graph vertex descriptors.  This array
         // is only required if graph nodes are to be accessed in
         // node-array order.
-        using vdescs_t = boost::multi_array<cluster_vertex_t, 1>;
+        using vdescs_t = boost::multi_array<cluster_vertex_t, 1ul>;
         const vdescs_t& graph_vertices() const;
       private:
         mutable vdescs_t m_vdescs;
@@ -70,7 +70,7 @@ namespace WireCell::Aux {
       public:
         // Nedge rows, columns are indices (not vdescs!) for
         // (tail,head) nodes.  Ordered by tail then head.
-        using edges_t = boost::multi_array<size_t, 2>;
+        using edges_t = boost::multi_array<size_t, 2ul>;
         const edges_t& edges() const;
       private:
         mutable edges_t m_edges;
@@ -87,7 +87,7 @@ namespace WireCell::Aux {
         ntype_range(char code) const;
         
         /// Return (5,2) array of all node parition ranges.
-        using node_ranges_t = boost::multi_array<size_t, 2>;
+        using node_ranges_t = boost::multi_array<size_t, 2ul>;
         const node_ranges_t& node_ranges() const;
       private:
         mutable node_ranges_t m_node_ranges;
@@ -95,7 +95,7 @@ namespace WireCell::Aux {
       public:
         // The full node array of node idents.  Note, m-node idents
         // are taken as the ident of their first channel.
-        using idents_t = boost::multi_array<int, 1>;
+        using idents_t = boost::multi_array<int, 1ul>;
         const idents_t& idents() const;
       private:
         mutable idents_t m_idents;
@@ -106,7 +106,7 @@ namespace WireCell::Aux {
         // First column is central value, second is uncertainty.  A
         // w-node has zero signal value and uncertainty.
         using value_t = ISlice::value_t;
-        using signals_t = boost::multi_array<float, 2>;
+        using signals_t = boost::multi_array<float, 2LU>;
         const signals_t& signals() const;
       private:
         mutable signals_t m_signals;
@@ -115,7 +115,7 @@ namespace WireCell::Aux {
       public:
         // Slice node type array of shape (Nslices, 2) giving slice
         // duration with columns (start time, time span).
-        using slice_durations_t = boost::multi_array<float, 2>;
+        using slice_durations_t = boost::multi_array<float, 2ul>;
         const slice_durations_t& slice_durations() const;
       private:
         mutable slice_durations_t m_slice_durations;
@@ -125,14 +125,14 @@ namespace WireCell::Aux {
         // (Nwire, 2, 3) where second dimension is first tail and
         // second head wire endpoint and last dimension is 3-vector in
         // global detector volume coordinates.
-        using wire_endpoints_t = boost::multi_array<float, 3>;
+        using wire_endpoints_t = boost::multi_array<float, 3ul>;
         const wire_endpoints_t& wire_endpoints() const;
       private:
         mutable wire_endpoints_t m_wire_endpoints;
 
       public:
         // Wire addresses is (Nwire, 4) with columns (WIP, segment, channelID, planeID).
-        using wire_addresses_t = boost::multi_array<int, 2>;
+        using wire_addresses_t = boost::multi_array<int, 2ul>;
         const wire_addresses_t& wire_addresses() const;
       private:
         mutable wire_addresses_t m_wire_addresses;
@@ -146,7 +146,7 @@ namespace WireCell::Aux {
         // are also bound in the horizontal and vertical direction by
         // the active area of the anode.  These bounds are not
         // provided here.  See AnodeArrays for ways access them.
-        using blob_shapes_t = boost::multi_array<int, 3>;
+        using blob_shapes_t = boost::multi_array<int, 3ul>;
         const blob_shapes_t& blob_shapes() const;
       private:
         mutable blob_shapes_t m_blob_shapes;

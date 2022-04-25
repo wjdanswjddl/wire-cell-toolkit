@@ -13,10 +13,12 @@
 
 #include "custard/pigenc_eigen.hpp"
 #include "custard/pigenc_stl.hpp"
+#include "custard/pigenc_multiarray.hpp"
 #include "custard/custard_stream.hpp"
 #include "custard/custard_boost.hpp"
 
 #include <boost/iostreams/filtering_stream.hpp>
+#include <boost/multi_array.hpp>
 
 #include <string>
 #include <vector>
@@ -35,33 +37,6 @@ namespace WireCell::Stream {
     /// based on the an ouput file name.  See input_filters() for
     /// supported file types.
     using custard::output_filters;
-
-
-    /// Stream Eigen array to custard stream.  Must have tar filter!
-    template<typename ArrType>
-    std::ostream& write(std::ostream& so, const std::string& fname, const ArrType& arr) {
-        pigenc::File pig;
-        pigenc::eigen::dump<ArrType>(pig, arr);
-        size_t fsize = pig.header().file_size();
-        custard::write(so, fname, fsize);
-        if (!so) return so;
-        return pig.write(so);
-    }
-    
-    /// Stream Eigen array from custard stream.  Must have tar filter!
-    template<typename ArrType>
-    std::istream& read(std::istream& si, std::string& fname, ArrType& arr) {
-        size_t fsize;
-        custard::read(si, fname, fsize);
-        if (!si) return si;
-        pigenc::File pig;
-        pig.read(si);
-        if (!si) return si;
-        bool ok = pigenc::eigen::load<ArrType>(pig, arr);
-        if (!ok) si.setstate(std::ios::failbit);
-        return si;
-    }
-
 
     /// Stream vector to custard stream.  Must have tar filter!
     template<typename Type>
@@ -88,7 +63,59 @@ namespace WireCell::Stream {
         return si;
     }
 
+    /// Stream Eigen array to custard stream.  Must have tar filter!
+    template<typename Scalar, int Rows=Eigen::Dynamic, int Cols=Eigen::Dynamic>
+    std::ostream& write(std::ostream& so, const std::string& fname, const Eigen::Array<Scalar,Rows,Cols>& arr) {
+        pigenc::File pig;
+        using ArrType = Eigen::Array<Scalar,Rows,Cols>;
+        pigenc::eigen::dump<ArrType>(pig, arr);
+        size_t fsize = pig.header().file_size();
+        custard::write(so, fname, fsize);
+        if (!so) return so;
+        return pig.write(so);
+    }
+    
+    /// Stream Eigen array from custard stream.  Must have tar filter!
+    template<typename Scalar, int Rows=Eigen::Dynamic, int Cols=Eigen::Dynamic>
+    std::istream& read(std::istream& si, std::string& fname, Eigen::Array<Scalar,Rows,Cols>& arr) {
+        size_t fsize;
+        custard::read(si, fname, fsize);
+        if (!si) return si;
+        pigenc::File pig;
+        pig.read(si);
+        if (!si) return si;
+        using ArrType = Eigen::Array<Scalar,Rows,Cols>;
+        bool ok = pigenc::eigen::load<ArrType>(pig, arr);
+        if (!ok) si.setstate(std::ios::failbit);
+        return si;
+    }
 
+    // Stream Boost.Multiarray to custard.
+    template<typename Scalar, long unsigned int NDim>
+    std::ostream& write(std::ostream& so, const std::string& fname, const boost::multi_array<Scalar, NDim>& arr) {
+        pigenc::File pig;
+        using MArrType = boost::multi_array<Scalar, NDim>;
+        pigenc::multiarray::dump< MArrType >(pig, arr);
+        size_t fsize = pig.header().file_size();
+        custard::write(so, fname, fsize);
+        if (!so) return so;
+        return pig.write(so);
+    }
+        
+    /// Stream multiarray from custard.
+    template<typename Scalar, long unsigned int NDim>
+    std::istream& read(std::istream& si, std::string& fname, boost::multi_array<Scalar, NDim>& arr) {
+        size_t fsize;
+        custard::read(si, fname, fsize);
+        if (!si) return si;
+        pigenc::File pig;
+        pig.read(si);
+        if (!si) return si;
+        using MArrType = boost::multi_array<Scalar, NDim>;
+        bool ok = pigenc::multiarray::load< MArrType >(pig, arr);
+        if (!ok) si.setstate(std::ios::failbit);
+        return si;
+    }
 
 }
 
