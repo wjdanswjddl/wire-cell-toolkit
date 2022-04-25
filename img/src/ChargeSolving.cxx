@@ -22,7 +22,6 @@ using namespace WireCell::Img;
 using namespace WireCell::Img::CS;
 
 
-
 Img::ChargeSolving::ChargeSolving()
     : Aux::Logger("ChargeSolving", "img")
 {
@@ -78,7 +77,7 @@ void blob_weight_simple(const cluster_graph_t& cgraph, graph_t& csg)
             vdesc_t ndesc = boost::target(edge, cgraph);
             const auto& nnode = cgraph[ndesc];
             if (nnode.code() == 'b') {
-                slice_idents.insert(get<blob_node_t>(nnode.ptr)->slice()->ident());
+                slice_idents.insert(get<blob_t>(nnode.ptr)->slice()->ident());
             }
         }
         vtx.value.uncertainty((float) slice_idents.size());
@@ -123,23 +122,24 @@ void Img::ChargeSolving::configure(const WireCell::Configuration& cfg)
 
 static void dump_cg(const cluster_graph_t& cg, Log::logptr_t& log)
 {
-    size_t mcount{0};
+    size_t mcount{0}, bcount{0};
     value_t bval;
     for (const auto& vtx : mir(boost::vertices(cg))) {
         const auto& node = cg[vtx];
         if (node.code() == 'b') {
-            const auto iblob = get<blob_node_t>(node.ptr);
+            const auto iblob = get<blob_t>(node.ptr);
             bval += value_t(iblob->value(), iblob->uncertainty());
+            ++bcount;
             continue;
         }
         if (node.code() == 'm') {
-            const auto imeas = get<meas_node_t>(node.ptr);
-            mcount += imeas->size();
+            const auto imeas = get<meas_t>(node.ptr);
+            ++mcount;
         }
     }
-    log->debug("cluster graph: vertices={} edges={} bval={} #chan={}",
+    log->debug("cluster graph: vertices={} edges={} $blob={} bval={} #meas={}",
                boost::num_vertices(cg), boost::num_edges(cg),
-               bval, mcount);
+               bcount, bval, mcount);
 }
 
 static void dump_sg(const graph_t& sg, Log::logptr_t& log)

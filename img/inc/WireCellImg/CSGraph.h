@@ -27,25 +27,16 @@ namespace WireCell::Img::CS {
     using double_matrix_t = Eigen::MatrixXd;
 
     // Here, "node" implies a cluster graph vertex payload object.
-    using meas_node_t = IChannel::shared_vector;
-    using blob_node_t = IBlob::pointer;
-    using slice_node_t = ISlice::pointer;
-
-    // Return an inherent ordering value for a measure.  It does not
-    // matter what ordering results but it must be stable on
-    // re-running.  We return the smallest channel ident in the
-    // measure on the assumption that each measure has a unique set
-    // of channels w/in its slice.
-    int ordering(const meas_node_t& m);
-
-    // Return an arbitrary, inherent and stable value on which a
-    // collection of IBlobs may be ordered.
-    int ordering(const blob_node_t& blob);
+    using channel_t = cluster_node_t::channel_t;
+    using wire_t = cluster_node_t::wire_t;
+    using blob_t = cluster_node_t::blob_t;
+    using slice_t = cluster_node_t::slice_t;
+    using meas_t = cluster_node_t::meas_t;
 
     // The type associated with a graph_t as a whole
     struct graphprop_t {
         // The input islice from which this graph was derived
-        slice_node_t islice;
+        slice_t islice;
 
         // An arbitrary index counting the original connected subgraph
         // from the slice from which this graph derives
@@ -112,9 +103,6 @@ namespace WireCell::Img::CS {
     indexed_vdescs_t select_ordered(const graph_t& csg,
                                     node_t::Kind kind);
                            
-    // Convert IChannel::shared_vector into a value.
-    value_t measure_sum(const meas_node_t& imeas, const slice_node_t& islice);
-
     // Break up input CS graph into "connected subgraphs".
     void connected_subgraphs(const graph_t& slice_graph,
                              std::back_insert_iterator<graph_vector_t> subgraphs_out);

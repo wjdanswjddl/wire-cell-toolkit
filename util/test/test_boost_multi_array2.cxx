@@ -4,6 +4,18 @@
 
 using namespace std;
 
+template<typename ArrayType>
+void resize(ArrayType& arr, const std::vector<size_t>& sv)
+{
+    arr.resize(sv);
+}
+// template<typename ArrayType, typename ...Sizes>
+// void resize(ArrayType& arr, Sizes... sizes)
+// {
+//     std::vector<int> shape = {sizes...};
+//     arr.resize(shape);
+// }
+
 int main()
 {
     const int ndim = 3;
@@ -12,6 +24,8 @@ int main()
     typedef array_type::index index;
 
     array_type ar3(boost::extents[3][4][5]);
+    resize(ar3,{3,4,5});
+    //resize(ar3,3,4,5);
 
     boost::general_storage_order<ndim> gso = ar3.storage_order();
 

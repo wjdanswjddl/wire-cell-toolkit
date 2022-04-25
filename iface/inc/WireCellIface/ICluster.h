@@ -23,6 +23,7 @@
 #include "WireCellIface/IWire.h"
 #include "WireCellIface/IBlob.h"
 #include "WireCellIface/ISlice.h"
+#include "WireCellIface/IMeasure.h"
 #include "WireCellIface/WirePlaneId.h"
 
 #include "WireCellUtil/IndexedGraph.h"
@@ -35,39 +36,41 @@
 
 namespace WireCell {
 
-    /// The vertex property.
-    typedef std::variant<size_t, IChannel::pointer, IWire::pointer, IBlob::pointer, ISlice::pointer,
-                         IChannel::shared_vector>
-        cluster_ptr_t;
-
     struct cluster_node_t {
-        cluster_ptr_t ptr;
+        using channel_t = IChannel::pointer;
+        using wire_t = IWire::pointer;
+        using blob_t = IBlob::pointer;
+        using slice_t = ISlice::pointer;
+        using meas_t = IMeasure::pointer;
+        using ptr_t = std::variant<size_t, channel_t, wire_t, blob_t, slice_t, meas_t>;
+
+        ptr_t ptr;
 
         cluster_node_t()
           : ptr()
         {
         }
-        cluster_node_t(const cluster_ptr_t& p)
+        cluster_node_t(const ptr_t& p)
           : ptr(p)
         {
         }
-        cluster_node_t(const IChannel::pointer& p)
+        cluster_node_t(const channel_t& p)
           : ptr(p)
         {
         }
-        cluster_node_t(const IWire::pointer& p)
+        cluster_node_t(const wire_t& p)
           : ptr(p)
         {
         }
-        cluster_node_t(const IBlob::pointer& p)
+        cluster_node_t(const blob_t& p)
           : ptr(p)
         {
         }
-        cluster_node_t(const ISlice::pointer& p)
+        cluster_node_t(const slice_t& p)
           : ptr(p)
         {
         }
-        cluster_node_t(const IChannel::shared_vector& p)
+        cluster_node_t(const meas_t& p)
           : ptr(p)
         {
         }
@@ -77,22 +80,55 @@ namespace WireCell {
         {
         }
 
-        // Helper: return a letter code for the type of the ptr or \0.
-        char code() const
+        // A node type is represented by a single character code.  The
+        // codes are in a canonical order.  Note, the index to a code
+        // is one less than the ptr.index().
+        const static std::string known_codes; // "cwbsm"
+
+        // Return the index of a known code in [0,4].  The index of a
+        // code is one less than ptr.index() and an illegal code
+        // returns a very large number.
+        static size_t code_index(char code);
+
+        // Helper: return the letter code for the type of the ptr or
+        // \0 if code is type is undefined.
+        inline char code() const
         {
             auto ind = ptr.index();
             if (ind == std::variant_npos) {
                 return 0;
             }
-            return "0cwbsm"[ind];
+            return known_codes[ind-1];
         }
+
         bool operator==(const cluster_node_t& other) const { return ptr == other.ptr; }
         cluster_node_t& operator=(const cluster_node_t& other)
         {
             ptr = other.ptr;
             return *this;
         }
-    };
+
+        // Access the underlying IData ident number, eg to use to
+        // produce an ordering.
+        int ident() const
+        {
+            using ident_f = std::function<int()>;
+            std::vector<ident_f> ofs {
+                [](){return 0;}, 
+                [&](){return std::get<channel_t>(ptr)->ident();},
+                [&](){return std::get<wire_t>(ptr)->ident();},
+                [&](){return std::get<blob_t>(ptr)->ident();},
+                [&](){return std::get<slice_t>(ptr)->ident();},
+                [&](){return std::get<meas_t>(ptr)->ident();},
+            };
+            const auto ind = ptr.index();
+            if (ind == std::variant_npos) {
+                return 0;
+            }
+            return ofs[ind]();
+        }
+    };                          // struct cluster_node_t
+
 }  // namespace WireCell
 
 namespace std {
@@ -133,6 +169,10 @@ namespace WireCell {
     typedef boost::graph_traits<cluster_graph_t>::edge_descriptor cluster_edge_t;
     typedef boost::graph_traits<cluster_graph_t>::vertex_iterator cluster_vertex_iter_t;
 
+    // The actual ICluster interface.
+    //
+    // It is small and essentially delievers a cluster_grapht_.  All
+    // the rest of the code defines that type with some helpers.
     class ICluster : public IData<ICluster> {
        public:
         virtual ~ICluster();
@@ -171,7 +211,6 @@ namespace WireCell {
         }
         return ret;
     }
-
 
 }  // namespace WireCell
 

@@ -20,7 +20,6 @@ using namespace WireCell;
 
 Sio::ClusterFileSink::ClusterFileSink()
     : Aux::Logger("ClusterFileSink", "io")
-    , m_drift_speed(1.6 * units::mm / units::us)
 {
 }
 
@@ -39,25 +38,69 @@ WireCell::Configuration Sio::ClusterFileSink::default_configuration() const
     Configuration cfg;
     // output json file.  A "%d" type format code may be included to be resolved by a cluster identifier.
     cfg["outname"] = m_outname;
+    cfg["prefix"] = m_prefix;
+    cfg["format"] = m_format;
 
-    // Whether to also output any referenced frames.
-    // cfg["output_frame"] = m_output_frame;
-
-    // for conversion between time and "x" coordinate
-    cfg["drift_speed"] = m_drift_speed;
     return cfg;
+}
+
+static 
+void jsonify(Sio::ClusterFileSink::ostream_t& out, const ICluster& cluster, const std::string& prefix)
+{
+    std::stringstream ss;
+    ss << prefix << "_" << cluster.ident() << ".json";
+
+    auto top = Aux::jsonify(cluster);
+    std::stringstream topss;
+    topss << top;
+    auto tops = topss.str();
+    out << "name " << ss.str() << "\n"
+        << "body " << tops.size() << "\n" << tops.data();
+    out.flush();
+}
+
+static 
+void dotify(Sio::ClusterFileSink::ostream_t& out, const ICluster& cluster, const std::string& prefix)
+{
+    std::stringstream ss;
+    ss << prefix << "_" << cluster.ident() << ".json";
+
+    auto top = Aux::dotify(cluster);
+    std::stringstream topss;
+    topss << top;
+    auto tops = topss.str();
+    out << "name " << ss.str() << "\n"
+        << "body " << tops.size() << "\n" << tops.data();
+    out.flush();
+}
+
+static 
+void numpify(Sio::ClusterFileSink::ostream_t& out, const ICluster& cluster, const std::string& prefix)
+{
+
 }
 
 void Sio::ClusterFileSink::configure(const WireCell::Configuration& cfg)
 {
     m_outname = get(cfg, "outname", m_outname);
-    // m_output_frame = get(cfg, "output_frame", m_output_frame);
-    m_drift_speed = get(cfg, "drift_speed", m_drift_speed);
-
     m_out.clear();
     custard::output_filters(m_out, m_outname);
     if (m_out.empty()) {
         THROW(ValueError() << errmsg{"ClusterFileSink: unsupported outname: " + m_outname});
+    }
+    m_prefix = get<std::string>(cfg, "prefix", m_prefix);
+    m_format = get<std::string>(cfg, "format", m_format);
+    if (m_format == "json") {
+        m_serializer = jsonify;
+    }
+    else if (m_format == "dot") {
+        m_serializer = dotify;
+    }
+    else if (m_format == "numpy") {
+        m_serializer = numpify;
+    }
+    else {
+        THROW(ValueError() << errmsg{"ClusterFileSink: unsupported format: " + m_format});
     }
 }
 
@@ -69,30 +112,7 @@ bool Sio::ClusterFileSink::operator()(const ICluster::pointer& cluster)
         return true;
     }
     
-    auto frame = Aux::find_frame(cluster);
-    std::string cname = "noframe";
-    if (frame) {
-        cname = Aux::name(frame);
-    }
-    cname += "_";
-    cname += Aux::name(cluster);
-    cname += ".json";
-
-    auto top = Aux::jsonify(cluster, m_drift_speed);
-    std::stringstream topss;
-    topss << top;
-    auto tops = topss.str();
-
-
-    log->debug("cluster: {}, nvertices={} nedges={} call={} output {} with {} bytes to {}",
-               cluster->ident(),
-               boost::num_vertices(cluster->graph()),
-               boost::num_edges(cluster->graph()),
-               m_count, cname, tops.size(), m_outname );
-
-    m_out << "name " << cname << "\n"
-          << "body " << tops.size() << "\n" << tops.data();
-    m_out.flush();
+    m_serializer(m_out, *cluster, m_prefix);
 
     ++m_count;
     return true;

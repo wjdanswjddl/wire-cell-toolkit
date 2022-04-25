@@ -20,7 +20,6 @@
 #include "WireCellIface/IChannelResponse.h"
 #include "WireCellIface/IChannelSpectrum.h"
 #include "WireCellIface/IChannelStatus.h"
-#include "WireCellIface/ICluster.h"
 #include "WireCellIface/IClusterFanin.h"
 #include "WireCellIface/IClusterFilter.h"
 #include "WireCellIface/IClusterFramer.h"
@@ -64,6 +63,7 @@
 #include "WireCellIface/IFunctionNode.h"
 #include "WireCellIface/IHydraNode.h"
 #include "WireCellIface/IJoinNode.h"
+#include "WireCellIface/IMeasure.h"
 #include "WireCellIface/INamed.h"
 #include "WireCellIface/INode.h"
 #include "WireCellIface/IPlaneImpactResponse.h"
@@ -120,7 +120,6 @@ IChannelNoiseDatabase::~IChannelNoiseDatabase() {}
 IChannelResponse::~IChannelResponse() {}
 IChannelSpectrum::~IChannelSpectrum() {}
 IChannelStatus::~IChannelStatus() {}
-ICluster::~ICluster() {}
 IClusterFanin::~IClusterFanin() {}
 IClusterFilter::~IClusterFilter() {}
 IClusterFramer::~IClusterFramer() {}
@@ -165,6 +164,7 @@ IFunctionNodeBase::~IFunctionNodeBase() {}
 IHydraNodeBase::~IHydraNodeBase() {}
 IImpactResponse::~IImpactResponse() {}
 IJoinNodeBase::~IJoinNodeBase() {}
+IMeasure::~IMeasure() {}
 INamed::~INamed() {}
 INode::~INode() {}
 IPlaneImpactResponse::~IPlaneImpactResponse() {}
@@ -200,6 +200,9 @@ IWireSchema::~IWireSchema() {}
 IWireSource::~IWireSource() {}
 IWireSummarizer::~IWireSummarizer() {}
 IWireSummary::~IWireSummary() {}
+
+// Fixme: move these to aux!
+// https://github.com/WireCell/wire-cell-toolkit/issues/128
 SimpleBlob::~SimpleBlob() {}
 SimpleBlobSet::~SimpleBlobSet() {}
 SimpleDepoSet::~SimpleDepoSet() {}

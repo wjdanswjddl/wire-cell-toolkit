@@ -8,40 +8,6 @@ using namespace WireCell::Img;
 using namespace WireCell::Img::CS;
 
 
-int CS::ordering(const meas_node_t& m)
-{
-    int order = 0x7fffffff;
-    for (const auto& one : *m) {
-        int ident = one->ident();
-        if (ident < order) {
-            order = ident;
-        }
-    }
-    return order;
-}
-
-int CS::ordering(const blob_node_t& blob)
-{
-    // This assumes that a context sets ident uniquely.
-    return blob->ident();
-}
-
-value_t CS::measure_sum(const meas_node_t& imeas,
-                        const slice_node_t& islice)
-{
-    // Use double for the sum for a little extra precision.
-    WireCell::Measurement::float64 value = 0;
-
-    const auto& activity = islice->activity();
-    for (const auto& ich : *(imeas.get())) {
-        const auto& it = activity.find(ich);
-        if (it == activity.end()) {
-            continue;
-        }
-        value += it->second;
-    }
-    return value_t(value);
-}
 
 indexed_vdescs_t CS::select_ordered(const graph_t& csg,
                                     node_t::Kind kind)
@@ -275,7 +241,7 @@ void CS::unpack(const cluster_graph_t& cgraph,
     auto sgnull = boost::graph_traits<graph_t>::null_vertex();
 
     // map slice to the slice graph
-    std::unordered_map<slice_node_t, graph_t> s2slg;
+    std::unordered_map<slice_t, graph_t> s2slg;
     // map some cg vertices to slice graph vertices.  This is sparse
     // and spans the slice graphs.
     std::vector<vdesc_t> c2slg(boost::num_vertices(cgraph), sgnull);
@@ -307,7 +273,7 @@ void CS::unpack(const cluster_graph_t& cgraph,
         }
 
         // get slice graph, initialize if new
-        const auto& islice = std::get<slice_node_t>(cgraph[svtx].ptr);
+        const auto& islice = std::get<slice_t>(cgraph[svtx].ptr);
         auto& slg = s2slg[islice];
         auto& slgprop = slg[boost::graph_bundle];
         if (! slgprop.islice) {
@@ -320,13 +286,15 @@ void CS::unpack(const cluster_graph_t& cgraph,
         for (auto mvtx : mvtxs) {
             auto meas_desc = c2slg[mvtx];
             if (meas_desc == sgnull) {
-                auto mptr = std::get<meas_node_t>(cgraph[mvtx].ptr);
-                const auto msum = measure_sum(mptr, islice);
+                const auto& mnode = cgraph[mvtx];
+                auto mptr = std::get<meas_t>(mnode.ptr);
+                const auto msum = mptr->signal();
                 if (msum.value() < meas_thresh.value() or
                     msum.uncertainty() > meas_thresh.uncertainty()) {
                     continue;
                 }
-                node_t meas{mvtx, node_t::meas, ordering(mptr), msum};
+                const int ordering = mnode.ident();
+                node_t meas{mvtx, node_t::meas, ordering, msum};
                 meas_desc = boost::add_vertex(meas, slg);
                 c2slg[mvtx] = meas_desc;
             }
@@ -337,8 +305,9 @@ void CS::unpack(const cluster_graph_t& cgraph,
         }
         
         // make b-m edges
-        auto bptr = std::get<blob_node_t>(bnode.ptr);
-        node_t blob{bvtx, node_t::blob, ordering(bptr), value_t(0,1)};
+        auto bptr = std::get<blob_t>(bnode.ptr);
+        const int ordering = bnode.ident();
+        node_t blob{bvtx, node_t::blob, ordering, value_t(0,1)};
         auto blob_desc = boost::add_vertex(blob, slg);
 
         for (auto meas_desc : meas_descs) {
