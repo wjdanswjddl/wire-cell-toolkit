@@ -1,10 +1,12 @@
 #ifndef WIRECELLSIO_CLUSTERFILESINK
 #define WIRECELLSIO_CLUSTERFILESINK
 
+#include "WireCellUtil/Stream.h"
 #include "WireCellIface/IClusterSink.h"
 #include "WireCellIface/ITerminal.h"
 #include "WireCellIface/IConfigurable.h"
 #include "WireCellAux/Logger.h"
+
 
 #include <boost/iostreams/filtering_stream.hpp>
 
@@ -154,14 +156,24 @@ namespace WireCell::Sio {
 
       private:
         // internal implmentation of the actual serializer.
-        using serializer_t = std::function<void(
-            ostream_t& out, const ICluster& cluster,
-            const std::string& prefix)>;
+        using serializer_t = std::function<void(const ICluster& cluster)>;
 
         ostream_t m_out;
         serializer_t m_serializer;
 
         size_t m_count{0};
+
+        std::string fqn(const ICluster& cluster, std::string name, std::string ext);
+        void jsonify(const ICluster& cluster);
+        void dotify(const ICluster& cluster);
+        void numpify(const ICluster& cluster);
+
+        template<typename ArrayType>
+        void write_numpy(const ArrayType& arr, const std::string& name) {
+            log->debug("write {} ndim={} size={}", name, arr.num_dimensions(), arr.num_elements());
+            Stream::write(m_out, name, arr);
+            m_out.flush();
+        }
 
     };
 

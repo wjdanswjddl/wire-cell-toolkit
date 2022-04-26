@@ -10,9 +10,11 @@ size_t WireCell::cluster_node_t::code_index(char code)
 {
     size_t ret = 0;
     for (const auto c : known_codes) {
-        if (c == code) return ret;
+        if (c == code) {
+            return ret;
+        }
         ++ret;
     }
-    return 0xffffffff;
+    return ret;
 }
 

@@ -17,7 +17,7 @@ local pg = import "pgraph.jsonnet";
 local hs = import "pgrapher/common/helpers.jsonnet";
 local plu = import "pgrapher/experiment/params.jsonnet";
 
-local imgpipe(anode, outfile) = {
+local imgpipe(anode, outfile, format="json") = {
     local img = hs.img(anode),  // anode sets the names
     local tag="",
     local span=4,
@@ -29,12 +29,12 @@ local imgpipe(anode, outfile) = {
         img.clustering(spans=spans),
         img.grouping(),
         img.charge_solving(whiten=false),
-        hs.io.cluster_file_sink(anode.data.ident, outfile),
+        hs.io.cluster_file_sink(anode.data.ident, outfile, format=format),
     ], "img-" + anode.name),
 }.ret;
 
 
-function(infile, tags=["gauss"], outfile="clusters.tar.bz2", detector='uboone', ptype='params') {
+function(infile, tags=["gauss"], outfile="clusters.tar.bz2", detector='uboone', ptype='params', format='json') {
     local params = plu(detector, ptype),
 
     local wires = hs.aux.wires(params.files.wires),
@@ -43,7 +43,7 @@ function(infile, tags=["gauss"], outfile="clusters.tar.bz2", detector='uboone', 
     local src = hs.io.frame_file_source(infile, tags),
 
     // need a source! and need to handle multi-anodes!
-    local graph = pg.pipeline([src, imgpipe(anodes[0], outfile)], "main"),
+    local graph = pg.pipeline([src, imgpipe(anodes[0], outfile, format)], "main"),
 
     ret: hs.utils.main(graph)
 }.ret

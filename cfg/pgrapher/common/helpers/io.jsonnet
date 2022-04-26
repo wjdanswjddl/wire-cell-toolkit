@@ -47,33 +47,16 @@ local wc = import "wirecell.jsonnet";
                                      digitize=digitize,
                                      dense=dense), filename),
 
-    // A pass-through node for ICluster which saves as a side-effect.
-    cluster_json_tap :: function(name, drift_speed=1.6*wc.mm/wc.us, filepat=null) pg.pnode({
-        type: "JsonClusterTap",
-        name: name,
-        data: {
-            filename: if std.type(filepat) == "null" then "clusters-"+name+"-%04d.json" else filepat,
-            drift_speed: drift_speed
-        },
-    }, nin=1, nout=1),
-
-    // Write a cluster to a graphviz file
-    cluster_graphviz :: function(name, filepat=null) pg.pnode({
-        type: "ClusterSink",
-        name: name,
-        data: {
-            filename: if std.type(filepat) == "null" then "clusters-apa-"+name+"-%04d.dot" else filepat,
-        }
-    }, nin=1, nout=0),
-
-    // Write out in a WCT cluster file format (json+tar[+compression])
-    cluster_file_sink :: function(name, filename=null) pg.pnode({
+    // A cluster file is a tar stream, with optional compression,
+    // holding json, dot or numpy format files.
+    cluster_file_sink :: function(name, filename=null, format="json", prefix="cluster") pg.pnode({
         type: 'ClusterFileSink',
         name: name,
         data: {
             outname: if std.type(filename) == "null" then "clusters-"+name+".tar.bz2" else filename,
+            format: format,
+            prefix: prefix,
         },
     }, nin=1, nout=0),
-
 
 }

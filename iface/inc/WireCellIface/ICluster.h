@@ -87,7 +87,7 @@ namespace WireCell {
 
         // Return the index of a known code in [0,4].  The index of a
         // code is one less than ptr.index() and an illegal code
-        // returns a very large number.
+        // returns index beyond the known_codes() string (ie 5).
         static size_t code_index(char code);
 
         // Helper: return the letter code for the type of the ptr or

@@ -93,7 +93,7 @@ ClusterArrays::ntype_range(char code) const
         return boost::counting_range(std::size_t{0},std::size_t{0});
     }
     const auto& ranges = node_ranges();
-    return index_range(ranges[ind-1]);
+    return index_range(ranges[ind]);
 }
 
 void ClusterArrays::core_nodes() const
@@ -129,7 +129,7 @@ void ClusterArrays::core_nodes() const
 
     // Define the per-type partition and ordering
     for (size_t itype=0; itype < ntypes; ++itype) {
-        const char code = cluster_node_t::known_codes[itype+1];
+        const char code = cluster_node_t::known_codes[itype];
         const auto& of_type = node_types[code];
         const int noftype = of_type.size();
 
@@ -179,6 +179,8 @@ const ClusterArrays::idents_t& ClusterArrays::idents() const
 }
 
 
+#include <iostream> // debug
+
 const ClusterArrays::signals_t& ClusterArrays::signals() const
 {
     if (! is_empty(m_signals)) {
@@ -189,13 +191,15 @@ const ClusterArrays::signals_t& ClusterArrays::signals() const
     const auto& vdinds = vdesc_indices();
     const size_t nvtxs = array_size(vdinds);
     rezero(m_signals, {nvtxs, 2});
-    
+
+    // std::cerr << "signals: codes:\n" <<  node_codes() << std::endl;
+
     // Slices we can traverse directly.  The rest are via graph
     // neighbors.
     for (auto sind : ntype_range('s')) {
         const auto svtx = vdescs[sind];
         const auto& snode = m_graph[svtx];
-
+        assert('s' == snode.code());
         const auto& islice = std::get<slice_t>(snode.ptr);
         const auto& activity = islice->activity();
         
@@ -347,7 +351,7 @@ void ClusterArrays::core_wires() const
     const size_t wire0 = wire_range[0];
     const size_t nwires = wire_range[1];
     rezero(m_wire_endpoints, {nwires, 2, 3});
-    rezero(m_wire_addresses, {nwires});
+    rezero(m_wire_addresses, {nwires, 4});
 
     const auto& vdescs = graph_vertices();
     for (size_t ind=0; ind< nwires; ++ind) {
