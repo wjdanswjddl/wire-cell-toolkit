@@ -185,20 +185,11 @@ local blobsolving = g.pnode({
     }
 }, nin=1, nout=1);
 
-local clustertap = g.pnode({
-    type: "JsonClusterTap",
-    data: {
-        filename: "clusters-%04d.json",
-        drift_speed: params.lar.drift_speed,
-    },
-}, nin=1, nout=1);
-
 local clustersink = g.pnode({
-    type: "ClusterSink",
+    type: "ClusterFileSink",
     data: {
-        filename: "clusters-%d.dot",
-        // node_types: "wcbsm",
-        node_types: "bsm",
+        filename: "clusters-%d.tar.gz",
+        format: "dot",         // one of: (dot, json, numpy)
     }
 }, nin=1, nout=0);
 
@@ -235,7 +226,6 @@ local graph = g.pipeline([depos, deposio, drifter] + simulation + [
                           blobclustering,
                           blobgrouping,
                           blobsolving,
-                          clustertap,
                           clustersink]);
 
 local cmdline = {

@@ -80,7 +80,7 @@ local make_a_pipe = function(ind) {
         img.slicing(anode, aname),
         img.tiling(anode, aname),
         img.solving(anode, aname),
-        img.dump(anode, aname, params.lar.drift_speed),
+        img.dump(anode, aname),
     ], "sn-sp-img-" + aname)
 }.ret;
 

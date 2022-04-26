@@ -1,9 +1,14 @@
+//
+//  OBSOLETE FILE.  Use helpers instead.
+//
+
 // some functions to help build pipelines for imaging.  These are
 // mostly per-apa but tiling portions are per-face.
 
 local g = import 'pgraph.jsonnet';
 local wc = import 'wirecell.jsonnet';
 
+std.trace("WARNING OBSOLETE FILE USED: pgrapher/experiment/sbnd/img.jsonnet please upgrade to helpers.img",
 {
     // A functio that sets up slicing for an APA.
     slicing :: function(anode, aname, tag="", span=4) {
@@ -88,26 +93,14 @@ local wc = import 'wirecell.jsonnet';
             name="solving-" + aname),
     }.ret,
 
-    dump :: function(anode, aname, drift_speed) {
-        local js = g.pnode({
-            type: "JsonClusterTap",
+    dump :: function(anode, aname) // no longer accepts drift speed
+        g.pnode({
+            type: "ClusterFileSink",
             name: "clustertap-" + aname,
             data: {
                 filename: "clusters-"+aname+"-%04d.json",
-                drift_speed: drift_speed
             },
-        }, nin=1, nout=1),
-
-        local cs = g.pnode({
-            type: "ClusterSink",
-            name: "clustersink-"+aname,
-            data: {
-                filename: "clusters-apa-"+aname+"-%d.dot",
-            }
         }, nin=1, nout=0),
-        ret: g.intern(innodes=[js], outnodes=[cs], edges=[g.edge(js,cs)],
-                      name="clusterdump-"+aname)
-    }.ret,
 
     // A function that reverts blobs to frames
     reframing :: function(anode, aname) {
