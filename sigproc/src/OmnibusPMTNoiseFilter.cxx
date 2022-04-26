@@ -4,8 +4,8 @@
 
 #include "WireCellUtil/NamedFactory.h"
 
-#include "WireCellIface/SimpleFrame.h"
-#include "WireCellIface/SimpleTrace.h"
+#include "WireCellAux/SimpleFrame.h"
+#include "WireCellAux/SimpleTrace.h"
 
 #include "WireCellUtil/NamedFactory.h"
 
@@ -210,17 +210,17 @@ bool OmnibusPMTNoiseFilter::operator()(const input_pointer& in, output_pointer& 
     ITrace::vector itraces;
     for (auto cs : bychan_indu) {
         // fixme: that tbin though
-        SimpleTrace* trace = new SimpleTrace(cs.first, 0, cs.second);
+        auto trace = new Aux::SimpleTrace(cs.first, 0, cs.second);
         itraces.push_back(ITrace::pointer(trace));
     }
     for (auto cs : bychan_indv) {
         // fixme: that tbin though
-        SimpleTrace* trace = new SimpleTrace(cs.first, 0, cs.second);
+        auto trace = new Aux::SimpleTrace(cs.first, 0, cs.second);
         itraces.push_back(ITrace::pointer(trace));
     }
     for (auto cs : bychan_coll) {
         // fixme: that tbin though
-        SimpleTrace* trace = new SimpleTrace(cs.first, 0, cs.second);
+        auto trace = new Aux::SimpleTrace(cs.first, 0, cs.second);
         itraces.push_back(ITrace::pointer(trace));
     }
 
@@ -229,7 +229,7 @@ bool OmnibusPMTNoiseFilter::operator()(const input_pointer& in, output_pointer& 
         indices[ind] = ind;
     }
 
-    SimpleFrame* sframe = new SimpleFrame(in->ident(), in->time(), itraces, in->tick(), in->masks());
+    auto sframe = new Aux::SimpleFrame(in->ident(), in->time(), itraces, in->tick(), in->masks());
     sframe->tag_traces(m_outtag, indices);
     out = IFrame::pointer(sframe);
 
@@ -399,5 +399,5 @@ void OmnibusPMTNoiseFilter::RemovePMTSignal(Waveform::realseq_t& signal, int sta
 }
 // Local Variables:
 // mode: c++
-// c-basic-offset: 2
+// c-basic-offset: 4
 // End:

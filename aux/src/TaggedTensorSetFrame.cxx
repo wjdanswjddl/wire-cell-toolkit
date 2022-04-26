@@ -1,7 +1,7 @@
 #include "WireCellAux/TaggedTensorSetFrame.h"
 #include "WireCellAux/TensUtil.h"
-#include "WireCellIface/SimpleTrace.h"
-#include "WireCellIface/SimpleFrame.h"
+#include "WireCellAux/SimpleTrace.h"
+#include "WireCellAux/SimpleFrame.h"
 #include "WireCellUtil/NamedFactory.h"
 
 #include <Eigen/Core>
@@ -10,6 +10,8 @@ WIRECELL_FACTORY(TaggedTensorSetFrame, WireCell::Aux::TaggedTensorSetFrame, Wire
                  WireCell::IConfigurable)
 
 using namespace WireCell;
+using WireCell::Aux::SimpleTrace;
+using WireCell::Aux::SimpleFrame;
 
 WireCell::Configuration Aux::TaggedTensorSetFrame::default_configuration() const
 {

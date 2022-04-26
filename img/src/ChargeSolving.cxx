@@ -7,7 +7,8 @@
 #include "WireCellImg/ChargeSolving.h"
 #include "WireCellImg/CSGraph.h"
 
-#include "WireCellIface/SimpleCluster.h"
+#include "WireCellAux/SimpleCluster.h"
+
 #include "WireCellUtil/NamedFactory.h"
 #include "WireCellUtil/Logging.h"
 
@@ -20,7 +21,6 @@ WIRECELL_FACTORY(ChargeSolving, WireCell::Img::ChargeSolving,
 using namespace WireCell;
 using namespace WireCell::Img;
 using namespace WireCell::Img::CS;
-
 
 Img::ChargeSolving::ChargeSolving()
     : Aux::Logger("ChargeSolving", "img")
@@ -234,7 +234,7 @@ bool Img::ChargeSolving::operator()(const input_pointer& in, output_pointer& out
                boost::num_vertices(packed),
                boost::num_edges(packed));
 
-    out = std::make_shared<SimpleCluster>(packed, in->ident());
+    out = std::make_shared<Aux::SimpleCluster>(packed, in->ident());
     return true;
 }
 

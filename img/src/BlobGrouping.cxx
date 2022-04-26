@@ -1,7 +1,7 @@
 #include "WireCellImg/BlobGrouping.h"
 
-#include "WireCellIface/SimpleCluster.h"
-#include "WireCellIface/SimpleMeasure.h"
+#include "WireCellAux/SimpleCluster.h"
+#include "WireCellAux/SimpleMeasure.h"
 
 #include "WireCellUtil/NamedFactory.h"
 
@@ -75,7 +75,7 @@ void Img::BlobGrouping::fill_slice(cluster_indexed_graph_t& grind, ISlice::point
             // its location in the graph and the data held by the
             // connected IChannels and the ISlice found via the
             // connected IBlobs.
-            SimpleMeasure* smeas = new SimpleMeasure{m_mcount++};
+            Aux::SimpleMeasure* smeas = new Aux::SimpleMeasure{m_mcount++};
             IMeasure::pointer imeas(smeas);
 
             for (auto& v : group.second) {
@@ -117,6 +117,6 @@ bool Img::BlobGrouping::operator()(const input_pointer& in, output_pointer& out)
                boost::num_edges(grind.graph()),
                m_mcount);
 
-    out = std::make_shared<SimpleCluster>(grind.graph(), in->ident());
+    out = std::make_shared<Aux::SimpleCluster>(grind.graph(), in->ident());
     return true;
 }

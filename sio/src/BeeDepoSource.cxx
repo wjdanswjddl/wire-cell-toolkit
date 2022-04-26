@@ -2,7 +2,7 @@
 
 #include "WireCellIface/IRecombinationModel.h"
 
-#include "WireCellIface/SimpleDepo.h"
+#include "WireCellAux/SimpleDepo.h"
 #include "WireCellUtil/NamedFactory.h"
 
 #include "WireCellUtil/Point.h"
@@ -45,7 +45,7 @@ bool Sio::BeeDepoSource::operator()(IDepo::pointer& out)
 
         m_depos.resize(ndepos, nullptr);
         for (int idepo = 0; idepo < ndepos; ++idepo) {
-            m_depos[idepo] = std::make_shared<SimpleDepo>(
+            m_depos[idepo] = std::make_shared<Aux::SimpleDepo>(
                 jdat["t"][idepo].asDouble(),
                 Point(jdat["x"][idepo].asDouble(), jdat["y"][idepo].asDouble(), jdat["z"][idepo].asDouble()),
                 jdat["q"][idepo].asDouble());

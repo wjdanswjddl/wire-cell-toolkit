@@ -1,6 +1,6 @@
-#include "WireCellIface/SimpleDepo.h"
+#include "WireCellAux/SimpleDepo.h"
 
-using namespace WireCell;
+using namespace WireCell::Aux;
 
 SimpleDepo::SimpleDepo(double t, const WireCell::Point& pos, double charge, IDepo::pointer prior, double extent_long,
                        double extent_tran, int id, int pdg, double energy)

@@ -4,7 +4,7 @@
 #include "WireCellUtil/Exceptions.h"
 #include "WireCellAux/FrameTools.h"
 
-#include "WireCellIface/SimpleFrame.h"
+#include "WireCellAux/SimpleFrame.h"
 
 #include <iostream>
 
@@ -147,7 +147,7 @@ bool Gen::FrameFanin::operator()(const input_vector& invec, output_pointer& out)
         out_traces.insert(out_traces.end(), traces->begin(), traces->end());
     }
 
-    auto sf = new SimpleFrame(one->ident(), one->time(), out_traces, one->tick());
+    auto sf = new Aux::SimpleFrame(one->ident(), one->time(), out_traces, one->tick());
     for (size_t iport = 0; iport < m_multiplicity; ++iport) {
         if (m_tags[iport].size()) {
             sf->tag_traces(m_tags[iport], by_port[iport]);

@@ -1,7 +1,7 @@
 #include "WireCellImg/CSGraph.h"
 
 #include "WireCellUtil/Exceptions.h"
-#include "WireCellIface/SimpleBlob.h"
+#include "WireCellAux/SimpleBlob.h"
 
 using namespace WireCell;
 using namespace WireCell::Img;
@@ -328,7 +328,7 @@ void CS::unpack(const cluster_graph_t& cgraph,
 IBlob::pointer replace_blob_value(value_t nv, cluster_vertex_t v, const cluster_graph_t& g)
 {
     IBlob::pointer ob = get<IBlob::pointer>(g[v].ptr);
-    return std::make_shared<SimpleBlob>(
+    return std::make_shared<Aux::SimpleBlob>(
         ob->ident(), nv.value(), nv.uncertainty(), 
         ob->shape(), ob->slice(), ob->face());
 }

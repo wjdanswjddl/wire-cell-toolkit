@@ -6,8 +6,8 @@
 #include "WireCellUtil/Exceptions.h"
 #include "WireCellUtil/NamedFactory.h"
 
-#include "WireCellIface/SimpleDepo.h"
-#include "WireCellIface/SimpleDepoSet.h"
+#include "WireCellAux/SimpleDepo.h"
+#include "WireCellAux/SimpleDepoSet.h"
 
 #include "WireCellAux/DepoTools.h"
 
@@ -172,10 +172,10 @@ IDepoSet::pointer Sio::DepoFileSource::next()
         return nullptr;
     }
         
-    std::vector<SimpleDepo*> sdepos;
+    std::vector<Aux::SimpleDepo*> sdepos;
     for (size_t ind=0; ind < ndepos; ++ind) {
 
-        auto sdepo = new SimpleDepo(
+        auto sdepo = new Aux::SimpleDepo(
             darr(ind, 0),        // t
             Point(darr(ind, 2),  // x
                   darr(ind, 3),  // y
@@ -217,7 +217,7 @@ IDepoSet::pointer Sio::DepoFileSource::next()
     log->debug("call={} loaded {} depos from ident {} stream {}",
                m_count, depos.size(), ident, m_inname);
 
-    return std::make_shared<SimpleDepoSet>(ident, depos);
+    return std::make_shared<Aux::SimpleDepoSet>(ident, depos);
 }
 
 bool Sio::DepoFileSource::operator()(IDepoSet::pointer& ds)

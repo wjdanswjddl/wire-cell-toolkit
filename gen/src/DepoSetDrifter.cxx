@@ -1,6 +1,6 @@
 #include "WireCellGen/DepoSetDrifter.h"
 #include "WireCellUtil/NamedFactory.h"
-#include "WireCellIface/SimpleDepoSet.h"
+#include "WireCellAux/SimpleDepoSet.h"
 
 WIRECELL_FACTORY(DepoSetDrifter, WireCell::Gen::DepoSetDrifter,
                  WireCell::INamed,
@@ -55,7 +55,7 @@ bool DepoSetDrifter::operator()(const input_pointer& in, output_pointer& out)
     all_depos.pop_back();
         
     log->debug("call={} drifted ndepos={}", m_count, all_depos.size());
-    out = std::make_shared<SimpleDepoSet>(m_count, all_depos);
+    out = std::make_shared<Aux::SimpleDepoSet>(m_count, all_depos);
     ++m_count;
     return true;
 }

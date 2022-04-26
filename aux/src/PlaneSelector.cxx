@@ -1,5 +1,5 @@
 #include "WireCellAux/PlaneSelector.h"
-#include "WireCellIface/SimpleFrame.h"
+#include "WireCellAux/SimpleFrame.h"
 #include "WireCellIface/IAnodePlane.h"
 #include "WireCellAux/FrameTools.h"
 #include "WireCellAux/PlaneTools.h"
@@ -12,6 +12,7 @@ WIRECELL_FACTORY(PlaneSelector, WireCell::Aux::PlaneSelector,
                  WireCell::IFrameFilter, WireCell::IConfigurable)
 
 using namespace WireCell;
+using WireCell::Aux::SimpleFrame;
 
 Aux::PlaneSelector::PlaneSelector()
     : Aux::Logger("PlaneSelector", "glue")

@@ -1,7 +1,7 @@
 /** SimpleBlob
  */
-#ifndef WIRECELL_SIMPLEBLOB
-#define WIRECELL_SIMPLEBLOB
+#ifndef WIRECELLAUX_SIMPLEBLOB
+#define WIRECELLAUX_SIMPLEBLOB
 
 #include "WireCellIface/IBlob.h"
 #include "WireCellIface/IBlobSet.h"
@@ -9,7 +9,7 @@
 #include "WireCellIface/IAnodeFace.h"
 #include "WireCellUtil/RayGrid.h"
 
-namespace WireCell {
+namespace WireCell::Aux {
 
     class SimpleBlob : public IBlob {
        public:
@@ -66,6 +66,7 @@ namespace WireCell {
         IBlob::vector m_blobs;
     };
 
-}  // namespace WireCell
+}  // namespace WireCell::Aux
 
-#endif /* WIRECELL_SIMPLEBLOB */
+#endif
+

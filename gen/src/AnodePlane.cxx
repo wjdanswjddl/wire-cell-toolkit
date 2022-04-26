@@ -8,8 +8,8 @@
 
 #include "WireCellIface/IFieldResponse.h"
 #include "WireCellIface/IWireSchema.h"
-#include "WireCellIface/SimpleWire.h"
-#include "WireCellIface/SimpleChannel.h"
+#include "WireCellAux/SimpleWire.h"
+#include "WireCellAux/SimpleChannel.h"
 
 #include "WireCellUtil/NamedFactory.h"
 #include "WireCellUtil/String.h"
@@ -23,6 +23,8 @@ WIRECELL_FACTORY(AnodePlane, WireCell::Gen::AnodePlane,
 using namespace WireCell;
 using namespace std;
 using WireCell::String::format;
+using WireCell::Aux::SimpleWire;
+using WireCell::Aux::SimpleChannel;
 
 Gen::AnodePlane::AnodePlane()
   : Aux::Logger("AnodePlane", "geom")

@@ -9,7 +9,7 @@
 #include "WireCellAux/FrameTools.h"
 
 // This is found at *compile* time in util/inc/.
-#include "custard/custard_boost.hpp"
+#include "WireCellUtil/custard/custard_boost.hpp"
 
 WIRECELL_FACTORY(ClusterFileSink, WireCell::Sio::ClusterFileSink,
                  WireCell::INamed,

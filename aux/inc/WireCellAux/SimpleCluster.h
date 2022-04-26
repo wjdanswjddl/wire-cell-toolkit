@@ -1,6 +1,6 @@
 #include "WireCellIface/ICluster.h"
 #include <boost/graph/copy.hpp>
-namespace WireCell {
+namespace WireCell::Aux {
 
     class SimpleCluster : public ICluster {
        public:
@@ -20,4 +20,4 @@ namespace WireCell {
         int m_ident;
         cluster_graph_t m_graph;
     };
-}  // namespace WireCell
+}  // namespace WireCell::Aux

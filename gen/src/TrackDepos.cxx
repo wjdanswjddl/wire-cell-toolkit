@@ -1,5 +1,5 @@
 #include "WireCellGen/TrackDepos.h"
-#include "WireCellIface/SimpleDepo.h"
+#include "WireCellAux/SimpleDepo.h"
 #include "WireCellUtil/NamedFactory.h"
 
 #include "WireCellUtil/Point.h"
@@ -102,7 +102,7 @@ void Gen::TrackDepos::add_track(double time, const WireCell::Ray& ray, double ch
     while (step < length) {
         const double now = time + step / (m_clight * units::clight);
         const WireCell::Point here = ray.first + dir * step;
-        SimpleDepo* sdepo = new SimpleDepo(now, here, charge_per_depo);
+        Aux::SimpleDepo* sdepo = new Aux::SimpleDepo(now, here, charge_per_depo);
         m_depos.push_back(WireCell::IDepo::pointer(sdepo));
         step += m_stepsize;
         ++count;

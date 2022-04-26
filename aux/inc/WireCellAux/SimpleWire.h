@@ -1,9 +1,9 @@
-#ifndef WIRECELLIFACE_SIMPLEWIRE
-#define WIRECELLIFACE_SIMPLEWIRE
+#ifndef WIRECELLAUX_SIMPLEWIRE
+#define WIRECELLAUX_SIMPLEWIRE
 
 #include "WireCellIface/IWire.h"
 
-namespace WireCell {
+namespace WireCell::Aux {
 
     /** A wire that simply holds all its data. */
     class SimpleWire : public WireCell::IWire {
@@ -41,6 +41,6 @@ namespace WireCell {
         int segment() const { return m_segment; }
     };
 
-}  // namespace WireCell
+}  // namespace WireCell::Aux
 
 #endif

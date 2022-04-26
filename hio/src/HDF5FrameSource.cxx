@@ -1,7 +1,7 @@
 #include "WireCellHio/HDF5FrameSource.h"
 
-#include "WireCellIface/SimpleFrame.h"
-#include "WireCellIface/SimpleTrace.h"
+#include "WireCellAux/SimpleFrame.h"
+#include "WireCellAux/SimpleTrace.h"
 #include "WireCellUtil/NamedFactory.h"
 #include "WireCellUtil/String.h"
 #include "WireCellUtil/Array.h"
@@ -11,6 +11,8 @@
 WIRECELL_FACTORY(HDF5FrameSource, WireCell::Hio::HDF5FrameSource, WireCell::IFrameSource, WireCell::IConfigurable)
 
 using namespace WireCell;
+using WireCell::Aux::SimpleTrace;
+using WireCell::Aux::SimpleFrame;
 
 Hio::HDF5FrameSource::HDF5FrameSource()
   : m_policy("")

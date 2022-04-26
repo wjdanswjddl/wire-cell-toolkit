@@ -1,6 +1,7 @@
-#include "WireCellIface/SimpleChannel.h"
+#include "WireCellAux/SimpleChannel.h"
 
 using namespace WireCell;
+using namespace WireCell::Aux;
 
 SimpleChannel::SimpleChannel(int ident, int index, const IWire::vector& wires)
   : m_ident(ident)

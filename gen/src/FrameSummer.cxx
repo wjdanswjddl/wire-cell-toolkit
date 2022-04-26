@@ -3,11 +3,12 @@
 #include "WireCellAux/FrameTools.h"
 
 #include "WireCellUtil/NamedFactory.h"
-#include "WireCellIface/SimpleFrame.h"
+#include "WireCellAux/SimpleFrame.h"
 
 WIRECELL_FACTORY(FrameSummer, WireCell::Gen::FrameSummer, WireCell::IFrameJoiner, WireCell::IConfigurable)
 
 using namespace WireCell;
+using WireCell::Aux::SimpleFrame;
 
 Configuration Gen::FrameSummer::default_configuration() const
 {

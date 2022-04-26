@@ -2,7 +2,7 @@
 
 #include "WireCellUtil/NamedFactory.h"
 #include "WireCellUtil/Exceptions.h"
-#include "WireCellIface/SimpleFrame.h"
+#include "WireCellAux/SimpleFrame.h"
 #include "WireCellIface/IAnodePlane.h"
 
 WIRECELL_FACTORY(ChannelSplitter, WireCell::SigProc::ChannelSplitter, WireCell::IFrameFanout, WireCell::IConfigurable)
@@ -84,7 +84,7 @@ bool SigProc::ChannelSplitter::operator()(const input_pointer& in, output_vector
     std::stringstream taginfo;
     for (size_t iport = 0; iport < m_multiplicity; ++iport) {
         // Basic frame stays the same.
-        auto sfout = new SimpleFrame(in->ident(), in->time(), port_traces[iport], in->tick());
+        auto sfout = new Aux::SimpleFrame(in->ident(), in->time(), port_traces[iport], in->tick());
 
         // Transform any frame tags based on a per output port ruleset
         auto fouttags = m_ft.transform(iport, "frame", fintags);

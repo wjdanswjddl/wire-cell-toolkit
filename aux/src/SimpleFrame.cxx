@@ -1,6 +1,7 @@
-#include "WireCellIface/SimpleFrame.h"
+#include "WireCellAux/SimpleFrame.h"
 
 using namespace WireCell;
+using namespace WireCell::Aux;
 using namespace std;
 
 SimpleFrame::SimpleFrame(int ident, double time, const ITrace::vector& traces, double tick,

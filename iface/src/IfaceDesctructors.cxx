@@ -101,9 +101,6 @@
 #include "WireCellIface/IWireSource.h"
 #include "WireCellIface/IWireSummarizer.h"
 #include "WireCellIface/IWireSummary.h"
-#include "WireCellIface/SimpleBlob.h"
-#include "WireCellIface/SimpleDepoSet.h"
-#include "WireCellIface/SimpleWire.h"
 
 using namespace WireCell;
 
@@ -201,9 +198,3 @@ IWireSource::~IWireSource() {}
 IWireSummarizer::~IWireSummarizer() {}
 IWireSummary::~IWireSummary() {}
 
-// Fixme: move these to aux!
-// https://github.com/WireCell/wire-cell-toolkit/issues/128
-SimpleBlob::~SimpleBlob() {}
-SimpleBlobSet::~SimpleBlobSet() {}
-SimpleDepoSet::~SimpleDepoSet() {}
-SimpleWire::~SimpleWire() {}

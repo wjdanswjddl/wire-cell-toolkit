@@ -1,6 +1,7 @@
-#include "WireCellIface/SimpleTrace.h"
+#include "WireCellAux/SimpleTrace.h"
 
 using namespace WireCell;
+using namespace WireCell::Aux;
 
 SimpleTrace::SimpleTrace(int chid, int tbin, const ChargeSequence& charge)
   : m_chid(chid)

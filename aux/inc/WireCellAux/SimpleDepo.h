@@ -1,6 +1,6 @@
 #include "WireCellIface/IDepo.h"
 
-namespace WireCell {
+namespace WireCell::Aux {
 
     // A deposition that simply holds all the data it presents.  If
     // you have something that makes depositions immediately and needs
@@ -40,4 +40,5 @@ namespace WireCell {
         double m_long, m_tran;
     };
 
-}  // namespace WireCell
+}  // namespace WireCell::Aux
+

@@ -1,8 +1,8 @@
 #include "WireCellImg/ChargeErrorFrameEstimator.h"
-#include "WireCellIface/SimpleFrame.h"
-#include "WireCellIface/SimpleTrace.h"
 #include "WireCellIface/IWaveformMap.h"
 #include "WireCellAux/FrameTools.h"
+#include "WireCellAux/SimpleFrame.h"
+#include "WireCellAux/SimpleTrace.h"
 
 #include "WireCellUtil/Units.h"
 #include "WireCellUtil/NamedFactory.h"
@@ -14,6 +14,10 @@ WIRECELL_FACTORY(ChargeErrorFrameEstimator, WireCell::Img::ChargeErrorFrameEstim
 
 using namespace WireCell;
 using namespace WireCell::Img;
+
+using WireCell::Aux::SimpleTrace;
+using WireCell::Aux::SimpleFrame;
+
 // One place for the defaults
 static Binning default_bins(1001, 0, (1+1000)*0.5*units::us);
 

@@ -2,8 +2,8 @@
 
 #include "WireCellAux/DftTools.h"
 
-#include "WireCellIface/SimpleFrame.h"
-#include "WireCellIface/SimpleTrace.h"
+#include "WireCellAux/SimpleFrame.h"
+#include "WireCellAux/SimpleTrace.h"
 
 #include "WireCellUtil/NamedFactory.h"
 #include "WireCellUtil/Response.h"
@@ -13,6 +13,8 @@
 WIRECELL_FACTORY(Misconfigure, WireCell::Gen::Misconfigure, WireCell::IFrameFilter, WireCell::IConfigurable)
 
 using namespace WireCell;
+using WireCell::Aux::SimpleTrace;
+using WireCell::Aux::SimpleFrame;
 
 Gen::Misconfigure::Misconfigure() {}
 

@@ -1,11 +1,11 @@
 // This implements an IChannel data interface.
 
-#ifndef WIRECELL_IFACE_SIMPLECHANNEL
-#define WIRECELL_IFACE_SIMPLECHANNEL
+#ifndef WIRECELLAUX_SIMPLECHANNEL
+#define WIRECELLAUX_SIMPLECHANNEL
 
 #include "WireCellIface/IChannel.h"
 
-namespace WireCell {
+namespace WireCell::Aux {
 
     class SimpleChannel : public IChannel {
        public:
@@ -26,6 +26,6 @@ namespace WireCell {
         IWire::vector m_wires;
     };
 
-}  // namespace WireCell
+}  // namespace WireCell::Aux
 
 #endif

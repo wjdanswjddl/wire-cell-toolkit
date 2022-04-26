@@ -1,6 +1,6 @@
 #include "WireCellRoot/CelltreeSource.h"
-#include "WireCellIface/SimpleTrace.h"
-#include "WireCellIface/SimpleFrame.h"
+#include "WireCellAux/SimpleTrace.h"
+#include "WireCellAux/SimpleFrame.h"
 
 #include "WireCellUtil/NamedFactory.h"
 #include "WireCellUtil/String.h"
@@ -108,7 +108,7 @@ bool Root::CelltreeSource::read_traces(
         const size_t index = all_traces.size();
         tagged_traces[frametag].push_back(index);
         // std::cout<<"CelltreeSource: charges.size() "<<charges.size()<<"\n";
-        all_traces.push_back(std::make_shared<SimpleTrace>(channel_number, 0, charges));
+        all_traces.push_back(std::make_shared<Aux::SimpleTrace>(channel_number, 0, charges));
     }
 
     tfile->Close();
@@ -229,7 +229,7 @@ bool Root::CelltreeSource::operator()(IFrame::pointer& out)
     read_cmm(cmm, url, ent);
     std::cout << "CelltreeSource: cmm[\"bad\"].size() " << cmm["bad"].size() << "\n";
 
-    auto sframe = new SimpleFrame(frame_ident, frame_time, all_traces, 0.5 * units::microsecond, cmm);
+    auto sframe = new Aux::SimpleFrame(frame_ident, frame_time, all_traces, 0.5 * units::microsecond, cmm);
     for (auto const& it : tagged_traces) {
         sframe->tag_traces(it.first, it.second);
         std::cout << "CelltreeSource: tag " << it.second.size() << " traces as: \"" << it.first << "\"\n";

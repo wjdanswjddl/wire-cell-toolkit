@@ -1,12 +1,12 @@
-#ifndef WIRECELL_SIMPLETRACE
-#define WIRECELL_SIMPLETRACE
+#ifndef WIRECELLAUX_SIMPLETRACE
+#define WIRECELLAUX_SIMPLETRACE
 
 #include "WireCellIface/ITrace.h"
 
 #include <map>
 #include <vector>
 
-namespace WireCell {
+namespace WireCell::Aux {
 
     /** This concrete trace is filled by time bin and charge.
      *
@@ -35,7 +35,7 @@ namespace WireCell {
         virtual const ChargeSequence& charge() const;
     };
 
-}  // namespace WireCell
+}  // namespace WireCell::Aux
 
 #endif
 

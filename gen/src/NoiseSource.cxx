@@ -2,8 +2,8 @@
 
 #include "WireCellAux/DftTools.h"
 
-#include "WireCellIface/SimpleTrace.h"
-#include "WireCellIface/SimpleFrame.h"
+#include "WireCellAux/SimpleTrace.h"
+#include "WireCellAux/SimpleFrame.h"
 
 #include "WireCellUtil/Persist.h"
 #include "WireCellUtil/NamedFactory.h"
@@ -16,6 +16,8 @@ WIRECELL_FACTORY(NoiseSource, WireCell::Gen::NoiseSource, WireCell::IFrameSource
 
 using namespace std;
 using namespace WireCell;
+using WireCell::Aux::SimpleTrace;
+using WireCell::Aux::SimpleFrame;
 
 Gen::NoiseSource::NoiseSource(const std::string& model, const std::string& anode, const std::string& rng)
   : m_time(0.0 * units::ns)

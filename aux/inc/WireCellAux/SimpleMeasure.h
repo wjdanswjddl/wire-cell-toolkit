@@ -1,9 +1,9 @@
-#ifndef WIRECELL_SIMPLEMEASURE
-#define WIRECELL_SIMPLEMEASURE
+#ifndef WIRECELLAUX_SIMPLEMEASURE
+#define WIRECELLAUX_SIMPLEMEASURE
 
 #include "WireCellIface/IMeasure.h"
 
-namespace WireCell {
+namespace WireCell::Aux {
 
     class SimpleMeasure : public IMeasure {
       public:

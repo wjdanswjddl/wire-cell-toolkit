@@ -11,11 +11,11 @@
 #ifndef WIRECELLUTIL_STREAM
 #define WIRECELLUTIL_STREAM
 
-#include "custard/pigenc_eigen.hpp"
-#include "custard/pigenc_stl.hpp"
-#include "custard/pigenc_multiarray.hpp"
-#include "custard/custard_stream.hpp"
-#include "custard/custard_boost.hpp"
+#include "WireCellUtil/custard/pigenc_eigen.hpp"
+#include "WireCellUtil/custard/pigenc_stl.hpp"
+#include "WireCellUtil/custard/pigenc_multiarray.hpp"
+#include "WireCellUtil/custard/custard_stream.hpp"
+#include "WireCellUtil/custard/custard_boost.hpp"
 
 #include <boost/iostreams/filtering_stream.hpp>
 #include <boost/multi_array.hpp>

@@ -1,7 +1,7 @@
 #include "WireCellImg/BlobSolving.h"
 #include "WireCellIface/ICluster.h"
-#include "WireCellIface/SimpleBlob.h"
-#include "WireCellIface/SimpleCluster.h"
+#include "WireCellAux/SimpleBlob.h"
+#include "WireCellAux/SimpleCluster.h"
 #include "WireCellUtil/Ress.h"
 #include "WireCellUtil/IndexedSet.h"
 #include "WireCellUtil/NamedFactory.h"
@@ -125,7 +125,7 @@ static void solve_slice(cluster_indexed_graph_t& grind, slice_t islice)
         const double value = solved[ind];
         const double unc = 0.0;  // fixme, derive from solution + covariance
         blob_t nblob =
-            std::make_shared<SimpleBlob>(oblob->ident(), value, unc, oblob->shape(), islice, oblob->face());
+            std::make_shared<Aux::SimpleBlob>(oblob->ident(), value, unc, oblob->shape(), islice, oblob->face());
         grind.replace(oblob, nblob);
     }
 }
@@ -147,6 +147,6 @@ bool Img::BlobSolving::operator()(const input_pointer& in, output_pointer& out)
     log->debug("send graph with {}",
                boost::num_vertices(grind.graph()));
                               
-    out = std::make_shared<SimpleCluster>(grind.graph());
+    out = std::make_shared<Aux::SimpleCluster>(grind.graph());
     return true;
 }

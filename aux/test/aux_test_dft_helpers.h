@@ -19,8 +19,7 @@
 #include <fstream>
 #include <iostream>
 
-// note: likely will move in the future.
-#include "custard/nlohmann/json.hpp"
+#include "WireCellUtil/custard/nlohmann/json.hpp"
 
 namespace WireCell::Aux::Test {
 

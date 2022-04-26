@@ -1,12 +1,12 @@
-#ifndef WIRECELL_SIMPLEFRAME
-#define WIRECELL_SIMPLEFRAME
+#ifndef WIRECELLAUX_SIMPLEFRAME
+#define WIRECELLAUX_SIMPLEFRAME
 
 #include "WireCellIface/IFrame.h"
 #include "WireCellUtil/Units.h"
 
 #include <map>
 
-namespace WireCell {
+namespace WireCell::Aux {
 
     /** A simple frame.
      *
@@ -61,6 +61,6 @@ namespace WireCell {
         const SimpleTraceInfo& get_trace_info(const IFrame::tag_t& tag) const;
     };
 
-}  // namespace WireCell
+}  // namespace WireCell::Aux
 
 #endif

@@ -6,7 +6,7 @@
 #include "WireCellIface/IAnodePlane.h"
 #include "WireCellIface/IAnodeFace.h"
 #include "WireCellIface/IWirePlane.h"
-#include "WireCellIface/SimpleDepo.h"
+#include "WireCellAux/SimpleDepo.h"
 
 #include <boost/range.hpp>
 
@@ -184,7 +184,7 @@ bool Gen::Drifter::insert(const input_pointer& depo)
         dT = sqrt(2.0 * m_DT * dt + dT * dT);
     }
 
-    auto newdepo = make_shared<SimpleDepo>(depo->time() + direction * dt + m_toffset, pos, Qf, depo, dL, dT);
+    auto newdepo = make_shared<Aux::SimpleDepo>(depo->time() + direction * dt + m_toffset, pos, Qf, depo, dL, dT);
     xrit->depos.insert(newdepo);
     return true;
 }

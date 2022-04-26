@@ -1,6 +1,6 @@
 #include "WireCellIface/IDepoSet.h"
 
-namespace WireCell {
+namespace WireCell::Aux {
 
     class SimpleDepoSet : public IDepoSet {
         int m_ident;
@@ -17,4 +17,5 @@ namespace WireCell {
         virtual IDepo::shared_vector depos() const { return m_depos; }
     };
 
-}  // namespace WireCell
+}  // namespace WireCell::Aux
+
