@@ -26,6 +26,10 @@ namespace WireCell {
 
         // Return "signal" measured as (central,uncertainty) value_t pair.
         virtual value_t signal() const = 0;
+
+        /// The ID of the plane in which this measure resides
+        virtual WirePlaneId planeid() const = 0;
+
     };
 
 }

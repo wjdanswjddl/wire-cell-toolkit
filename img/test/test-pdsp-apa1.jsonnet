@@ -189,7 +189,7 @@ local clustersink = g.pnode({
     type: "ClusterFileSink",
     data: {
         filename: "clusters-%d.tar.gz",
-        format: "dot",         // one of: (dot, json, numpy)
+        format: "json",         // one of: (dot, json, numpy)
     }
 }, nin=1, nout=0);
 
@@ -218,10 +218,11 @@ local magnify_sigs = g.pnode({
 }, nin=1, nout=1, uses=[anode]);
 
 local graph = g.pipeline([depos, deposio, drifter] + simulation + [
-                          magnify_adcs,
+                          //magnify_adcs,
                           sigproc,
-                          magnify_sigs,
-                          frameio, slices,
+                          //magnify_sigs,
+                          frameio,
+                          slices,
                           blobfinding,
                           blobclustering,
                           blobgrouping,

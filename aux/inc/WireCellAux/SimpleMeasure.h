@@ -7,20 +7,23 @@ namespace WireCell::Aux {
 
     class SimpleMeasure : public IMeasure {
       public:
-        SimpleMeasure(int ident, const value_t& signal={0,0}, const IChannel::vector& chans = {})
-            : id(ident), sig(signal), chans(chans)
+        SimpleMeasure(int ident, WirePlaneId wpid=WirePlaneId(0),
+                      const value_t& signal={0,0}, const IChannel::vector& chans = {})
+            : id(ident), wpid(wpid), sig(signal), chans(chans)
         {}
         virtual ~SimpleMeasure() {}
 
         // While still a concrete type, user may directly mess with
         // these values.
         int id{0};
+        WirePlaneId wpid{0};
         value_t sig{0,0};
         IChannel::vector chans{};
 
         // IMeasure interface methods:
         virtual value_t signal() const { return sig; }
         virtual IChannel::vector channels() const { return chans; }
+        virtual WirePlaneId planeid() const { return wpid; }
 
         // If id is already reasonable, use it, o.w. use smallest
         // channel ident.

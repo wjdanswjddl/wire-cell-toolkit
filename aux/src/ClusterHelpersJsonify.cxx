@@ -146,6 +146,7 @@ Json::Value measurement_jsoner(const cluster_node_t& n)
     ret["ident"] = imeas->ident();
     ret["val"] = sig.value();
     ret["unc"] = sig.uncertainty();
+    ret["wpid"] = imeas->planeid().ident();
     // note: used to have chids, which is redundant with the graph
     return ret;
 }

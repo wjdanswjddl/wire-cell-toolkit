@@ -75,7 +75,7 @@ void Img::BlobGrouping::fill_slice(cluster_indexed_graph_t& grind, ISlice::point
             // its location in the graph and the data held by the
             // connected IChannels and the ISlice found via the
             // connected IBlobs.
-            Aux::SimpleMeasure* smeas = new Aux::SimpleMeasure{m_mcount++};
+            auto smeas = new Aux::SimpleMeasure(m_mcount++);
             IMeasure::pointer imeas(smeas);
 
             for (auto& v : group.second) {
@@ -86,8 +86,11 @@ void Img::BlobGrouping::fill_slice(cluster_indexed_graph_t& grind, ISlice::point
                 }
                 if (v.code() == 'c') {
                     // (c-m)
-                    smeas->sig += activity[std::get<IChannel::pointer>(v.ptr)];
+                    auto ich = std::get<IChannel::pointer>(v.ptr);
+                    smeas->sig += activity[ich];
                     grind.edge(v.ptr, imeas);
+                    // logically, all must be same?
+                    smeas->wpid = ich->planeid(); 
                     continue;
                 }
             }
