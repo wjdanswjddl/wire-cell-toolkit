@@ -79,7 +79,7 @@ namespace WireCell {
         Sequence<Val> resample(const Sequence<Val>& wave, const Domain& domain, int nsamples, const Domain& newdomain)
         {
             const int oldnsamples = wave.size();
-            const double oldstep = sample_width(domain, oldnsamples);
+            const real_t oldstep = sample_width(domain, oldnsamples);
             const double step = sample_width(newdomain, nsamples);
             Sequence<Val> ret;
             for (int ind = 0; ind < nsamples; ++ind) {
@@ -94,8 +94,8 @@ namespace WireCell {
                     ret.push_back(wave[oldnsamples - 1]);
                     continue;
                 }
-                double d1 = oldfracsteps - oldstep * oldind;
-                double d2 = oldstep - d1;
+                real_t d1 = oldfracsteps - oldstep * oldind;
+                real_t d2 = oldstep - d1;
                 Val newval = (wave[oldind] * d1 + wave[oldind + 1] * d2) / oldstep;
                 ret.push_back(newval);
             }
