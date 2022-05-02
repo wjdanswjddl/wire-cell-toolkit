@@ -944,7 +944,9 @@ WireCell::Waveform::ChannelMaskMap Microboone::OneChannelNoise::apply(int ch, si
 
     int nspec = 0;  // just catch any non-zero
     if (!is_partial) {
-        auto const& spec = m_noisedb->rcrc(ch);
+        auto const& spec_old = m_noisedb->rcrc(ch);
+        auto spec = spec_old.size() == spectrum.size() ? spec_old :
+                Waveform::resample(spec_old, {0,spec_old.size()}, spectrum.size(), {0,spectrum.size()});
         WireCell::Waveform::shrink(spectrum, spec);
 
         if (nsiglen != spec.size()) {
