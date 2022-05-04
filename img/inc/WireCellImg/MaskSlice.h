@@ -59,9 +59,17 @@ namespace WireCell {
            private:
             IAnodePlane::pointer m_anode;
             int m_tick_span;
-            std::string m_tag;
-            std::vector<WirePlaneLayer_t> m_active_planes;
-            std::unordered_map<WirePlaneLayer_t, int> m_masked_plane_charge;
+            std::string m_tag{"gauss"};
+            std::string m_error_tag{"gauss_error"};
+            std::vector<int> m_active_planes;
+            std::vector<int> m_dummy_planes;
+            std::vector<int> m_masked_planes;
+            float m_dummy_charge{0.1};
+            float m_dummy_error{1e8};
+            float m_masked_charge{0.2};
+            float m_masked_error{1e8};
+            int m_min_tick{0};
+            int m_max_tick{9592};
             int m_tmax;
         };
 
