@@ -1,0 +1,81 @@
+#include "WireCellImg/BlobSetMerge.h"
+#include "WireCellImg/ImgData.h"
+#include "WireCellIface/SimpleBlob.h"
+
+#include "WireCellUtil/NamedFactory.h"
+
+WIRECELL_FACTORY(BlobSetMerge, WireCell::Img::BlobSetMerge,
+                 WireCell::INamed,
+                 WireCell::IBlobSetFanin, WireCell::IConfigurable)
+using namespace WireCell;
+
+Img::BlobSetMerge::BlobSetMerge()
+    : Aux::Logger("BlobSetMerge", "glue")
+    , m_multiplicity(0)
+{
+}
+
+Img::BlobSetMerge::~BlobSetMerge() {}
+
+WireCell::Configuration Img::BlobSetMerge::default_configuration() const
+{
+    Configuration cfg;
+    cfg["multiplicity"] = (int) m_multiplicity;
+    return cfg;
+}
+
+void Img::BlobSetMerge::configure(const WireCell::Configuration& cfg)
+{
+    int m = get<int>(cfg, "multiplicity", (int) m_multiplicity);
+    if (m <= 0) {
+        THROW(ValueError() << errmsg{"BlobSetMerge multiplicity must be positive"});
+    }
+    m_multiplicity = m;
+}
+
+std::vector<std::string> Img::BlobSetMerge::input_types()
+{
+    const std::string tname = std::string(typeid(input_type).name());
+    std::vector<std::string> ret(m_multiplicity, tname);
+    return ret;
+}
+
+bool Img::BlobSetMerge::operator()(const input_vector& invec, output_pointer& out)
+{
+    Img::Data::Slice *oslice = nullptr;
+    SimpleBlobSet* sbs = new SimpleBlobSet(0, nullptr);
+    out = IBlobSet::pointer(sbs);
+
+    int neos = 0;
+    std::stringstream perset;
+    for (const auto& ibs : invec) {
+        if (!ibs) {
+            ++neos;
+            break;
+        }
+        log->trace("in: slice ident: {} time: {} activites: {} blobs: {}", ibs->slice()->ident(), ibs->slice()->start(), ibs->slice()->activity().size(), ibs->blobs().size());
+        ISlice::pointer newslice = ibs->slice();
+        if (!sbs->slice()) {
+            oslice = new Img::Data::Slice(newslice->frame(), newslice->ident(), newslice->start(), newslice->span());
+            sbs->m_slice = ISlice::pointer(oslice);
+            sbs->m_ident = newslice->ident();
+        }
+        oslice->merge(newslice);
+        for (const auto& iblob : ibs->blobs()) {
+            sbs->m_blobs.push_back(iblob);
+        }
+        perset << " " << ibs->blobs().size();
+
+        log->trace("out: slice ident: {} time: {} activites: {} blobs: {}", sbs->slice()->ident(), sbs->slice()->start(), sbs->slice()->activity().size(), sbs->blobs().size());
+    }
+    perset << " ";
+    if (neos) {
+        out = nullptr;
+        log->debug("EOS");
+        return true;
+    }
+    // we get called a lot so make this a trace level!
+    SPDLOG_LOGGER_TRACE(log, "sync'ed {} blobs: {}",
+                        sbs->m_blobs.size(), perset.str());
+    return true;
+}
