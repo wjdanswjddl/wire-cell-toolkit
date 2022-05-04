@@ -68,9 +68,8 @@ namespace WireCell {
             float m_dummy_error{1e8};
             float m_masked_charge{0.2};
             float m_masked_error{1e8};
-            int m_min_tick{0};
-            int m_max_tick{9592};
-            int m_tmax;
+            int m_min_tbin{0};
+            int m_max_tbin{9592}; // not including
         };
 
         class MaskSlicer : public MaskSliceBase, public IFrameSlicer {

@@ -55,7 +55,12 @@ WireCell::Configuration Img::MaskSliceBase::default_configuration() const
     cfg["masked_planes"] = Json::arrayValue;
 
     //
-    cfg["tmax"] = -1;
+    cfg["dummy_charge"] = m_dummy_charge;
+    cfg["dummy_error"] = m_dummy_error;
+    cfg["masked_charge"] = m_masked_charge;
+    cfg["masked_error"] = m_masked_error;
+    cfg["min_tbin"] = m_min_tbin;
+    cfg["max_tbin"] = m_max_tbin;
 
     return cfg;
 }
@@ -66,7 +71,12 @@ void Img::MaskSliceBase::configure(const WireCell::Configuration& cfg)
     m_tick_span = get(cfg, "tick_span", m_tick_span);
     m_tag = get<std::string>(cfg, "tag", m_tag);
     m_error_tag = get<std::string>(cfg, "error_tag", m_error_tag);
-    m_tmax = get<int>(cfg, "tmax", m_tmax);
+    m_dummy_charge = get<float>(cfg, "dummy_charge", m_dummy_charge);
+    m_dummy_error = get<float>(cfg, "dummy_error", m_dummy_error);
+    m_masked_charge = get<float>(cfg, "masked_charge", m_masked_charge);
+    m_masked_error = get<float>(cfg, "masked_error", m_masked_error);
+    m_min_tbin = get<int>(cfg, "min_tbin", m_min_tbin);
+    m_max_tbin = get<int>(cfg, "max_tbin", m_max_tbin);
     if (cfg.isMember("active_planes")) {
         m_active_planes.clear();
         for (auto id : cfg["active_planes"]) {
@@ -124,6 +134,11 @@ void Img::MaskSliceBase::slice(const IFrame::pointer& in, slice_map_t& svcmap)
         const auto& error = err_trace->charge();
         const size_t nq = charge.size();
         for (size_t qind = 0; qind != nq; ++qind) {
+            if ((tbin + (int) qind) < m_min_tbin || (tbin + (int) qind) >= m_max_tbin) {
+                log->warn("trace {} {} exceeds given range [{},{}), breaking.", trace->channel(), trace->tbin(),
+                          m_min_tbin, m_max_tbin);
+                break;
+            }
             const auto q = charge[qind];
             const auto e = error[qind];
             // TODO: do we want this?
@@ -140,10 +155,9 @@ void Img::MaskSliceBase::slice(const IFrame::pointer& in, slice_map_t& svcmap)
             // TODO: how to handle error?
             s->sum(ich, {q, e});
             if (chid == 0) {
-                log->trace("chid: {} slicebin: {} charge: {} error {}",chid, slicebin, s->activity()[ich].value(),s->activity()[ich].uncertainty());
+                log->trace("chid: {} slicebin: {} charge: {} error {}", chid, slicebin, s->activity()[ich].value(),
+                           s->activity()[ich].uncertainty());
             }
-
-            if(m_tmax > 0 && (tbin + (int)qind) > m_tmax) break;
         }
     }
 
@@ -152,8 +166,8 @@ void Img::MaskSliceBase::slice(const IFrame::pointer& in, slice_map_t& svcmap)
         auto ichans = Aux::plane_channels(m_anode, plane_index);
         log->debug("dummy: {} size {}", plane_index, ichans.size());
         for (auto ich : ichans) {
-            for (auto itick = m_min_tick; itick < m_max_tick; ++itick) {
-                size_t slicebin = (m_min_tick + itick) / m_tick_span;
+            for (auto itick = m_min_tbin; itick < m_max_tbin; ++itick) {
+                size_t slicebin = (m_min_tbin + itick) / m_tick_span;
                 auto s = svcmap[slicebin];
                 if (!s) {
                     const double start = slicebin * span;  // thus relative to slice frame's time.
@@ -177,7 +191,11 @@ void Img::MaskSliceBase::slice(const IFrame::pointer& in, slice_map_t& svcmap)
         }
         for (auto tbin : ch_tbins.second) {
             // log->debug("t: {} {}", tbin.first, tbin.second);
-            for (auto t = tbin.first; t!= tbin.second; ++t) {
+            for (auto t = tbin.first; t != tbin.second; ++t) {
+                if (t < m_min_tbin || t >= m_max_tbin) {
+                    log->warn("cmm {} {} exceeds given range [{},{}), breaking.", chid, t, m_min_tbin, m_max_tbin);
+                    break;
+                }
                 size_t slicebin = t / m_tick_span;
                 auto s = svcmap[slicebin];
                 if (!s) {
@@ -185,9 +203,7 @@ void Img::MaskSliceBase::slice(const IFrame::pointer& in, slice_map_t& svcmap)
                     s = new Img::Data::Slice(in, slicebin, start, span);
                     svcmap[slicebin] = s;
                 }
-                s->assign(ich, {m_masked_charge,m_masked_error});
-
-                if(m_tmax > 0 && t > m_tmax) break;
+                s->assign(ich, {m_masked_charge, m_masked_error});
             }
         }
     }
