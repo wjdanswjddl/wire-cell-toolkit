@@ -49,6 +49,7 @@ namespace WireCell {
 
                 void sum(const IChannel::pointer& ch, value_t val) { m_activity[ch] += val; }
                 void assign(const IChannel::pointer& ch, value_t val) { m_activity[ch] = val; }
+                void merge(const ISlice::pointer& in) {m_activity.insert(in->activity().begin(),in->activity().end());}
             };
 
             // simple collection
