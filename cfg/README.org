@@ -2,15 +2,29 @@
 
 * What is here
 
-This repository holds a reference set of Wire Cell Toolkit
-configuration files, largely in the form of Jsonnet.
+This repository holds a reference set of Wire Cell Toolkit (WCT)
+configuration files.  These are largely in the form of Jsonnet but
+some in FHiCL format are as examples to integrate with applications
+based on the /art/ event processing framework.
 
-The files at top level are general utilities are effort will be kept
-to maintain their stability. 
+The goal of any /main/ Jsonnet file is to produce an *ordered array of
+component configuration objects*.  Each object names a WCT C++
+component type and an optional instance name and may also include
+additional attributes which are passed to the C++ object instance to
+configure it.  A special configuration object, typically the last in
+the sequence, names the WCT "app" which is usually a ~Pgrapher~ or
+~TbbFlow~ component that provide *data flow processing* (DFP) graph
+execution.  The main configuration element of this component is a list
+of "edges" connecting two data flow graph nodes by stating their
+~type:instance~ name pairs.
 
-Sub-directories can be expected to evolve (and disappear). Effort will
-be made to keep what is there current with the contemporaneous C++
-code.
+Configuration is complex and more so as it spans multiple detectors
+and for each detector variations in term of detector model, job
+intention and other factors.  To manage this complexity a number of
+structural conventions are observed at the directory, file and content
+level.  The Jsonnet files at top ~cfg/~ directory provide general
+utilities.  Sub-directories ~cfg/*~ define some scope for conventions,
+some of which are described in the next section.
 
 For more information on configuration see the [[https://github.com/WireCell/wire-cell-docs/tree/master/manuals/configuration.org][WCT configuration manual]]
 as well as [[https://wirecell.github.io/news/categories/config/][news posts tagged with config]].
@@ -40,19 +54,23 @@ This holds some functions to assist in doing vector arithmetic in Jsonnet.
 This holds functions to support building a processing graph for use by
 the ~Pgrapher~ WCT app component.  Some details are [[https://wirecell.github.io/news/posts/pgrapher-configuration-improvements/][here]].
 
-** Pgrapher Modules
+** Structure layers
 
-Although there are several WCT app components, currently the most
-powerful and flexible is Pgrapher.  It's configuration is based on
-building a graph of nodes and with the help of ~pgraph.jsonnet~ it is
-possible to factor many of the possible graphs into common a set of
-subgraphs.  This allows a full configuration to be constructed at
-various levels of detail culminating on a simple high-level
-aggregation of nodes which is typically in the form of a simple linear
-pipeline.  
+Across all types of *detectors* and *jobs* which are supported by WCT we
+define a layered configuration structure.  The top layer is most
+generic and the bottom most specific.  An Jsonnet API is defined for
+each layer.  Users defining new "main" Jsonnet files, or improving
+legacy forms, should read the document [[layers/README.org]].
 
-A factored collection of Pgrapher configuration is available under
-[[./pgrapher/]].  See [[./pgrapher/README.org][it's README]] for more info.
+** Legacy forms
+
+The original configuration structure which does not allow for
+detector-independent job configuration definition is held under
+[[./pgrapher/]].  See [[./pgrapher/README.org][it's README]] for more info on the conventions it
+follows.  New detector configuration should follow the *structured
+layers* form introduced above.  In some cases, legacy detector
+configuration may used in an adapter that provides *structured layers*
+forms.
 
 ** Obsolete
 

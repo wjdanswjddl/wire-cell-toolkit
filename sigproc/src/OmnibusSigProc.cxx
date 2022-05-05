@@ -902,6 +902,7 @@ void OmnibusSigProc::init_overall_response(IFrame::pointer frame)
 
 void OmnibusSigProc::restore_baseline(Array::array_xxf& arr)
 {
+    int nempty=0;
     for (int i = 0; i != arr.rows(); i++) {
         Waveform::realseq_t signal(arr.cols());
         int ncount = 0;
@@ -910,6 +911,10 @@ void OmnibusSigProc::restore_baseline(Array::array_xxf& arr)
                 signal.at(ncount) = arr(i, j);
                 ncount++;
             }
+        }
+        if (!ncount) {
+            ++nempty;
+            continue;
         }
         signal.resize(ncount);
         float baseline = WireCell::Waveform::median(signal);
@@ -929,6 +934,10 @@ void OmnibusSigProc::restore_baseline(Array::array_xxf& arr)
         for (int j = 0; j != arr.cols(); j++) {
             if (arr(i, j) != 0) arr(i, j) -= baseline;
         }
+    }
+    if (nempty) {
+        log->debug("{} empty rows out of size=({},{})",
+                   nempty, arr.rows(), arr.cols());
     }
 }
 

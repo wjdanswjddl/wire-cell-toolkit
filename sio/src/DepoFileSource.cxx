@@ -49,7 +49,7 @@ void Sio::DepoFileSource::configure(const WireCell::Configuration& cfg)
     m_in.clear();
     input_filters(m_in, m_inname);
     if (m_in.size() < 2) {     // must have at least get tar filter + file source.
-        THROW(ValueError() << errmsg{"DepoFielSource: unsupported inname: " + m_inname});
+        THROW(ValueError() << errmsg{"DepoFileSource: unsupported inname: " + m_inname});
     }
 
     log->debug("reading {} with scale={}", m_inname, m_scale);
@@ -151,9 +151,18 @@ IDepoSet::pointer Sio::DepoFileSource::next()
         return nullptr;
     }
 
+    if (darr.rows() != iarr.rows() and darr.cols() == iarr.cols()) {
+        array_xxfrw dtmp = darr.transpose();
+        darr = dtmp;
+        array_xxirw itmp = iarr.transpose();
+        iarr = itmp;
+        log->error("call={}, array transpose detected, correcting to: data=({},{}) info=({},{})",
+                   m_count, darr.rows(), darr.cols(), iarr.rows(), iarr.cols());
+    }
+
     if (darr.rows() != iarr.rows()) {
-        log->error("call={}, array row mismatch data={} info={}",
-                   m_count, darr.rows(), iarr.rows());
+        log->error("call={}, array row mismatch. transposed? data=({},{}) info=({},{})",
+                   m_count, darr.rows(), darr.cols(), iarr.rows(), iarr.cols());
         return nullptr;
     }
     const size_t ndepos = darr.rows();

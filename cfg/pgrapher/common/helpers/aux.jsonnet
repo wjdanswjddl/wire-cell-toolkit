@@ -41,7 +41,7 @@ local wc = import "wirecell.jsonnet";
     cer(shaping, gain, postgain, nticks, tick=0.5*wc.us, name="") ::
         {
             type: "ColdElecResponse",
-            name: "",               // some dets may have more than 1
+            name: name,         // some dets may have more than 1
             data: {
                 shaping: shaping,
                 gain: gain,

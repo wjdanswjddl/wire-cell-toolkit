@@ -21,7 +21,8 @@ local aux = import "aux.jsonnet";
         }
     },
 
-    /// Source of depos from ideal lines of ionization
+    /// Source of depos from ideal lines of ionization.  See also
+    /// helpers.io for file based sources.
     track_depos(tracks, name="", step=1.0*wc.mm) :: pg.pnode({
         type: "TrackDepos",
         name: name,
@@ -94,7 +95,7 @@ local aux = import "aux.jsonnet";
         uses: [dft, fr] + srs + lrs,
     } for plane in [0,1,2]],
 
-    // signal simulation
+    // Signal simulation with one anode.
     signal(anode, pirs, daq, lar, rnd=$.random(), dft=aux.dft) ::
         pg.pipeline([
             pg.pnode({

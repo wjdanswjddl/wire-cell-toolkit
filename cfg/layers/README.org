@@ -1,0 +1,257 @@
+#+title: WCT Configuration Structure Layers
+#+subtitle: No Copy Paste No ~if~ Branch
+
+* Introduction
+
+The WCT configuration layer structure conventions provide API and
+implementation at different levels of abstraction.  It identifies
+these levels:
+
+- high :: The *high-level API* is *detector independent* and is used to
+  develop "main" Jsonnet structures to define some *job type*.
+
+- mid :: The *middle-level API* is also *detector independent* while its
+  implementation holds *detector-dependent* information.
+
+- low :: The *low-level API* is *detector independent* and provides
+  utilities to help make producing a mid-level API instance easier.
+
+
+* Tutorial
+
+The only "user serviceable" parts are the "mid-level layer" and that
+is what this tutorial covers.
+
+** Introduction
+
+This tutorial will lead you through the process of developing a set of
+*mid-layer API objects* for the ProtoDUNE-SP (~pdsp~) detector spanning a
+few variants.
+
+Each detector and detector variant must define a mid-layer API object.
+This object contains methods (no data) which return WCT configuration
+objects.  Every mid-layer API is identical, though of course each API
+instance returns unique values.
+
+** Running something
+
+Assuming a ~WIRECELL_PATH~ is configured to include the ~cfg/~ directory
+in which this README exists, the mid-layer code covered by this
+tutorial can be exercised with:
+
+#+begin_example
+wcsonnet -A detector=pdsp layers/tut-high.jsonnet 
+#+end_example
+
+Where the file [[tut-high.jsonnet]] is in this same directory.  With no
+special configuration, assuming current directory is a clone of
+~wire-cell-toolkit~:
+
+#+begin_example
+jsonnet -J cfg -A detector=pdsp cfg/layers/tut-high.jsonnet
+#+end_example
+
+This may be slower than ~wcsonnet~ if it is not also using the Go
+version of Jsonnet.
+
+Before continuing, read through the ~tut-high.jsonnet~ file to see how
+the ~mid~ object is created and used.  The tutorial will describe how to
+develop Jsonnet code to provide that ~mid~ object in its proper form.
+
+** Make the code directories
+
+Make the source directory named after the detector
+
+#+begin_example
+mkdir -p cfg/layers/mids/pdsp/
+cd cfg/layers/mids/pdsp/
+mkdir api variants
+#+end_example
+
+The ~api~ and ~variants~ directories not required but are recommended in
+order to hold detail code.
+
+** Variant parameters objects
+
+A mid-layer configuration developer is free to provide API objects in
+any manner consistent with the requirements section below.  However,
+by following the guidelines given here the developer may write less
+code to satisfy the mid-layer API requirements.
+
+For ~pdsp~ we start with a single "nominal" variant parameter object in
+
+#+begin_example
+variants/nominal.jsonnet
+#+end_example
+
+It produces a object:
+
+#+begin_example
+wcsonnet layers/mids/pdsp/variants/nominal.jsonnet
+#+end_example
+
+This object is meant to be consumed by the mid-layer API factory code,
+which we'll cover next.  You are free to structure it anyway you want
+but some patterns will help make the API factory code simpler in part
+especially when sub structure supported by the low-layer API is
+present.  It can be a little hard to know how best to structure the
+variant parameter objects but looking at existing examples should give
+a good idea.  As you develop your mid-layer API factory code it is
+natural to adjust the variant parameter object.
+
+** Mid-layer API factory
+
+The job of the mid-layer API factory is to produce mid-layer API
+objects.  The entry point to that code must be in a detector-specific
+directory.  For our ~pdsp~ example, it is here:
+
+#+begin_example
+cfg/layers/mids/pdsp/mids.jsonnet
+#+end_example
+
+It is short enough we include it here:
+
+#+include: mids/pdsp/mids.jsonnet src jsonnet
+
+Each detector will customize the ~variants~ object defined locally so
+that it spans all known variants.  It may be extended by having one
+~variant/<name>.jsonnet~ per variant and having each ~import~'ed.  Or
+something else may be invented.
+
+Whatever that be, this ~mids.jsonnet~ must produce a
+~function(services,variants)~ that returns the appropriate mid-level API
+object matching the variant.
+
+In this example we see the ~api.jsonnet~ being imported.  This is the
+API factory which is parameterized by ~services~ and the ~variant~
+parameter object.
+
+** Services
+
+The ~services~ object holds configuration which is determined by the end
+user and not the developer of the mid-layer API.  However, the latter
+must know the (future) end user's decision before the mid-layer API
+can be written.  And, so the mid-layer API requires the ~services~
+object (dependency injection).
+
+** Mid-layer API construction
+
+Now, we visit
+
+#+begin_example
+cfg/layers/mids/pdsp/api.jsonnet
+#+end_example
+
+This function is what actually constructs the mid-layer API for ~pdsp~
+variants.  It returns an object with methods (and not data) that
+matches the mid-layer API.  To keep the body brief, the definition of
+each API method is mostly delegated to other code.
+
+Here we see the synergy made by structuring the variant parameter
+object such that we may call the low-layer API (~low~ object here).
+
+
+** Testing
+
+As we bring "official" configuration for ~pdsp~ into a mid-layer
+variants it is very important to test that we get back the same
+result.  We may compile "old" and "new" and use ~diff~ like tools.
+
+This can uncover "cosmetic" differences.  For example, the exact
+instance names do not matter and one goal of the new config is to keep
+them as brief as possible.  There can be order differences, for
+example due to using a more efficient manner of processing the variant
+parameter object.
+
+There are tests collected in the ~test/~ directory.  For example:
+
+#+begin_example
+./test/test-tut-high.sh
+#+end_example
+
+This needs ~jq~ and ~gron~ installed and it will show a "flat-json-diff"
+output
+
+* Implementation requirements
+
+These requirements a stated as a substitute for Jsonnet's lack of
+language features to enforce conventions.
+
+This section is written in the "must/shall" and "may/should" type
+language of RFC 2119.  It describes rules that must be followed when
+developing the configuration structure layers.
+
+** General
+
+Files found under ~cfg/layers/~ shall be considered part of the
+configuration structure layers (or "layers" for short).
+
+A layer file shall not import code from outside of the layers with the
+exception of files found at ~cfg/*.jsonnet~.
+
+
+** High
+
+All files matching ~layers/*.jsonnet~ shall compose the "high" layer
+implementation.
+
+The high layer shall not define nor directly import any
+detector-specific code.  Note: the generated file ~layers/mids.jsonnet~
+imports all ~mids/<detector>/mids.jsonnet~ files but the imported code
+presents a detector-independent API.
+
+The high layer shall not directly import files from ~low/~.
+
+** Mids
+
+All files matching ~layers/mids/*/*.jsonnet~ shall compose
+the "mid" layer.
+
+A mid layer shall provide a file located to define its canonical
+detector name:
+
+#+begin_example
+layers/mids/<detector>/mids.jsonnet
+#+end_example
+
+This file must produce a top-level function with signature and return
+type:
+
+#+begin_src jsonnet
+  function(services, variant="nominal") {
+      // mid API methods
+  }
+#+end_src
+
+A mid implementation should be in terms of the "low" layer API
+provided under ~low/~ and otherwise should avoid importing and using
+code that resides outside of its ~<detector>/~ directory.
+
+A mid implementation:
+
+- must include a ~"nominal"~ variant.
+- must include ~"real"~ and ~"fake"~ variants if the otherwise ~"nominal"~ variant must be distinguished between configuration for processing data from the real detector or from simulation, respectively.
+- may define additional variants.
+
+A mid implementation may extend the ~low.params~ object for each variant.
+
+** Low
+
+All files found under ~low/~ f compose the "low" layer.
+
+The low layer code shall import no code from high nor mid layers.
+
+The low layer code shall neither provide nor import any detector
+specific code.
+
+The low layer API method arguments shall not require detector-specific
+structure.
+
+The complexity of low method arguments should be managed to balanced
+reduced structural complexity with increased argument count.
+Non-scalar structured values may only be passed if their structure
+opaque to the method or represents a portion of the canonical
+~low.params~ structure.
+
+
+

@@ -330,7 +330,6 @@
     unique_list(l):: std.foldl($.unique_helper, l, []),
 
 
-
     // Round a floating point to nearest integer.  It's a bit weird to
     // go through a format/parse.  Maybe there's a better way?
     roundToInt(x):: std.parseInt("%d" % (x+0.5)),
