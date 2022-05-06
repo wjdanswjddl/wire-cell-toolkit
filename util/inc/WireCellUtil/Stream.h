@@ -14,7 +14,8 @@
 #include "WireCellUtil/custard/pigenc_eigen.hpp"
 #include "WireCellUtil/custard/pigenc_stl.hpp"
 #include "WireCellUtil/custard/pigenc_multiarray.hpp"
-#include "WireCellUtil/custard/custard_stream.hpp"
+
+#define CUSTARD_BOOST_USE_MINIZ
 #include "WireCellUtil/custard/custard_boost.hpp"
 
 #include <boost/iostreams/filtering_stream.hpp>
