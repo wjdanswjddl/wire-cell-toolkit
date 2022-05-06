@@ -9,39 +9,13 @@ local pg = import "pgraph.jsonnet";
 local wc = import "wirecell.jsonnet";
 
 {
-    // A source of depos from file.  This picks a format-specific
-    // source component based on filename extension.
+    // A source of depos from file. Several file formats supported.
     depo_file_source(filename, name="", scale=1.0) ::
-        if std.endsWith(filename, ".npz")
-        then $.depo_npz_source(name, filename)
-        else $.depo_tar_source(name, filename, scale),
-
-    // The "preferred" depo file source
-    depo_tar_source(name, filename, scale=1.0) ::
         pg.pnode({
             type: 'DepoFileSource',
             name: name,
             data: { inname: filename, scale: scale }
         }, nin=0, nout=1),
-
-    // The "deprecated" depo file source
-    depo_npz_source(name, filename, loadby="set") ::
-        if loadby == "set"
-        then pg.pnode({
-            type: 'NumpyDepoSetLoader',
-            name: name,
-            data: {
-                filename: filename
-            }
-        }, nin=0, nout=1)
-        else pg.pnode({
-            type: 'NumpyDepoLoader',
-            name: name,
-            data: {
-                filename: filename
-            }
-        }, nin=0, nout=1),
- 
 
     // If a frame is written out "dense" it the sink needs to know
     // what the bounds are in channel IDs (rows) and ticks (columns).

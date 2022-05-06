@@ -48,7 +48,7 @@ void Sio::DepoFileSource::configure(const WireCell::Configuration& cfg)
 
     m_in.clear();
     input_filters(m_in, m_inname);
-    if (m_in.size() < 2) {     // must have at least get tar filter + file source.
+    if (m_in.empty()) {
         THROW(ValueError() << errmsg{"DepoFileSource: unsupported inname: " + m_inname});
     }
 
@@ -85,7 +85,7 @@ filemd_t read_pig(std::istream& si, pigenc::File& pig)
     return parse_filename(fname);
 }
 
-// Read one file set from tar stream and save to fraem if tag matches
+// Read one file set from tar stream and save to frame if tag matches
 IDepoSet::pointer Sio::DepoFileSource::next()
 {
     // Full eager load of next two files
