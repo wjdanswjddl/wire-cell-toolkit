@@ -188,13 +188,15 @@ local wc = import "wirecell.jsonnet";
 
         // The time bin where the readout should be considered to
         // actually start given the pre-signal simulated.
-        tbin : wc.roundToInt(pre / self.tick),
-        // Ductor ticks at same speed as ADC
-        tick : $.binning.tick,
-        // Over the somewhat enlarged domain
-        nticks : self.tbin + $.binning.nticks,
+        tbin : wc.roundToInt(pre / self.binning.tick),
+        binning: {
+            // Ductor ticks at same speed as ADC
+            tick : $.binning.tick,
+            // Over the somewhat enlarged domain
+            nticks : $.ductor.tbin + $.binning.nticks,
+        },
         start_time : tzero - pre,
-        readout_time : self.nticks * self.tick,
+        readout_time : self.binning.nticks * self.binning.tick,
     },
 
     // Simulating noise
@@ -236,11 +238,27 @@ local wc = import "wirecell.jsonnet";
         fullscale: [0.2*wc.volt, 1.6*wc.volt],
     },
 
-
-    // Signal processing
-    sigproc: {
+    // The noise filter parameter pack
+    nf : {
         // In principle, may use a different field response.
         field_file : $.ductor.field_file,
+
+        binning: $.binning,
+
+        // The name of the ChannelNoiseDb
+        chndb: "actual",
+        filters: {
+            channel: ["single"], // sticky, single, gaincalib
+            grouped: [],         // grouped,
+            status: [],
+        }
+    },
+
+    // Signal processing parameter pack
+    sp: {
+        // In principle, may use a different field response.
+        field_file : $.ductor.field_file,
+        binning : $.binning,
     }
 
 }

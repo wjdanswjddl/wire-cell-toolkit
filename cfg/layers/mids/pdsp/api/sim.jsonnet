@@ -5,23 +5,20 @@
 // information in variants/*.jsonnet.  Information from one of those
 // files is passed as "params"
 
-local wc = import "wirecell.jsonnet";
-local pg = import "pgraph.jsonnet";
+local low = import "../../../low.jsonnet";
+// some short hands
+local wc = low.wc;
+local pg = low.pg;
+local idents = low.util.idents;
 
-local idents = function(obj) std.toString(obj.data.ident);
+local frs = import "frs.jsonnet";
 
 function(services, params) {
 
     // Signal binning may be extended from nominal.
-    local sig_binning = { 
-        tick: params.ductor.tick,
-        nticks: params.ductor.nticks,
-    },
+    local sig_binning = params.ductor.binning,
 
-    local fr = {
-        type: "FieldResponse",
-        data: { filename: params.ductor.field_file }
-    },
+    local fr = frs(params).sim,
 
     local cer = {
         type: "ColdElecResponse",
@@ -67,7 +64,7 @@ function(services, params) {
                 first_frame_number: 0,
                 readout_time: params.ductor.readout_time,
                 start_time: params.ductor.start_time,
-                tick: params.ductor.tick,
+                tick: sig_binning.tick,
                 nsigma: 3,
             },
         }, nin=1, nout=1, uses = pirs + [anode, services.random, services.dft]), pg.pnode({
@@ -79,7 +76,7 @@ function(services, params) {
                 fill: 0.0,
                 toffset: 0,
                 tbin: params.ductor.tbin,
-                nticks: params.ductor.nticks - self.tbin,
+                nticks: sig_binning.nticks - self.tbin,
             },
         }, nin=1, nout=1, uses=[anode])]),
 

@@ -54,32 +54,31 @@ instance returns unique values.
 
 ** Running something
 
-Assuming a ~WIRECELL_PATH~ is configured to include the ~cfg/~ directory
-in which this README exists, the mid-layer code covered by this
-tutorial can be exercised with:
+Assuming your ~WIRECELL_PATH~ includes the ~wire-cell-toolkit/cfg/~
+directory and the WCT binaries are installed, the mid-layer code
+covered by this tutorial can be exercised with:
 
 #+begin_example
 wcsonnet -A detector=pdsp layers/tut-high.jsonnet 
 #+end_example
 
-Where the file [[tut-high.jsonnet]] is in this same directory.  With no
-special configuration, assuming current directory is a clone of
-~wire-cell-toolkit~:
+If you do not have WCT installed, you can use vanilla ~jsonnet~
 
 #+begin_example
-jsonnet -J cfg -A detector=pdsp cfg/layers/tut-high.jsonnet
+jsonnet \
+  -J /path/to/wire-cell-toolkit/cfg \
+  -A detector=pdsp \
+  /path/to/wire-cell-toolkit/cfg/layers/tut-high.jsonnet
 #+end_example
 
-This may be slower than ~wcsonnet~ if it is not also using the Go
-version of Jsonnet.
+Before continuing, read through the [[tut-high.jsonnet]] with some focus
+on how the ~mid~ object is created and then used.  The tutorial will
+describe how to develop Jsonnet code to provide that ~mid~ object in its
+proper form.
 
-Before continuing, read through the ~tut-high.jsonnet~ file to see how
-the ~mid~ object is created and used.  The tutorial will describe how to
-develop Jsonnet code to provide that ~mid~ object in its proper form.
+** Create mid-layer directories
 
-** Make the code directories
-
-Make the source directory named after the detector
+Make the source directory named after the detector:
 
 #+begin_example
 mkdir -p cfg/layers/mids/pdsp/
@@ -87,36 +86,27 @@ cd cfg/layers/mids/pdsp/
 mkdir api variants
 #+end_example
 
-The ~api~ and ~variants~ directories not required but are recommended in
-order to hold detail code.
-
 ** Variant parameters objects
 
-A mid-layer configuration developer is free to provide API objects in
-any manner consistent with the requirements section below.  However,
-by following the guidelines given here the developer may write less
-code to satisfy the mid-layer API requirements.
-
-For ~pdsp~ we start with a single "nominal" variant parameter object in
+For our ~pdsp~ example we start with a single ~nominal~ variant parameter
+object defined in:
 
 #+begin_example
 variants/nominal.jsonnet
 #+end_example
 
-It produces a object:
+We can compile it directly:
 
 #+begin_example
 wcsonnet layers/mids/pdsp/variants/nominal.jsonnet
 #+end_example
 
-This object is meant to be consumed by the mid-layer API factory code,
-which we'll cover next.  You are free to structure it anyway you want
-but some patterns will help make the API factory code simpler in part
-especially when sub structure supported by the low-layer API is
-present.  It can be a little hard to know how best to structure the
-variant parameter objects but looking at existing examples should give
-a good idea.  As you develop your mid-layer API factory code it is
-natural to adjust the variant parameter object.
+What goes in this object is up to you but following some conventions
+we can make all our variant parameter objects have a common structure
+and that structure will be convenient to reduce the amount of code we
+must write in the mid-layer API factory.  As you develop that API it
+is natural to make adjustments to the structure of the variant
+parameter objects.
 
 ** Mid-layer API factory
 

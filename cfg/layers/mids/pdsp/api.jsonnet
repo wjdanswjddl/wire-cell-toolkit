@@ -2,6 +2,8 @@
 
 local low = import "../../low.jsonnet";
 local sim = import "api/sim.jsonnet";
+local nf = import "api/nf.jsonnet";
+local sp = import "api/sp.jsonnet";
 
 function(services, params) {
 
@@ -13,8 +15,12 @@ function(services, params) {
                     low.util.driftsToXregions(params.geometry.drifts),
                     params.lar, name=name),
 
-    // returns an object of methods taking "anode"
+    // signal, noise, digitizer
     sim :: sim(services, params),
+
+    nf :: nf(services, params),
+
+    sp :: sp(services, params),
 
 }
 
