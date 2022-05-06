@@ -19,10 +19,29 @@ these levels:
 
 * Tutorial
 
-The only "user serviceable" parts are the "mid-level layer" and that
-is what this tutorial covers.
+The *high-layer API* has conceptually two sets of methods.
 
-** Introduction
+- methods to produce *detector-dependent* configuration objects by
+  creating a *mid-layer API* object which presents a
+  *detector-independent* interface.
+
+- methods to produce configuration objects for data flow graph nodes
+  which are *detector independent*.  For example, those which move data
+  between some external context (file, art/larsoft) and the rest of
+  the WCT data flow graph.
+
+An "end user" sees only a *detector independent* interface,
+parameterized by a *detector name* and a *detector variant name*.  A
+developer for detector-specific configuration will only need develop
+configuration code in the *mid layer API* directory and files specific
+to their detector.
+
+The following sections give a tutorial focused on how to develop the
+*mid-layer API* objects.  Then sections cover use of the broader
+*high-layer API*.
+
+
+** Introduction to mid-layer
 
 This tutorial will lead you through the process of developing a set of
 *mid-layer API objects* for the ProtoDUNE-SP (~pdsp~) detector spanning a

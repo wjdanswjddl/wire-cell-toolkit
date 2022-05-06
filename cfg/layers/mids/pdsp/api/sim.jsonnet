@@ -40,6 +40,7 @@ function(services, params) {
     local pirs = [{
         type: 'PlaneImpactResponse',
         name: std.toString(plane),
+        uses: [fr, services.dft] + short_responses + long_responses,
         data: sig_binning {
             plane: plane,
             dft: wc.tn(services.dft),
@@ -90,6 +91,7 @@ function(services, params) {
             data: std.prune(params.noise {
                 anode: wc.tn(anode),
                 dft: wc.tn(services.dft),
+                chanstat:"",    // must explicitly empty
                 replacement_percentage:null, // tidy: in params.noise but not used by ENM
             }),
             uses: [anode, services.dft]

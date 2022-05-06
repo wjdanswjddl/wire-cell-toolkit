@@ -13,7 +13,13 @@ local svcs = import "svcs.jsonnet";
     // convenience to end user.
     wc :: import "wirecell.jsonnet",
     pg :: import "pgraph.jsonnet",
-    hs :: import "pgrapher/common/helpers.jsonnet",
+
+    // Ways to move data between file and WCT.
+    fio :: import "fileio.jsonnet",
+
+    // This gives main(graph), which produces the final WCT
+    // configuration sequence.
+    main :: import "main.jsonnet",
 
     // The service pack factory function.  By default, the default
     // service pack is passed in to the mid factory function.  If a
