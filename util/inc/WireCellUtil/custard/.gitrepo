@@ -6,7 +6,7 @@
 [subrepo]
 	remote = git@github.com:brettviren/custard.git
 	branch = master
-	commit = 814cb1fee5b06c5ec3df8365524307cfe063fd3c
-	parent = d69ab650d396e93806c42d7e1ed63c049a8543e9
+	commit = fb1456c0c328f23e6459b538e21a4fbdaca055f0
+	parent = 894bf691f1608693ba599ccdbd713c6a61e2e504
 	method = merge
 	cmdver = 0.4.3
