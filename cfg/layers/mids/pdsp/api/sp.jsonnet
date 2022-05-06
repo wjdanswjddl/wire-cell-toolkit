@@ -36,6 +36,7 @@ function(services, params) function(anode, sparse=true)
             */
             anode: wc.tn(anode),
             dft: wc.tn(services.dft),
+            per_chan_resp: "",
             field_response: wc.tn(fr),
             elecresponse: wc.tn(cer),
             ftoffset: 0.0, // default 0.0

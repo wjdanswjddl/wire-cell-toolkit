@@ -6,7 +6,7 @@ local low = import "../../../low.jsonnet";
 local groups = import "channel-groups.jsonnet";
 
 function(anode, binning, fr, dft) {
-    type: 'ChannelNoiseDB',
+    type: 'OmniChannelNoiseDb',
     name: low.util.idents(anode),
     uses: [anode, fr, dft],
     data: {

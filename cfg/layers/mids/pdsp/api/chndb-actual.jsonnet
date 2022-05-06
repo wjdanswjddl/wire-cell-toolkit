@@ -11,7 +11,7 @@ local bc = import "actual-bad-channels.jsonnet";
 local groups = import "channel-groups.jsonnet";
 
 function(anode, binning, fr, dft) {
-    type: 'ChannelNoiseDB',
+    type: 'OmniChannelNoiseDB',
     name: low.util.idents(anode),
     uses: [anode, fr, dft],
     data: {
