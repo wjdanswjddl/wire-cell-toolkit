@@ -1,11 +1,33 @@
 #+title: WCT Configuration Structure Layers
 #+subtitle: No Copy Paste No ~if~ Branch
 
+* TODO
+
+- [ ] add ~mains~ section
+- [ ] add ~options~
+- [ ] generate dots by cross product of detector type, variants and mains
+- [ ] add ~uboone~
+
+
 * Introduction
 
-The WCT configuration layer structure conventions provide API and
-implementation at different levels of abstraction.  It identifies
-these levels:
+The WCT configuration structure layers convention defines a Jsonnet
+API to satisfy a few goals:
+
+- Define a countable number of specific configurations for all
+  supported detectors.
+
+- Produce job configuration that is not directly dependent on details
+  of any given detector variant.
+
+- Facilitate extraction of the subset of configuration for a given
+  detector while still providing a means of consolidating
+  configuration that spans all supported detectors.
+
+It identifies these "layers":
+
+- mains :: Integration with the application (~wire-cell~ CLI or
+  art/LArSoft).
 
 - high :: The *high-level API* is *detector independent* and is used to
   develop "main" Jsonnet structures to define some *job type*.

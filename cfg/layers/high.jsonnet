@@ -4,9 +4,11 @@
 
 // A lookup by detector and variant.  See gen-mids.sh.
 local mids = import "mids.jsonnet";
+local svcs = import "high/svcs.jsonnet";
+
 local midapi = import "midapi.jsonnet";
 
-local svcs = import "svcs.jsonnet";
+
 
 {
     // Forward the various "standard" wirecell utillities as a
@@ -15,11 +17,11 @@ local svcs = import "svcs.jsonnet";
     pg :: import "pgraph.jsonnet",
 
     // Ways to move data between file and WCT.
-    fio :: import "fileio.jsonnet",
+    fio :: import "high/fileio.jsonnet",
 
     // This gives main(graph), which produces the final WCT
     // configuration sequence.
-    main :: import "main.jsonnet",
+    main :: import "high/main.jsonnet",
 
     // The service pack factory function.  By default, the default
     // service pack is passed in to the mid factory function.  If a

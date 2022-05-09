@@ -4,8 +4,9 @@ local low = import "../../low.jsonnet";
 local sim = import "api/sim.jsonnet";
 local nf = import "api/nf.jsonnet";
 local sp = import "api/sp.jsonnet";
+local img = import "api/img.jsonnet";
 
-function(services, params) {
+function(services, params, options) {
 
     anodes :: function()
         low.anodes(params.geometry.drifts, params.geometry.wires_file),
@@ -22,6 +23,7 @@ function(services, params) {
 
     sp :: sp(services, params),
 
+    img :: img(services, params),
 }
 
     

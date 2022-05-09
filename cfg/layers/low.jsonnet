@@ -8,4 +8,6 @@
     util : import "low/util.jsonnet",
     drifter : import "low/drifter.jsonnet",
     anodes : import "low/anodes.jsonnet",
+
+    img : import "low/img.jsonnet";
 }

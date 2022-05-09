@@ -259,7 +259,13 @@ local wc = import "wirecell.jsonnet";
         // In principle, may use a different field response.
         field_file : $.ductor.field_file,
         binning : $.binning,
-    }
+    },
+
+    // Imaging paramter pack
+    img : {
+        // Number of ticks to collect into one time slice span
+        span: 4,
+    },
 
 }
     
