@@ -9,6 +9,10 @@ local pg = import "pgraph.jsonnet";
 local wc = import "wirecell.jsonnet";
 
 {
+    // Reminder to use this to convert a sink to a filter.
+    // tap('FrameFanout', frame_sink, "name").
+    tap :: pg.fan.tap,
+
     // A source of depos from file. Several file formats supported.
     depo_file_source(filename, name="", scale=1.0) ::
         pg.pnode({
@@ -49,15 +53,6 @@ local wc = import "wirecell.jsonnet";
             },
         }, nin=0, nout=1),
 
-
-    // Like a frame_file_sink but pass input frames both to output
-    // port 0 and to a sink.
-    frame_file_tap(filename, tags=[], digitize=false, dense=null) ::
-        pg.fan.tap('FrameFanout', 
-                   $.frame_file_sink(filename, 
-                                     tags=tags,
-                                     digitize=digitize,
-                                     dense=dense), filename),
 
     // A cluster file is a tar stream, with optional compression,
     // holding json, dot or numpy format files.

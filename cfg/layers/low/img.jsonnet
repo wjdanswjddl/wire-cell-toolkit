@@ -2,27 +2,37 @@
 // configuration subgraph for imaging.
 
 local util = import "util.jsonnet";
+local pg = import "pgraph.jsonnet";
+local wc = import "wirecell.jsonnet";
 
 function (anode) {
 
     local ident = util.idents(anode),
 
-    // The recommended slicer.  
-    mask_slicing :: function(span=4, tag="") pg.pnode({
-        type: "MaskSlices",
-        name: name,
-        data: {
-            tag: tag,
-            tick_span: span,
-            anode: wc.tn(anode),
-        },
-    }, nin=1, nout=1, uses=[anode]),
-    
+    // The recommended slicer.  There is almost no reasonable default
+    // to each detector variant may as well create the MaskSlices
+    // directly.
+    slicing :: function(max_tbin, min_tbin=0, ext="", tag="", span=4, active_planes=[0,1,2], masked_planes=[], dummy_planes=[]) 
+        pg.pnode({
+            type: "MaskSlices",
+            name: ident+ext,
+            data: {
+                tag: tag,
+                tick_span: span,
+                anode: wc.tn(anode),
+                min_tbin: min_tbin,
+                max_tbin: max_tbin,
+                active_planes: active_planes,
+                masked_planes: masked_planes,
+                dummy_planes: dummy_planes,
+            },
+        }, nin=1, nout=1, uses=[anode]),
 
-    // This slicing does not handle charge uncertainty.
+
+    // This slicing does not handle charge uncertainty nor bad channels.
     simple_slicing :: function(span=4, tag="") pg.pnode({
         type: "SumSlices",
-        name: name,
+        name: ident,
         data: {
             tag: tag,
             tick_span: span,
@@ -47,13 +57,13 @@ function (anode) {
     // unique name extension "ext" must be given.
     wrapped_tiling :: function(ext="") {
 
-        local slice_fanout = function(face) pg.pnode({
+        local slice_fanout = pg.pnode({
             type: "SliceFanout",
-            name: "%s-%d%s"%[ident, face, ext],
+            name: ident+ext,
             data: { multiplicity: 2 },
         }, nin=1, nout=2),
 
-        local tilings = [single_tiling(face) for face in [0,1]],
+        local tilings = [$.single_tiling(face) for face in [0,1]],
 
         local blobsync = pg.pnode({
             type: "BlobSetSync",
@@ -70,16 +80,28 @@ function (anode) {
                 [pg.edge(tilings[n], blobsync, 0, n) for n in [0,1]],
             name=ident+ext),
     }.ret,
+
+    // Different tiling strategies.
+    tiling : {
     
-    // Switch between wrapped or single face tiling config
-    tiling :: function(ext="")
-        if std.length(std.prune(anode.data.faces)) == 2 then
-            $.wrapped_tiling(ext)
-        else if std.type(anode.data.faces[0]) == "null" then
-            $.single_tiling(1, ext)
-        else
-            $.single_tiling(0, ext),
-        
+        // The "perfect" tiling aka "3-plane tiling" assumes all
+        // channels are operational.  It produces one tiling node per
+        // anode face.
+        perfect :: function(ext="")
+            if std.length(std.prune(anode.data.faces)) == 2 then
+                $.wrapped_tiling(ext)
+            else if std.type(anode.data.faces[0]) == "null" then
+                $.single_tiling(1, ext)
+            else
+                $.single_tiling(0, ext),
+
+        // The "mixed" tiling will add so called "2-plane" tiling with
+        // signals from each plane ignored and instead with their dead
+        // channels considered "fired" in addition to "perfect"
+        // tiling.  This produces 4 tiling nodes per anode face.
+        // mixed :: function(ext) ...
+    },
+    
     // A node that clusters blobs between slices w/in the given number
     // of slice spans.  Makes blob-blob edges
     clustering :: function(spans=1.0) pg.pnode({
@@ -122,8 +144,10 @@ function (anode) {
     // A function that projects blobs back to frames.  
     reframing :: function(tag="") pg.pnode({
         type: "BlobReframer",
-        name: name,
+        name: ident,
         data: {
             frame_tag: tag,
         }
     }, nin=1, nout=1),
+}
+

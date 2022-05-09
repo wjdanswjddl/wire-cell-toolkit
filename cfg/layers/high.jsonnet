@@ -31,8 +31,8 @@ local midapi = import "midapi.jsonnet";
     services :: svcs,
 
     // The mid-level API factory function.
-    mid :: function(detector, variant="nominal", services=svcs())
-        midapi + mids[detector](services, variant),
+    mid :: function(detector, variant="nominal", services=svcs(), options={})
+        midapi + mids[detector](services, variant, options=options),
 }
 
 

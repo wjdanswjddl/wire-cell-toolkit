@@ -24,6 +24,11 @@ API to satisfy a few goals:
   detector while still providing a means of consolidating
   configuration that spans all supported detectors.
 
+- Give end-user control over elements specific to a job and
+  independent from a given detector variant.
+
+- Allow to inject system "service" configuration.
+
 It identifies these "layers":
 
 - mains :: Integration with the application (~wire-cell~ CLI or
@@ -37,6 +42,46 @@ It identifies these "layers":
 
 - low :: The *low-level API* is *detector independent* and provides
   utilities to help make producing a mid-level API instance easier.
+
+The sections below describe each layer in some details.
+
+* Mains
+
+The "mains" layer provides the "fringe" subgraph that adapts a "core"
+graph to nodes that provide initial input and accept final output.
+
+For example, a ~wire-cell~ command line job is configured with a
+"fringe" of file I/O nodes that sources data to or sinks data from the
+"core" subgraph that provides the processing.
+
+Another example is an art/LArSoft job will have a "fringe" of nodes
+that handle transfer and transformation of objects between the art
+event store and the "core" WCT subgraph.
+
+
+* High
+
+The "high" layer provides ways to construct "core" WCT subgraphs.  It
+provide a factory method to constructed a "mid layer API" (see next)
+for a specific detector variant.  The detector variant is defined by a
+pair of names.
+
+This factory method also accepts ~options~ which is a way to pass in
+options relevant to how the "core" subgraph and the mains "fringe"
+must connect.  The ~options~ are not a means to modify the detector
+variant.
+
+* Mids
+
+Each detector variant must implement the *mid layer API* with an object
+providing methods to produce a subgraph spanning some conceptual
+region of processing.  For example, "simulation" or "signal
+processing".
+
+* Low
+
+The *low layer API* provides detector independent methods helpful in
+constructing configuration objects returned by the *mid layer API*.
 
 
 * Tutorial

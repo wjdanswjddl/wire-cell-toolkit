@@ -265,6 +265,14 @@ local wc = import "wirecell.jsonnet";
     img : {
         // Number of ticks to collect into one time slice span
         span: 4,
+
+        // The tiling strategy refers to how to deal with substantial
+        // dead channels.  The "perfect" strategy simply performs so
+        // called "3-plane" tiling.  The "mixed" strategy also
+        // includes so called "2-plane" tiling, producing more and
+        // more ambiguous blobs but will not have "gaps" due to dead
+        // channels.
+        tiling_strategy: "perfect",
     },
 
 }
