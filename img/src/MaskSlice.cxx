@@ -2,8 +2,8 @@
 #include "WireCellImg/ImgData.h"
 #include "WireCellUtil/NamedFactory.h"
 #include "WireCellUtil/Logging.h"
-
 #include "WireCellAux/FrameTools.h"
+#include "WireCellAux/PlaneTools.h"
 
 WIRECELL_FACTORY(MaskSlicer, WireCell::Img::MaskSlicer,
                  WireCell::INamed,
@@ -39,17 +39,28 @@ WireCell::Configuration Img::MaskSliceBase::default_configuration() const
     // If given, use tagged traces.  Otherwise use all traces.
     cfg["tag"] = m_tag;
 
-    //
-    cfg["active_planes"][0] = WireCell::kUlayer;
-    cfg["active_planes"][1] = WireCell::kVlayer;
-    cfg["active_planes"][2] = WireCell::kWlayer;
+    // use these traces for error
+    cfg["error_tag"] = m_error_tag;
 
+    // 0, 1, 2 for U, V, W
+    // WirePlaneId::index()
+    cfg["active_planes"][0] = 0;
+    cfg["active_planes"][1] = 1;
+    cfg["active_planes"][2] = 2;
 
     //
-    cfg["masked_plane_charge"] = Json::arrayValue;
+    cfg["dummy_planes"] = Json::arrayValue;
 
     //
-    cfg["tmax"] = -1;
+    cfg["masked_planes"] = Json::arrayValue;
+
+    //
+    cfg["dummy_charge"] = m_dummy_charge;
+    cfg["dummy_error"] = m_dummy_error;
+    cfg["masked_charge"] = m_masked_charge;
+    cfg["masked_error"] = m_masked_error;
+    cfg["min_tbin"] = m_min_tbin;
+    cfg["max_tbin"] = m_max_tbin;
 
     return cfg;
 }
@@ -59,14 +70,40 @@ void Img::MaskSliceBase::configure(const WireCell::Configuration& cfg)
     m_anode = Factory::find_tn<IAnodePlane>(cfg["anode"].asString());  // throws
     m_tick_span = get(cfg, "tick_span", m_tick_span);
     m_tag = get<std::string>(cfg, "tag", m_tag);
-    m_tmax = get<int>(cfg, "tmax", m_tmax);
-    for (auto id : cfg["active_planes"]) {
-        m_active_planes.push_back(static_cast<WireCell::WirePlaneLayer_t>(id.asInt()));
+    m_error_tag = get<std::string>(cfg, "error_tag", m_error_tag);
+    m_dummy_charge = get<float>(cfg, "dummy_charge", m_dummy_charge);
+    m_dummy_error = get<float>(cfg, "dummy_error", m_dummy_error);
+    m_masked_charge = get<float>(cfg, "masked_charge", m_masked_charge);
+    m_masked_error = get<float>(cfg, "masked_error", m_masked_error);
+    m_min_tbin = get<int>(cfg, "min_tbin", m_min_tbin);
+    m_max_tbin = get<int>(cfg, "max_tbin", m_max_tbin);
+    if (cfg.isMember("active_planes")) {
+        m_active_planes.clear();
+        for (auto id : cfg["active_planes"]) {
+            m_active_planes.push_back(id.asInt());
+        }
     }
-    for (auto pc : cfg["masked_plane_charge"]) {
-        m_masked_plane_charge[static_cast<WireCell::WirePlaneLayer_t>(pc[0].asInt())] = pc[1].asInt();
+    if (cfg.isMember("dummy_planes")) {
+        m_dummy_planes.clear();
+        for (auto id : cfg["dummy_planes"]) {
+            m_dummy_planes.push_back(id.asInt());
+        }
     }
-
+    if (cfg.isMember("masked_planes")) {
+        m_masked_planes.clear();
+        for (auto id : cfg["masked_planes"]) {
+            m_masked_planes.push_back(id.asInt());
+        }
+    }
+    for (auto id : m_active_planes) {
+        log->debug("m_active_planes: {}", id);
+    }
+    for (auto id : m_dummy_planes) {
+        log->debug("m_dummy_planes: {}", id);
+    }
+    for (auto id : m_masked_planes) {
+        log->debug("m_masked_planes: {}", id);
+    }
 }
 
 void Img::MaskSliceBase::slice(const IFrame::pointer& in, slice_map_t& svcmap)
@@ -75,18 +112,36 @@ void Img::MaskSliceBase::slice(const IFrame::pointer& in, slice_map_t& svcmap)
     const double span = tick * m_tick_span;
 
     // active slices
-    for (auto trace : Aux::tagged_traces(in, m_tag)) {
+    auto charge_traces = Aux::tagged_traces(in, m_tag);
+    auto charge_err_traces = Aux::tagged_traces(in, m_error_tag);
+    if(charge_traces.size()!=charge_err_traces.size()) {
+        THROW(RuntimeError() << errmsg{"charge_traces.size()!=charge_err_traces.size()"});
+    }
+    for (size_t idx=0; idx < charge_traces.size(); ++idx) {
+        auto trace = charge_traces[idx];
+        auto err_trace = charge_err_traces[idx];
         const int tbin = trace->tbin();
         const int chid = trace->channel();
+        if (tbin != err_trace->tbin() || chid != err_trace->channel()) {
+            THROW(RuntimeError() << errmsg{"tbin != err_trace->tbin() || chid != err_trace->channel()"});
+        }
         IChannel::pointer ich = m_anode->channel(chid);
         auto planeid = ich->planeid();
-        if (std::find(m_active_planes.begin(),m_active_planes.end(),planeid.layer())==m_active_planes.end()) {
+        if (std::find(m_active_planes.begin(),m_active_planes.end(),planeid.index())==m_active_planes.end()) {
             continue;
         }
         const auto& charge = trace->charge();
+        const auto& error = err_trace->charge();
         const size_t nq = charge.size();
         for (size_t qind = 0; qind != nq; ++qind) {
+            if ((tbin + (int) qind) < m_min_tbin || (tbin + (int) qind) >= m_max_tbin) {
+                log->warn("trace {} {} exceeds given range [{},{}), breaking.", trace->channel(), trace->tbin(),
+                          m_min_tbin, m_max_tbin);
+                break;
+            }
             const auto q = charge[qind];
+            const auto e = error[qind];
+            // TODO: do we want this?
             if (q == 0.0) {
                 continue;
             }
@@ -97,7 +152,30 @@ void Img::MaskSliceBase::slice(const IFrame::pointer& in, slice_map_t& svcmap)
                 s = new Img::Data::Slice(in, slicebin, start, span);
                 svcmap[slicebin] = s;
             }
-            s->sum(ich, q);
+            // TODO: how to handle error?
+            s->sum(ich, {q, e});
+            if (chid == 0) {
+                log->trace("chid: {} slicebin: {} charge: {} error {}", chid, slicebin, s->activity()[ich].value(),
+                           s->activity()[ich].uncertainty());
+            }
+        }
+    }
+
+    // dummy: to form slices active through all ticks/channels with special charge/error
+    for (int plane_index : m_dummy_planes) {
+        auto ichans = Aux::plane_channels(m_anode, plane_index);
+        log->debug("dummy: {} size {}", plane_index, ichans.size());
+        for (auto ich : ichans) {
+            for (auto itick = m_min_tbin; itick < m_max_tbin; ++itick) {
+                size_t slicebin = (m_min_tbin + itick) / m_tick_span;
+                auto s = svcmap[slicebin];
+                if (!s) {
+                    const double start = slicebin * span;  // thus relative to slice frame's time.
+                    s = new Img::Data::Slice(in, slicebin, start, span);
+                    svcmap[slicebin] = s;
+                }
+                s->assign(ich, {m_dummy_charge, m_dummy_error});
+            }
         }
     }
 
@@ -108,11 +186,16 @@ void Img::MaskSliceBase::slice(const IFrame::pointer& in, slice_map_t& svcmap)
         auto tbins = ch_tbins.second;
         IChannel::pointer ich = m_anode->channel(chid);
         auto planeid = ich->planeid();
-        if (m_masked_plane_charge.find(planeid.layer())==m_masked_plane_charge.end()) continue;
-        auto q = m_masked_plane_charge[planeid.layer()];
+        if (std::find(m_masked_planes.begin(),m_masked_planes.end(),planeid.index())==m_masked_planes.end()) {
+            continue;
+        }
         for (auto tbin : ch_tbins.second) {
             // log->debug("t: {} {}", tbin.first, tbin.second);
-            for (auto t = tbin.first; t!= tbin.second; ++t) {
+            for (auto t = tbin.first; t != tbin.second; ++t) {
+                if (t < m_min_tbin || t >= m_max_tbin) {
+                    log->warn("cmm {} {} exceeds given range [{},{}), breaking.", chid, t, m_min_tbin, m_max_tbin);
+                    break;
+                }
                 size_t slicebin = t / m_tick_span;
                 auto s = svcmap[slicebin];
                 if (!s) {
@@ -120,9 +203,7 @@ void Img::MaskSliceBase::slice(const IFrame::pointer& in, slice_map_t& svcmap)
                     s = new Img::Data::Slice(in, slicebin, start, span);
                     svcmap[slicebin] = s;
                 }
-                s->sum(ich, q);
-
-                if(m_tmax > 0 && t > m_tmax) break;
+                s->assign(ich, {m_masked_charge, m_masked_error});
             }
         }
     }

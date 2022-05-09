@@ -75,6 +75,7 @@ bool FrameMasking::operator()(const input_pointer& in, output_pointer& out)
             if(cm.find(chid)!=cm.end()) {
                 const int nq = out_charge.size();
                 for(auto bad_range : cm[chid]) {
+		  //		  log->debug("{}, {}, {}", chid, bad_range.first, bad_range.second);
                     int mask_start = bad_range.first - tbin > 0 ? bad_range.first - tbin : 0;
                     int mask_end = bad_range.second - tbin < nq ? bad_range.second - tbin : nq;
                     if (mask_start>=mask_end) continue;

@@ -75,11 +75,12 @@ namespace WireCell {
         /// Return a new sequence resampled and interpolated from the
         /// original wave defined over the domain to a new domain of
         /// nsamples.
-        template <typename Val>
+        /// if Val is complex then Scalar must match the scala rtype  of Val
+        template <typename Val, typename Scalar>
         Sequence<Val> resample(const Sequence<Val>& wave, const Domain& domain, int nsamples, const Domain& newdomain)
         {
             const int oldnsamples = wave.size();
-            const double oldstep = sample_width(domain, oldnsamples);
+            const Scalar oldstep = sample_width(domain, oldnsamples);
             const double step = sample_width(newdomain, nsamples);
             Sequence<Val> ret;
             for (int ind = 0; ind < nsamples; ++ind) {
@@ -94,12 +95,22 @@ namespace WireCell {
                     ret.push_back(wave[oldnsamples - 1]);
                     continue;
                 }
-                double d1 = oldfracsteps - oldstep * oldind;
-                double d2 = oldstep - d1;
+                Scalar d1 = oldfracsteps - oldstep * oldind;
+                Scalar d2 = oldstep - d1;
                 Val newval = (wave[oldind] * d1 + wave[oldind + 1] * d2) / oldstep;
                 ret.push_back(newval);
             }
             return ret;
+        }
+
+        /// two supported overloads
+        inline realseq_t resample(const realseq_t& wave, const Domain& domain, int nsamples, const Domain& newdomain)
+        {
+            return resample<real_t, real_t>(wave, domain, nsamples, newdomain);
+        }
+        inline compseq_t resample(const compseq_t& wave, const Domain& domain, int nsamples, const Domain& newdomain)
+        {
+            return resample<complex_t, real_t>(wave, domain, nsamples, newdomain);
         }
 
         /// Return the real part of the sequence

@@ -55,6 +55,12 @@ WireCell::Configuration CMMModifier::default_configuration() const
       cfg["dead_ch_llimit"][i] = m_dead_ch_llimit[i];
       cfg["dead_ch_hlimit"][i] = m_dead_ch_hlimit[i];
     }
+
+    cfg["ncount_org"] = m_dead_org;
+    for (int i=0;i!=m_dead_org;i++){
+      cfg["org_llimit"] = m_dead_org_llimit[i];
+      cfg["org_hlimit"] = m_dead_org_hlimit[i];
+    }
     
     return cfg;
 }
@@ -114,6 +120,20 @@ void CMMModifier::configure(const WireCell::Configuration& cfg)
       }
     }
 
+    m_dead_org = get<int>(cfg,"ncount_org",m_dead_org);
+    if (cfg.isMember("org_llimit")){
+      m_dead_org_llimit.clear();
+      for (auto value: cfg["org_llimit"]){
+	m_dead_org_llimit.push_back(value.asInt());
+      }
+    }
+    if (cfg.isMember("org_hlimit")){
+      m_dead_org_hlimit.clear();
+      for (auto value: cfg["org_hlimit"]){
+	m_dead_org_hlimit.push_back(value.asInt());
+      }
+    }
+    
     // log->debug("Xin: {} , {} ", m_dead_ch_ncount, m_dead_ch_charge);
 }
 
@@ -217,8 +237,59 @@ bool CMMModifier::operator()(const input_pointer& in, output_pointer& out)
       }
     }
 
-    
+    // add a new algorithm to align the dead time range ...
+    for (auto it = cm.begin(); it!= cm.end(); it++){
+      std::map<int, int> record;
+      for (auto it1 = it->second.begin(); it1!=it->second.end();it1++){
+	//	log->debug("{}", it1->first, it1->second);
+	if (m_dead_org > 0){
+	  for (int i = m_dead_org-1; i>=0; i--){
+	    if (it1->first >= m_dead_org_llimit[i] ){
+	      it1->first = m_dead_org_llimit[i];
+	      break;
+	    }
+	  }
+	  for (int i= 0;i!= m_dead_org; i++){
+	    if (it1->second <= m_dead_org_hlimit[i]){
+	      it1->second = m_dead_org_hlimit[i];
+	      break;
+	    }
+	  }
+	  record[it1->first] = 0; // start
+	  record[it1->second] = 1; // end
+ 	}	
+      }
 
+      // clear existing dead channels ...
+      it->second.clear();
+      bool flag_start = false;
+      int start = 0;
+      int end = -1;
+      for (auto it1 = record.begin(); it1 != record.end(); it1++){
+      	if (flag_start){
+      	  if (it1->second == 1){
+      	    end = it1->first;
+      	    flag_start = false;
+      	  }
+	  
+      	}else{
+      	  if (it1->second == 0 ) {
+      	    if (end >= start &&  end >=0 ){
+      	      it->second.push_back({start,end});
+      	      start = 0;
+      	      end = -1;
+      	    }
+      	    start = it1->first;
+      	    flag_start = true;
+      	  }else if (it1->second == 1){
+      	    end = it1->first;
+      	  }
+      	}
+      }
+      if (end >= start && end >=0)
+      	it->second.push_back({start,end});
+      
+    }
     
     
     // end for Xin
