@@ -62,22 +62,81 @@ event store and the "core" WCT subgraph.
 
 * High
 
-The "high" layer provides ways to construct "core" WCT subgraphs.  It
-provide a factory method to constructed a "mid layer API" (see next)
-for a specific detector variant.  The detector variant is defined by a
-pair of names.
+The "high" layer API collects some general utilities such as
+~wirecell.jsonnet~, ~pgraph.jsonnet~, helpers to construct components to
+handle I/O, build a main graph.  It also provides a /factory method/ to
+create a *mid-layer API* object.
 
-This factory method also accepts ~options~ which is a way to pass in
-options relevant to how the "core" subgraph and the mains "fringe"
-must connect.  The ~options~ are not a means to modify the detector
-variant.
+A developer may use the *high-layer API*, and the returned *mid-layer API*
+object to construct *detector-independent* main Jsonnet configs.
+
+To construct a *mid-layer API object* the developer will typically have
+Jsonnet defining a function taking top-level arguments (TLAs) like:
+
+#+begin_src jsonnet
+local high = import "layers/high.jsonnet";
+function(detector, variant="nominal", options={sparse:true})
+    local services = high.services(platform);
+    local mid = high.mid(detector, variant, services=services, options=options);
+#+end_src
+
+The ~high.mid()~ factory takes these arguments and options:
+
+- ~detector~ :: the canonical name of a detector (~"dsp"~, ~"uboone"~, etc)
+- ~variant~ :: the canonical name of a detector variant (~"nominal"~, etc)
+- ~services~ :: *optional* used to inject "service" type component config
+  for ~IRandom~, ~IDFT~, etc.  As shown above, the default is simply made
+  explicit.
+- ~options~ :: *optional* way to provide options related to *end user*.  The
+  ~options~ *are not* meant to provide variations on a detector but for to
+  specify settings required for a *mid-layer API* to properly connect to
+  things not covered by the API.  The example given is if frames
+  should be expressed in a sparse manner.  The allowed ~options~ may be
+  specific to a detector (but general to all variants of that
+  detector).  The user may omit ~options~ and the API must assume
+  reasonable defaults.
 
 * Mids
 
-Each detector variant must implement the *mid layer API* with an object
-providing methods to produce a subgraph spanning some conceptual
-region of processing.  For example, "simulation" or "signal
-processing".
+Each detector variant *must* implement one or more *mid layer API*
+objects.  Each mid layer API object corresponds to a *variant* of the
+supported *detector*.  The API object provides methods to construct
+subgraphs covering a conceptual region of processing.  For example,
+the ~sim.signal()~ method provides a subgraph to configure "signal
+simulation".
+
+** Mid-layer API
+
+This describes the required API.  Some portions of the API are
+provided as sub-objects described in following subsections.
+
+- ~anodes()~ :: return an ordered list of configuration objects for the ~IAnodePlane~ instances.
+- drifter(name="") :: return subgraph for drifting.  A ~name~ may be given if caller requires more than one drifter.
+- ~sim.*~ :: the simulation sub-API.
+- ~sigproc.*~ :: the signal processing sub-API.
+- ~img(anode)~ :: return a subgraph to perform 3D imaging
+
+*** The ~sim.*~ sub-API
+
+The ~sim.*~ sub-API has the following methods:
+
+- ~track_depos(tracklist=/*default*/)~ :: return subgraph to generate depos from list of (ideal) tracks.  Default value must provide some tracks in the detector.  The exact "kinematics" is not important and this is used as fodder to get "something" out of later simulation subgraphs 
+
+- ~signal(anode)~ :: return subgraph to simulation depos to voltage level signals
+
+- ~noise(anode)~ :: return subgraph to apply voltage level noise 
+
+- ~digitizer(anode)~ :: return subgraph to digitize voltage to ADC.
+
+*** The ~sigproc.*~ sub-API
+
+The ~sigproc.*~ sub-API has the following methods:
+
+- ~nf(anode)~ :: return subgraph to perform noise filtering
+- ~sp(anode)~ :: return subgraph to perform signal processing
+- ~dnnroi(anode)~ :: return subgraph to perform refined signal
+  processing using DNN ROI inference.
+
 
 * Low
 

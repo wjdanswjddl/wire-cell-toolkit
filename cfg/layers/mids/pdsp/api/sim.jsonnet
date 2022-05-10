@@ -102,12 +102,11 @@ function(services, params) {
         local model = {
             type: 'EmpiricalNoiseModel',
             name: idents(anode),
-            data: std.prune(params.noise {
+            data: params.noise {
                 anode: wc.tn(anode),
                 dft: wc.tn(services.dft),
                 chanstat:"",    // must explicitly empty
-                replacement_percentage:null, // tidy: in params.noise but not used by ENM
-            }),
+            },
             uses: [anode, services.dft]
         };
         pg.pnode({
@@ -123,13 +122,13 @@ function(services, params) {
 
     // API method sim.digitizer: return subgraph adding digitization
     // of voltage to produce ADC
-    digitizer :: function(anode, tag="orig%d"%anode.data.ident)
+    digitizer :: function(anode)
         pg.pnode({
             type: 'Digitizer',
             name: idents(anode),
             data: params.digi {
                 anode: wc.tn(anode),
-                frame_tag: tag,
+                frame_tag: "orig" + idents(anode),
             }
         }, nin=1, nout=1, uses=[anode]),
 

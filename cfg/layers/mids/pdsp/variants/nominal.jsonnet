@@ -200,13 +200,15 @@ local wc = import "wirecell.jsonnet";
 
     // Simulating noise
     noise : {
-        spectra_file: "protodune-noise-spectra-v1.json.bz2",
-        // These are frequency space binning which are not necessarily
-        // same as some time binning - but here they are.
-        period: $.binning.tick,     // 1/frequency
-        nsamples: $.binning.nticks, // 
-        // Optimize binning 
-        wire_length_scale: 1.0*wc.cm,
+        model: {
+            spectra_file: "protodune-noise-spectra-v1.json.bz2",
+            // These are frequency space binning which are not necessarily
+            // same as some time binning - but here they are.
+            period: $.binning.tick,     // 1/frequency
+            nsamples: $.binning.nticks, // 
+            // Optimize binning 
+            wire_length_scale: 1.0*wc.cm,
+        },
         // Optimize use of randoms
         replacement_percentage: 0.02,
     },
