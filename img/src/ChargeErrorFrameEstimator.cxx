@@ -189,10 +189,14 @@ bool ChargeErrorFrameEstimator::operator()(const input_pointer& in, output_point
         return true;  // eos
     }
 
-    log->debug("input: {}", Aux::taginfo(in));
-
     // calculate error traces
-    ITrace::vector err_traces = error_traces(Aux::tagged_traces(in, m_intag));
+    ITrace::vector in_traces = Aux::tagged_traces(in, m_intag);
+    ITrace::vector err_traces = error_traces(in_traces);
+
+    log->debug("input: {}, got {}: {} signal traces, made {}: {} err traces",
+               Aux::taginfo(in), m_intag, in_traces.size(),
+               m_outtag, err_traces.size());
+
 
     // make a copy of all input trace pointers
     ITrace::vector out_traces(*in->traces());

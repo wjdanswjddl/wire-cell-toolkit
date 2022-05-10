@@ -115,6 +115,8 @@ void Img::MaskSliceBase::slice(const IFrame::pointer& in, slice_map_t& svcmap)
     auto charge_traces = Aux::tagged_traces(in, m_tag);
     auto charge_err_traces = Aux::tagged_traces(in, m_error_tag);
     if(charge_traces.size()!=charge_err_traces.size()) {
+        log->error("trace size mismatch: {}: {} and {}: {}",
+                   m_tag, charge_traces.size(), m_error_tag, charge_err_traces.size());
         THROW(RuntimeError() << errmsg{"charge_traces.size()!=charge_err_traces.size()"});
     }
     for (size_t idx=0; idx < charge_traces.size(); ++idx) {
@@ -185,6 +187,9 @@ void Img::MaskSliceBase::slice(const IFrame::pointer& in, slice_map_t& svcmap)
         const int chid = ch_tbins.first;
         auto tbins = ch_tbins.second;
         IChannel::pointer ich = m_anode->channel(chid);
+        if (!ich) {
+            continue;
+        }
         auto planeid = ich->planeid();
         if (std::find(m_masked_planes.begin(),m_masked_planes.end(),planeid.index())==m_masked_planes.end()) {
             continue;
@@ -258,9 +263,8 @@ bool Img::MaskSlices::operator()(const input_pointer& in, output_queue& slices)
         slices.push_back(ISlice::pointer(s));
     }
 
-    log->debug("frame={}, make {} slices in [{},{}] from {}",
+    log->debug("frame={}, make {} slices from {}",
                in->ident(), slices.size(),
-               slices.front()->ident(), slices.back()->ident(),
                svcmap.size());
     return true;
 }

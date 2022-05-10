@@ -1,6 +1,5 @@
 #include "WireCellImg/FrameQualityTagging.h"
-#include "WireCellIface/SimpleFrame.h"
-#include "WireCellIface/SimpleTrace.h"
+#include "WireCellAux/SimpleFrame.h"
 #include "WireCellIface/IWaveformMap.h"
 #include "WireCellAux/FrameTools.h"
 
@@ -458,7 +457,7 @@ bool FrameQualityTagging::operator()(const input_pointer& in, output_pointer& ou
         // make a copy of all input trace pointers
         ITrace::vector out_traces(*in->traces());
         // Basic frame stays the same.
-        auto sfout = new SimpleFrame(in->ident(), in->time(), out_traces, in->tick(), cmm);
+        auto sfout = new Aux::SimpleFrame(in->ident(), in->time(), out_traces, in->tick(), cmm);
         // passing through other parts of the original frame
         for (auto ftag : in->frame_tags()) {
             sfout->tag_frame(ftag);

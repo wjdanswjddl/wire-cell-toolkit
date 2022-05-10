@@ -7,7 +7,7 @@ function(params) {
     nf: {
         type: "FieldResponse",
         name: "nf",
-        data: { filename: params.sp.field_file }
+        data: { filename: params.nf.field_file }
     },
     sim: {
         type: "FieldResponse",

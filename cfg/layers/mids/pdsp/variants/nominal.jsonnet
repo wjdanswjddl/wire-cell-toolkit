@@ -134,7 +134,6 @@ local wc = import "wirecell.jsonnet";
         nticks: 6000,
     },
 
-
     // The electronics response parameters.
     elec : {
         // The FE amplifier gain in units of Voltage/Charge.
@@ -251,7 +250,7 @@ local wc = import "wirecell.jsonnet";
             channel: ["single"], // sticky, single, gaincalib
             grouped: [],         // grouped,
             status: [],
-        }
+        },
     },
 
     // Signal processing parameter pack
@@ -263,8 +262,13 @@ local wc = import "wirecell.jsonnet";
 
     // Imaging paramter pack
     img : {
+        // For now we use MicroBooNE's
+        "charge_error_file": "microboone-charge-error.json.bz2",
+
         // Number of ticks to collect into one time slice span
         span: 4,
+
+        binning : $.binning,
 
         // The tiling strategy refers to how to deal with substantial
         // dead channels.  The "perfect" strategy simply performs so
