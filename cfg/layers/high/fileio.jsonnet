@@ -66,4 +66,20 @@ local wc = import "wirecell.jsonnet";
         },
     }, nin=1, nout=0),
 
+    // A somewhat slippery format.
+    celltree_file_source :: function(filename, recid, 
+                                     branches = ["calibWiener", "calibGaussian"],
+                                     frame_tags=["gauss"],
+                                     trace_tags = ["wiener", "gauss"])
+        pg.pnode({
+            type: "CelltreeSource",
+            data: {
+                filename: filename,
+                EventNo: std.toString(recid), // note, must NOT be a number but a string....
+                frames: frame_tags,
+                "in_branch_base_names": branches,
+                "out_trace_tags": trace_tags,
+            },
+        }, nin=0, nout=1),
+
 }
