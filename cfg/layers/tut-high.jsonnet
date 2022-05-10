@@ -18,8 +18,7 @@ function(detector, variant="nominal", depofile="depos.npz",
     // Create the mid-level API object
     local mid = high.mid(detector, variant, options=options);
 
-    // I/O nodes are provided by "helpers.jsonnet" to which high
-    // provides access.
+    // Get depos from file
     local source = high.fio.depo_file_source(depofile);
 
     // The simulation starts with a single pipeline for drifting
@@ -48,12 +47,12 @@ function(detector, variant="nominal", depofile="depos.npz",
             mid.sim.digitizer(anode),
 
             // The PDSP noise filtering
-            mid.nf(anode),
+            mid.sigproc.nf(anode),
 
             // The PDSP sigproc. The sparse option defaults to true
             // which would be useful for a sink that represents
             // sparseness.  For here, we rely on compression.
-            mid.sp(anode),
+            mid.sigproc.sp(anode),
 
             // Each sink file name is expected to have a %-format which is
             // interpolated on the anode ident number.

@@ -14,8 +14,22 @@ local app_plugins = {
     'Pgrapher': ["WireCellPgraph"],
 };
 
+local findsubstrtype = function(objs, ss)
+    [o for o in objs if std.length(std.findSubstr(ss, o.type)) > 0];
+
+local hassubstr = function(objs, ss)
+    std.length(findsubstrtype(objs, ss)) > 0;
+          
+// Guess plugin names based on object types.
+local detect_plugins = function(uses) 
+    std.set( std.prune([
+        if hassubstr(uses, 'Torch') then 'WireCellPytorch',
+        if hassubstr(uses, 'DNNROIFinding') then 'WireCellPytorch',
+    ]));
+
 function(graph, app='Pgrapher', extra_plugins = [])
-    local plugins = std.set(basic_plugins + extra_plugins + app_plugins[app]);
+    local uses = pg.uses(graph);
+    local plugins = std.set(basic_plugins + extra_plugins + app_plugins[app] + detect_plugins(uses));
     local appcfg = {
         type: app,
         data: {

@@ -3,11 +3,12 @@
     // convenience to mid developer.
     wc :: import "wirecell.jsonnet",
     pg :: import "pgraph.jsonnet",
-    hs :: import "pgrapher/common/helpers.jsonnet",
 
     util : import "low/util.jsonnet",
+    gen : import "low/gen.jsonnet",
     drifter : import "low/drifter.jsonnet",
     anodes : import "low/anodes.jsonnet",
+    dnnroi : import "low/dnnroi.jsonnet",
 
     img : import "low/img.jsonnet",
 }

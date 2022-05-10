@@ -1,14 +1,9 @@
-//
-//  OBSOLETE FILE.  Use helpers instead.
-//
-
 // some functions to help build pipelines for imaging.  These are
 // mostly per-apa but tiling portions are per-face.
 
 local g = import 'pgraph.jsonnet';
 local wc = import 'wirecell.jsonnet';
 
-std.trace("WARNING OBSOLETE FILE USED: pgrapher/experiment/sbnd/img.jsonnet please upgrade to helpers.img",
 {
     // A functio that sets up slicing for an APA.
     slicing :: function(anode, aname, tag="", span=4) {

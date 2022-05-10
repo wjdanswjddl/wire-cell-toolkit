@@ -1,21 +1,40 @@
-// This produces a function to configure DNN-ROI for one APA given
-// anode and torch service (ts) objects.
-// 
-// The prefix is prepended to all internal node names if uniqueness
-// beyond anode ID is needed.  The output_scale allows for an ad-hoc
-// scaling of dnnroi output.  The U and W planes will go through
-// dnnroi while hte W plane will be shunted.  What comes out will be a
-// unified frame with frame tag "dnnspN" where "N" is the anode ID.
+// The DNNROI subgraph is non-trivial but only depends on a few
+// parameters.  This returns it.
 
+local util = import "util.jsonnet";
 local wc = import "wirecell.jsonnet";
 local pg = import "pgraph.jsonnet";
 
+// Translate from services platform name to TorchContext devname.
+// Fixme: need to rationalize the configuration given potential
+// sharing of the underlying TorchContext with the Torch based DFT.
+local plat2dev = {
+    cpu: "cpu",
+    torchcpu: "cpu",
+    torchgpu: "gpu",
+    torchgpu0: "gpu0",
+    torchgpu1: "gpu1",
+    // ...
+};
 
-function (anode, ts, prefix="dnnroi", output_scale=1.0) 
-    local apaid = anode.data.ident;
-    local prename = prefix + std.toString(apaid);
-    local intags = ['loose_lf%d'%apaid, 'mp2_roi%d'%apaid,
-                     'mp3_roi%d'%apaid];
+function(anode, model, platform='cpu', output_scale=1.0, concurrency=1)
+    local ident = util.idents(anode);
+    local prename = "dnnroi"+ident;
+
+    // This tag spelling is baked in!
+    local intags = ['loose_lf' + ident,
+                    'mp2_roi' + ident,
+                    'mp3_roi' + ident];
+
+    local ts = {
+        type: "TorchService",
+        name: platform,
+        data: {
+            model: model,
+            device: plat2dev[platform],
+            concurrency: 1,
+        },
+    };
 
     local dnnroi_u = pg.pnode({
         type: "DNNROIFinding",
@@ -24,12 +43,13 @@ function (anode, ts, prefix="dnnroi", output_scale=1.0)
             anode: wc.tn(anode),
             plane: 0,
             intags: intags,
-            decon_charge_tag: "decon_charge%d" %apaid,
-            outtag: "dnnsp%du"%apaid,
+            decon_charge_tag: "decon_charge" + ident,
+            outtag: "dnnsp" + ident + "u",
             output_scale: output_scale,
             forward: wc.tn(ts)
         }
     }, nin=1, nout=1, uses=[ts, anode]);
+
     local dnnroi_v = pg.pnode({
         type: "DNNROIFinding",
         name: prename+"v",
@@ -37,22 +57,23 @@ function (anode, ts, prefix="dnnroi", output_scale=1.0)
             anode: wc.tn(anode),
             plane: 1,
             intags: intags,
-            decon_charge_tag: "decon_charge%d" %apaid,
-            outtag: "dnnsp%dv"%apaid,
+            decon_charge_tag: "decon_charge" + ident,
+            outtag: "dnnsp"+ident+"v",
             output_scale: output_scale,
             forward: wc.tn(ts)
         }
     }, nin=1, nout=1, uses=[ts, anode]);
+
     local dnnroi_w = pg.pnode({
         type: "PlaneSelector",
         name: prename+"w",
         data: {
             anode: wc.tn(anode),
             plane: 2,
-            tags: ["gauss%d"%apaid],
+            tags: ["gauss" + ident],
             tag_rules: [{
                 frame: {".*":"DNNROIFinding"},
-                trace: {["gauss%d"%apaid]:"dnnsp%dw"%apaid},
+                trace: {["gauss" + ident]:"dnnsp"+ident+"w"},
             }],
         }
     }, nin=1, nout=1, uses=[anode]);
@@ -72,8 +93,8 @@ function (anode, ts, prefix="dnnroi", output_scale=1.0)
         data: {
             multiplicity: 3,
             tag_rules: [{
-                frame: {".*": "dnnsp%d" % apaid},
-                trace: {".*": "dnnsp%d" % apaid},
+                frame: {".*": "dnnsp" + ident},
+                trace: {".*": "dnnsp" + ident},
             } for plane in ["u", "v", "w"]]
         },
     }, nin=3, nout=1);

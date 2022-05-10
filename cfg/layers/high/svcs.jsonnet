@@ -9,20 +9,20 @@
 // There are a few DFT service implementations that are configured for
 // specific "platforms"
 local dfts = {
-    default: self.fftw,
-    fftw: { type: "FftwDFT" },
-    cudafft: { type: "CudaDFT" },
+    default: self.cpu,
+    cpu: { type: "FftwDFT" },
+    cuda: { type: "CudaDFT" },
     torchcpu: { type: "TorchDFT", data: { device: "cpu" } },
     torchgpu: { type: "TorchDFT", data: { device: "gpu" } },
-    "torchgpu0": { type: "TorchDFT", data: { device: "gpu0" } },
-    "torchgpu1": { type: "TorchDFT", data: { device: "gpu1" } },
-    "torchgpu2": { type: "TorchDFT", data: { device: "gpu2" } },
-    "torchgpu3": { type: "TorchDFT", data: { device: "gpu3" } },
-    // may need to extend this....
 };
 
 function(platform="default", seeds=[0,1,2,3,4], generator="default")
 {
+    // Fixme: may need to make the "platform" more fine grained.  At
+    // least we have DFT and DNNROI which could use different
+    // platforms.  For now, muddle on....
+    platform: platform,
+
     dft: dfts[platform],
 
     // note in future, the IRandom may also change based on platform

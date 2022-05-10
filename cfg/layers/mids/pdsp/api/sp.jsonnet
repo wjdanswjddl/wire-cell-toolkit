@@ -11,8 +11,8 @@ local frs = import "frs.jsonnet";
 
 // Allow an optional argument "sparse" as this is really an end-user
 // decision.  Higher layers may expose this option to the TLA.
-function(services, params, options={sparse:true}) function(anode)
-
+function(services, params, options={}) function(anode)
+    local opts = {sparse:true} + options;
     local ident = low.util.idents(anode);
     local resolution = params.digi.resolution;
     local fullscale = params.digi.fullscale[1] - params.digi.fullscale[0];
@@ -80,6 +80,6 @@ function(services, params, options={sparse:true}) function(anode)
             mp2_roi_tag: 'mp2_roi' + ident,
             
             isWrapped: false,
-            sparse : options.sparse,
+            sparse : opts.sparse,
         },
     }, nin=1, nout=1, uses=[anode, services.dft, fr, cer] + spfilt)

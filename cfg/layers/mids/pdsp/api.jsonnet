@@ -2,11 +2,11 @@
 
 local low = import "../../low.jsonnet";
 local sim = import "api/sim.jsonnet";
-local nf = import "api/nf.jsonnet";
-local sp = import "api/sp.jsonnet";
+local sigproc = import "api/sigproc.jsonnet";
 local img = import "api/img.jsonnet";
 
-function(services, params, options) {
+// Create a mid API object.  No options supported.
+function(services, params, options={}) {
 
     anodes :: function()
         low.anodes(params.geometry.drifts, params.geometry.wires_file),
@@ -16,12 +16,11 @@ function(services, params, options) {
                     low.util.driftsToXregions(params.geometry.drifts),
                     params.lar, name=name),
 
-    // signal, noise, digitizer
+    // track_depos, signal, noise, digitizer
     sim :: sim(services, params),
 
-    nf :: nf(services, params),
-
-    sp :: sp(services, params),
+    // nf, sp, dnnroi
+    sigproc :: sigproc(services, params, options),
 
     img :: img(services, params),
 }

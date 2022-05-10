@@ -260,6 +260,15 @@ local wc = import "wirecell.jsonnet";
         binning : $.binning,
     },
 
+    dnnroi:  {
+        // this is a total fudge factor
+        output_scale : 1.0,
+
+        // unet-l23-cosmic500-e50.ts was made for uboone....
+        model_file : "unet-l23-cosmic500-e50.ts",
+    },
+        
+
     // Imaging paramter pack
     img : {
         // For now we use MicroBooNE's

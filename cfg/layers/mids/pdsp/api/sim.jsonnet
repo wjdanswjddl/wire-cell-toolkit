@@ -49,7 +49,24 @@ function(services, params) {
         },
     } for plane in [0,1,2]],
 
-    // Subgraph making pure signal voltage from depos.
+    // API method sim.track_depos: subgraph making some depos from
+    // ideal tracks in the detector.
+    track_depos :: function(tracklist = [{
+        time: 0,
+        charge: -5000,         
+        ray:  {
+            tail: wc.point(-4.0, 0.0, 0.0, wc.m),
+            head: wc.point(+4.0, 6.1, 7.0, wc.m),
+        }}])
+        pg.pipeline([
+            low.gen.track_depos(tracklist),
+            low.gen.bagger(params.ductor.readout_time,
+                           params.ductor.start_time)
+        ]),
+        
+
+    // API method sim.signal: subgraph making pure signal voltage from
+    // depos.
     signal :: function(anode)
         pg.pipeline([pg.pnode({
             type: 'DepoTransform',
@@ -80,7 +97,7 @@ function(services, params) {
             },
         }, nin=1, nout=1, uses=[anode])]),
 
-    // Subgraph adding noise to voltage
+    // API method sim.noise: subgraph adding noise to voltage
     noise :: function(anode)
         local model = {
             type: 'EmpiricalNoiseModel',
@@ -104,7 +121,8 @@ function(services, params) {
                 replacement_percentage: params.noise.replacement_percentage,
             }}, nin=1, nout=1, uses=[services.random, services.dft, model]),
 
-    // Subgraph adding digitization of voltage to produce ADC
+    // API method sim.digitizer: return subgraph adding digitization
+    // of voltage to produce ADC
     digitizer :: function(anode, tag="orig%d"%anode.data.ident)
         pg.pnode({
             type: 'Digitizer',
