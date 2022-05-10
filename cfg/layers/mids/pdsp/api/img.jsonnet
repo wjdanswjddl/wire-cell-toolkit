@@ -35,7 +35,7 @@ function(services, params) function(anode)
 
     low.pg.pipeline([
         sigunc,
-        img.slicing(params.img.binning.nticks, "gauss"+ident, "gauss_error"+ident, span=params.img.span),
+        img.slicing("gauss"+ident, "gauss_error"+ident, span=params.img.span),
         img.tiling[params.img.tiling_strategy](),
         img.clustering(),
         img.grouping(),

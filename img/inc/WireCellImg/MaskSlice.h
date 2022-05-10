@@ -68,8 +68,10 @@ namespace WireCell {
             float m_dummy_error{1e8};
             float m_masked_charge{0.2};
             float m_masked_error{1e8};
+            // If both are zero then determine the tbin range from
+            // input frame.
             int m_min_tbin{0};
-            int m_max_tbin{9592}; // not including
+            int m_max_tbin{0}; // not including
         };
 
         class MaskSlicer : public MaskSliceBase, public IFrameSlicer {

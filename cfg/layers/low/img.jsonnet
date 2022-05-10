@@ -13,7 +13,7 @@ function (anode) {
     // The recommended slicer.  There is almost no reasonable default
     // to each detector variant may as well create the MaskSlices
     // directly.
-    slicing :: function(max_tbin, tag, errtag, min_tbin=0, ext="",
+    slicing :: function(tag, errtag, min_tbin=0, max_tbin=0, ext="",
                         span=4, active_planes=[0,1,2], masked_planes=[], dummy_planes=[]) 
         pg.pnode({
             type: "MaskSlices",
