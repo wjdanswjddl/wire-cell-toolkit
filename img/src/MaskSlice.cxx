@@ -235,7 +235,8 @@ void Img::MaskSliceBase::slice(const IFrame::pointer& in, slice_map_t& svcmap)
         }
     }
 
-    log->debug("nslices={} from ntraces={}", svcmap.size(), ntraces);
+    log->debug("nslices={} from ntraces={}, tbin=[{}, {}]",
+               svcmap.size(), ntraces, min_tbin, max_tbin);
 }
 
 bool Img::MaskSlicer::operator()(const input_pointer& in, output_pointer& out)
@@ -282,11 +283,9 @@ bool Img::MaskSlices::operator()(const input_pointer& in, output_queue& slices)
         //     qtot += a.second;
         // }
 
+        // log->debug("slice: id={} t={} activity={}", s->ident(), s->start(), s->activity().size());
         slices.push_back(ISlice::pointer(s));
     }
 
-    log->debug("frame={}, make {} slices from {}",
-               in->ident(), slices.size(),
-               svcmap.size());
     return true;
 }
