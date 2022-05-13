@@ -8,4 +8,5 @@ local variants = {
     nominal: import "variants/nominal.jsonnet",
 };
 
-function(services, variant="", options={}) api(services, variants[variant], options={})
+function(services, variant="", options={})
+    api(services, variants[variant], options)

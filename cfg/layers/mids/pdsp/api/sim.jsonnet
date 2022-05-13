@@ -13,7 +13,7 @@ local idents = low.util.idents;
 
 local frs = import "frs.jsonnet";
 
-function(services, params) {
+function(services, params, options={}) {
 
     // Signal binning may be extended from nominal.
     local sig_binning = params.ductor.binning,
@@ -102,7 +102,7 @@ function(services, params) {
         local model = {
             type: 'EmpiricalNoiseModel',
             name: idents(anode),
-            data: params.noise {
+            data: params.noise.model {
                 anode: wc.tn(anode),
                 dft: wc.tn(services.dft),
                 chanstat:"",    // must explicitly empty
@@ -116,7 +116,7 @@ function(services, params) {
                 rng: wc.tn(services.random),
                 dft: wc.tn(services.dft),
                 model: wc.tn(model),
-                nsamples: params.noise.nsamples,
+                nsamples: params.noise.model.nsamples,
                 replacement_percentage: params.noise.replacement_percentage,
             }}, nin=1, nout=1, uses=[services.random, services.dft, model]),
 

@@ -46,12 +46,10 @@ function(detector, variant="nominal", depofile="depos.npz",
             mid.sim.noise(anode),
             mid.sim.digitizer(anode),
 
-            // The PDSP noise filtering
+            // The noise filtering
             mid.sigproc.nf(anode),
 
-            // The PDSP sigproc. The sparse option defaults to true
-            // which would be useful for a sink that represents
-            // sparseness.  For here, we rely on compression.
+            // The signal processing.
             mid.sigproc.sp(anode),
 
             // Each sink file name is expected to have a %-format which is

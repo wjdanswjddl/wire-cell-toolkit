@@ -9,4 +9,4 @@ local variants = {
 };
 
 function(services, variant="", options={})
-    api(services, variants[variant], options={})
+    api(services, variants[variant], options)

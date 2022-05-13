@@ -87,14 +87,26 @@ The ~high.mid()~ factory takes these arguments and options:
 - ~services~ :: *optional* used to inject "service" type component config
   for ~IRandom~, ~IDFT~, etc.  As shown above, the default is simply made
   explicit.
-- ~options~ :: *optional* way to provide options related to *end user*.  The
-  ~options~ *are not* meant to provide variations on a detector but for to
-  specify settings required for a *mid-layer API* to properly connect to
-  things not covered by the API.  The example given is if frames
-  should be expressed in a sparse manner.  The allowed ~options~ may be
-  specific to a detector (but general to all variants of that
-  detector).  The user may omit ~options~ and the API must assume
-  reasonable defaults.
+- ~options~ :: see following comments.
+
+** Options
+
+The mid-layer API factory method allows the passing of an optional
+~options~ object.  A mid-layer API *must* produce a valid API object if no
+~options~ object is provided.  It *may* modify how it produces a mid-layer
+API object based on the content of ~options~.  It *should* only enact
+modifications based on ~options~ which are superficial to the meaning of
+the detector variant.  It *should* support "standard options" as
+described next.
+
+The intention of ~options~ is to provide a means for an end-user to
+communicate certain configuration required to match up the
+configuration provided by the mid-layer API object with configuration
+provided by some external code.  The following "standard options"
+should be honored by the mid-layer API.
+
+- ~sparse~ :: ...
+- frames :: per frame / tier control of sparse...
 
 * Mids
 

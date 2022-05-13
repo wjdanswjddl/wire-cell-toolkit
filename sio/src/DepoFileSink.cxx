@@ -1,6 +1,5 @@
 #include "WireCellSio/DepoFileSink.h"
 
-#include "WireCellUtil/Units.h"
 #include "WireCellUtil/Array.h"
 #include "WireCellUtil/Stream.h"
 #include "WireCellUtil/Exceptions.h"
@@ -46,8 +45,8 @@ void Sio::DepoFileSink::configure(const WireCell::Configuration& cfg)
 
     m_out.clear();
     output_filters(m_out, m_outname);
-    if (m_out.size() < 2) {
-        // must have at least get tar filter + file sink.
+    if (m_out.size() < 1) {
+        // must have at least one
         THROW(ValueError()
               << errmsg{"DepoFileSink: unsupported outname: "
                   + m_outname});

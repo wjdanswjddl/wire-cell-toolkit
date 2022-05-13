@@ -156,8 +156,8 @@ IDepoSet::pointer Sio::DepoFileSource::next()
         darr = dtmp;
         array_xxirw itmp = iarr.transpose();
         iarr = itmp;
-        log->error("call={}, array transpose detected, correcting to: data=({},{}) info=({},{})",
-                   m_count, darr.rows(), darr.cols(), iarr.rows(), iarr.cols());
+        log->warn("call={}, array transpose detected, correcting to: data=({},{}) info=({},{})",
+                  m_count, darr.rows(), darr.cols(), iarr.rows(), iarr.cols());
     }
 
     if (darr.rows() != iarr.rows()) {
