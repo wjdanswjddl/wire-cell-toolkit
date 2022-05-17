@@ -72,8 +72,7 @@ bool Gen::AddNoise::operator()(const input_pointer& inframe, output_pointer& out
         int chid = intrace->channel();
         const auto& spec = (*m_model)(chid);
         auto cspec = Gen::Noise::generate_spectrum(spec, m_rng, m_rep_percent);
-        auto wave = Waveform::real(Aux::inv(m_dft, cspec));
-        // Waveform::realseq_t wave = Gen::Noise::generate_waveform(spec, m_rng, m_rep_percent);
+        auto wave = Aux::inv_c2r(m_dft, cspec);
 
         wave.resize(m_nsamples, 0);
         Waveform::increase(wave, intrace->charge());

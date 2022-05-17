@@ -7,6 +7,29 @@
 using namespace WireCell;
 using namespace WireCell::Aux;
 
+
+void Aux::hermitian_symmetry_inplace(Aux::complex_vector_t& spec)
+{
+    const size_t fullsize = spec.size();
+    const size_t halfsize = fullsize/2; // integer division
+    size_t extra = 0;
+    if (spec.size() % 2) {           // odd, no Nyquist bin
+        extra = 1;
+    }
+    for (size_t ind=halfsize+extra; ind<fullsize; ++ind) {
+        spec[ind] = std::conj(spec[fullsize-ind]);
+    }
+}
+         
+Aux::complex_vector_t Aux::hermitian_symmetry(const Aux::complex_vector_t& spec)
+{
+    Aux::complex_vector_t ret(spec.begin(), spec.end());
+    hermitian_symmetry_inplace(ret);
+    return ret;
+}
+
+
+
 /*
   Big fat warning to future me: Passing by reference means the input
   array may carry the .IsRowMajor optimization for implementing
@@ -16,6 +39,7 @@ using namespace WireCell::Aux;
 
 using ROWM = Eigen::Array<Aux::complex_t, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>;
 using COLM = Eigen::Array<Aux::complex_t, Eigen::Dynamic, Eigen::Dynamic, Eigen::ColMajor>;
+
 
 template<typename trans>
 Aux::complex_array_t doit(const Aux::complex_array_t& arr, trans func)
@@ -51,6 +75,7 @@ Aux::complex_array_t Aux::inv(const IDFT::pointer& dft, const Aux::complex_array
         dft->inv2d(in_data, out_data, nrows, ncols);
     });
 }
+
 
 // template<typename trans>
 // Aux::complex_array_t doit1b(const Aux::complex_array_t& arr, int axis, trans func)
@@ -110,17 +135,6 @@ Aux::complex_array_t Aux::inv(const IDFT::pointer& dft,
     Aux::complex_array_t ret = arr; 
     dft->inv1b(ret.data(), ret.data(), ret.cols(), ret.rows(), !axis);
     return ret;
-}
-
-Aux::complex_array_t Aux::fwd_r2c(const IDFT::pointer& dft,
-                                  const real_array_t& arr)
-{
-    return Aux::fwd(dft, arr.cast<Aux::complex_t>());
-}
-Aux::real_array_t Aux::inv_c2r(const IDFT::pointer& dft,
-                               const complex_array_t& arr)
-{
-    return Aux::inv(dft, arr).real();
 }
 
 

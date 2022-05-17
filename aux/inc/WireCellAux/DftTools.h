@@ -19,7 +19,18 @@ namespace WireCell::Aux {
     using real_vector_t = std::vector<float>;
     using complex_vector_t = std::vector<complex_t>;
 
-    // 1D with vectors
+    /// Return a version of the input with the upper half becoming the
+    /// mirrored complex conjugate of the lower half.  The lower half
+    /// is unchanged.  The zeroth element is not mirrored and if the
+    /// input is even the element corresponding to the Nyquist bin is
+    /// not mirrored.
+    complex_vector_t hermitian_symmetry(const complex_vector_t& spec);
+
+    // As above but in-place.
+    void hermitian_symmetry_inplace(complex_vector_t& spec);
+
+
+    // 1D with std::vector.
 
     // Perform forward c2c transform on vector.
     inline complex_vector_t fwd(const IDFT::pointer& dft, const complex_vector_t& seq)
@@ -46,10 +57,13 @@ namespace WireCell::Aux {
         return ret;
     }
 
-    // Perform inverse c2r transform on vector.
+    // Perform inverse c2r transform on vector.  Note: this ignores
+    // all frequencies in the input spectrum which are above the
+    // Nyquist frequency.
     inline real_vector_t inv_c2r(const IDFT::pointer& dft, const complex_vector_t& spec)
     {
-        auto cvec = inv(dft, spec);
+        complex_vector_t symspec = hermitian_symmetry(spec);
+        auto cvec = inv(dft, symspec);
         real_vector_t rvec(cvec.size());
         std::transform(cvec.begin(), cvec.end(), rvec.begin(),
                        [](const Aux::complex_t& c) { return std::real(c); });
@@ -94,15 +108,16 @@ namespace WireCell::Aux {
     // 2D with Eigen arrays.  Use eg arr.cast<complex_>() to provde
     // from real or arr.real()() to convert result to real.
 
-    // Transform both dimesions.
+    // Full complex to complex forward transform.
     complex_array_t fwd(const IDFT::pointer& dft, const complex_array_t& arr);
+    // Full complex to complex inverse transform.
     complex_array_t inv(const IDFT::pointer& dft, const complex_array_t& arr);
 
-    // As above but internally convert input or output.  These are
-    // just syntactic sugar hiding a .cast<complex_t>() or a .real()
-    // call.
-    complex_array_t fwd_r2c(const IDFT::pointer& dft, const real_array_t& arr);
-    real_array_t inv_c2r(const IDFT::pointer& dft, const complex_array_t& arr);
+    // Forward transform of real to complex.
+    // complex_array_t fwd_r2c(const IDFT::pointer& dft, const real_array_t& arr);
+
+    // Perform inverse c2r transform on array. 
+    // real_array_t inv_c2r(const IDFT::pointer& dft, const complex_array_t& arr, int axis=0);
 
     // Transform a 2D array along one axis.
     //

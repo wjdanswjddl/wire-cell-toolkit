@@ -120,8 +120,36 @@ void test_1b(IDFT::pointer dft, int axis, int nrows=8, int ncols=4)
 
 }
 
+void test_hs()
+{
+    //                            0      1      2      3      4     5
+    Aux::complex_vector_t even{{1,11},{2,22},{3,33},{4,44},{5,55},{6,66}};
+    Aux::complex_vector_t odd(even.begin(), even.end()-1);
+
+    auto evens = Aux::hermitian_symmetry(even);
+    auto odds = Aux::hermitian_symmetry(odd);
+
+    for (size_t ind=0; ind<3; ++ind) {
+        assert(even[ind] == evens[ind]);
+        assert(odd[ind] == odds[ind]);
+    }
+    for (size_t ind=1; ind<3; ++ind) {
+        size_t even_other = even.size() - ind;
+        size_t odd_other = odd.size() - ind;
+        std::cerr << " even["<< ind <<"]=" << even[ind]
+                  << " evens["<<even_other<<"]=" << evens[even_other]
+                  << " odd[" << ind << "]=" << odd[ind]
+                  << " odds[" << odd_other << "]=" << odds[odd_other]
+                  << "\n";
+        assert(even[ind] == std::conj(evens[even_other]));
+        assert(odd[ind] == std::conj(odds[odd_other]));
+    }
+}
+
 int main(int argc, char* argv[])
 {
+    test_hs();
+
     DftArgs args;
     int rc = make_dft_args(args, argc, argv);
     if (rc) { return rc; }
