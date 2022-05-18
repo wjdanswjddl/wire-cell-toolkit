@@ -7,7 +7,9 @@
 using namespace WireCell;
 using namespace WireCell::Aux;
 
+/*** helpers, both vector/array types ***/
 
+// 1D vector
 void Aux::hermitian_symmetry_inplace(Aux::complex_vector_t& spec)
 {
     const size_t fullsize = spec.size();
@@ -16,11 +18,17 @@ void Aux::hermitian_symmetry_inplace(Aux::complex_vector_t& spec)
     if (spec.size() % 2) {           // odd, no Nyquist bin
         extra = 1;
     }
+    else { // even, has a Nyquist bin.
+        // Force the Nyquist bin to be real.  When user gives us
+        // complex it is likely due to them making a fluctuated
+        // spectra and thus best to keep amplitude and remove phase
+        // instead of taking real part.  Thus abs().
+        spec[halfsize] = std::abs(spec[halfsize]);
+    }
     for (size_t ind=halfsize+extra; ind<fullsize; ++ind) {
         spec[ind] = std::conj(spec[fullsize-ind]);
     }
 }
-         
 Aux::complex_vector_t Aux::hermitian_symmetry(const Aux::complex_vector_t& spec)
 {
     Aux::complex_vector_t ret(spec.begin(), spec.end());
@@ -28,6 +36,107 @@ Aux::complex_vector_t Aux::hermitian_symmetry(const Aux::complex_vector_t& spec)
     return ret;
 }
 
+// 2D array
+// axis=1 means along columns, ie on a per-row basis
+void Aux::hermitian_symmetry_inplace(Aux::complex_array_t& spec, int axis)
+{
+    const size_t fullsize = axis ? spec.cols() : spec.rows();
+    const size_t halfsize = fullsize/2; // integer division
+    size_t extra = 0;
+    if (spec.size() % 2) {           // odd, no Nyquist bin
+        extra = 1;
+    }
+    else {              // see comments in same block above for vector
+        if (axis) {
+            spec.col(halfsize) = spec.col(halfsize).abs();
+        }
+        else {
+            spec.row(halfsize) = spec.row(halfsize).abs();
+        }
+    }
+
+    if (axis) {
+        for (size_t ind=halfsize+extra; ind<fullsize; ++ind) {
+            spec.col(ind) = spec.col(fullsize-ind).conjugate();
+        }
+    }
+    else {
+        for (size_t ind=halfsize+extra; ind<fullsize; ++ind) {
+            spec.row(ind) = spec.row(fullsize-ind).conjugate();
+        }
+    }
+}
+Aux::complex_array_t Aux::hermitian_symmetry(const Aux::complex_array_t& spec, int axis)
+{
+    Aux::complex_array_t ret = spec;
+    hermitian_symmetry_inplace(ret, axis);
+    return ret;
+}
+
+
+/*** vector ***/
+
+Aux::complex_vector_t Aux::fwd(const IDFT::pointer& dft, const Aux::complex_vector_t& seq)
+{
+    complex_vector_t ret(seq.size());
+    dft->fwd1d(seq.data(), ret.data(), ret.size());
+    return ret;
+}
+
+Aux::complex_vector_t Aux::fwd_r2c(const IDFT::pointer& dft, const Aux::real_vector_t& vec)
+{
+    complex_vector_t cvec(vec.size());
+    std::transform(vec.begin(), vec.end(), cvec.begin(),
+                   [](float re) { return Aux::complex_t(re,0.0); } );
+    return fwd(dft, cvec);
+}
+
+Aux::complex_vector_t Aux::inv(const IDFT::pointer& dft, const Aux::complex_vector_t& spec)
+{
+    complex_vector_t ret(spec.size());
+    dft->inv1d(spec.data(), ret.data(), ret.size());
+    return ret;
+}
+
+Aux::real_vector_t Aux::inv_c2r(const IDFT::pointer& dft, const Aux::complex_vector_t& spec)
+{
+    // fixme: in future, expand IDFT to have c2r 
+    complex_vector_t symspec = hermitian_symmetry(spec);
+    auto cvec = inv(dft, symspec);
+    real_vector_t rvec(cvec.size());
+    std::transform(cvec.begin(), cvec.end(), rvec.begin(),
+                   [](const Aux::complex_t& c) { return std::real(c); });
+    return rvec;
+}
+
+/*** array ***/
+
+// Implementation notes for fwd()/inv():
+//
+// - We make an initial copy to get rid of any potential IsRowMajor
+//   optimization/confusion over storage order.  This suffers a copy
+//   but we need to allocate return anyways.
+//
+// - We then have column-wise storage order but IDFT assumes row-wise
+// - so we reverse (nrows, ncols) and meaning of axis.
+
+Aux::complex_array_t Aux::fwd(const IDFT::pointer& dft, 
+                              const Aux::complex_array_t& arr, 
+                              int axis)
+{
+    Aux::complex_array_t ret = arr; 
+    dft->fwd1b(ret.data(), ret.data(), ret.cols(), ret.rows(), !axis);
+    return ret;
+}
+
+Aux::complex_array_t Aux::inv(const IDFT::pointer& dft,
+                              const Aux::complex_array_t& arr,
+                              int axis)
+{
+    Aux::complex_array_t ret = arr; 
+    dft->inv1b(ret.data(), ret.data(), ret.cols(), ret.rows(), !axis);
+    return ret;
+}
 
 
 /*
@@ -36,10 +145,8 @@ Aux::complex_vector_t Aux::hermitian_symmetry(const Aux::complex_vector_t& spec)
   transpose().  An extra copy would remove that complication but this
   interface tries to keep it.
  */
-
 using ROWM = Eigen::Array<Aux::complex_t, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>;
 using COLM = Eigen::Array<Aux::complex_t, Eigen::Dynamic, Eigen::Dynamic, Eigen::ColMajor>;
-
 
 template<typename trans>
 Aux::complex_array_t doit(const Aux::complex_array_t& arr, trans func)
@@ -77,66 +184,23 @@ Aux::complex_array_t Aux::inv(const IDFT::pointer& dft, const Aux::complex_array
 }
 
 
-// template<typename trans>
-// Aux::complex_array_t doit1b(const Aux::complex_array_t& arr, int axis, trans func)
-// {
-//     // We must provide a flat array with storage order such with
-//     // logical axis-major ordering.
-//     const Aux::complex_t* in_data = arr.data();
-//     const int nrows = arr.rows(); // "logical"
-//     const int ncols = arr.cols(); // shape
-
-//     // If storage order matches "axis-major"
-//     if ( (axis == 1 and arr.IsRowMajor)
-//          or
-//          (axis == 0 and not arr.IsRowMajor) ) {
-//         Aux::complex_vector_t out_vec(nrows*ncols);
-//         func(in_data, out_vec.data(), ncols, nrows);
-//         if (arr.IsRowMajor) {
-//             // note, returning makes a copy and will perform an actual
-//             // storage order transpose.
-//             return Eigen::Map<ROWM>(out_vec.data(), nrows, ncols);
-//         }
-//         return Eigen::Map<COLM>(out_vec.data(), nrows, ncols);
-//     }
-    
-//     // Either we have row-major and want column-major storage order or
-//     // vice versa.
-
-//     // Here, we must copy and not use "auto" to get actual storage
-//     // order transpose and avoid the IsRowMajor flip optimization.
-//     COLM flipped = arr.transpose();
-//     COLM got = doit1b(flipped, (axis+1)%2, func);
-//     return got.transpose();
-// }
-
-// Implementation notes for fwd()/inv():
-//
-// - We make an initial copy to get rid of any potential IsRowMajor
-//   optimization/confusion over storage order.  This suffers a copy
-//   but we need to allocate return anyways.
-//
-// - We then have column-wise storage order but IDFT assumes row-wise
-// - so we reverse (nrows, ncols) and meaning of axis.
-
-Aux::complex_array_t Aux::fwd(const IDFT::pointer& dft, 
-                              const Aux::complex_array_t& arr, 
-                              int axis)
+Aux::complex_array_t Aux::fwd_r2c(const IDFT::pointer& dft, const Aux::real_array_t& wave, int axis)
 {
-    Aux::complex_array_t ret = arr; 
-    dft->fwd1b(ret.data(), ret.data(), ret.cols(), ret.rows(), !axis);
-    return ret;
+    complex_array_t cwave = wave.cast<complex_t>();
+    return fwd(dft, cwave, axis);
 }
 
-Aux::complex_array_t Aux::inv(const IDFT::pointer& dft,
-                              const Aux::complex_array_t& arr,
-                              int axis)
+Aux::real_array_t Aux::inv_c2r(const IDFT::pointer& dft, const Aux::complex_array_t& spec, int axis)
 {
-    Aux::complex_array_t ret = arr; 
-    dft->inv1b(ret.data(), ret.data(), ret.cols(), ret.rows(), !axis);
-    return ret;
+    complex_array_t symspec = hermitian_symmetry(spec, axis);
+    complex_array_t cwave = inv(dft, symspec, axis);
+    // Drops the small imaginary that is accrued due to round-off errors.
+    return cwave.real();        
 }
 
+
+
+/*** high level functions ***/
 
 Aux::real_vector_t Aux::convolve(const IDFT::pointer& dft,
                                  const Aux::real_vector_t& in1,
@@ -192,3 +256,4 @@ Aux::real_vector_t Aux::replace(const IDFT::pointer& dft,
 
     return ret;
 }
+
