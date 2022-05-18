@@ -110,7 +110,7 @@ int main(int argc, char* argv[])
 
         // do FFT for response ...
         // Array::array_xxc c_data = Array::dft_rc(arr, 0);
-        Array::array_xxc c_data = Aux::fwd(idft, arr.cast<IDFT::complex_t>(), 1);
+        Array::array_xxc c_data = Aux::fwd_r2c(idft, arr, 1);
         int nrows = c_data.rows();
         int ncols = c_data.cols();
 
@@ -121,7 +121,7 @@ int main(int argc, char* argv[])
         }
 
         // arr = Array::idft_cr(c_data, 0);
-        arr = Aux::inv(idft, c_data, 1).real();
+        arr = Aux::inv_c2r(idft, c_data, 1);
 
         // figure out how to do fine ... shift (good ...)
         auto arr1 = arr.block(0, 0, nrows, 100);
