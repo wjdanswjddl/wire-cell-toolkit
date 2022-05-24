@@ -33,7 +33,6 @@ namespace WireCell::Aux {
         RecyclingNormals(IRandom::pointer rng,
                          size_t capacity = 1024,
                          double replacement_fraction=0.02);
-        float& at(size_t index);
 
         // Return a pseudo-pseudo-random normal
         float operator()();
@@ -46,6 +45,7 @@ namespace WireCell::Aux {
 
       private:
         IRandom::pointer rng;
+        IRandom::double_func normf;
         size_t nreplace, replace;
         size_t cursor{0};  // may eventually roll over, we do not care
         real_vector_t ring;
@@ -66,7 +66,7 @@ namespace WireCell::Aux {
 
 
       private:
-        IRandom::pointer rng;
+        IRandom::double_func normf;
     };
 
 }

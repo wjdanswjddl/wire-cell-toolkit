@@ -7,56 +7,74 @@ using namespace WireCell;
 Aux::RecyclingNormals::RecyclingNormals(IRandom::pointer rng,
                                         size_t capacity,
                                         double replacement_fraction)
-    : rng(rng), ring(capacity, 0)
+    : rng(rng), normf(rng->make_normal(0,1)), ring(capacity, 0)
 {
-    const size_t r = std::min(capacity-1, (size_t)((1-replacement_fraction)*capacity));
-    nreplace = replace = WireCell::nearest_coprime(capacity, r);
+    size_t jump = (1-replacement_fraction)*capacity;
+    jump = std::max(jump, 1UL);
+    jump = std::min(jump, capacity-1);
+    nreplace = replace = WireCell::nearest_coprime(capacity, jump);
     // start fully fresh
     for (size_t ind=0; ind<capacity; ++ind) {
-        ring[ind] = rng->normal(0,1);
+        ring[ind] = normf();
     }
 }
 
-float& Aux::RecyclingNormals::at(size_t index)
-{
-    return ring[index%ring.size()];
-}
-
-// Return a pseudo-pseudo-random normal
+// Return a pseudo-pseudo-random normal.
+// This is only method that advances the cursor!
+// We avoid modulus ("%") for speed (1.6x speedup)
 float Aux::RecyclingNormals::operator()()
 {
-    const size_t ind = cursor % ring.size();
+    const size_t size = ring.size();
+
     if (cursor == replace) {
-        ring[ind] = rng->normal(0,1);
-        replace += nreplace;
+        ring[cursor] = normf();
+        replace = (replace + nreplace);
+        while (replace >= size) {
+            replace -= size;
+        }
     }
-    float ret = ring[ind];
+    const float ret = ring[cursor];
     ++cursor;
+    if (cursor == size) {       // ring
+        cursor = 0;
+    }
     return ret;
 }
 
 // Return a vector of pseudo-pseudo-random normals of size.
 Aux::RecyclingNormals::real_vector_t Aux::RecyclingNormals::operator()(size_t size)
 {
-    // Don't use std::generate as it does a copy of *this.
+    // Relying totally on coprime cycling leads to overly strong
+    // correlations.  This also softens the need to be overly
+    // concerned about ring capacity vs sampling size.  Though, still
+    // best to to pick them coprime.
+    cursor = rng->range(0, ring.size()-1);
+
     Aux::RecyclingNormals::real_vector_t ret(size, 0);
-    for (auto& f : ret) {
-        f = (*this)();
+    for (size_t ind=0; ind<size; ++ind) {
+        ret[ind] = (*this)();
     }
+
     return ret;
 }
 
 
 
-Aux::FreshNormals::FreshNormals(IRandom::pointer rng) : rng(rng) {}
+Aux::FreshNormals::FreshNormals(IRandom::pointer rng)
+    : normf(rng->make_normal(0,1))
+{
+}
+
 // Return a pseudo-random normal
-float Aux::FreshNormals::operator()() { return rng->normal(0,1); }
+float Aux::FreshNormals::operator()() {
+    return normf();
+}
 
 Aux::FreshNormals::real_vector_t Aux::FreshNormals::operator()(size_t size)
 {
     Aux::RecyclingNormals::real_vector_t ret(size, 0);
     for (auto& f : ret) {
-        f = (*this)();
+        f = normf();
     }
     return ret;
 }

@@ -1,11 +1,11 @@
 #include "WireCellGen/AddGroupNoise.h"
+#include "Noise.h"
 
 #include "WireCellAux/DftTools.h"
 
 #include "WireCellIface/SimpleFrame.h"
 #include "WireCellIface/SimpleTrace.h"
 
-#include "Noise.h"
 #include "WireCellUtil/NamedFactory.h"
 #include "WireCellUtil/Persist.h"
 #include <Eigen/Core>

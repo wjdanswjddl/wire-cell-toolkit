@@ -12,6 +12,7 @@
 
 namespace WireCell::Aux {
 
+
     /** Wave Collector
          
         This is a small helper to which you may progressively of
@@ -58,14 +59,17 @@ namespace WireCell::Aux {
         /// The meanspec provides the mean spectral amplitude spanning
         /// the full frequency range from 0 to Fmax=2*FNyquist.  Note,
         /// this sampling determines that of the generated waves.  See
-        /// linterp/irrterp functions if your spectrum's sampling
+        /// linterp/irrterp functions if your spectrum's sampling 
         /// differs from what wave sampling you want.
         WaveGenerator(IDFT::pointer dft, normal_f normal,
                       const real_vector_t& meanspec);
 
         // Generate a complex, Hermitian-symmetric spectrum from the
-        // mean spectrum
+        // mean spectrum.
         complex_vector_t spec();
+
+        // Generate a real, interval-space waveform.
+        real_vector_t wave();
 
       private:
         IDFT::pointer dft;

@@ -66,6 +66,16 @@ void test_speed(IRandom::pointer rng)
 
 }
 
+void test_freshness(IRandom::pointer rng)
+{
+    Aux::RecyclingNormals rn(rng, 10); 
+    auto one = rn(100);
+    auto two = rn(100);
+    for (size_t ind=0; ind<100; ++ind) {
+        std::cerr << ind << "\t" << one[ind] << "\t" << two[ind] << "\n";
+    }
+}
+
 int main()
 {
     PluginManager& pm = PluginManager::instance();
@@ -80,6 +90,8 @@ int main()
     test_rn(rng);
 
     test_speed(rng);
+
+    test_freshness(rng);
 
     return 0;
 }

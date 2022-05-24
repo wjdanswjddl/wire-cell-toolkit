@@ -43,15 +43,28 @@ Aux::WaveGenerator::complex_vector_t Aux::WaveGenerator::spec()
     complex_vector_t spec(nsamples, 0);
 
     auto normals = normal(nsamples);
-    for (size_t ind=0; ind < nhalf; ++ind) {
+
+    spec[0].real(meanspec[0]*normals[0]);
+    for (size_t ind=1; ind < nhalf; ++ind) {
         float mean = meanspec[ind];
         spec[ind] = std::complex(mean*normals[ind],
                                  mean*normals[ind+nhalf]);
     }
     if (nextra) {       // have Nyquist bin
-        spec[nhalf+1].real(meanspec[nhalf+1]*normals.back());
+        spec[nhalf+1].real(meanspec[nhalf]*normals.back());
     }
     hermitian_symmetry_inplace(spec);
     return spec;
 }
 
+Aux::WaveGenerator::real_vector_t Aux::WaveGenerator::wave()
+{
+    auto wave = inv_c2r(dft, spec());
+
+    size_t nsamples = meanspec.size();
+    const float mean_to_mode = sqrt(2/3.141592);
+    for (size_t ind=0; ind<nsamples; ++ind) {
+        wave[ind] *= mean_to_mode;
+    }
+    return wave;
+}
