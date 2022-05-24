@@ -3,18 +3,18 @@
 #include "WireCellUtil/NamedFactory.h"
 #include "WireCellUtil/TimeKeeper.h"
 #include "WireCellUtil/String.h"
-#include "WireCellIface/IRandom.h"
 #include "WireCellIface/IConfigurable.h"
 
 #include <iostream>
 
 using namespace WireCell;
 using namespace WireCell::String;
+using namespace Aux::RandTools;
 
 void test_rn(IRandom::pointer rng)
 {
     const size_t capacity = 10; // tiny
-    Aux::RecyclingNormals rn(rng, capacity); 
+    Normals::Recycling rn(rng, capacity); 
     for (size_t ind=0; ind<100; ++ind) {
         std::cerr << ind << ": " << rn() << "\n";
     }
@@ -44,7 +44,7 @@ void test_speed(IRandom::pointer rng)
 
     for (auto nsamples : sample_count) {
         for (auto capacity : capacities) {
-            Aux::RecyclingNormals rn(rng, capacity); 
+            Normals::Recycling rn(rng, capacity); 
             for (size_t ind=0; ind<nsamples; ++ind) {
                 rn();
             }
@@ -55,7 +55,7 @@ void test_speed(IRandom::pointer rng)
             tk(format("RN: %d capacity=%d (again)", nsamples, capacity));
         }
         {
-            Aux::FreshNormals fn(rng);
+            Normals::Fresh fn(rng);
             for (size_t ind=0; ind<nsamples; ++ind) {
                 fn();
             }
@@ -68,7 +68,7 @@ void test_speed(IRandom::pointer rng)
 
 void test_freshness(IRandom::pointer rng)
 {
-    Aux::RecyclingNormals rn(rng, 10); 
+    Normals::Recycling rn(rng, 10); 
     auto one = rn(100);
     auto two = rn(100);
     for (size_t ind=0; ind<100; ++ind) {
