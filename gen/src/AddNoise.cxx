@@ -1,14 +1,14 @@
 #include "WireCellGen/AddNoise.h"
 
 #include "WireCellAux/DftTools.h"
+#include "WireCellAux/RandTools.h"
+#include "WireCellAux/Spectra.h"
 
 #include "WireCellIface/SimpleTrace.h"
 #include "WireCellIface/SimpleFrame.h"
 
 #include "WireCellUtil/Persist.h"
 #include "WireCellUtil/NamedFactory.h"
-
-#include "Noise.h"
 
 #include <iostream>
 
@@ -18,6 +18,8 @@ WIRECELL_FACTORY(AddNoise, WireCell::Gen::AddNoise,
 
 using namespace std;
 using namespace WireCell;
+using namespace WireCell::Aux::RandTools;
+using namespace WireCell::Aux::Spectra;
 
 Gen::AddNoise::AddNoise(const std::string& model, const std::string& rng)
   : Aux::Logger("AddNoise", "gen")
@@ -67,12 +69,19 @@ bool Gen::AddNoise::operator()(const input_pointer& inframe, output_pointer& out
         return true;
     }
 
+    Normals::Recycling rn(m_rng);
+    WaveGenerator rwgen(m_dft, rn);
+
     ITrace::vector outtraces;
     for (const auto& intrace : *inframe->traces()) {
         int chid = intrace->channel();
         const auto& spec = (*m_model)(chid);
-        auto cspec = Gen::Noise::generate_spectrum(spec, m_rng, m_rep_percent);
-        auto wave = Aux::inv_c2r(m_dft, cspec);
+        if (spec.size() > rn.size()) {
+            rn.resize(spec.size());
+        }
+        // auto cspec = Gen::Noise::generate_spectrum(spec, m_rng, m_rep_percent);
+        // auto wave = Aux::inv_c2r(m_dft, cspec);
+        auto wave = rwgen.wave(spec);
 
         wave.resize(m_nsamples, 0);
         Waveform::increase(wave, intrace->charge());
