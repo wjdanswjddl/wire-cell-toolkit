@@ -18,6 +18,8 @@
 
 using namespace WireCell;
 using namespace WireCell::Aux;
+using namespace WireCell::Aux::RandTools;
+using namespace WireCell::Aux::Spectra;
 using namespace WireCell::String;
 
 // An ordered map from abscissa to ordinate
@@ -85,8 +87,8 @@ real_vector_t make_true(IRandom::pointer rng,
 }
 
 // This is a copy of what was once in gen/src/Noise.cxx
-static
-void old_generate_spectrum(const std::vector<float>& spec, IRandom::pointer rng, double replace)
+static complex_vector_t
+old_generate_spectrum(const std::vector<float>& spec, IRandom::pointer rng, double replace=0.02)
 {
     // reuse randomes a bit to optimize speed.
     static std::vector<double> random_real_part;
@@ -118,7 +120,7 @@ void old_generate_spectrum(const std::vector<float>& spec, IRandom::pointer rng,
 
     const int shift = rng->uniform(0, random_real_part.size());
 
-    WireCell::Waveform::compseq_t noise_freq(spec.size(), 0);
+    complex_vector_t noise_freq(spec.size(), 0);
 
     for (int i = shift; i < int(spec.size()); i++) {
         const double amplitude = spec.at(i - shift) * sqrt(2. / 3.1415926);  // / units::mV;
@@ -142,12 +144,12 @@ void test_time(IRandom::pointer rng,
                size_t npoints = 128,
                float Fnyquist=1.0)   // Nyquist frequency
 {
-    RecyclingNormals rn(rng);
-    FreshNormals fn(rng);
+    Normals::Recycling rn(rng);
+    Normals::Fresh fn(rng);
 
     auto true_spectrum = make_true(rng, nsamples, npoints, Fnyquist);
-    WaveGenerator rwgen(dft, rn, true_spectrum);
-    WaveGenerator fwgen(dft, fn, true_spectrum);
+    WaveGenerator rwgen(dft, rn);
+    WaveGenerator fwgen(dft, fn);
 
     TimeKeeper tk("wave generator");
     for (size_t iwave=0; iwave<nwaves; ++iwave) {
@@ -158,13 +160,13 @@ void test_time(IRandom::pointer rng,
     tk("old noise");
 
     for (size_t iwave=0; iwave<nwaves; ++iwave) {
-        auto junk = rwgen.wave();
+        auto junk = rwgen.wave(true_spectrum);
         junk.clear();
     }
     tk("recycling");
 
     for (size_t iwave=0; iwave<nwaves; ++iwave) {
-        auto junk = fwgen.wave();
+        auto junk = fwgen.wave(true_spectrum);
         junk.clear();
     }
 // before closure:
@@ -235,30 +237,30 @@ std::ostream& doit(std::ostream& os,     // dump results
     const double replacement_fraction = 0.02;
     const size_t nexample = 100;
     {
-        RecyclingNormals rn(rng, not_nsamples, replacement_fraction);
-        WaveGenerator wavegen(dft, rn, true_spectrum);
+        Normals::Recycling rn(rng, not_nsamples, replacement_fraction);
+        WaveGenerator wavegen(dft, rn);
         for (size_t iwave=0; iwave<nexample; ++iwave) {
-            auto wave = wavegen.wave();
+            auto wave = wavegen.wave(true_spectrum);
             Stream::write(os, format("recycled_wave%03d.npy", iwave), wave);
         }
 
         WaveCollector wavecol(dft);
         for (size_t iwave=0; iwave<nwaves; ++iwave) {
-            wavecol.add(wavegen.wave());
+            wavecol.add(wavegen.wave(true_spectrum));
         }
         Stream::write(os, "recycled_spectrum.npy", wavecol.mean());
     }
     {
-        FreshNormals fn(rng);
-        WaveGenerator wavegen(dft, fn, true_spectrum);
+        Normals::Fresh fn(rng);
+        WaveGenerator wavegen(dft, fn);
         for (size_t iwave=0; iwave<nexample; ++iwave) {
-            auto wave = wavegen.wave();
+            auto wave = wavegen.wave(true_spectrum);
             Stream::write(os, format("fresh_wave%03d.npy", iwave), wave);
         }
 
         WaveCollector wavecol(dft);
         for (size_t iwave=0; iwave<nwaves; ++iwave) {
-            wavecol.add(wavegen.wave());
+            wavecol.add(wavegen.wave(true_spectrum));
         }
         Stream::write(os, "fresh_spectrum.npy", wavecol.mean());
     }

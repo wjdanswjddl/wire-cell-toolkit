@@ -2,27 +2,37 @@
 #include "WireCellUtil/Math.h"
 
 using namespace WireCell;
+using namespace WireCell::Aux::RandTools::Normals;
 
 
-Aux::RecyclingNormals::RecyclingNormals(IRandom::pointer rng,
-                                        size_t capacity,
-                                        double replacement_fraction)
-    : rng(rng), normf(rng->make_normal(0,1)), ring(capacity, 0)
+Recycling::Recycling(IRandom::pointer rng,
+                     size_t capacity,
+                     double replacement_fraction,
+                     double mean, double sigma)
+    : rng(rng), normf(rng->make_normal(mean, sigma)), repfrac(replacement_fraction)
 {
-    size_t jump = (1-replacement_fraction)*capacity;
+    resize(capacity);
+}
+
+void Recycling::resize(size_t capacity)
+{
+    const size_t oldsize = ring.size();
+    ring.resize(capacity, 0);
+    if (capacity > oldsize) {
+        for (size_t ind=oldsize; ind<capacity; ++ind) {
+            ring[ind] = normf();
+        }
+    }
+    size_t jump = (1-repfrac)*capacity;
     jump = std::max(jump, 1UL);
     jump = std::min(jump, capacity-1);
     nreplace = replace = WireCell::nearest_coprime(capacity, jump);
-    // start fully fresh
-    for (size_t ind=0; ind<capacity; ++ind) {
-        ring[ind] = normf();
-    }
 }
 
 // Return a pseudo-pseudo-random normal.
 // This is only method that advances the cursor!
 // We avoid modulus ("%") for speed (1.6x speedup)
-float Aux::RecyclingNormals::operator()()
+float Recycling::operator()()
 {
     const size_t size = ring.size();
 
@@ -42,7 +52,7 @@ float Aux::RecyclingNormals::operator()()
 }
 
 // Return a vector of pseudo-pseudo-random normals of size.
-Aux::RecyclingNormals::real_vector_t Aux::RecyclingNormals::operator()(size_t size)
+real_vector_t Recycling::operator()(size_t size)
 {
     // Relying totally on coprime cycling leads to overly strong
     // correlations.  This also softens the need to be overly
@@ -50,7 +60,7 @@ Aux::RecyclingNormals::real_vector_t Aux::RecyclingNormals::operator()(size_t si
     // best to to pick them coprime.
     cursor = rng->range(0, ring.size()-1);
 
-    Aux::RecyclingNormals::real_vector_t ret(size, 0);
+    real_vector_t ret(size, 0);
     for (size_t ind=0; ind<size; ++ind) {
         ret[ind] = (*this)();
     }
@@ -60,19 +70,20 @@ Aux::RecyclingNormals::real_vector_t Aux::RecyclingNormals::operator()(size_t si
 
 
 
-Aux::FreshNormals::FreshNormals(IRandom::pointer rng)
-    : normf(rng->make_normal(0,1))
+Fresh::Fresh(IRandom::pointer rng,
+             double mean, double sigma)
+    : normf(rng->make_normal(mean, sigma))
 {
 }
 
 // Return a pseudo-random normal
-float Aux::FreshNormals::operator()() {
+float Fresh::operator()() {
     return normf();
 }
 
-Aux::FreshNormals::real_vector_t Aux::FreshNormals::operator()(size_t size)
+real_vector_t Fresh::operator()(size_t size)
 {
-    Aux::RecyclingNormals::real_vector_t ret(size, 0);
+    real_vector_t ret(size, 0);
     for (auto& f : ret) {
         f = normf();
     }

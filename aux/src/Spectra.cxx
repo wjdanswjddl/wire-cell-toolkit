@@ -3,13 +3,14 @@
 
 using namespace WireCell;
 using namespace WireCell::Waveform;
+using namespace WireCell::Aux::Spectra;
 
 
-Aux::WaveCollector::WaveCollector(IDFT::pointer dft) : dft(dft)
+WaveCollector::WaveCollector(IDFT::pointer dft) : dft(dft)
 {
 }
 
-void Aux::WaveCollector::add(const real_vector_t& wave)
+void WaveCollector::add(const real_vector_t& wave)
 {
     if (sum.empty()) {
         sum.resize(wave.size(), 0);
@@ -20,20 +21,20 @@ void Aux::WaveCollector::add(const real_vector_t& wave)
     ++count;
 }
 
-Aux::WaveCollector::real_vector_t Aux::WaveCollector::mean()
+real_vector_t WaveCollector::mean()
 {
     real_vector_t avg(sum.begin(), sum.end());
     scale(avg, 1.0/count);
     return avg;
 }
 
-Aux::WaveGenerator::WaveGenerator(IDFT::pointer dft, normal_f normal,
-                                  const real_vector_t& meanspec)
-    :dft(dft), meanspec(meanspec), normal(normal)
+WaveGenerator::WaveGenerator(IDFT::pointer dft, normal_f normal)
+    :dft(dft), normal(normal)
 {
 }
 
-Aux::WaveGenerator::complex_vector_t Aux::WaveGenerator::spec()
+complex_vector_t
+WaveGenerator::spec(const real_vector_t& meanspec)
 {
     const size_t nsamples = meanspec.size();
     // nsamples: even->1, odd->0
@@ -57,9 +58,10 @@ Aux::WaveGenerator::complex_vector_t Aux::WaveGenerator::spec()
     return spec;
 }
 
-Aux::WaveGenerator::real_vector_t Aux::WaveGenerator::wave()
+real_vector_t
+WaveGenerator::wave(const real_vector_t& meanspec)
 {
-    auto wave = inv_c2r(dft, spec());
+    auto wave = inv_c2r(dft, spec(meanspec));
 
     size_t nsamples = meanspec.size();
     const float mean_to_mode = sqrt(2/3.141592);
