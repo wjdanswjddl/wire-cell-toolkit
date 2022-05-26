@@ -229,10 +229,9 @@ Gen::ImpactTransform::ImpactTransform(IPlaneImpactResponse::pointer pir,
             m_vec_vec_charge.at(i).shrink_to_fit();
 
             // Do FFT on time
+            data_f_w = Aux::fwd_r2c(m_dft, data_t_w, 1);
             // Do FFT on wire
-            data_f_w = data_t_w.cast<IDFT::complex_t>();
-            data_f_w = Aux::fwd(m_dft, data_f_w);
-
+            data_f_w = Aux::fwd(m_dft, data_f_w, 0);
         }
 
         {

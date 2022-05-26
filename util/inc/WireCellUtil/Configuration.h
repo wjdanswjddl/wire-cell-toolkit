@@ -108,10 +108,19 @@ namespace WireCell {
         std::vector<int>
         convert<std::vector<int> >(const Configuration& cfg, const std::vector<int>& def)
     {
-        std::vector<int> ret;
-        for (auto v : cfg) {
-            ret.push_back(convert<int>(v));
-        }
+        std::vector<int> ret(cfg.size());
+        std::transform(cfg.begin(), cfg.end(), ret.begin(),
+                       [](const auto& e) { return e.asInt(); });
+        return ret;
+    }
+    template <>
+    inline  // fixme: ignores default
+        std::vector<float>
+        convert<std::vector<float> >(const Configuration& cfg, const std::vector<float>& def)
+    {
+        std::vector<float> ret(cfg.size());
+        std::transform(cfg.begin(), cfg.end(), ret.begin(),
+                       [](const auto& e) { return e.asFloat(); });
         return ret;
     }
     template <>
@@ -119,10 +128,9 @@ namespace WireCell {
         std::vector<double>
         convert<std::vector<double> >(const Configuration& cfg, const std::vector<double>& def)
     {
-        std::vector<double> ret;
-        for (auto v : cfg) {
-            ret.push_back(convert<double>(v));
-        }
+        std::vector<double> ret(cfg.size());
+        std::transform(cfg.begin(), cfg.end(), ret.begin(),
+                       [](const auto& e) { return e.asDouble(); });
         return ret;
     }
     // for Point and Ray converters, see Point.h

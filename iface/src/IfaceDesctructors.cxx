@@ -71,7 +71,6 @@
 #include "WireCellIface/IProcessor.h"
 #include "WireCellIface/IQueuedoutNode.h"
 #include "WireCellIface/IQueuedoutNode.h"
-#include "WireCellIface/IRandom.h"
 #include "WireCellIface/IRecombinationModel.h"
 #include "WireCellIface/IScalarFieldSink.h"
 #include "WireCellIface/ISemaphore.h"
@@ -171,7 +170,6 @@ IPlaneImpactResponse::~IPlaneImpactResponse() {}
 IPointFieldSink::~IPointFieldSink() {}
 IProcessor::~IProcessor() {}
 IQueuedoutNodeBase::~IQueuedoutNodeBase() {}
-IRandom::~IRandom() {}
 IRecombinationModel::~IRecombinationModel() {}
 IScalarFieldSink::~IScalarFieldSink() {}
 ISemaphore::~ISemaphore() {}

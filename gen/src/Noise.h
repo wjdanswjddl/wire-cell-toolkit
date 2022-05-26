@@ -10,7 +10,7 @@ namespace WireCell::Gen::Noise {
     // WireCell::Waveform::realseq_t generate_waveform(const std::vector<float>& spec, IRandom::pointer rng,
     //                                                 double replace = 0.02);
 
-    // Generate specific noise spectrum.  Caller likely wants to Aux::inv() it and take Waveform::real().
+    // Generate a specific noise spectrum.  Caller likely wants to follow up by calling Aux::inv_c2r().
     WireCell::Waveform::compseq_t generate_spectrum(const std::vector<float>& spec, IRandom::pointer rng,
                                                     double replace = 0.02);
 }

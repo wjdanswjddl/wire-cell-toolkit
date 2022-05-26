@@ -149,8 +149,7 @@ std::vector<Waveform::realseq_t> Sig::Decon2DResponse::init_overall_response(con
     auto arr = Response::as_array(fravg.planes[iplane], fine_nwires, fine_nticks);
 
     // do FFT for response ...
-    Array::array_xxc c_data = arr.cast<IDFT::complex_t>();
-    c_data = Aux::fwd(m_dft, c_data, 1);
+    Array::array_xxc c_data = Aux::fwd_r2c(m_dft, arr, 1);
 
     int nrows = c_data.rows();
     int ncols = c_data.cols();
@@ -161,7 +160,7 @@ std::vector<Waveform::realseq_t> Sig::Decon2DResponse::init_overall_response(con
         }
     }
 
-    arr = Aux::inv(m_dft, c_data, 1).real();
+    arr = Aux::inv_c2r(m_dft, c_data, 1);
 
     // figure out how to do fine ... shift (good ...)
     int fine_time_shift = m_fine_time_offset / fravg.period;
@@ -269,8 +268,7 @@ bool Sig::Decon2DResponse::operator()(const ITensorSet::pointer &in, ITensorSet:
     log->debug("r_data: {} {}", r_data.rows(), r_data.cols());
 
     // first round of FFT on time
-    WireCell::Array::array_xxc c_data = r_data.cast<IDFT::complex_t>();
-    c_data = Aux::fwd(m_dft, c_data, 1);
+    WireCell::Array::array_xxc c_data = Aux::fwd_r2c(m_dft, r_data, 1);
 
     if (m_cresp) {
         log->debug("Decon2DResponse: applying ch-by-ch electronics response correction");
@@ -318,9 +316,9 @@ bool Sig::Decon2DResponse::operator()(const ITensorSet::pointer &in, ITensorSet:
     log->trace("TRACE {}", __LINE__);
 
     // do first round FFT on the resposne on time
+    Array::array_xxc c_resp = Aux::fwd_r2c(m_dft, r_resp, 1);
     // do second round FFT on the response on wire
-    Array::array_xxc c_resp = r_resp.cast<IDFT::complex_t>();
-    c_resp = Aux::fwd(m_dft, c_resp);
+    c_resp = Aux::fwd(m_dft, c_resp, 0);
 
     // make ratio to the response and apply wire filter
     c_data = c_data / c_resp;
@@ -345,9 +343,10 @@ bool Sig::Decon2DResponse::operator()(const ITensorSet::pointer &in, ITensorSet:
     log->trace("TRACE {}", __LINE__);
 
     // do the first round of inverse FFT on wire
+    c_data = Aux::inv(m_dft, c_data, 0);
+
     // do the second round of inverse FFT on time
-    c_data = Aux::inv(m_dft, c_data);
-    r_data = c_data.real();
+    r_data = Aux::inv_c2r(m_dft, c_data, 1);
 
     // do the shift in wire
     const int nrows = r_data.rows();
@@ -371,7 +370,7 @@ bool Sig::Decon2DResponse::operator()(const ITensorSet::pointer &in, ITensorSet:
         r_data.block(0, 0, nrows, time_shift) = arr2;
         r_data.block(0, time_shift, nrows, ncols - time_shift) = arr1;
     }
-    c_data = Aux::fwd(m_dft, r_data.cast<IDFT::complex_t>(), 1);
+    c_data = Aux::fwd_r2c(m_dft, r_data, 1);
 
     log->trace("TRACE {}", __LINE__);
 
