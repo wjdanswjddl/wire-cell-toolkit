@@ -28,14 +28,13 @@ namespace WireCell::Aux::RandTools::Normals {
     // returns to a prior ring index.  See nearest_coprime() in
     // WireCellUtil/Math.h. for an easy way to provide that.
     //
-    // With 2% replacement, speedup is about 2x compared to fully
-    // regenerating as in Fresh.
+    // With a 4% replacement, speedup is about 2x compared to fully
+    // regenerating as in Fresh.  See test_noise.
     class Recycling {
       public:
 
-        Recycling(IRandom::pointer rng,
-                  size_t capacity = 1024,
-                  double replacement_fraction=0.02,
+        Recycling(IRandom::pointer rng, size_t capacity, 
+                  double replacement_fraction=0.04,
                   double mean=0.0, double sigma=1.0);
 
         // Return a pseudo-pseudo-random normal

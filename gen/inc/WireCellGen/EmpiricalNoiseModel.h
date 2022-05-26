@@ -107,6 +107,9 @@ namespace WireCell {
             // need to convert the electronics response in here ...
             Waveform::realseq_t m_elec_resp_freq;
             mutable std::unordered_map<int, Waveform::realseq_t> m_elec_resp_cache;
+            // sigh, this totally violates the API!  It returns the
+            // same vector every call.  It should return a unique
+            // vector.
             mutable amplitude_t comb_amp;
 
         };

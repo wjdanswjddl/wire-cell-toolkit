@@ -1,17 +1,15 @@
 // A toy noise sim that makes a round trip.
 
-#include "WireCellAux/DftTools.h"
-#include "WireCellAux/RandTools.h"
-#include "WireCellAux/Spectra.h"
 
-#include "WireCellIface/IConfigurable.h"
+#include "WireCellAux/Testing.h"
+#include "WireCellAux/Spectra.h"
 
 #include "WireCellUtil/Stream.h"
 #include "WireCellUtil/String.h"
+#include "WireCellUtil/Waveform.h"
 #include "WireCellUtil/Interpolate.h"
-#include "WireCellUtil/PluginManager.h"
-#include "WireCellUtil/NamedFactory.h"
 #include "WireCellUtil/TimeKeeper.h"
+
 
 #include <map>
 #include <random>
@@ -144,7 +142,7 @@ void test_time(IRandom::pointer rng,
                size_t npoints = 128,
                float Fnyquist=1.0)   // Nyquist frequency
 {
-    Normals::Recycling rn(rng);
+    Normals::Recycling rn(rng, 2*nsamples);
     Normals::Fresh fn(rng);
 
     auto true_spectrum = make_true(rng, nsamples, npoints, Fnyquist);
@@ -242,6 +240,9 @@ std::ostream& doit(std::ostream& os,     // dump results
         for (size_t iwave=0; iwave<nexample; ++iwave) {
             auto wave = wavegen.wave(true_spectrum);
             Stream::write(os, format("recycled_wave%03d.npy", iwave), wave);
+            auto spec = Aux::fwd_r2c(dft, wave);
+            Stream::write(os, format("recycled_real%03d.npy", iwave), Waveform::real(spec));
+            Stream::write(os, format("recycled_imag%03d.npy", iwave), Waveform::imag(spec)); 
         }
 
         WaveCollector wavecol(dft);
@@ -282,29 +283,15 @@ std::ostream& doit(std::ostream& os,     // dump results
     return os;
 }
 
-IRandom::pointer getran(std::string name)
-{
-    auto rngcfg = Factory::lookup<IConfigurable>("Random", name);
-    auto cfg = rngcfg->default_configuration();
-    cfg["generator"] = name;    // default or twister
-    rngcfg->configure(cfg);
-    return Factory::lookup<IRandom>("Random", name);
-}
 
 int main(int argc, char* argv[])
 {
-    PluginManager& pm = PluginManager::instance();
-    pm.add("WireCellGen");
-    auto rng = getran("default");
-    auto dft = Factory::lookup<IDFT>("FftwDFT");
-
-    std::string outfile = argv[0];
-    outfile += ".tar";          // fixme: need PR #163 merged to save as .npz
-    if (argc > 1) {
-        outfile = argv[1];
-    }
+    auto rng = Testing::get_random();
+    auto dft = Testing::get_dft();
 
     Stream::filtering_ostream out;
+    // fixme: need PR #163 merged to save as .npz
+    std::string outfile = argc > 1 ? argv[1] : std::string(argv[0]) + ".tar";
     Stream::output_filters(out, outfile);
     
     const size_t nsamples = 1024;
@@ -323,10 +310,17 @@ int main(int argc, char* argv[])
     };
     const size_t nwaves_speed = 10000;
     for (const auto& rname: rnames) {
-        auto rng2 = getran(rname);
+        auto rng2 = Testing::get_random(rname);
         std::cerr << rname << std::endl;
         test_time(rng2, dft, nsamples, nwaves_speed, npoints, Fnyquist);
     }
+
+    const size_t nrange = 10000;
+    std::vector<int> inrange(nrange, 0);
+    for (size_t ind=0; ind<nrange; ++ind) {
+        inrange[ind] = rng->range(0, nsamples-1);
+    }
+    Stream::write(out, "inrange.npy", inrange);
 
     out.pop();
     std::cerr << "wirecell-test noise " << outfile << " test_noise.pdf" << std::endl;

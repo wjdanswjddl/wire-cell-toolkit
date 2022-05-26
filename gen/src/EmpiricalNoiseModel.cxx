@@ -27,7 +27,7 @@ Gen::EmpiricalNoiseModel::EmpiricalNoiseModel(const std::string& spectra_file, c
                                               // const double gain_scale,
                                               // const double freq_scale,
                                               const std::string anode_tn, const std::string chanstat_tn)
-  : Aux::Logger("EmpericalNoiseModel", "gen")
+  : Aux::Logger("EmpiricalNoiseModel", "gen")
   , m_spectra_file(spectra_file)
   , m_nsamples(nsamples)
   , m_period(period)
@@ -199,6 +199,8 @@ void Gen::EmpiricalNoiseModel::configure(const WireCell::Configuration& cfg)
 
         resample(*nsptr);
         m_spectral_data[nsptr->plane].push_back(nsptr);  // assumes ordered by wire length!
+        log->debug("nwanted={} plane={} ntold={} ngot={} ninput={}",
+                   m_nsamples, nsptr->plane, nsptr->nsamples, nsptr->amps.size(), nfreqs);
     }
 }
 

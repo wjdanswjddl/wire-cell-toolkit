@@ -23,10 +23,11 @@ void Recycling::resize(size_t capacity)
             ring[ind] = normf();
         }
     }
-    size_t jump = (1-repfrac)*capacity;
+    size_t jump = 1/repfrac;
     jump = std::max(jump, 1UL);
     jump = std::min(jump, capacity-1);
     nreplace = replace = WireCell::nearest_coprime(capacity, jump);
+    // nreplace = replace = jump;
 }
 
 // Return a pseudo-pseudo-random normal.
@@ -59,6 +60,12 @@ real_vector_t Recycling::operator()(size_t size)
     // concerned about ring capacity vs sampling size.  Though, still
     // best to to pick them coprime.
     cursor = rng->range(0, ring.size()-1);
+
+    // When replacement fraction is large, the above random start
+    // point can take a while before we catch up to the replace cursor
+    // and thus refreshing, so set it to our start point.  As a side
+    // effect, this guarantees the first sample is freshly random.
+    replace = cursor;
 
     real_vector_t ret(size, 0);
     for (size_t ind=0; ind<size; ++ind) {

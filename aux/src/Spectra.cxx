@@ -45,6 +45,7 @@ WaveGenerator::spec(const real_vector_t& meanspec)
 
     auto normals = normal(nsamples);
 
+    // The zero-frequency bin must be real and may be negative.
     spec[0].real(meanspec[0]*normals[0]);
     for (size_t ind=1; ind < nhalf; ++ind) {
         float mean = meanspec[ind];
@@ -52,6 +53,7 @@ WaveGenerator::spec(const real_vector_t& meanspec)
                                  mean*normals[ind+nhalf]);
     }
     if (nextra) {       // have Nyquist bin
+        // Must be real, can be negative.
         spec[nhalf+1].real(meanspec[nhalf]*normals.back());
     }
     hermitian_symmetry_inplace(spec);
