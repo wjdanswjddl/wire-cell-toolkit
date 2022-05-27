@@ -204,8 +204,9 @@ namespace WireCell::Aux::Test {
 
     // Same as above but with pass by vector 
     template <typename VectorType>
-    void assert_impulse_at_index(const VectorType& vec, 
-                                 size_t index=0, const typename VectorType::value_type& val = 1.0)
+    void assert_impulse_at_index(const VectorType& vec,
+                                 size_t index=0,
+                                 const typename VectorType::value_type& val = 1.0)
     {
         assert_impulse_at_index(vec.data(), vec.size(), index, val);
     }

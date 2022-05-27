@@ -22,21 +22,27 @@ namespace WireCell {
 
             /// Sample a binomial distribution
             virtual int binomial(int max, double prob);
+            virtual int_func make_binomial(int max, double prob);
 
             /// Sample a Poisson distribution.
             virtual int poisson(double mean);
+            virtual int_func make_poisson(double mean);
 
             /// Sample a normal distribution.
             virtual double normal(double mean, double sigma);
+            virtual double_func make_normal(double mean, double sigma);
 
             /// Sample a uniform distribution
             virtual double uniform(double begin, double end);
+            virtual double_func make_uniform(double begin, double end);
 
             /// Sample an exponential distribution
             virtual double exponential(double mean);
+            virtual double_func make_exponential(double mean);
 
             /// Sample a uniform integer range.
             virtual int range(int first, int last);
+            virtual int_func make_range(int first, int last);
 
            private:
             std::string m_generator;
