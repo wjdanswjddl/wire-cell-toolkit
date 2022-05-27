@@ -36,6 +36,7 @@ namespace WireCellTbb {
     using seq_node = tbb::flow::sequencer_node<msg_t>;
     using sink_node = tbb::flow::function_node<msg_t>;
 
+    // tuple type nodes include join_node, split_node and indexer_node
 
     // A base facade which expose sender/receiver ports and provide
     // initialize hook.  There is one NodeWrapper for each node
@@ -68,6 +69,8 @@ namespace WireCellTbb {
         return as_msg_vector(tup, std::make_index_sequence<std::tuple_size<Tuple>::value>{});
     }
 
+
+    // join
     template <typename Tuple, std::size_t... Is>
     receiver_port_vector receiver_ports(tbb::flow::join_node<Tuple>& jn, std::index_sequence<Is...>)
     {
@@ -80,6 +83,8 @@ namespace WireCellTbb {
         return receiver_ports(jn, std::make_index_sequence<std::tuple_size<Tuple>::value>{});
     }
 
+
+    // split
     template <typename Tuple, std::size_t... Is>
     sender_port_vector sender_ports(tbb::flow::split_node<Tuple>& sp, std::index_sequence<Is...>)
     {
@@ -91,6 +96,8 @@ namespace WireCellTbb {
     {
         return sender_ports(sp, std::make_index_sequence<std::tuple_size<Tuple>::value>{});
     }
+
+
 
 }  // namespace WireCellTbb
 

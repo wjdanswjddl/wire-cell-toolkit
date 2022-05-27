@@ -21,7 +21,7 @@ namespace WireCellTbb {
         // function_node to have concurrency=1.
         mutable size_t m_seqno{0};
 
-       public:
+      public:
         typedef typename WireCell::IFanoutNodeBase::any_vector any_vector;
         typedef typename WireCell::type_repeater<N, msg_t>::type TupleType;
 
@@ -90,7 +90,7 @@ namespace WireCellTbb {
         std::vector<tbb::flow::graph_node*> m_nodes;
         sender_port_vector m_sender_ports;
 
-       public:
+      public:
         FanoutWrapper(tbb::flow::graph& graph, WireCell::INode::pointer wcnode)
         {
             int nout = wcnode->output_types().size();
