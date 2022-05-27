@@ -30,7 +30,7 @@
     Mixed real/complex
 
     - fwd1d_r2c :: fwd1d on 1D real array producing complex array
-    - inv2d_c2r :: inv2d on 2D complex array producing real array
+    - inv1d_c2r :: inv1d on 2D complex array producing real array
 
  */
 
@@ -135,11 +135,11 @@ pig_array dispatch(const IDFT::pointer& dft, const pig_array& pa, const std::str
     if (op == "inv2d")
         return a2p<complex_t>(Aux::inv(dft, p2a<complex_t>(pa)));
 
-    if (op == "fwd2d_r2c")
-        return a2p<complex_t>(Aux::fwd_r2c(dft, p2a<scalar_t>(pa)));
+    // if (op == "fwd2d_r2c")
+    //     return a2p<complex_t>(Aux::fwd_r2c(dft, p2a<scalar_t>(pa)));
 
-    if (op == "inv2d_c2r")
-        return a2p<scalar_t>(Aux::inv_c2r(dft, p2a<complex_t>(pa)));
+    // if (op == "inv2d_c2r")
+    //     return a2p<scalar_t>(Aux::inv_c2r(dft, p2a<complex_t>(pa)));
 
     if (op == "fwd1b0")
         return a2p<complex_t>(Aux::fwd(dft, p2a<complex_t>(pa), 0));

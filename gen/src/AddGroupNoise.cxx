@@ -1,11 +1,11 @@
 #include "WireCellGen/AddGroupNoise.h"
+#include "Noise.h"
 
 #include "WireCellAux/DftTools.h"
 
 #include "WireCellAux/SimpleFrame.h"
 #include "WireCellAux/SimpleTrace.h"
 
-#include "Noise.h"
 #include "WireCellUtil/NamedFactory.h"
 #include "WireCellUtil/Persist.h"
 #include <Eigen/Core>
@@ -120,7 +120,7 @@ bool Gen::AddGroupNoise::operator()(const input_pointer &inframe,
     int groupID = m_ch2grp[chid];
 
     WireCell::Waveform::compseq_t noise_freq = m_grp2noise[groupID];
-    auto wave = Waveform::real(Aux::inv(m_dft, noise_freq));
+    auto wave = Aux::inv_c2r(m_dft, noise_freq);
     wave.resize(m_nsamples, 0);
 
     Waveform::increase(wave, intrace->charge());

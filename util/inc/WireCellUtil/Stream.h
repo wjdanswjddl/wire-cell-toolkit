@@ -64,6 +64,11 @@ namespace WireCell::Stream {
         return si;
     }
 
+    /// Short hand alias as most "ostream" and "istream" will be this
+    /// type in practice.
+    using boost::iostreams::filtering_istream;
+    using boost::iostreams::filtering_ostream;
+
     /// Stream Eigen array to custard stream.  Must have tar filter!
     template<typename Scalar, int Rows=Eigen::Dynamic, int Cols=Eigen::Dynamic>
     std::ostream& write(std::ostream& so, const std::string& fname, const Eigen::Array<Scalar,Rows,Cols>& arr) {

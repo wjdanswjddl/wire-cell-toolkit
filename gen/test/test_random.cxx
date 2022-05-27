@@ -98,8 +98,104 @@ void test_repeat()
     }
 }
 
-int main()
+void test_speed_iface(size_t ndraws)
 {
+    auto rng = Factory::lookup<IRandom>("Random");
+
+    double x=0;
+    for (size_t ind=0; ind<ndraws; ++ind) {
+        x += rng->normal(0, 1);
+    }
+}
+
+// before implementing closure in Random:
+// TICK: 560 ms (this: 463 ms) test_speed_iface
+// TICK: 1043 ms (this: 482 ms) test_speed_closure
+// after:
+// TICK: 560 ms (this: 464 ms) test_speed_iface
+// TICK: 800 ms (this: 240 ms) test_speed_closure
+
+void test_speed_closure(size_t ndraws)
+{
+    auto rng = Factory::lookup<IRandom>("Random");
+    auto norm = rng->make_normal(0,1);
+
+    double x=0;
+    for (size_t ind=0; ind<ndraws; ++ind) {
+        x += norm();
+    }
+
+}
+
+
+#include <random>
+void test_speed_direct(size_t ndraws)
+{
+    std::default_random_engine rng(42);
+    std::normal_distribution<double> distribution(0, 1);
+    double x=0;
+    for (size_t ind=0; ind<ndraws; ++ind) {
+        x +=  distribution(rng);
+    }
+}
+
+#include <limits>
+// cribbed from:
+// https://stackoverflow.com/a/1640399
+// but, don't bother as it's ~2x slower than direct.
+struct Xorsh { 
+    unsigned long x{123456789}, y{362436069}, z{521288629};
+    typedef size_t result_type;
+    static size_t min() { return 0; }
+    static size_t max() { return std::numeric_limits<long>::max(); }
+
+    unsigned long operator()() {
+        unsigned long t;
+        x ^= x << 16;
+        x ^= x >> 5;
+        x ^= x << 1;
+
+        t = x;
+        x = y;
+        y = z;
+        z = t ^ x ^ y;
+
+        return z;
+    }
+};
+void test_speed_custom(size_t ndraws)
+{
+    Xorsh rng;
+    std::normal_distribution<double> distribution(0, 1);
+    double x=0;
+    for (size_t ind=0; ind<ndraws; ++ind) {
+        x +=  distribution(rng);
+    }
+}
+
+
+template<typename Number>
+struct Normal {
+    std::default_random_engine& rng;
+    std::normal_distribution<Number> dist;
+    Normal(std::default_random_engine& rng,
+           Number mean=0, Number sigma=1)
+        : rng(rng), dist(mean,sigma) { }
+    Number operator()() { return dist(rng); }
+};
+
+void test_closure()
+{
+    std::default_random_engine rng(42);
+    std::function<double()> rn = Normal<double>(rng, 0, 1);
+    std::cerr << rn() << std::endl;
+}
+
+
+int main(int argc, char* argv[])
+{
+    Testing::log(argv[0]);
+
     ExecMon em("starting");
     PluginManager& pm = PluginManager::instance();
     pm.add("WireCellGen");
@@ -119,6 +215,19 @@ int main()
 
     test_repeat();
     em("test repeat");
+
+    size_t ndraws=10000000;
+    test_speed_iface(ndraws);
+    em("test_speed_iface");
+    test_speed_closure(ndraws);
+    em("test_speed_closure");
+    test_speed_direct(ndraws);
+    em("test_speed_direct");
+    test_speed_custom(ndraws);
+    em("test_speed_custom");
+
+    test_closure();
+    em("test_closure");
 
     cout << em.summary() << endl;
 

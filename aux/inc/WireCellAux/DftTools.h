@@ -1,6 +1,46 @@
 /**
-   This provides std::vector and Eigen::Array typed interface to an
-   IDFT.
+   DftTools provides support for 1D std::vector (called "vector" here)
+   and 2D Eigen::Array (called "array" there typed interface to calls
+   made on an IDFT.  Besides providing concrete typing and necessary
+   data transforms, it includes higher level functions expressed in
+   terms of IDFT primitives.  
+
+   IDFT rules apply, in particular, forward transforms do not accrue
+   any normalization and reverse transforms accrue a normalization of
+   1/N where N is the number of elements transformed.
+
+   The API uses variable names to hint at the semantic meaning of
+   arguments.  We write a time/interval-space vector or array is
+   "wave" or if complex as "cwave".  A frequency-space vector or array
+   is written as "spec".  Where Hermitian-symmetry is anticipated we
+   write "hspec" (h=Hermitian or "half" but the spectrum still spans
+   the full 2*Nyquist frequency range).  No spectra in this API are
+   real-valued.
+
+   For 2D Eigen::Arrays, some functions take an "axis".  The axis
+   identifies the logical array "dimension" over which the transform
+   is applied.  The word "dimension" here means as in the
+   "2-dimensions" (row = dimension 0, col = dimension 1) and here it
+   does not mean "array size".
+
+   For example, axis=1 means the transform is applied along the column
+   dimension.  Or, in other words, conceptually it means that each row
+   is transformed individually (the row elements being columns).
+   Note: this is the same convention as held by numpy.fft.
+
+   For 1D vectors, there is of course only one axis.
+   
+   Implementation note: the "axis" is interpreted in the "logical"
+   sense of how Eigen arrays are indexed as array(irow, icol).  Ie,
+   the dimension traversing rows is axis 0 and the dimension
+   traversing columns is axis 1.  The internal storage order of an
+   Eigen array may differ from the logical order and indeed that of
+   the array template type order.  Neither is pertinent when deciding
+   the value to give for "axis".
+
+   Some function take 2D Eigen::Arrays and do not take an "axis"
+   argument.  These perform transforms on both axes.
+
  */
 
 #ifndef WIRECELL_AUX_DFTTOOLS
@@ -12,59 +52,61 @@
 
 namespace WireCell::Aux {
 
+    /// Suported data types.
     using complex_t = IDFT::complex_t;
-
-    // std::vector based functions
-
     using real_vector_t = std::vector<float>;
+    using real_array_t = Eigen::ArrayXXf;
     using complex_vector_t = std::vector<complex_t>;
+    using complex_array_t = Eigen::ArrayXXcf;
 
-    // 1D with vectors
+    /// Produce a spectrum with Hermitian-symmetry along the given
+    /// axis enforced.  The samples above the Nyquist frequency will
+    /// be mirrored and complex conjugates of the samples below the
+    /// Nyquist frequency.  The zero sample is not mirrored and if the
+    /// number of samples is even the central "Nyquist bin" is not
+    /// mirrored (it is its own mirror).
+    complex_vector_t hermitian_symmetry(const complex_vector_t& spec);
+    complex_array_t hermitian_symmetry(const complex_array_t& spec, int axis);
 
-    // Perform forward c2c transform on vector.
-    inline complex_vector_t fwd(const IDFT::pointer& dft, const complex_vector_t& seq)
-    {
-        complex_vector_t ret(seq.size());
-        dft->fwd1d(seq.data(), ret.data(), ret.size());
-        return ret;
-    }
+    // As above perform the transform in-place.
+    void hermitian_symmetry_inplace(complex_vector_t& spec);
+    void hermitian_symmetry_inplace(complex_array_t& spec, int axis);
 
-    // Perform forward r2c transform on vector.
-    inline complex_vector_t fwd_r2c(const IDFT::pointer& dft, const real_vector_t& vec)
-    {
-        complex_vector_t cvec(vec.size());
-        std::transform(vec.begin(), vec.end(), cvec.begin(),
-                       [](float re) { return Aux::complex_t(re,0.0); } );
-        return fwd(dft, cvec);
-    }
+    // Perform forward DFT, returning a complex spectrum given a
+    // complex waveform.  The 2D array version lacking an "axis"
+    // performs foward DFT in both directions.
+    complex_vector_t fwd(const IDFT::pointer& dft, const complex_vector_t& cwave);
+    complex_array_t fwd(const IDFT::pointer& dft, const complex_array_t& cwave);
+    complex_array_t fwd(const IDFT::pointer& dft, const complex_array_t& cwave, int axis);
 
-    // Perform inverse c2c transform on vector.
-    inline complex_vector_t inv(const IDFT::pointer& dft, const complex_vector_t& spec)
-    {
-        complex_vector_t ret(spec.size());
-        dft->inv1d(spec.data(), ret.data(), ret.size());
-        return ret;
-    }
+    // Perform forward DFT, returning a complex spectrum given a real
+    // waveform.  The spectrum will have Hermitian symmetry along the
+    // axis of transform but only up to round-off errors accrued
+    // during the transform.
+    complex_vector_t fwd_r2c(const IDFT::pointer& dft, const real_vector_t& wave);
+    complex_array_t fwd_r2c(const IDFT::pointer& dft, const real_array_t& wave, int axis);
 
-    // Perform inverse c2r transform on vector.
-    inline real_vector_t inv_c2r(const IDFT::pointer& dft, const complex_vector_t& spec)
-    {
-        auto cvec = inv(dft, spec);
-        real_vector_t rvec(cvec.size());
-        std::transform(cvec.begin(), cvec.end(), rvec.begin(),
-                       [](const Aux::complex_t& c) { return std::real(c); });
-        return rvec;
-    }
+    // Perform the inverse or reverse DFT, returning a complex
+    // waveform given a complex spectrum.
+    complex_vector_t inv(const IDFT::pointer& dft, const complex_vector_t& spec);
+    complex_array_t inv(const IDFT::pointer& dft, const complex_array_t& spec);
+    complex_array_t inv(const IDFT::pointer& dft, const complex_array_t& spec, int axis);
 
-    // 1D high-level interface
+    // Perform inverse or reverse DFT, returning a real waveform given
+    // a complex spectrum.  Prior to the DFT, the spectrum is forced
+    // to have Hermitial symmetry and thus any input values above the
+    // Nyquist frequency are ignored.
+    real_vector_t inv_c2r(const IDFT::pointer& dft, const complex_vector_t& spec);
+    real_array_t inv_c2r(const IDFT::pointer& dft, const complex_array_t& spec, int axis);
 
-    /// Convovle in1 and in2.  Returned vecgtor has size sum of sizes
-    /// of in1 and in2 less one element in order to assure no periodic
-    /// aliasing.  Caller need not (should not) pad either input.
-    /// Caller is free to truncate result as required.
+
+    /// Convolve in1 and in2 via DFT.  Returned vecgtor has size sum
+    /// of sizes of in1 and in2 less one element in order to assure no
+    /// periodic aliasing.  Caller need not (should not) pad either
+    /// input.  Caller is free to truncate result as required.
     real_vector_t convolve(const IDFT::pointer& dft,
-                           const real_vector_t& in1,
-                           const real_vector_t& in2);
+                           const real_vector_t& wave1,
+                           const real_vector_t& wave2);
 
 
     /// Replace response res1 in meas with response res2.
@@ -84,47 +126,9 @@ namespace WireCell::Aux {
                           const real_vector_t& res2);
 
 
-    // Eigen array based functions
-
-    /// 2D array types.  Note, use Array::cast<complex_t>() if you
-    /// need to convert rom real or arr.real() to convert to real.
-    using real_array_t = Eigen::ArrayXXf;
-    using complex_array_t = Eigen::ArrayXXcf;
-    
-    // 2D with Eigen arrays.  Use eg arr.cast<complex_>() to provde
-    // from real or arr.real()() to convert result to real.
-
-    // Transform both dimesions.
-    complex_array_t fwd(const IDFT::pointer& dft, const complex_array_t& arr);
-    complex_array_t inv(const IDFT::pointer& dft, const complex_array_t& arr);
-
-    // As above but internally convert input or output.  These are
-    // just syntactic sugar hiding a .cast<complex_t>() or a .real()
-    // call.
-    complex_array_t fwd_r2c(const IDFT::pointer& dft, const real_array_t& arr);
-    real_array_t inv_c2r(const IDFT::pointer& dft, const complex_array_t& arr);
-
-    // Transform a 2D array along one axis.
-    //
-    // The axis identifies the logical array "dimension" over which
-    // the transform is applied.  For example, axis=1 means the
-    // transforms are applied along columns (ie, on a per-row basis).
-    // Note: this is the same convention as held by numpy.fft.
-    //
-    // The axis is interpreted in the "logical" sense Eigen arrays
-    // indexed as array(irow, icol).  Ie, the dimension traversing
-    // rows is axis 0 and the dimension traversing columns is axis 1.
-    // Note: internal storage order of an Eigen array may differ from
-    // the logical order and indeed that of the array template type
-    // order.  Neither is pertinent in setting the axis.
-    complex_array_t fwd(const IDFT::pointer& dft, const complex_array_t& arr, int axis);
-    complex_array_t inv(const IDFT::pointer& dft, const complex_array_t& arr, int axis);
-
 
     // Fixme: possible additions
     // - superposition of 2 reals for 2x speedup
-    // - r2c / c2r for 1b
-
 }
 
 #endif

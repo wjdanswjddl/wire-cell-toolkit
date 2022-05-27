@@ -17,35 +17,34 @@
 
 #include <string>
 
-namespace WireCell {
-    namespace Gen {
+namespace WireCell::Gen {
 
-        class AddNoise : public Aux::Logger,
-                         public IFrameFilter, public IConfigurable {
-           public:
-            AddNoise(const std::string& model = "", const std::string& rng = "Random");
 
-            virtual ~AddNoise();
+    class AddNoise : public Aux::Logger,
+                     public IFrameFilter, public IConfigurable {
+      public:
+        AddNoise();
 
-            /// IFrameFilter
-            virtual bool operator()(const input_pointer& inframe, output_pointer& outframe);
+        virtual ~AddNoise();
 
-            /// IConfigurable
-            virtual void configure(const WireCell::Configuration& config);
-            virtual WireCell::Configuration default_configuration() const;
+        /// IFrameFilter
+        virtual bool operator()(const input_pointer& inframe, output_pointer& outframe);
 
-           private:
-            IRandom::pointer m_rng;
-            IDFT::pointer m_dft;
-            IChannelSpectrum::pointer m_model;
+        /// IConfigurable
+        virtual void configure(const WireCell::Configuration& config);
+        virtual WireCell::Configuration default_configuration() const;
 
-            std::string m_model_tn, m_rng_tn;
-            int m_nsamples;
-            double m_rep_percent;
+      private:
+        IRandom::pointer m_rng;
+        IDFT::pointer m_dft;
+        std::map<std::string, IChannelSpectrum::pointer> m_models;
 
-            size_t m_count{0};
-        };
-    }  // namespace Gen
-}  // namespace WireCell
+        size_t m_nsamples{9600};
+        double m_rep_percent{0.02};
+
+        size_t m_count{0};
+    };
+
+}  // namespace WireCell::Gen
 
 #endif

@@ -149,7 +149,7 @@ bool Gen::AddCoherentNoise::operator()(const input_pointer& inframe, output_poin
             noise_freq[i] = tc;
         }
 
-        auto wave = Waveform::real(Aux::inv(m_dft, noise_freq));
+        auto wave = Aux::inv_c2r(m_dft, noise_freq);
 
         // Add signal (be careful to double counting with the incoherent noise)
         Waveform::increase(wave, intrace->charge());
