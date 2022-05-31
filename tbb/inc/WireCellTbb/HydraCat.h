@@ -1,8 +1,16 @@
 /**
    The hydra category adapts a WCT IHydraNodeBase to TBB.  
 
-   The TBB subgraph uses an indexer_node on input and a
-   multifunction_node on output. 
+   A TBB subgraph supports the WCT hydra node.  This subgraph can be
+   considered split into input and output parts.
+
+                 [input] - [output]
+   [indexer(Nin) - func] - [mfunc - sequencers(Nout)]
+
+   The internal "func" is used to break the Nin x Nout template
+   parameter complexity to Nin + Nout.  The mfunc calls the WCT hydra
+   node operator() and marshals any results out its Nout ports.
+   Sequencers assure output ordering.
 
  */
 

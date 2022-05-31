@@ -1,37 +1,66 @@
-/** A hydra has N input queues and M output queues.  
+/** A hydra has Nin input queues and Nout output queues.
+
+    For each set, a vector of common type or a tuple off variant type
+    may be used in a concrete implementation.
 
     A hydra node is intended to break or restablish synchronicity in a
     graph neighborhood.  Before implementing a hydra, think very
     carefully if it is needed and strongly prefer to use other
-    categories.  In particular to create a synchronous N-to-M pattern
-    consider to use a subgraph formed as a fanin-pipeline-fanout.
+    categories.  In particular to create a synchronous Nin-to-Nout
+    pattern consider to build a subgraph of multiple nodes in a
+    fanin-pipeline-fanout pattern.
 
-    Given that almost "anything goes" with hydra there are few
-    requirements on the hydra node body function.
+    A hydra node my be useful to produce an advanced branch-merge
+    pattern such as to enact data-dependent routing.  The branch node
+    may route data to a particular subgraph attached to a given output
+    port.  The merge node then may collect the results from the
+    subgraph attached to each branch output port and restore
+    synchronicity if further downstream nodes require it.
+
+    Given that almost "anything goes" with hydra there are very few
+    requirements on the hydra node body function.  They are:
 
     - A hydra node body function shall not push to input queues nor
-      pop from output queues.
+      pop from output queues (vice versa is of course expected).
 
-    - Zero or more input queues may have zero or more elements.
+    - On execution the hydra node body function shall expect zero or
+      more input queues with zero or more elements.
 
     - Elements left on input queues after the body function call exits
-      will persist to the next call.  
+      shall persist to the next call.  
 
     - Any new input elements from the graph will be placed at the back
       of their respective queue.
 
-    - Elements pushed to output queues shall not be expected to
-      persist between calls.
+    - Elements which are pushed to output queues by the node function
+      body may or may not exist in the output queues upon a subsequent
+      body function call.
 
-    If the hydra node intends to preserve EOS-synchronization it must
-    follow these requirements:
+    If the hydra node intends to preserve EOS-synchronization (eg as
+    the branch-merge nodes describe above must) it shall follow:
 
     - On receipt of an EOS from input queue the hydra node body
       function shall receive no further elements from the input queue
       until EOS is received on all input queues.
 
-    - On sendinf of an EOS to an output queue the hydra node body
+    - On sending of an EOS to an output queue the hydra node body
       function shall send EOS on all other output queues.
+
+
+    Developer guidance:
+
+    Choose a T type for input or output if
+
+    - you require variant port types OR
+    - you wish to make port cardinality static (compile time).
+
+    Choose a V type for input or output if
+
+    - port types are homogeneous AND
+    - dynamic (run time) port cardinality is acceptable.
+
+    If you use a T then you must use std::get<N>(qs) to get the N'th
+    queue in qs.  If you use V then you must use qs[N].
 
  */
 
