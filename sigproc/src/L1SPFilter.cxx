@@ -194,8 +194,8 @@ bool L1SPFilter::operator()(const input_pointer& in, output_pointer& out)
     int raw_pad = 0;
     raw_pad = get(m_cfg, "raw_pad", raw_pad);
 
-    double raw_ROI_th_nsigma = get(m_cfg, "raw_ROI_th_nsigma", raw_ROI_th_nsigma);
-    double raw_ROI_th_adclimit = get(m_cfg, "raw_ROI_th_adclimit", raw_ROI_th_adclimit);
+    double raw_ROI_th_nsigma = get(m_cfg, "raw_ROI_th_nsigma", 4);
+    double raw_ROI_th_adclimit = get(m_cfg, "raw_ROI_th_adclimit", 10);
 
     // std::cout << "Xin: " << raw_ROI_th_nsigma << " " << raw_ROI_th_adclimit << " " << overall_time_offset << " " <<
     // collect_time_offset << " " << roi_pad << " " << adc_l1_threshold << " " << adc_sum_threshold << " " <<
@@ -473,27 +473,29 @@ int L1SPFilter::L1_fit(std::shared_ptr<WireCell::SimpleTrace>& newtrace,
                        std::shared_ptr<const WireCell::ITrace>& adctrace, int start_tick, int end_tick,
                        bool flag_shorted)
 {
-    double overall_time_offset = get(m_cfg, "overall_time_offset", overall_time_offset) * units::us;
-    double collect_time_offset = get(m_cfg, "collect_time_offset", collect_time_offset) * units::us;
-    double adc_l1_threshold = get(m_cfg, "adc_l1_threshold", adc_l1_threshold);
-    double adc_sum_threshold = get(m_cfg, "adc_sum_threshold", adc_sum_threshold);
-    double adc_sum_rescaling = get(m_cfg, "adc_sum_rescaling", adc_sum_rescaling);
-    double adc_sum_rescaling_limit = get(m_cfg, "adc_sum_rescaling_limit", adc_sum_rescaling_limit);
-    double adc_ratio_threshold = get(m_cfg, "adc_ratio_threshold", adc_ratio_threshold);
+    // fixme: this use of units is broken!!!
+    double overall_time_offset = get(m_cfg, "overall_time_offset", 0.0) * units::us;
+    double collect_time_offset = get(m_cfg, "collect_time_offset", 3.0) * units::us;
 
-    double l1_seg_length = get(m_cfg, "l1_seg_length", l1_seg_length);
-    double l1_scaling_factor = get(m_cfg, "l1_scaling_factor", l1_scaling_factor);
-    double l1_lambda = get(m_cfg, "l1_lambda", l1_lambda);
-    double l1_epsilon = get(m_cfg, "l1_epsilon", l1_epsilon);
-    double l1_niteration = get(m_cfg, "l1_niteration", l1_niteration);
-    double l1_decon_limit = get(m_cfg, "l1_decon_limit", l1_decon_limit);
+    double adc_l1_threshold = get(m_cfg, "adc_l1_threshold", 6);
+    double adc_sum_threshold = get(m_cfg, "adc_sum_threshold", 160);
+    double adc_sum_rescaling = get(m_cfg, "adc_sum_rescaling", 90.0);
+    double adc_sum_rescaling_limit = get(m_cfg, "adc_sum_rescaling_limit", 50.0);
+    double adc_ratio_threshold = get(m_cfg, "adc_ratio_threshold", 0.2);
 
-    double l1_resp_scale = get(m_cfg, "l1_resp_scale", l1_resp_scale);
-    double l1_col_scale = get(m_cfg, "l1_col_scale", l1_col_scale);
-    double l1_ind_scale = get(m_cfg, "l1_ind_scale", l1_ind_scale);
+    double l1_seg_length = get(m_cfg, "l1_seg_length", 120);
+    double l1_scaling_factor = get(m_cfg, "l1_scaling_factor", 500);
+    double l1_lambda = get(m_cfg, "l1_lambda", 5);
+    double l1_epsilon = get(m_cfg, "l1_epsilon", 0.05);
+    double l1_niteration = get(m_cfg, "l1_niteration", 100000);
+    double l1_decon_limit = get(m_cfg, "l1_decon_limit", 100);
 
-    double mean_threshold = get(m_cfg, "mean_threshold", mean_threshold);
-    double peak_threshold = get(m_cfg, "peak_threshold", peak_threshold);
+    double l1_resp_scale = get(m_cfg, "l1_resp_scale", 0.5);
+    double l1_col_scale = get(m_cfg, "l1_col_scale", 1.15);
+    double l1_ind_scale = get(m_cfg, "l1_ind_scale", 0.5);
+
+    double peak_threshold = get(m_cfg, "peak_threshold", 10000);
+    double mean_threshold = get(m_cfg, "mean_threshold", 500);
 
     std::vector<double> smearing_vec = get<std::vector<double>>(m_cfg, "filter");
 
