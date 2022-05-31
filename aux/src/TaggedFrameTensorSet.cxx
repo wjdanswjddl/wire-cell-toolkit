@@ -66,7 +66,7 @@ bool Aux::TaggedFrameTensorSet::operator()(const input_pointer& in, output_point
         // traces may be degenerate/overlapping in channels and ticks.
         // Do a little dance to map chid to an index sorted by chid.
         std::vector<int> uchid;
-        for (const auto trace : traces) {
+        for (const auto& trace : traces) {
             uchid.push_back(trace->channel());
         }
         // log->debug("Frame->Tensor: tag '{}': {} channels total, {} traces", tag, uchid.size(), ntraces);

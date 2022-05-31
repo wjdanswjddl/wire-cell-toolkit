@@ -160,7 +160,7 @@ std::pair<int, int> Aux::tbin_range(const ITrace::vector& traces)
     const auto siz = traces.size();
     std::vector<int> tbins(siz), tlens(siz);
     for (size_t ind = 0; ind != siz; ++ind) {
-        const auto trace = traces[ind];
+        const auto& trace = traces[ind];
         const int tbin = trace->tbin();
         tbins[ind] = tbin;
         tlens[ind] = tbin + trace->charge().size();
@@ -181,7 +181,7 @@ void Aux::fill(Array::array_xxf& array, const ITrace::vector& traces, channel_li
     for (int ind = 0; ind != nrows and chit != chend; ++ind, ++chit) {
         index[*chit] = ind;
     }
-    for (const auto trace : traces) {
+    for (const auto& trace : traces) {
         // resolve which row a the channel is at
         const int ch = trace->channel();
         auto it = index.find(ch);
