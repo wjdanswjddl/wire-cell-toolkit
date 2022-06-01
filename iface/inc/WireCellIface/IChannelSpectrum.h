@@ -29,7 +29,9 @@ namespace WireCell {
         /// in suitable binning.  In the implementing component, the
         /// Binning should likely be coordinated with the rest of the
         /// application via the configuration.
-        virtual const amplitude_t& operator()(int chid) const = 0;
+        // virtual const amplitude_t& operator()(int chid) const = 0;
+        virtual const amplitude_t& channel_spectrum(int chid) const =0;
+
     };
 }  // namespace WireCell
 
