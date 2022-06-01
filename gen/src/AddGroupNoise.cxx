@@ -1,5 +1,4 @@
 #include "WireCellGen/AddGroupNoise.h"
-#include "Noise.h"
 
 #include "WireCellAux/DftTools.h"
 
@@ -18,6 +17,7 @@ WIRECELL_FACTORY(AddGroupNoise, WireCell::Gen::AddGroupNoise,
 
 using namespace std;
 using namespace WireCell;
+
 
 Gen::AddGroupNoise::AddGroupNoise(const std::string &spectra_file,
                                   const std::string &map_file,

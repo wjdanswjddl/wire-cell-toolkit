@@ -17,22 +17,31 @@ sub-package.
 
 * Noise simulations
 
-Noise simulations include intrinsic / thermal noise and noise which is
-coherent across a group of channels.  Both are parameterized by a
-number of *mean noise spectra*.
+There are currently two types of noise simulations:
 
-** Code intro
+- Incoherent aka intrinsic aka thermal noise generates unique noise
+  waveform contributions for a given channel.
 
-The intrinsic noise is produced by the ~AddNoise~ flow graph node which
-delegates actual noise generation to a /noise model/ component.  The
-~EmpiricalNoiseModel~ component is primarily used and it accepts a
-*channel noise spectra file* which provides an array of individual
-spectra that spans a variety of wire lengths.
+- Coherent aka RF aka common noise generates a noise waveform
+  contribution and applies it to a fixed set of channels.
 
-The coherent noise is produced by the ~AddGroupNoise~ flow graph node.
-It takes a *noise group spectra file* and a *channel group file*.  Each
-spectra provides a coherent noise spectrum to be applied to a group of
-channels.
+** Code overview
+
+The two types of noise are handled with some symmetry.  Each type has
+a "noise adder" data flow graph node type (~IncoherentAddNoise~ ne'
+~AddNoise~ and ~CoherentAddNoise~) and each type of noise has a "nosie
+model" interface type (~IChannelSpectrum~ and ~IGroupSpectrum~).
+
+The ~EmpiricalNoiseModel~ is an incoherent type model which takes into
+account differing noise as a function of wire length and uses a
+configuration file to provide spectra.
+
+The ~GroupNoiseModel~ is *both* an incoherent and coherent type model and
+uses a pair of configuration files to provide noise associated with a
+group of channels and the channels which are a member of each group.
+Typically you will use ~GroupNoiseModel~ with either incoherent data and
+with ~IncoherentAddNoise~ or with coherent data and ~CoherentAddNoise~ and
+neither the tween shall mix.
 
 ** Providing noise spectra
 
@@ -42,7 +51,7 @@ supplied following these specifications:
 - ~freqs~ :: an array of frequencies in WCT system of units (not, the
   base unit of frequency in WCT is [1/time] = 1/ns and *not* Hz).
 
-- amps :: an array of *mean spectral amplitude* with each element a
+- ~amps~ :: an array of *mean spectral amplitude* with each element a
   measurement corresponding to the same element of ~freqs~.
 
 The ~amps~ vs ~freqs~ sampling need *not*, and likely should not, match the
@@ -92,45 +101,9 @@ use:
   auto spec = wavecol.mean();
 #+end_src
 
-** Sampling spectra
+** Legacy ~NoiseSource~
 
-Current and any novel noise simulation components should use code like
-this to generate their waveforms.
-
-#+begin_src c++
-  #include "WireCellAux/RandTools.h"
-  #include "WireCellAux/Spectra.h"
-  // ...
-  using namespace WireCell;
-  IRandom::pointer rng = ...;
-  IDFT::pointer dft = ...;
-  
-  // We can make all fresh normal-distributed randoms but this will be
-  // about 2-3x slower than recycling.
-  // 
-  // FreshNormals norms(rng);
-  
-  // The size we will sample
-  const size_t nsamples = ...;
-  
-  // Maximize freshness by using a recylcing ring buffer size which is
-  // larger than and coprime with the size we sample
-  const size_t not_nsamples = nearest_coprime(2*nsamples, 1.7*nsamples);
-  
-  // See test_noise and 'wirecell-test noise' for to show this recycling
-  // of randoms is valid.
-  const double replacement_fraction = 0.02; // the default
-  RecyclingNormals norms(rng, not_nsamples, replacement_fraction);
-  
-  // A full, real and mean spectrum [0-2*Nyquist].
-  // See WaveCollector.
-  std::vector<float> true_spectrum(nsamples);
-  
-  // Given full, real and mean spectrum, make some waves
-  WaveGenerator wavegen(dft, norms, true_spectrum);
-  for (size_t iwave=0; iwave<nexample; ++iwave) {
-      auto wave = wavegen.wave();
-      use_wave(wave);
-  }
-#+end_src
-
+The ~NoiseSource~ is a data flow graph node type in the source category
+which produces incoherent noise.  Someone who wants a job should
+refactor it to use the same ~Noise.h~ base classes and patterns as found
+in ~AddNoise.h~.

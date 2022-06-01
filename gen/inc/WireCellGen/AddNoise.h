@@ -7,43 +7,40 @@
 #ifndef WIRECELL_GEN_ADDNOISE
 #define WIRECELL_GEN_ADDNOISE
 
-#include "WireCellIface/IFrameFilter.h"
-#include "WireCellIface/IConfigurable.h"
-#include "WireCellIface/IRandom.h"
-#include "WireCellIface/IDFT.h"
-#include "WireCellIface/IChannelSpectrum.h"
-#include "WireCellUtil/Waveform.h"
-#include "WireCellAux/Logger.h"
+#include "WireCellGen/Noise.h"
 
-#include <string>
+#include "WireCellIface/IFrameFilter.h"
+#include "WireCellIface/IChannelSpectrum.h"
+#include "WireCellIface/IGroupSpectrum.h"
 
 namespace WireCell::Gen {
 
 
-    class AddNoise : public Aux::Logger,
-                     public IFrameFilter, public IConfigurable {
+    // Note, for historical reasons, this will also be known by the
+    // "AddNoise" typename in configuration.
+    class IncoherentAddNoise : public NoiseBaseT<IChannelSpectrum>,
+                               public IFrameFilter
+    {
       public:
-        AddNoise();
-
-        virtual ~AddNoise();
+        IncoherentAddNoise();
+        virtual ~IncoherentAddNoise();
 
         /// IFrameFilter
         virtual bool operator()(const input_pointer& inframe, output_pointer& outframe);
-
-        /// IConfigurable
-        virtual void configure(const WireCell::Configuration& config);
-        virtual WireCell::Configuration default_configuration() const;
-
-      private:
-        IRandom::pointer m_rng;
-        IDFT::pointer m_dft;
-        std::map<std::string, IChannelSpectrum::pointer> m_models;
-
-        size_t m_nsamples{9600};
-        double m_rep_percent{0.02};
-
-        size_t m_count{0};
     };
+
+    class CoherentAddNoise : public NoiseBaseT<IGroupSpectrum>,
+                             public IFrameFilter
+    {
+
+      public:
+        CoherentAddNoise();
+        virtual ~CoherentAddNoise();
+
+        /// IFrameFilter
+        virtual bool operator()(const input_pointer& inframe, output_pointer& outframe);
+    };
+
 
 }  // namespace WireCell::Gen
 

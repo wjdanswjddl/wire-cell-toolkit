@@ -278,7 +278,7 @@ const double Gen::EmpiricalNoiseModel::gain(int chid) const
     return spectra.front()->gain;
 }
 
-const IChannelSpectrum::amplitude_t& Gen::EmpiricalNoiseModel::operator()(int chid) const
+const IChannelSpectrum::amplitude_t& Gen::EmpiricalNoiseModel::channel_spectrum(int chid) const
 {
     // get truncated wire length for cache
     int ilen = 0;

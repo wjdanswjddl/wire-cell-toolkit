@@ -10,6 +10,7 @@
 WIRECELL_FACTORY(GroupNoiseModel,
                  WireCell::Gen::GroupNoiseModel,
                  WireCell::IChannelSpectrum,
+                 WireCell::IGroupSpectrum,
                  WireCell::IConfigurable)
 
 using namespace WireCell;
@@ -90,7 +91,7 @@ void Gen::GroupNoiseModel::configure(const WireCell::Configuration& cfg)
     
 }
 
-const Gen::GroupNoiseModel::amplitude_t& Gen::GroupNoiseModel::operator()(int chid) const
+const Gen::GroupNoiseModel::amplitude_t& Gen::GroupNoiseModel::channel_spectrum(int chid) const
 {
     static amplitude_t dummy;
 
@@ -103,6 +104,31 @@ const Gen::GroupNoiseModel::amplitude_t& Gen::GroupNoiseModel::operator()(int ch
 
     // Lookup groups spectrum
     auto ait = m_grp2amp.find(groupID);
+    if (ait == m_grp2amp.end()) {
+        return dummy;
+    }
+    return ait->second;
+}
+
+int Gen::GroupNoiseModel::groupid(int chid) const
+{
+    // Lookup channels group
+    auto git = m_ch2grp.find(chid);
+    if (git == m_ch2grp.end()) {
+        return -1;
+    }
+    return git->second;
+}
+
+const Gen::GroupNoiseModel::amplitude_t& Gen::GroupNoiseModel::group_spectrum(int groupid) const
+{
+    static amplitude_t dummy;
+    if (groupid < 0) {
+        return dummy;
+    }
+
+    // Lookup groups spectrum
+    auto ait = m_grp2amp.find(groupid);
     if (ait == m_grp2amp.end()) {
         return dummy;
     }
