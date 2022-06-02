@@ -84,7 +84,7 @@ int main(int argc, char* argv[])
     std::map<uint32_t, IChannelSpectrum::amplitude_t> amps;
 
     for (auto chid : anodes[0]->channels()) {
-        const auto& spec = (*enm)(chid);
+        const auto& spec = enm->channel_spectrum(chid);
         if (spec.size() != nsamples) {
             std::cerr << "EmpiricalNoiseModel is broken: ask for " << nsamples << " got " << spec.size() << "\n";
         }
