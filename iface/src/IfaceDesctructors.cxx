@@ -62,6 +62,7 @@
 #include "WireCellIface/IFrameSource.h"
 #include "WireCellIface/IFrameSplitter.h"
 #include "WireCellIface/IFunctionNode.h"
+#include "WireCellIface/IGroupSpectrum.h"
 #include "WireCellIface/IHydraNode.h"
 #include "WireCellIface/IJoinNode.h"
 #include "WireCellIface/INamed.h"
@@ -161,6 +162,7 @@ IFrameSlices::~IFrameSlices() {}
 IFrameSource::~IFrameSource() {}
 IFrameSplitter::~IFrameSplitter() {}
 IFunctionNodeBase::~IFunctionNodeBase() {}
+IGroupSpectrum::~IGroupSpectrum() {}
 IHydraNodeBase::~IHydraNodeBase() {}
 IImpactResponse::~IImpactResponse() {}
 IJoinNodeBase::~IJoinNodeBase() {}

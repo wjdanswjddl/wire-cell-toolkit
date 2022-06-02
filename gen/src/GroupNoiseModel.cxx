@@ -15,6 +15,7 @@ WIRECELL_FACTORY(GroupNoiseModel,
 
 using namespace WireCell;
 
+Gen::GroupNoiseModel::GroupNoiseModel() { } 
 Gen::GroupNoiseModel::~GroupNoiseModel() { } 
 
 WireCell::Configuration Gen::GroupNoiseModel::default_configuration() const
