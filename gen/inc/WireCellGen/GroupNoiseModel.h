@@ -9,14 +9,19 @@
 #ifndef WIRECELL_GEN_GROUPNOISEMODEL
 #define WIRECELL_GEN_GROUPNOISEMODEL
 
+#include "WireCellAux/Logger.h"
+
 #include "WireCellIface/IChannelSpectrum.h"
 #include "WireCellIface/IGroupSpectrum.h"
 #include "WireCellIface/IConfigurable.h"
+
 #include <unordered_map>
 
 namespace WireCell::Gen {
 
-    class GroupNoiseModel : virtual public IChannelSpectrum,
+    class GroupNoiseModel : public Aux::Logger,
+                            virtual public IConfigurable,
+                            virtual public IChannelSpectrum,
                             virtual public IGroupSpectrum {
       public:
         using amplitude_t = std::vector<float>;

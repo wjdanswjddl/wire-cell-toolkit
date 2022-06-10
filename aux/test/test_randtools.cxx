@@ -9,12 +9,12 @@
 
 using namespace WireCell;
 using namespace WireCell::String;
-using namespace Aux::RandTools;
+using namespace WireCell::Aux::RandTools;
 
 void test_rn(IRandom::pointer rng)
 {
     const size_t capacity = 10; // tiny
-    Normals::Recycling rn(rng, capacity); 
+    Recycling rn(rng->make_normal(0,1), rng->make_uniform(0,1), capacity); 
     for (size_t ind=0; ind<100; ++ind) {
         std::cerr << ind << ": " << rn() << "\n";
     }
@@ -38,13 +38,13 @@ void test_speed(IRandom::pointer rng)
 {
     TimeKeeper tk("random normals");
     
-    std::vector<size_t> sample_count{1000, 10000, 100000, 1000000};
+    std::vector<size_t> sample_count{1000000, 10000000};
     std::vector<size_t> capacities{100, 1000};
 
 
     for (auto nsamples : sample_count) {
         for (auto capacity : capacities) {
-            Normals::Recycling rn(rng, capacity); 
+            Recycling rn(rng->make_normal(0,1), rng->make_uniform(0,1), capacity); 
             for (size_t ind=0; ind<nsamples; ++ind) {
                 rn();
             }
@@ -54,21 +54,47 @@ void test_speed(IRandom::pointer rng)
             }
             tk(format("RN: %d capacity=%d (again)", nsamples, capacity));
         }
+        for (auto capacity : capacities) {
+            Recycling ru(rng->make_uniform(0,1), rng->make_uniform(0,1), capacity); 
+            for (size_t ind=0; ind<nsamples; ++ind) {
+                ru();
+            }
+            tk(format("RU: %d capacity=%d", nsamples, capacity));
+            for (size_t ind=0; ind<nsamples; ++ind) {
+                ru();
+            }
+            tk(format("RU: %d capacity=%d (again)", nsamples, capacity));
+        }
         {
-            Normals::Fresh fn(rng);
+            Fresh fn(rng->make_normal(0,1));
             for (size_t ind=0; ind<nsamples; ++ind) {
                 fn();
             }
             tk(format("FN: %d", nsamples));
         }
+        {
+            Fresh fn(rng->make_uniform(0,1));
+            for (size_t ind=0; ind<nsamples; ++ind) {
+                fn();
+            }
+            tk(format("FU: %d", nsamples));
+        }
+        {
+            auto u = rng->make_uniform(0,1);
+            for (size_t ind=0; ind<nsamples; ++ind) {
+                u();
+            }
+            tk(format("IU: %d", nsamples));
+        }
     }
+
     std::cerr << tk.summary() << std::endl;
 
 }
 
 void test_freshness(IRandom::pointer rng)
 {
-    Normals::Recycling rn(rng, 10); 
+    Recycling rn(rng->make_normal(0,1), rng->make_uniform(0,1), 10); 
     auto one = rn(100);
     auto two = rn(100);
     for (size_t ind=0; ind<100; ++ind) {
@@ -89,9 +115,9 @@ int main()
 
     test_rn(rng);
 
-    test_speed(rng);
-
     test_freshness(rng);
+
+    test_speed(rng);
 
     return 0;
 }

@@ -2,14 +2,12 @@
 #include "WireCellUtil/Math.h"
 
 using namespace WireCell;
-using namespace WireCell::Aux::RandTools::Normals;
+using namespace WireCell::Aux::RandTools;
 
 
-Recycling::Recycling(IRandom::pointer rng,
-                     size_t capacity,
-                     double replacement_fraction,
-                     double mean, double sigma)
-    : rng(rng), normf(rng->make_normal(mean, sigma)), repfrac(replacement_fraction)
+Recycling::Recycling(generator_f gen, generator_f uni,
+                     size_t capacity, double replacement_fraction)
+    : gen(gen), uni(uni), repfrac(replacement_fraction)
 {
     resize(capacity);
 }
@@ -20,7 +18,7 @@ void Recycling::resize(size_t capacity)
     ring.resize(capacity, 0);
     if (capacity > oldsize) {
         for (size_t ind=oldsize; ind<capacity; ++ind) {
-            ring[ind] = normf();
+            ring[ind] = gen();
         }
     }
     size_t jump = 1/repfrac;
@@ -30,7 +28,6 @@ void Recycling::resize(size_t capacity)
     // nreplace = replace = jump;
 }
 
-// Return a pseudo-pseudo-random normal.
 // This is only method that advances the cursor!
 // We avoid modulus ("%") for speed (1.6x speedup)
 float Recycling::operator()()
@@ -38,7 +35,7 @@ float Recycling::operator()()
     const size_t size = ring.size();
 
     if (cursor == replace) {
-        ring[cursor] = normf();
+        ring[cursor] = gen();
         replace = (replace + nreplace);
         while (replace >= size) {
             replace -= size;
@@ -52,19 +49,20 @@ float Recycling::operator()()
     return ret;
 }
 
-// Return a vector of pseudo-pseudo-random normals of size.
 real_vector_t Recycling::operator()(size_t size)
 {
     // Relying totally on coprime cycling leads to overly strong
     // correlations.  This also softens the need to be overly
     // concerned about ring capacity vs sampling size.  Though, still
     // best to to pick them coprime.
-    cursor = rng->range(0, ring.size()-1);
+    cursor = uni() * ring.size()-1;
+    cursor = cursor % ring.size(); // in case uni is bigger than [0,1]
 
-    // When replacement fraction is large, the above random start
-    // point can take a while before we catch up to the replace cursor
-    // and thus refreshing, so set it to our start point.  As a side
-    // effect, this guarantees the first sample is freshly random.
+    // A random start point loses "sync" with the replacement fraction
+    // and too many operator()() calls can be made until the cursor
+    // may catch up to the "replace" cursor.  At the cost of an extra
+    // random draw, set replace cursor to here.  As a side effect,
+    // this guarantees the first sample is freshly random.
     replace = cursor;
 
     real_vector_t ret(size, 0);
@@ -77,22 +75,18 @@ real_vector_t Recycling::operator()(size_t size)
 
 
 
-Fresh::Fresh(IRandom::pointer rng,
-             double mean, double sigma)
-    : normf(rng->make_normal(mean, sigma))
+Fresh::Fresh(generator_f  gen)
+    : gen(gen)
 {
 }
 
-// Return a pseudo-random normal
 float Fresh::operator()() {
-    return normf();
+    return gen();
 }
 
 real_vector_t Fresh::operator()(size_t size)
 {
     real_vector_t ret(size, 0);
-    for (auto& f : ret) {
-        f = normf();
-    }
+    std::generate(ret.begin(), ret.end(), gen);
     return ret;
 }

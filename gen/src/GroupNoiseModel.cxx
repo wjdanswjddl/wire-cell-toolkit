@@ -9,13 +9,15 @@
 
 WIRECELL_FACTORY(GroupNoiseModel,
                  WireCell::Gen::GroupNoiseModel,
+                 WireCell::INamed,
                  WireCell::IChannelSpectrum,
                  WireCell::IGroupSpectrum,
                  WireCell::IConfigurable)
 
 using namespace WireCell;
 
-Gen::GroupNoiseModel::GroupNoiseModel() { } 
+Gen::GroupNoiseModel::GroupNoiseModel()
+    : Aux::Logger("GroupNoiseModel", "gen") { } 
 Gen::GroupNoiseModel::~GroupNoiseModel() { } 
 
 WireCell::Configuration Gen::GroupNoiseModel::default_configuration() const
@@ -58,11 +60,13 @@ void Gen::GroupNoiseModel::configure(const WireCell::Configuration& cfg)
         THROW(ValueError() << errmsg{"no spectral file given to GroupNoiseModel"});
     }
 
+    std::set<int> groups;
     m_ch2grp.clear();
     auto mapdata = Persist::load(map_file);
     for (unsigned int i = 0; i < mapdata.size(); ++i) {
         auto jdata = mapdata[i];
         const int groupID = jdata["groupID"].asInt();
+        groups.insert(groupID);
         for (auto jch : jdata["channels"]) {
             m_ch2grp[jch.asInt()] = groupID;
         }
@@ -90,6 +94,8 @@ void Gen::GroupNoiseModel::configure(const WireCell::Configuration& cfg)
         m_grp2amp[groupID] = spec;
     }
     
+    log->debug("loaded {} channels from {} in {} groups and {} spectra from {}",
+               m_ch2grp.size(), map_file, groups.size(), m_grp2amp.size(), spectral_file);
 }
 
 const Gen::GroupNoiseModel::amplitude_t& Gen::GroupNoiseModel::channel_spectrum(int chid) const

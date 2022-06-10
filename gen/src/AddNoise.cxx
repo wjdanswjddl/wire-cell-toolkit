@@ -50,9 +50,8 @@ bool Gen::IncoherentAddNoise::operator()(const input_pointer& inframe, output_po
     // array will start from a random location in the recycled buffer
     // and a few percent will be "freshened".  This results in a small
     // amount of coherency between nearby channels.
-    // Normals::Fresh rn(m_rng);
-    Normals::Recycling rn(m_rng, 2*m_nsamples, 2*m_rep_percent);
-    WaveGenerator rwgen(m_dft, rn);
+    auto rn = Normals::make_recycling(m_rng, 2*m_nsamples, 2*m_rep_percent);
+    NoiseGeneratorN rwgen(m_dft, rn);
 
     // Limit number of warnings below
     static bool warned = false;
@@ -110,12 +109,8 @@ bool Gen::CoherentAddNoise::operator()(const input_pointer& inframe, output_poin
     // array will start from a random location in the recycled buffer
     // and a few percent will be "freshened".  This results in a small
     // amount of coherency between nearby channels.
-    // Normals::Fresh rn(m_rng);
-    Normals::Recycling rn(m_rng, 2*m_nsamples, 2*m_rep_percent);
-    WaveGenerator rwgen(m_dft, rn);
-
-    // Limit number of warnings below
-    static bool warned = false;
+    auto rn = Normals::make_recycling(m_rng, 2*m_nsamples, 2*m_rep_percent);
+    NoiseGeneratorN rwgen(m_dft, rn);
 
     // Look up the generated wave for a group.
     using group_wave_lu = std::unordered_map<int, real_vector_t>;
