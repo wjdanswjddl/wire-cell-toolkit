@@ -1,25 +1,25 @@
-#include "WireCellAux/Spectra.h"
+#include "WireCellAux/NoiseTools.h"
 #include "WireCellUtil/Waveform.h"
 
 #include <cmath>
 
 using namespace WireCell;
 using namespace WireCell::Waveform;
-using namespace WireCell::Aux::Spectra;
 using namespace WireCell::Aux::DftTools;
+using namespace WireCell::Aux::NoiseTools;
 
-NoiseCollector::NoiseCollector()
+Collector::Collector()
 {
 }
-NoiseCollector::~NoiseCollector()
+Collector::~Collector()
 {
 }
-NoiseCollector::NoiseCollector(IDFT::pointer dft, size_t nsamples, bool acs)
+Collector::Collector(IDFT::pointer dft, size_t nsamples, bool acs)
 {
     init(dft, nsamples, acs);
 }
 
-void NoiseCollector::init(IDFT::pointer dft, size_t nsamples, bool acs)
+void Collector::init(IDFT::pointer dft, size_t nsamples, bool acs)
 {
     m_dft = dft;
 
@@ -43,7 +43,7 @@ void NoiseCollector::init(IDFT::pointer dft, size_t nsamples, bool acs)
 }
 
 #include <iostream>
-void NoiseCollector::add_safe(const std::vector<float>& fwave)
+void Collector::add_safe(const std::vector<float>& fwave)
 {
     ++m_nwaves;
 
@@ -91,13 +91,13 @@ static std::vector<float> normit(const std::vector<double>& vals, double norm)
     return ret;
 }
 
-NoiseCollector::spectrum_t NoiseCollector::amplitude() const
+Collector::spectrum_t Collector::amplitude() const
 {
     const double interp_norm = sqrt((double)m_nsamples/(double)(m_nticks));
     return normit(m_sum, interp_norm/m_nwaves); 
 }
 
-NoiseCollector::spectrum_t NoiseCollector::sigmas() const
+Collector::spectrum_t Collector::sigmas() const
 {
     const double norm = sqrt((2.0*m_nsamples)/(3.14159265*m_nticks));
     return normit(m_sum, norm/m_nwaves); 
@@ -114,17 +114,17 @@ NoiseCollector::spectrum_t NoiseCollector::sigmas() const
 
 
 
-NoiseCollector::spectrum_t NoiseCollector::linear() const
+Collector::spectrum_t Collector::linear() const
 {
     return normit(m_sum, 1.0/m_nwaves);
 }
 
-NoiseCollector::spectrum_t NoiseCollector::square() const
+Collector::spectrum_t Collector::square() const
 {
     return normit(m_sum2, 1.0/m_nwaves);
 }
 
-NoiseCollector::spectrum_t NoiseCollector::rms() const
+Collector::spectrum_t Collector::rms() const
 {
     auto ret = square();
     for (size_t ind=0; ind<m_nsamples; ++ind) {
@@ -133,46 +133,46 @@ NoiseCollector::spectrum_t NoiseCollector::rms() const
     return ret;
 }
 
-NoiseCollector::spectrum_t NoiseCollector::periodogram() const
+Collector::spectrum_t Collector::periodogram() const
 {
     return normit(m_sum2, 1.0/(double)(m_nwaves*m_nticks));
 }
 
-NoiseCollector::sequence_t NoiseCollector::bac() const
+Collector::sequence_t Collector::bac() const
 {
     return normit(m_bac, 1.0/m_nwaves);
 }
 
-NoiseCollector::sequence_t NoiseCollector::sac() const
+Collector::sequence_t Collector::sac() const
 {
     return normit(m_sac, 1.0/m_nwaves);
 }
 
-NoiseCollector::spectrum_t NoiseCollector::psd() const
+Collector::spectrum_t Collector::psd() const
 {
     return normit(m_psd, 1.0/m_nwaves);
 }
 
 
 
-NoiseGenerator::~NoiseGenerator()
+Generator::~Generator()
 {
 }
 
 //
-// NoiseGeneratorN
+// GeneratorN
 //
 
-NoiseGeneratorN::NoiseGeneratorN(IDFT::pointer dft, normal_f normal)
+GeneratorN::GeneratorN(IDFT::pointer dft, normal_f normal)
     :dft(dft), normal(normal)
 {
 }
-NoiseGeneratorN::~NoiseGeneratorN()
+GeneratorN::~GeneratorN()
 {
 }
 
 complex_vector_t
-NoiseGeneratorN::spec(const real_vector_t& sigmas)
+GeneratorN::spec(const real_vector_t& sigmas)
 {
     const size_t nsamples = sigmas.size();
     // nsamples: even->1, odd->0
@@ -200,26 +200,26 @@ NoiseGeneratorN::spec(const real_vector_t& sigmas)
 }
 
 real_vector_t
-NoiseGeneratorN::wave(const real_vector_t& sigmas)
+GeneratorN::wave(const real_vector_t& sigmas)
 {
     return inv_c2r(dft, spec(sigmas));
 }
 
 
 //
-// NoiseGeneratorU
+// GeneratorU
 //
 
-NoiseGeneratorU::NoiseGeneratorU(IDFT::pointer dft, uniform_f uniform)
+GeneratorU::GeneratorU(IDFT::pointer dft, uniform_f uniform)
     :dft(dft), uniform(uniform)
 {
 }
-NoiseGeneratorU::~NoiseGeneratorU()
+GeneratorU::~GeneratorU()
 {
 }
 
 complex_vector_t
-NoiseGeneratorU::spec(const real_vector_t& sigmas)
+GeneratorU::spec(const real_vector_t& sigmas)
 {
     const size_t nsamples = sigmas.size();
     // nsamples: even->1, odd->0
@@ -250,7 +250,7 @@ NoiseGeneratorU::spec(const real_vector_t& sigmas)
 }
 
 real_vector_t
-NoiseGeneratorU::wave(const real_vector_t& sigmas)
+GeneratorU::wave(const real_vector_t& sigmas)
 {
     return inv_c2r(dft, spec(sigmas));
 }

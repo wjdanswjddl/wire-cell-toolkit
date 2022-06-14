@@ -2,7 +2,6 @@
 
 #include "WireCellAux/DftTools.h"
 #include "WireCellAux/RandTools.h"
-#include "WireCellAux/Spectra.h"
 
 #include "WireCellIface/SimpleTrace.h"
 #include "WireCellIface/SimpleFrame.h"
@@ -15,7 +14,6 @@
 using namespace std;
 using namespace WireCell;
 using namespace WireCell::Aux::RandTools;
-using namespace WireCell::Aux::Spectra;
 
 Gen::NoiseBase::NoiseBase(const std::string& tn)
     : Aux::Logger(tn, "gen")

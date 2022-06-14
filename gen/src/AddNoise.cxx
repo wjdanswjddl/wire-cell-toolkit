@@ -1,7 +1,7 @@
 #include "WireCellGen/AddNoise.h"
 
 #include "WireCellAux/RandTools.h"
-#include "WireCellAux/Spectra.h"
+#include "WireCellAux/NoiseTools.h"
 
 #include "WireCellIface/SimpleTrace.h"
 #include "WireCellIface/SimpleFrame.h"
@@ -21,7 +21,7 @@ WIRECELL_FACTORY(AddNoise, WireCell::Gen::IncoherentAddNoise,
 using namespace std;
 using namespace WireCell;
 using namespace WireCell::Aux::RandTools;
-using namespace WireCell::Aux::Spectra;
+using namespace WireCell::Aux::NoiseTools;
 
 
 Gen::IncoherentAddNoise::IncoherentAddNoise()
@@ -51,7 +51,7 @@ bool Gen::IncoherentAddNoise::operator()(const input_pointer& inframe, output_po
     // and a few percent will be "freshened".  This results in a small
     // amount of coherency between nearby channels.
     auto rn = Normals::make_recycling(m_rng, 2*m_nsamples, 2*m_rep_percent);
-    NoiseGeneratorN rwgen(m_dft, rn);
+    GeneratorN rwgen(m_dft, rn);
 
     // Limit number of warnings below
     static bool warned = false;
@@ -116,7 +116,7 @@ bool Gen::CoherentAddNoise::operator()(const input_pointer& inframe, output_poin
     // and a few percent will be "freshened".  This results in a small
     // amount of coherency between nearby channels.
     auto rn = Normals::make_recycling(m_rng, 2*m_nsamples, 2*m_rep_percent);
-    NoiseGeneratorN rwgen(m_dft, rn);
+    GeneratorN rwgen(m_dft, rn);
 
     // Look up the generated wave for a group.
     using group_wave_lu = std::unordered_map<int, real_vector_t>;

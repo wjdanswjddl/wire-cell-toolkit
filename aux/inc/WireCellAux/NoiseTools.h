@@ -13,7 +13,7 @@
 
 #include <algorithm>
 
-namespace WireCell::Aux::Spectra {
+namespace WireCell::Aux::NoiseTools {
 
 
     using real_vector_t = std::vector<float>;
@@ -83,7 +83,7 @@ namespace WireCell::Aux::Spectra {
 
         All returned estimates are of size nsamples.  
     */
-    class NoiseCollector {
+    class Collector {
       public:
 
         // The native type for frequency space arrays.
@@ -92,12 +92,12 @@ namespace WireCell::Aux::Spectra {
         using sequence_t = std::vector<float>;
 
         // Default noise collector.  Must call init() later.
-        NoiseCollector();
-        ~NoiseCollector();
+        Collector();
+        ~Collector();
 
         // Construct a noise collector of given nsamples size.  See
         // comments above regarding arguments.
-        NoiseCollector(IDFT::pointer dft, size_t nsamples, bool acs=false);
+        Collector(IDFT::pointer dft, size_t nsamples, bool acs=false);
 
         // Initialize or reinitialize a constructed collector.
         void init(IDFT::pointer dft, size_t nsamples, bool acs=false);
@@ -218,9 +218,9 @@ namespace WireCell::Aux::Spectra {
         This is an abstract base class.  See "N" and "U" variants for
         concrete implementations.
     */
-    struct NoiseGenerator {
+    struct Generator {
 
-        virtual ~NoiseGenerator();
+        virtual ~Generator();
 
         // Return a fluctuated, complex X_k spectrum
         virtual complex_vector_t spec(const real_vector_t& sigma) = 0;
@@ -235,7 +235,7 @@ namespace WireCell::Aux::Spectra {
         imag(X_k) ~ N(0,sigma_k)
 
      */
-    class NoiseGeneratorN : virtual public NoiseGenerator {
+    class GeneratorN : virtual public Generator {
       public:
 
         // Something that returns n random numbers from the normal
@@ -243,8 +243,8 @@ namespace WireCell::Aux::Spectra {
         // some examples to use.
         using normal_f = std::function<real_vector_t(size_t n)>;
 
-        NoiseGeneratorN(IDFT::pointer dft, normal_f normal);
-        virtual ~NoiseGeneratorN();
+        GeneratorN(IDFT::pointer dft, normal_f normal);
+        virtual ~GeneratorN();
         virtual complex_vector_t spec(const real_vector_t& sigma);
         virtual real_vector_t wave(const real_vector_t& sigma);
 
@@ -259,15 +259,15 @@ namespace WireCell::Aux::Spectra {
         ang(X_k) ~ U(0, 2pi)
 
     */
-    class NoiseGeneratorU : virtual public NoiseGenerator {
+    class GeneratorU : virtual public Generator {
       public:
         // Something that returns n random numbers from the uniform
         // distribution U(0,1).  See RandTools.h for some examples to
         // use.
         using uniform_f = std::function<real_vector_t(size_t n)>;
 
-        NoiseGeneratorU(IDFT::pointer dft, uniform_f uniform);
-        virtual ~NoiseGeneratorU();
+        GeneratorU(IDFT::pointer dft, uniform_f uniform);
+        virtual ~GeneratorU();
         virtual complex_vector_t spec(const real_vector_t& sigma);
         virtual real_vector_t wave(const real_vector_t& sigma);
 

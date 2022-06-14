@@ -1,6 +1,6 @@
 // Test noise tools
 
-#include "WireCellAux/Spectra.h"
+#include "WireCellAux/NoiseTools.h"
 #include "WireCellAux/Testing.h"
 #include "WireCellAux/RandTools.h"
 #include "WireCellAux/DftTools.h"
@@ -17,7 +17,7 @@ using namespace WireCell::String;
 using namespace WireCell::Aux::Testing;
 using namespace WireCell::Aux::RandTools;
 using namespace WireCell::Aux::DftTools;
-using namespace WireCell::Aux::Spectra;
+using namespace WireCell::Aux::NoiseTools;
 
 struct Params {
     IRandom::pointer rng;
@@ -27,10 +27,10 @@ struct Params {
     Fresh fn;
     Fresh fu;
     // Make both so....
-    NoiseGeneratorN ngn;
-    NoiseGeneratorU ngu;
+    GeneratorN ngn;
+    GeneratorU ngu;
     // ...we can test with one.
-    NoiseGenerator& ng;    
+    Generator& ng;    
 
     Params() 
         : rng(get_random())
@@ -122,7 +122,7 @@ real_vector_t fictional_sigmas(Fresh fu,
 }
 
 
-static void write_nc(std::ostream& os,  NoiseCollector& nc,
+static void write_nc(std::ostream& os,  Collector& nc,
                      const std::string& name="default")
 {
     Stream::write(os, format("amp_%s.npy", name), nc.amplitude());
@@ -143,7 +143,7 @@ static void gauss_noise(
     const std::string& name, // for saving waves
     size_t nticks,           // size of waves
     size_t nwaves,           // number of waves
-    NoiseCollector& ncout)
+    Collector& ncout)
 {
     for (size_t iwave=0; iwave<nwaves; ++iwave) {
         real_vector_t wave = fn(nticks);
@@ -158,12 +158,12 @@ static void gauss_noise(
 // generate into a noise collector and the output stream.
 static void generate_noise(
     std::ostream& os,
-    NoiseGenerator& ng,
+    Generator& ng,
     const std::string& name, // for saving waves
     size_t nticks,           // size of waves
     size_t nwaves,           // number of waves
     const real_vector_t& sigmas, // Rayleigh sigmas
-    NoiseCollector& ncout)
+    Collector& ncout)
 {
     for (size_t iwave=0; iwave<nwaves; ++iwave) {
         real_vector_t wave = ng.wave(sigmas);
@@ -200,7 +200,7 @@ void gauss(std::ostream& out, Params& params, size_t nticks, bool cycle)
     real_vector_t trusig(nsamples, sqrt(nticks/2)); // estimate Rayleigh sigma
     Stream::write(out, "trusig_" + name1 + "_.npy", trusig);
 
-    NoiseCollector nc1(params.dft, nsamples, true);
+    Collector nc1(params.dft, nsamples, true);
     gauss_noise(out, params.fn, name1, nticks, nwaves, nc1);
     real_vector_t gsigmas = nc1.sigmas();
     std::cerr << name1 << " cycle:" << cycle
@@ -208,7 +208,7 @@ void gauss(std::ostream& out, Params& params, size_t nticks, bool cycle)
               << " sigma size=" << gsigmas.size() << "\n";
 
     const std::string name2 = make_name(name, cycle, nticks, 2);
-    NoiseCollector nc2(params.dft, nsamples, true);
+    Collector nc2(params.dft, nsamples, true);
     generate_noise(out, params.ng, name2, nticks, nwaves, gsigmas, nc2);
 
 }    
@@ -249,12 +249,12 @@ void white(std::ostream& out, Params& params, size_t nticks, bool cycle)
     write_tru(out, "sqr", name1, nsamples, nticks*rms*rms);
 
 
-    NoiseCollector nc1(params.dft, nsamples, true);
+    Collector nc1(params.dft, nsamples, true);
     generate_noise(out, params.ng, name1, nticks, nwaves, trusig, nc1);
     real_vector_t gsigmas = nc1.sigmas();
 
     const std::string name2 = make_name(name, cycle, nticks, 2);
-    NoiseCollector nc2(params.dft, nsamples, true);
+    Collector nc2(params.dft, nsamples, true);
     generate_noise(out, params.ng, name2, nticks, nwaves, gsigmas, nc2);
 }    
 
@@ -274,12 +274,12 @@ void shape(std::ostream& out, Params& params, size_t nticks, bool cycle)
                                    fsigma,  Fnyquist, npoints);
     Stream::write(out, "trusig_" + name1 + "_.npy", trusig);
 
-    NoiseCollector nc1(params.dft, nsamples, true);
+    Collector nc1(params.dft, nsamples, true);
     generate_noise(out, params.ng, name1, nticks, nwaves, trusig, nc1);
     real_vector_t gsigmas = nc1.sigmas();
 
     const std::string name2 = make_name(name, cycle, nticks, 2);
-    NoiseCollector nc2(params.dft, nsamples, true);
+    Collector nc2(params.dft, nsamples, true);
     generate_noise(out, params.ng, name2, nticks, nwaves, gsigmas, nc2);
 }    
 
@@ -305,6 +305,6 @@ int main(int argc, char* argv[])
     shape(out, params, nticks, true);
 
     out.pop();
-    std::cerr << "wirecell-test plot -n spectra " << outfile << " test_spectra.pdf" << std::endl;
+    std::cerr << "wirecell-test plot -n noisetools " << outfile << " test_noisetools.pdf" << std::endl;
     return 0;
 }

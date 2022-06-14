@@ -12,6 +12,7 @@ using namespace std::literals;
 
 using namespace WireCell;
 using namespace WireCell::Aux::Test;
+using namespace WireCell::Aux::DftTools;
 
 using real_t = float;
 using RV = std::vector<real_t>;
@@ -23,10 +24,10 @@ void test_1d_impulse(IDFT::pointer dft, int size = 64)
     RV rimp(size, 0);
     rimp[0] = 1.0;
 
-    auto cimp = Aux::fwd(dft, Waveform::complex(rimp));
+    auto cimp = fwd(dft, Waveform::complex(rimp));
     assert_flat_value(cimp.data(), cimp.size());
 
-    RV rimp2 = Waveform::real(Aux::inv(dft, cimp));
+    RV rimp2 = Waveform::real(inv(dft, cimp));
     assert_impulse_at_index(rimp2.data(), rimp2.size());
 }
 
@@ -47,11 +48,11 @@ void test_2d_impulse(IDFT::pointer dft, int nrows=16, int ncols=8)
     dump("rc", rc);
     assert_impulse_at_index(rc.data(), size);
 
-    CA c = Aux::fwd(dft, rc);
+    CA c = fwd(dft, rc);
     dump("c", c);
     assert_flat_value(c.data(), size);
 
-    FA r2 = Aux::inv(dft, c).real();
+    FA r2 = inv(dft, c).real();
     dump("r2", r2);
     assert_impulse_at_index(r2.data(), size);
 }
@@ -73,10 +74,10 @@ void test_2d_eigen_transpose(IDFT::pointer dft)
     dump("rt", rt);
     rt(imp_row, imp_col) = 1.0;
 
-    auto c = Aux::fwd(dft, rt.cast<complex_t>());
+    auto c = fwd(dft, rt.cast<complex_t>());
     dump("c", c);
 
-    auto r2 = Aux::inv(dft, c).real();
+    auto r2 = inv(dft, c).real();
     dump("r2",r2);
 
     // transpose access
@@ -103,7 +104,7 @@ void test_1b(IDFT::pointer dft, int axis, int nrows=8, int ncols=4)
     FA r = FA::Zero(nrows, ncols);
     r(0,0) = 1.0;
     dump("impulse", r);
-    CA c = Aux::fwd(dft, r.cast<complex_t>(), axis);
+    CA c = fwd(dft, r.cast<complex_t>(), axis);
 
     dump("spectra", c);
     std::cerr << c << std::endl;
@@ -127,11 +128,11 @@ void test_hs1d()
 {
     std::cerr << "1d hermitian symmetry\n";
     //                            0      1      2      3      4     5
-    Aux::complex_vector_t even{{1,11},{2,22},{3,33},{4,44},{5,55},{6,66}};
-    Aux::complex_vector_t odd(even.begin(), even.end()-1);
+    complex_vector_t even{{1,11},{2,22},{3,33},{4,44},{5,55},{6,66}};
+    complex_vector_t odd(even.begin(), even.end()-1);
 
-    auto evens = Aux::hermitian_symmetry(even);
-    auto odds = Aux::hermitian_symmetry(odd);
+    auto evens = hermitian_symmetry(even);
+    auto odds = hermitian_symmetry(odd);
 
     // The Nyquist bin must be real.
     { size_t ind=3;
@@ -170,8 +171,8 @@ void test_hs2d_axis1()
     dump("odd", odd);
     std::cerr << odd << std::endl;
 
-    auto evens = Aux::hermitian_symmetry(even, 1);
-    auto odds = Aux::hermitian_symmetry(odd, 1);
+    auto evens = hermitian_symmetry(even, 1);
+    auto odds = hermitian_symmetry(odd, 1);
 
     // The Nyquist bin must be real.
     { size_t ind=3;
@@ -214,8 +215,8 @@ void test_hs2d_axis0()
     dump("odd", odd);
     std::cerr << odd << std::endl;
 
-    auto evens = Aux::hermitian_symmetry(even, 0);
-    auto odds = Aux::hermitian_symmetry(odd, 0);
+    auto evens = hermitian_symmetry(even, 0);
+    auto odds = hermitian_symmetry(odd, 0);
 
     // The Nyquist bin must be real.
     { size_t ind=3;
@@ -253,9 +254,9 @@ void test_1d_c2r_impulse(IDFT::pointer dft, size_t size = 64)
     RV rimp(size, 0);
     rimp[0] = 1.0;
 
-    auto spec = Aux::fwd_r2c(dft, rimp);
+    auto spec = fwd_r2c(dft, rimp);
     spec[3*size/4] = 42;
-    auto wave = Aux::inv_c2r(dft, spec);
+    auto wave = inv_c2r(dft, spec);
     for (size_t ind=0; ind<size; ++ind) {
         // std::cerr << ind << " " << rimp[ind] << " " << wave[ind] << " " << spec[ind] << "\n";
         if (ind) {
@@ -277,11 +278,11 @@ void test_2d_c2r_impulse(IDFT::pointer dft, int axis, int nrows=8, int ncols=4)
     std::cerr << r << std::endl;
     assert_impulse_at_index(r.data(), size);
 
-    auto spec = Aux::fwd_r2c(dft, r, axis);
+    auto spec = fwd_r2c(dft, r, axis);
     dump("spec2d", spec);
     std::cerr << spec << std::endl;
 
-    auto wave = Aux::inv_c2r(dft, spec, axis);
+    auto wave = inv_c2r(dft, spec, axis);
     dump("wave2d", wave);
     std::cerr << wave << std::endl;
     assert_impulse_at_index(wave.data(), size);    

@@ -23,6 +23,7 @@
 
 using namespace std;
 using namespace WireCell;
+using namespace WireCell::Aux::DftTools;
 
 // The preferred display units for gain.
 const double GUnit = units::mV / units::fC;
@@ -132,7 +133,7 @@ int main(int argc, char** argv)
 
             auto t1 = std::chrono::high_resolution_clock::now();
             // Array::dft_cc(test_array, 0);
-            Aux::fwd(idft, test_array, 1);
+            fwd(idft, test_array, 1);
             auto t2 = std::chrono::high_resolution_clock::now();
             fwd_time = std::chrono::duration_cast<std::chrono::nanoseconds>(t2 - t1).count() / ntries;
 
@@ -141,7 +142,7 @@ int main(int argc, char** argv)
             auto t3 = std::chrono::high_resolution_clock::now();
             // 	res = Waveform::idft(spec);
             // Array::idft_cc(test_array, 0);
-            Aux::inv(idft, test_array, 1);
+            inv(idft, test_array, 1);
 
             auto t4 = std::chrono::high_resolution_clock::now();
             rev_time = std::chrono::duration_cast<std::chrono::nanoseconds>(t4 - t3).count() / ntries;

@@ -20,6 +20,7 @@
 using namespace std;
 using namespace WireCell;
 using namespace WireCell::Test;
+using namespace WireCell::Aux::DftTools;
 
 // The preferred display units for gain.
 const double GUnit = units::mV / units::fC;
@@ -27,8 +28,8 @@ const double GUnit = units::mV / units::fC;
 void draw_time_freq(MultiPdf& pdf, const IDFT::pointer& idft,
                     Waveform::realseq_t& res, const std::string& title, const Binning& tbins)
 {
-    Waveform::compseq_t spec = Aux::fwd_r2c(idft, res);
-    Waveform::realseq_t res2 = Aux::inv_c2r(idft, spec);
+    Waveform::compseq_t spec = fwd_r2c(idft, res);
+    Waveform::realseq_t res2 = inv_c2r(idft, spec);
 
     TH1F h_wave("response", title.c_str(), tbins.nbins(), tbins.min() / units::us, tbins.max() / units::us);
     TH1F h_wave2("response2", title.c_str(), tbins.nbins(), tbins.min() / units::us, tbins.max() / units::us);
@@ -213,14 +214,14 @@ int main(int argc, char* argv[])
             double fwd_time_1st = 0.0;
             {
                 auto t1 = std::chrono::high_resolution_clock::now();
-                spec = Aux::fwd_r2c(idft, res);
+                spec = fwd_r2c(idft, res);
                 auto t2 = std::chrono::high_resolution_clock::now();
                 fwd_time_1st += std::chrono::duration_cast<std::chrono::nanoseconds>(t2 - t1).count();
             }
             double fwd_time = 0.0;
             for (int itry = 0; itry < ntries; ++itry) {
                 auto t1 = std::chrono::high_resolution_clock::now();
-                spec = Aux::fwd_r2c(idft, res);
+                spec = fwd_r2c(idft, res);
                 auto t2 = std::chrono::high_resolution_clock::now();
                 fwd_time += std::chrono::duration_cast<std::chrono::nanoseconds>(t2 - t1).count();
             }
@@ -229,14 +230,14 @@ int main(int argc, char* argv[])
             double rev_time_1st = 0.0;
             {
                 auto t1 = std::chrono::high_resolution_clock::now();
-                res = Aux::inv_c2r(idft, spec);
+                res = inv_c2r(idft, spec);
                 auto t2 = std::chrono::high_resolution_clock::now();
                 rev_time_1st = std::chrono::duration_cast<std::chrono::nanoseconds>(t2 - t1).count();
             }
             double rev_time = 0.0;
             for (int itry = 0; itry < ntries; ++itry) {
                 auto t1 = std::chrono::high_resolution_clock::now();
-                res = Aux::inv_c2r(idft, spec);
+                res = inv_c2r(idft, spec);
                 auto t2 = std::chrono::high_resolution_clock::now();
                 rev_time += std::chrono::duration_cast<std::chrono::nanoseconds>(t2 - t1).count();
             }
