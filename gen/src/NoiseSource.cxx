@@ -28,6 +28,7 @@ WIRECELL_FACTORY(NoiseSource, WireCell::Gen::NoiseSource, WireCell::IFrameSource
 
 using namespace std;
 using namespace WireCell;
+using WireCell::Aux::DftTools::inv_c2r;
 
 
 using complex_vector_t = std::vector<std::complex<float>>;
@@ -176,7 +177,7 @@ bool Gen::NoiseSource::operator()(IFrame::pointer& frame)
 
         //Waveform::realseq_t noise = Gen::Noise::generate_waveform(spec, m_rng, m_rep_percent);
         auto cnoise = generate_spectrum(spec, m_rng, m_rep_percent);
-        auto noise = Aux::inv_c2r(m_dft, cnoise);
+        auto noise = inv_c2r(m_dft, cnoise);
 
         //	std::cout << noise.size() << " " << nsamples << std::endl;
         noise.resize(m_nsamples, 0);

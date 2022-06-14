@@ -61,6 +61,8 @@ bool Gen::IncoherentAddNoise::operator()(const input_pointer& inframe, output_po
     // full-nsample followed by ncharge-truncation may CPU-wasteful in
     // the sparse traces case.
 
+    const float sqrt2opi = sqrt(2.0/3.141592);
+
     ITrace::vector outtraces;
     for (const auto& intrace : *inframe->traces()) {
 
@@ -81,7 +83,11 @@ bool Gen::IncoherentAddNoise::operator()(const input_pointer& inframe, output_po
                 warned = true;
             }
 
-            auto wave = rwgen.wave(spec);
+            real_vector_t sigmas(m_nsamples);
+            for (size_t ind=0; ind<m_nsamples; ++ind) {
+                sigmas[ind] = spec[ind]*sqrt2opi;
+            }
+            auto wave = rwgen.wave(sigmas);
             wave.resize(ncharge);
             Waveform::increase(charge, wave);
         }
@@ -118,6 +124,11 @@ bool Gen::CoherentAddNoise::operator()(const input_pointer& inframe, output_poin
     // per model.
     std::unordered_map<std::string, group_wave_lu> model_group_waves;
 
+    // Limit number of warnings below
+    static bool warned = false;
+
+    const float sqrt2opi = sqrt(2.0/3.141592);
+
     // Make waveforms of size nsample from each model, adding only
     // ncharge of their element to the trace charge.  This
     // full-nsample followed by ncharge-truncation may CPU-wasteful in
@@ -135,7 +146,21 @@ bool Gen::CoherentAddNoise::operator()(const input_pointer& inframe, output_poin
             int grpid = model->groupid(chid);
             if (gwlu.find(grpid) == gwlu.end()) {
                 const auto& spec = model->group_spectrum(grpid);
-                auto wave = rwgen.wave(spec);
+
+                // The model spec size may differ than expected nsamples.
+                // We could interpolate to correct for that which would
+                // slow things down.  Better to correct the model(s) code
+                // and configuration.
+                if (not warned and spec.size() != m_nsamples) {
+                    log->warn("model {} produced {} samples instead of expected {}, future warnings muted",
+                              mtn, spec.size(), m_nsamples);
+                    warned = true;
+                }
+                real_vector_t sigmas(m_nsamples);
+                for (size_t ind=0; ind<m_nsamples; ++ind) {
+                    sigmas[ind] = spec[ind]*sqrt2opi;
+                }
+                auto wave = rwgen.wave(sigmas);
                 wave.resize(ncharge);
                 gwlu[grpid] = wave;
             }

@@ -50,7 +50,7 @@
 #include <vector>
 #include <Eigen/Core>
 
-namespace WireCell::Aux {
+namespace WireCell::Aux::DftTools {
 
     /// Suported data types.
     using complex_t = IDFT::complex_t;
@@ -94,7 +94,7 @@ namespace WireCell::Aux {
 
     // Perform inverse or reverse DFT, returning a real waveform given
     // a complex spectrum.  Prior to the DFT, the spectrum is forced
-    // to have Hermitial symmetry and thus any input values above the
+    // to have Hermitian symmetry and thus any input values above the
     // Nyquist frequency are ignored.
     real_vector_t inv_c2r(const IDFT::pointer& dft, const complex_vector_t& spec);
     real_array_t inv_c2r(const IDFT::pointer& dft, const complex_array_t& spec, int axis);

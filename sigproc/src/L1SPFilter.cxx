@@ -21,6 +21,10 @@ using namespace Eigen;
 using namespace WireCell;
 using namespace WireCell::SigProc;
 
+using WireCell::Aux::DftTools::fwd_r2c;
+using WireCell::Aux::DftTools::inv_c2r;
+
+
 L1SPFilter::L1SPFilter(double gain, double shaping, double postgain, double ADC_mV, double fine_time_offset,
                        double coarse_time_offset)
   : m_gain(gain)
@@ -56,7 +60,7 @@ void L1SPFilter::init_resp()
         Response::ColdElec ce(m_gain, m_shaping);
         auto ewave = ce.generate(tbins);
         Waveform::scale(ewave, m_postgain * m_ADC_mV * (-1));  // ADC to electron ...
-        elec = Aux::fwd_r2c(m_dft, ewave); 
+        elec = fwd_r2c(m_dft, ewave); 
 
         std::complex<float> fine_period(fravg.period, 0);
 
@@ -64,8 +68,8 @@ void L1SPFilter::init_resp()
         WireCell::Waveform::realseq_t resp_V = fravg.planes[1].paths[0].current;
         WireCell::Waveform::realseq_t resp_W = fravg.planes[2].paths[0].current;
 
-        auto spectrum_V = Aux::fwd_r2c(m_dft, resp_V);
-        auto spectrum_W = Aux::fwd_r2c(m_dft, resp_W);
+        auto spectrum_V = fwd_r2c(m_dft, resp_V);
+        auto spectrum_W = fwd_r2c(m_dft, resp_W);
 
         WireCell::Waveform::scale(spectrum_V, elec);
         WireCell::Waveform::scale(spectrum_W, elec);
@@ -74,8 +78,8 @@ void L1SPFilter::init_resp()
         WireCell::Waveform::scale(spectrum_W, fine_period);
 
         // Now this response is ADC for 1 electron .
-        resp_V = Aux::inv_c2r(m_dft, spectrum_V);
-        resp_W = Aux::inv_c2r(m_dft, spectrum_W);
+        resp_V = inv_c2r(m_dft, spectrum_V);
+        resp_W = inv_c2r(m_dft, spectrum_W);
 
         // convolute with V and Y average responses ...
         double intrinsic_time_offset = fravg.origin / fravg.speed;

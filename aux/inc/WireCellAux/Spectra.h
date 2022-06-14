@@ -13,8 +13,6 @@
 
 #include <algorithm>
 
-#include <iostream>             // debug
-
 namespace WireCell::Aux::Spectra {
 
 
@@ -116,7 +114,6 @@ namespace WireCell::Aux::Spectra {
             if (!m_nticks) {
                 const size_t given = std::abs(std::distance(beg,end));
                 m_nticks = std::min(m_nsamples, given);
-                std::cerr << "Spectra: given=" << given << " m_nticks=" << m_nticks << "\n";
             }
             std::vector<float> fwave(m_nsamples, 0);
             std::copy(beg, beg+m_nticks, fwave.begin());
@@ -134,6 +131,14 @@ namespace WireCell::Aux::Spectra {
         /// be applied to produce a new waveform consistent with the
         /// ensemble of waveforms that have been added.
         spectrum_t amplitude() const;
+
+        /// Returns the spectrum mean Rayleigh parameters sigma_k for
+        /// each frequency k.
+        ///
+        /// The sigmas spectrum can be directly fluctuated per
+        /// Rayleigh and a uniform complex phase, inv-DFT'ed to get a
+        /// properly normalized noise waveform of size nsamples.
+        spectrum_t sigmas() const;
 
         /// Return <|X_k|> (sum/count) the (linear) mean spectral
         /// amplitude.  No normalization.
@@ -195,20 +200,41 @@ namespace WireCell::Aux::Spectra {
 
     /** Noise Generator
 
-        From a real-valued mean spectra, generate waves fluctuated
-        about that mean.
+        Geneate a fluctuated spectrum or equivalently its time series
+        given a spectrum of Rayleigh parameter sigma (NOT amplitude).
 
-        See WireCell::Aux::Normals::Recycling or Normals::Fresh from
-        RandTools.h for examples of what can be provided for the
-        normal_f function object.
+        The sigma spectrum may be estimated as 
+
+            sigma_k = sqrt(2/pi)*<|X_k|>
+
+        or
+
+            sigma_k = sqrt(0.5*<|X_k|^2>)
+
+        Ie, estimated as the first or second raw momemnt of the k'th
+        frequency bin of the DFT over some set of existing noise
+        waveforms.
+
+        This is an abstract base class.  See "N" and "U" variants for
+        concrete implementations.
     */
     struct NoiseGenerator {
 
         virtual ~NoiseGenerator();
-        virtual complex_vector_t spec(const real_vector_t& meanspec) = 0;
 
-        virtual real_vector_t wave(const real_vector_t& meanspec) = 0;
+        // Return a fluctuated, complex X_k spectrum
+        virtual complex_vector_t spec(const real_vector_t& sigma) = 0;
+
+        // Return a fluctuated, real x_n time series
+        virtual real_vector_t wave(const real_vector_t& sigma) = 0;
     };
+
+    /** Generate via normal randoms:
+
+        real(X_k) ~ N(0,sigma_k)
+        imag(X_k) ~ N(0,sigma_k)
+
+     */
     class NoiseGeneratorN : virtual public NoiseGenerator {
       public:
 
@@ -219,21 +245,20 @@ namespace WireCell::Aux::Spectra {
 
         NoiseGeneratorN(IDFT::pointer dft, normal_f normal);
         virtual ~NoiseGeneratorN();
-
-        // Generate a complex, Hermitian-symmetric spectrum from the
-        // mean spectrum.
-        virtual complex_vector_t spec(const real_vector_t& meanspec);
-
-        // Generate a real, interval-space waveform.
-        virtual real_vector_t wave(const real_vector_t& meanspec);
+        virtual complex_vector_t spec(const real_vector_t& sigma);
+        virtual real_vector_t wave(const real_vector_t& sigma);
 
       private:
         IDFT::pointer dft;
         normal_f normal;
     };
 
-    // Exactly like above but use the uniform distribution form to
-    // generate randoms which are Rayleigh distributed.
+    /** Generate via uniform randoms:
+
+        |X_k| ~ R(sigma_k) ~ sigma_k*sqrt(-2ln(U(0, 1)))
+        ang(X_k) ~ U(0, 2pi)
+
+    */
     class NoiseGeneratorU : virtual public NoiseGenerator {
       public:
         // Something that returns n random numbers from the uniform
@@ -243,13 +268,8 @@ namespace WireCell::Aux::Spectra {
 
         NoiseGeneratorU(IDFT::pointer dft, uniform_f uniform);
         virtual ~NoiseGeneratorU();
-
-        // Generate a complex, Hermitian-symmetric spectrum from the
-        // mean spectrum.
-        virtual complex_vector_t spec(const real_vector_t& meanspec);
-
-        // Generate a real, interval-space waveform.
-        virtual real_vector_t wave(const real_vector_t& meanspec);
+        virtual complex_vector_t spec(const real_vector_t& sigma);
+        virtual real_vector_t wave(const real_vector_t& sigma);
 
       private:
         IDFT::pointer dft;

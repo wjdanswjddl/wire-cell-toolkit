@@ -20,6 +20,7 @@ WIRECELL_FACTORY(EmpiricalNoiseModel,
                  WireCell::IConfigurable)
 
 using namespace WireCell;
+using WireCell::Aux::DftTools::fwd_r2c;
 
 Gen::EmpiricalNoiseModel::EmpiricalNoiseModel(const std::string& spectra_file, const int nsamples, const double period,
                                               const double wire_length_scale,
@@ -344,7 +345,7 @@ const IChannelSpectrum::amplitude_t& Gen::EmpiricalNoiseModel::channel_spectrum(
         if (resp1 == m_elec_resp_cache.end()) {
             Response::ColdElec elec_resp(10, ch_shaping);  // default at 1 mV/fC
             auto sig = elec_resp.generate(WireCell::Waveform::Domain(0, m_fft_length * m_period), m_fft_length);
-            auto filt = Aux::fwd_r2c(m_dft, sig);
+            auto filt = fwd_r2c(m_dft, sig);
             auto ele_resp_amp = Waveform::magnitude(filt);
 
             ele_resp_amp.resize(m_elec_resp_freq.size());
@@ -357,7 +358,7 @@ const IChannelSpectrum::amplitude_t& Gen::EmpiricalNoiseModel::channel_spectrum(
         if (resp2 == m_elec_resp_cache.end()) {
             Response::ColdElec elec_resp(10, db_shaping);  // default at 1 mV/fC
             auto sig = elec_resp.generate(WireCell::Waveform::Domain(0, m_fft_length * m_period), m_fft_length);
-            auto filt = Aux::fwd_r2c(m_dft, sig);
+            auto filt = fwd_r2c(m_dft, sig);
             auto ele_resp_amp = Waveform::magnitude(filt);
 
             ele_resp_amp.resize(m_elec_resp_freq.size());

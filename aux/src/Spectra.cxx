@@ -6,6 +6,7 @@
 using namespace WireCell;
 using namespace WireCell::Waveform;
 using namespace WireCell::Aux::Spectra;
+using namespace WireCell::Aux::DftTools;
 
 NoiseCollector::NoiseCollector()
 {
@@ -92,8 +93,26 @@ static std::vector<float> normit(const std::vector<double>& vals, double norm)
 
 NoiseCollector::spectrum_t NoiseCollector::amplitude() const
 {
-    return normit(m_sum, (double)m_nsamples/(double)(m_nticks*m_nwaves)); 
+    const double interp_norm = sqrt((double)m_nsamples/(double)(m_nticks));
+    return normit(m_sum, interp_norm/m_nwaves); 
 }
+
+NoiseCollector::spectrum_t NoiseCollector::sigmas() const
+{
+    const double norm = sqrt((2.0*m_nsamples)/(3.14159265*m_nticks));
+    return normit(m_sum, norm/m_nwaves); 
+    
+
+
+    // const double norm = (double)m_nsamples / (2.0*m_nticks*m_nwaves);
+    // spectrum_t ret(m_nsamples, 0);
+    // for (size_t ind=0; ind<m_nsamples; ++ind) {
+    //     ret[ind] = sqrt(norm * m_sum2[ind]);
+    // }
+    // return ret;
+}
+
+
 
 NoiseCollector::spectrum_t NoiseCollector::linear() const
 {
@@ -153,42 +172,37 @@ NoiseGeneratorN::~NoiseGeneratorN()
 }
 
 complex_vector_t
-NoiseGeneratorN::spec(const real_vector_t& meanspec)
+NoiseGeneratorN::spec(const real_vector_t& sigmas)
 {
-    const size_t nsamples = meanspec.size();
+    const size_t nsamples = sigmas.size();
     // nsamples: even->1, odd->0
     const size_t nextra = (nsamples+1)%2;
     const size_t nhalf = nsamples / 2;
             
     complex_vector_t spec(nsamples, 0);
 
-    auto normals = normal(nsamples);
-
-    // The Gaussian sigma must be the Rayleigh mode which is smaller
-    // than Rayleigh mean (ie, what NoiseCollector::amplitude() returns) by
-    // this factor:
-    const float mean_to_mode = sqrt(2/3.141592);
+    auto normals = normal(2*(nhalf+nextra));
 
     // The zero-frequency bin must be real and may be negative.
-    spec.at(0).real(mean_to_mode*meanspec.at(0)*normals.at(0));
-    for (size_t ind=1; ind < nhalf; ++ind) {
-        float mode = mean_to_mode*meanspec.at(ind);
+    for (size_t ind=0; ind <= nhalf+nextra; ++ind) {
+        float mode = sigmas.at(ind);
         spec.at(ind) = std::complex(mode*normals.at(ind),
-                                 mode*normals.at(ind+nhalf));
+                                    mode*normals.at(ind+nhalf));
     }
-    if (nextra) {       // have Nyquist bin
-        // Must be real, can be negative.
-        spec.at(nhalf+1).real(mean_to_mode*meanspec.at(nhalf)*normals.at(nhalf));
-    }
+    // DC bin must be real
+    spec[0] = std::abs(spec[0]);
+    if (nextra) {               // and same for Nyquist if we have one
+        spec[nhalf] = std::abs(spec[nhalf]);
+    }        
+
     hermitian_symmetry_inplace(spec);
     return spec;
 }
 
 real_vector_t
-NoiseGeneratorN::wave(const real_vector_t& meanspec)
+NoiseGeneratorN::wave(const real_vector_t& sigmas)
 {
-    // Internally, this normalizes by 1/N
-    return inv_c2r(dft, spec(meanspec));
+    return inv_c2r(dft, spec(sigmas));
 }
 
 
@@ -205,9 +219,9 @@ NoiseGeneratorU::~NoiseGeneratorU()
 }
 
 complex_vector_t
-NoiseGeneratorU::spec(const real_vector_t& meanspec)
+NoiseGeneratorU::spec(const real_vector_t& sigmas)
 {
-    const size_t nsamples = meanspec.size();
+    const size_t nsamples = sigmas.size();
     // nsamples: even->1, odd->0
     const size_t nextra = (nsamples+1)%2;
     const size_t nhalf = nsamples / 2;
@@ -218,31 +232,25 @@ NoiseGeneratorU::spec(const real_vector_t& meanspec)
 
     constexpr double π {3.141592653589793};
 
-    // The Gaussian sigma must be the Rayleigh mode which is smaller
-    // than Rayleigh mean (ie, what NoiseCollector::amplitude() returns) by
-    // this factor:
-    const float mean_to_mode = sqrt(2/π);
-
     // The zero-frequency bin must be real and may be negative.
-    spec.at(0).real(mean_to_mode*meanspec.at(0)*sqrt(-2*log(uniforms.at(0))));
+    spec.at(0).real(sigmas.at(0)*sqrt(-2*log(uniforms.at(0))));
 
     for (size_t ind=1; ind < nhalf; ++ind) {
-        float mode = mean_to_mode*meanspec.at(ind);
+        float mode = sigmas.at(ind);
         float rad = mode*sqrt(-2*log(uniforms.at(ind)));
         float ang = 2 * π * uniforms.at(ind+nhalf);
         spec.at(ind) = std::polar(rad, ang);
     }
     if (nextra) {       // have Nyquist bin
         // Must be real, can be negative.
-        spec.at(nhalf+1).real(mean_to_mode*meanspec.at(nhalf+1)*sqrt(-2*log(uniforms.at(nhalf))));
+        spec.at(nhalf).real(sigmas.at(nhalf)*sqrt(-2*log(uniforms.at(nhalf))));
     }
     hermitian_symmetry_inplace(spec);
     return spec;
 }
 
 real_vector_t
-NoiseGeneratorU::wave(const real_vector_t& meanspec)
+NoiseGeneratorU::wave(const real_vector_t& sigmas)
 {
-    // Internally, this normalizes by 1/N
-    return inv_c2r(dft, spec(meanspec));
+    return inv_c2r(dft, spec(sigmas));
 }
