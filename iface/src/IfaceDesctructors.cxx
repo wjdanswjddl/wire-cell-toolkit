@@ -93,6 +93,7 @@
 #include "WireCellIface/ITerminal.h"
 #include "WireCellIface/ITiling.h"
 #include "WireCellIface/ITrace.h"
+#include "WireCellIface/ITraceRanker.h"
 #include "WireCellIface/IWaveform.h"
 #include "WireCellIface/IWaveformMap.h"
 #include "WireCellIface/IWireGenerator.h"
@@ -192,6 +193,7 @@ ITensorSetUnpacker::~ITensorSetUnpacker() {}
 ITerminal::~ITerminal() {}
 ITiling::~ITiling() {}
 ITrace::~ITrace() {}
+ITraceRanker::~ITraceRanker() {}
 IWaveform::~IWaveform() {}
 IWaveformMap::~IWaveformMap() {}
 IWireGenerator::~IWireGenerator() {}
