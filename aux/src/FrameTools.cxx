@@ -145,13 +145,19 @@ ITrace::vector Aux::tagged_traces(IFrame::pointer frame, IFrame::tag_t tag)
     return *all_traces;  // must make copy of shared pointers
 }
 
-Aux::channel_list Aux::channels(const ITrace::vector& traces)
+Aux::channel_list Aux::channels(const ITrace::vector& traces, bool uniq)
 {
     const auto nchans = traces.size();
     Aux::channel_list ret(nchans, 0);
     for (size_t ind = 0; ind != nchans; ++ind) {
         ret[ind] = traces[ind]->channel();
     }
+    if (uniq) {
+        std::sort(ret.begin(), ret.end());
+        auto end = std::unique(ret.begin(), ret.end());
+        ret.resize(std::distance(ret.begin(), end));
+    }
+
     return ret;
 }
 
@@ -211,6 +217,18 @@ void Aux::fill(Array::array_xxf& array, const ITrace::vector& traces, channel_li
             array(irow, icol0 + ind) += charge.at(itick0 + ind);
         }
     }
+}
+
+Aux::channel_list Aux::fill(Array::array_xxf& array,
+                            const ITrace::vector& traces)
+{
+    auto ch = Aux::channels(traces, true);
+    auto tbinmm = Aux::tbin_range(traces);
+    const size_t ncols = tbinmm.second - tbinmm.first;
+    const size_t nrows = std::distance(ch.begin(), ch.end());
+    Array::array_xxf arr = Array::array_xxf::Zero(nrows, ncols);
+    Aux::fill(arr, traces, ch.begin(), ch.end(), tbinmm.first);
+    return ch;
 }
 
 
