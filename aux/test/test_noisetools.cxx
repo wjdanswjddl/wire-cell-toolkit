@@ -270,7 +270,7 @@ void shape(std::ostream& out, Params& params, size_t nticks, bool cycle)
     // Make shaped noise
     const std::string name1 = make_name(name, cycle, nticks, 1);
 
-    auto trusig = fictional_sigmas(params.fu, nsamples,
+    auto trusig = fictional_sigmas(params.fu, nticks,
                                    fsigma,  Fnyquist, npoints);
     Stream::write(out, "trusig_" + name1 + "_.npy", trusig);
 
@@ -305,6 +305,9 @@ int main(int argc, char* argv[])
     shape(out, params, nticks, true);
 
     out.pop();
-    std::cerr << "wirecell-test plot -n noisetools " << outfile << " test_noisetools.pdf" << std::endl;
+
+    std::cerr
+        << "\nNote, this test is connected with gen/docs/noise.org presentation\n"
+        << "wirecell-test plot -n noisetools " << outfile << " gen/docs/test_noisetools.pdf" << std::endl;
     return 0;
 }
