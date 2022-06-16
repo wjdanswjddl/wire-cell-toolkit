@@ -188,14 +188,16 @@ namespace WireCell {
 
         // Return the median value.  This is rather slow as it
         // involves a sort.
-        real_t median(realseq_t& wave);
+        real_t median(const realseq_t& wave);
 
         // Return the median value.  This is faster but introduces
         // inaccuracies due to binning.
-        real_t median_binned(realseq_t& wave);
+        real_t median_binned(const realseq_t& wave);
 
-        real_t percentile(realseq_t& wave, real_t percentage);
-        real_t percentile_binned(realseq_t& wave, real_t percentage);
+        // Return the element value of the wave at given percentile p in [0,1].
+        real_t percentile(const realseq_t& wave, real_t p);
+        // Faster, less accurate version of percentile().
+        real_t percentile_binned(const realseq_t& wave, real_t p);
 
         /// Return the smallest, most frequent value to appear in vector.
         short most_frequent(const std::vector<short>& vals);
