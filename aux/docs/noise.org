@@ -1,0 +1,196 @@
+#+title: Wire-Cell Toolkit Noise
+
+* Overview
+
+WCT provides support for noise in various sub-packages
+
+- ~WireCellAux/NoiseTools.h~ provides a ~Collector~ to form mean spectra
+  of various flavors from noise-rich waveforms and ~Generator~ to
+  produce waveforms given a $\sigma_k$ spectrum.
+
+- ~WireCellSigProc/NoiseModeler.h~ provides a flow graph node using a
+  ~Collector~ intended to run on data rich in noise, collect mean
+  spectra and convert the result to *WCT noise spectra* and output them
+  to file.  Also provided is the ~Undigitizer~ component which is
+  effectively applies the inverse transform of ~Digitizer~ from ~gen~ and
+  prepares voltage-level waves for input to the ~NoiseModeler~.
+
+- ~WireCellGen/AddNoise.h~ provide flow graph nodes for incoherent and
+  group-coherent noise generation by delegating to a "noise model"
+  component to provide per-channel or per-channel-group spectra,
+  respectively.  The ~GroupNoiseModel~ provides both interfaces and
+  consumes a *WCT noise spectra* and a *WCT channel-groups*.  The
+  ~EmpiricalNoiseModel~ consumes a *WCT noise spectra* and supports
+  runtime change in electronics shaping and gain as well as wire
+  length binning.
+
+
+* WCT Noise Spectra
+
+A *WCT noise spectra* are data describing mean spectral amplitudes and
+related meta data.  They are provided to WCT C++ code as objects
+following a schema described here.  The data is provided via WCT
+configuration mechanism.
+
+the *WCT noise spectra* are as an array of *spectrum objects* (eg as C++
+representations of JSON via WCT's ~Configuration~ object).  Each
+*spectrum object* follows an schema describing what types of attributes
+it may have.  The attributes are categorized as *required*, *optional* or
+*undefined*.  A spectrum object *must* contain all *required attributes*.  A
+consumer of a WCT noise file *must* ignore *undefined attributes*.  An
+*optional attribute* is one that is *required* for some consumers and
+*undefined* for others.  Consumers of optional attributes *may* provide
+default values for use if the attribute is unspecified.
+
+** Required attributes
+
+A *WCT spectral object* *must* provide these attributes:
+
+- ~nsamples~ :: an integer number providing the size of (number of
+  contiguous time series samples taken from) the waveforms used to
+  form the mean spectral amplitude.  The ~nsamples~ *must not* count any
+  zero padding that may have been applied to a waveform prior to
+  forming the waveform contribution to the mean spectrum (ie, prior to
+  applying the DFT).  The ~nsamples~ value is distinct from the size of
+  the ~freqs~ and ~amps~ arrays.  If using ~NoiseTools::Collector~ the value
+  for ~nsamples~ is provided by the ~.nticks()~ method.
+
+- ~period~ :: a floating-point number providing the original sample
+  period (inverse of sampling frequency) of the waveform expressed in
+  the WCT system of units for [time].  (eg, 0.5*us for MicroBooNE).
+  Note, ~period~ is not necessarily related to the values provided by
+  the ~freqs~ array.
+
+- ~freqs~ :: an array of floating-point numbers providing frequency
+  values expressed in the WCT system of units for [frequency].  Note,
+  WCT's base unit for [frequency] is *not* 1.0 Hz.  The size of this
+  array *must* be equal to the size of the ~amps~ array and an element of
+  ~freqs~ *must* provide the frequency at which the corresponding element
+  of the ~amps~ array was sampled.  The ~freqs~ array *may* represent an
+  irregular sampling and *may* be unordered.  It *should* include samples
+  at or near the zero and Nyquist frequencies.  In particular it need
+  not be a regular frequency sampling of ~1/period~ nor extend beyond
+  the Nyquist frequency.
+
+- ~amps~ :: an array of floating-point numbers providing an estimate of
+  a mean spectral amplitude in units of [voltage] in the WCT system of
+  units.  Note that here "amps" an abbreviation of "amplitude" and not
+  "amperage".  The value of an element of ~amps~ may be derived from
+  some sub-sampling or interpolation of an original distribution of
+  DFT coefficients.  That is, an element of ~amps~ is the an average
+  $\langle|X_k|\rangle,\ k\in [0,N^{(fft)}-1]$ with $N^{(fft)} \ge$
+  ~nsamples~, over some number of waveforms of size ~nsamples~.  The
+  inequality is typically due to zero-padding of the waveform prior to
+  taking the DFT.  Note: in preparing ~amps~ the user is recommended to
+  provide a number of waveforms approximately equal to ~nsamples~ in
+  order to co-optimize spectral resolution and statistical stability.
+  User is also recommended to utilize ~NoiseTools::Collector~ for
+  low-level noise modeling code or execute a job using ~NoiseModeler~
+  for a high-level development.
+
+** Optional attributes required by ~EmpiricalNoiseModel~
+
+The ~EmpiricalNoiseModel~ component requires these optional attributes:
+
+- ~const~ :: a floating point number expressed in the same units as ~amps~
+  and which provides an estimate of the mean white noise, and thus
+  constant, spectral amplitude $\langle|X_w|\rangle$.
+
+- ~gain~ :: a floating-point number giving the electronics gain from
+  which the voltage waveforms originated.  The value must be in WCT
+  system of units for [voltage]/[charge] (eg ~14.0*wc.mV/wc.fC~ as
+  expressed in WCT Jsonnet configuration).  Note, this is *not* a
+  unit-less, relative gain.
+
+- ~shaping~ :: a floating-point number giving the electronics shaping
+  time from which the waveforms originated.  The value must be
+  expressed in WCT units for [time].
+
+- ~plane~ :: an integer number giving the plane index counting from zero
+  and in the direction of nominal drift.  Ie, U=0, V=1, W=2.  This
+  value must indicate the plane in which a channel resides in order
+  for the spectra to be applicable.
+
+- ~wirelen~ :: a floating-point number giving a wire length expressed in
+  the WCT system of units for [length].  This value should be
+  representative of (eg, binned over) wires for which the associated
+  spectrum applies.
+
+** Optional attributes required by ~GroupNoiseModel~
+
+The ~GroupNoiseModel~ provides a model interface for both coherent and
+incoherent noise where spectra are grouped in an arbitrary way.  It
+requires these optional attributes:
+
+- ~group~ :: an integer identifying an abstract group to which channels
+  may be associated.  The association to channels may be provided by a
+  *WCT channel groups* array.  This attribute may also be provided with
+  the key name ~groupID~.
+  
+* WCT channel groups
+
+The ~GroupNoiseModel~ and potentially other components require
+information on how to collect channels into distinct groups.  The user
+may provide this information in the form of *WCT channel-groups* data
+structures.  These are in the form of an array of *WCT channel-group*
+objects, each of which has these *required* attributes:
+
+- ~group~ :: an integer identifying a group.  Over the array, the set of
+  ~group~ values *may* be discontinuous and may be unordered.  Each ~group~
+  *must* be unique in the set.  Consumers of ~group~ shall not assume nor
+  assign any semantic meaning to its value.  This attribute may also
+  be provided with the key name ~groupID~.
+
+- ~channels~ :: an array of integer values providing the channel ID
+  numbers to associate as a group.  The channel IDs are as used in the
+  *WCT wire object* configuration provided and described elsewhere.
+
+* Providing the above data
+
+Both WCT *noise spectra* and *channel group* objects may be provided
+directly as a WCT configuration parameter (/eg/ with their values
+directly expressed in Jsonnet files) or the parameter may hold a
+string which shall be interpreted by the consumer as the name of a
+file containing the data in a format that can be loaded by WCT (/eg/
+~.jsonnet~, ~.json~, ~.json.bz2~, etc). 
+
+Developers of components are recommended to satisfy this requirement
+with code like:
+
+#+begin_src C++
+  void MyClass::configure(const WireCell::Configuration& cfg)
+  {
+      auto jgroups = cfg["groups"];
+      if (jgroups.isNull()) {
+          log->critical("no parameter \"group\" given");
+          ++errors;
+      }
+      if (jgroups.isString()) {
+          jgroups = Persist::load(map_file);
+      }
+      // ... code to use jgroups ...
+  }
+#+end_src
+
+And, etc for *noise spectra*.
+
+The end user is suggested to consider such things as file size, file
+distribution requirements, frequency of change, number and types of
+other users, etc, when choosing how to provide data this data.  In
+particular, often channel groups may be expressed algorithmically and
+thus best provided as Jsonnet.  Likewise, if spectra have an analytic
+model, they are best provided as Jsonnet.  When JSON must be used, the
+user is suggested to subsample large, detailed spectra to achieve file
+size reduction while still faithfully representing the spectral shapes
+with an acceptable resolution.
+
+* Python
+
+The ~wire-cell-python~ package provides the ~namedtuple~:
+
+#+begin_src python
+wirecell.sigproc.noise.schema.NoiseSpectrum
+#+end_src
+
+which enumerates the required and known optional attributes described
+above.
