@@ -10,7 +10,7 @@
 #include "WireCellIface/IConfigurable.h"
 #include "WireCellIface/IDFT.h"
 
-#include "WireCellIface/SimpleTrace.h"
+#include "WireCellAux/SimpleTrace.h"
 #include "WireCellUtil/Interpolate.h"
 
 
@@ -34,7 +34,7 @@ namespace WireCell {
 
             void init_resp();
 
-            int L1_fit(std::shared_ptr<WireCell::SimpleTrace>& newtrace,
+            int L1_fit(std::shared_ptr<WireCell::Aux::SimpleTrace>& newtrace,
                        std::shared_ptr<const WireCell::ITrace>& adctrace, int start_tick, int end_tick,
                        bool flag_shorted = false);
 

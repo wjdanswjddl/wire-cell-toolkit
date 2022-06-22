@@ -2,7 +2,7 @@
 
 #include "WireCellSio/NumpyDepoSetLoader.h"
 #include "WireCellUtil/NamedFactory.h"
-#include "WireCellIface/SimpleDepoSet.h"
+#include "WireCellAux/SimpleDepoSet.h"
 
 #include <string>
 #include <vector>
@@ -57,7 +57,7 @@ bool Sio::NumpyDepoSetLoader::operator()(WireCell::IDepoSet::pointer& outdepos)
         return true;
     }
 
-    outdepos = std::make_shared<SimpleDepoSet>(m_load_count, depos);
+    outdepos = std::make_shared<Aux::SimpleDepoSet>(m_load_count, depos);
     log->debug("call={} sent ndepos={}", m_load_count, depos.size());
     ++m_load_count;
     return true;

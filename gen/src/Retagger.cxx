@@ -1,10 +1,11 @@
 #include "WireCellGen/Retagger.h"
 #include "WireCellUtil/NamedFactory.h"
-#include "WireCellIface/SimpleFrame.h"
+#include "WireCellAux/SimpleFrame.h"
 
 WIRECELL_FACTORY(Retagger, WireCell::Gen::Retagger, WireCell::IFrameFilter, WireCell::IConfigurable)
 
 using namespace WireCell;
+using WireCell::Aux::SimpleFrame;
 
 Gen::Retagger::Retagger() {}
 

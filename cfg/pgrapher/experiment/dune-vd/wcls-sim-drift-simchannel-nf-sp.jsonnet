@@ -9,7 +9,8 @@
 local g = import 'pgraph.jsonnet';
 local f = import 'pgrapher/experiment/dune-vd/funcs.jsonnet';
 local wc = import 'wirecell.jsonnet';
-local hs = import "pgrapher/common/helpers.jsonnet";
+// Note: better switch to layers
+local dnnroi = import 'dnnroi.jsonnet';
 
 local io = import 'pgrapher/common/fileio.jsonnet';
 local tools_maker = import 'pgrapher/common/tools.jsonnet';
@@ -222,7 +223,7 @@ local multipass = [
                 // sinks.decon_pipe[n],
                 // sinks.debug_pipe[n], // use_roi_debug_mode=true in sp.jsonnet
              ] + if fcl_params.use_dnnroi then [
-                 hs.dnnroi(tools.anodes[n], ts, output_scale=1.2),
+                 dnnroi(tools.anodes[n], ts, output_scale=1.2),
                 //  sinks.dnnroi_pipe[n],
              ] else [],
              'multipass%d' % n)

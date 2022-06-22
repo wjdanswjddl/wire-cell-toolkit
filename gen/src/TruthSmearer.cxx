@@ -4,8 +4,8 @@
 #include "WireCellUtil/Units.h"
 #include "WireCellUtil/Point.h"
 #include "WireCellUtil/NamedFactory.h"
-#include "WireCellIface/SimpleTrace.h"
-#include "WireCellIface/SimpleFrame.h"
+#include "WireCellAux/SimpleTrace.h"
+#include "WireCellAux/SimpleFrame.h"
 #include "WireCellUtil/Waveform.h"
 
 #include <string>
@@ -14,6 +14,8 @@ WIRECELL_FACTORY(TruthSmearer, WireCell::Gen::TruthSmearer, WireCell::IDuctor, W
 
 using namespace std;
 using namespace WireCell;
+using WireCell::Aux::SimpleTrace;
+using WireCell::Aux::SimpleFrame;
 
 /// based on Gen::Ductor
 /// without convolution

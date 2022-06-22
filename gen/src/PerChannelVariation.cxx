@@ -2,8 +2,8 @@
 
 #include "WireCellAux/DftTools.h"
 
-#include "WireCellIface/SimpleFrame.h"
-#include "WireCellIface/SimpleTrace.h"
+#include "WireCellAux/SimpleFrame.h"
+#include "WireCellAux/SimpleTrace.h"
 
 #include "WireCellUtil/NamedFactory.h"
 #include "WireCellUtil/Response.h"
@@ -15,6 +15,8 @@ WIRECELL_FACTORY(PerChannelVariation, WireCell::Gen::PerChannelVariation, WireCe
                  WireCell::IConfigurable)
 
 using namespace WireCell;
+using WireCell::Aux::SimpleTrace;
+using WireCell::Aux::SimpleFrame;
 
 Gen::PerChannelVariation::PerChannelVariation() {}
 

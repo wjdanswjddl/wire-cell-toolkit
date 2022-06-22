@@ -26,7 +26,7 @@ base {
         gain: 1.0,
 
         // fixme: need double checking
-        baselines: [900*wc.millivolt,900*wc.millivolt,200*wc.millivolt],
+        baselines: [999.3*wc.millivolt,999.3*wc.millivolt,231.02*wc.millivolt],
 
         // fixme: need double checking
         fullscale: [0*wc.volt, 2.0*wc.volt],

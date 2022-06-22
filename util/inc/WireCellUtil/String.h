@@ -71,6 +71,9 @@ namespace WireCell {
             return ss.str();
         }
 
+        bool endswith(const std::string& whole, const std::string& part);
+        bool startswith(const std::string& whole, const std::string& part);
+
     }  // namespace String
 }  // namespace WireCell
 

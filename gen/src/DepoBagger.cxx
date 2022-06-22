@@ -1,5 +1,5 @@
 #include "WireCellGen/DepoBagger.h"
-#include "WireCellIface/SimpleDepoSet.h"
+#include "WireCellAux/SimpleDepoSet.h"
 #include "WireCellUtil/Logging.h"
 
 #include "WireCellUtil/NamedFactory.h"
@@ -43,7 +43,7 @@ bool Gen::DepoBagger::operator()(const input_pointer& depo, output_queue& depose
         log->debug("send bag #{} with {} depos followed by EOS",
                    m_count, m_depos.size());
         // even if empty, must send out something to retain sync.
-        auto out = std::make_shared<SimpleDepoSet>(m_count, m_depos);
+        auto out = std::make_shared<Aux::SimpleDepoSet>(m_count, m_depos);
         deposetqueue.push_back(out);
         m_depos.clear();
         deposetqueue.push_back(nullptr);  // pass on EOS

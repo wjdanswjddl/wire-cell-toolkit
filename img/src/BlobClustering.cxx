@@ -1,6 +1,8 @@
 #include "WireCellImg/BlobClustering.h"
+
+#include "WireCellAux/SimpleCluster.h"
+
 #include "WireCellUtil/RayClustering.h"
-#include "WireCellIface/SimpleCluster.h"
 #include "WireCellUtil/NamedFactory.h"
 
 #include "WireCellUtil/IndexedGraph.h"
@@ -156,7 +158,7 @@ void Img::BlobClustering::flush(output_queue& clusters)
     }
 
     // 3) pack and clear
-    clusters.push_back(std::make_shared<SimpleCluster>(grind.graph()));
+    clusters.push_back(std::make_shared<Aux::SimpleCluster>(grind.graph()));
     m_cache.clear();
 }
 

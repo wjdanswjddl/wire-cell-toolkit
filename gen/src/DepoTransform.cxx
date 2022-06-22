@@ -41,8 +41,8 @@
 #include "WireCellGen/ImpactTransform.h"
 #include "WireCellUtil/NamedFactory.h"
 #include "WireCellIface/IAnodePlane.h"
-#include "WireCellIface/SimpleTrace.h"
-#include "WireCellIface/SimpleFrame.h"
+#include "WireCellAux/SimpleTrace.h"
+#include "WireCellAux/SimpleFrame.h"
 #include "WireCellGen/BinnedDiffusion_transform.h"
 #include "WireCellUtil/Units.h"
 #include "WireCellUtil/Point.h"
@@ -51,6 +51,8 @@ WIRECELL_FACTORY(DepoTransform, WireCell::Gen::DepoTransform, WireCell::IDepoFra
 
 using namespace WireCell;
 using namespace std;
+using WireCell::Aux::SimpleTrace;
+using WireCell::Aux::SimpleFrame;
 
 Gen::DepoTransform::DepoTransform()
   : Aux::Logger("DepoTransform", "gen")

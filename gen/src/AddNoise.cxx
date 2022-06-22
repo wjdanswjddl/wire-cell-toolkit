@@ -3,8 +3,8 @@
 #include "WireCellAux/RandTools.h"
 #include "WireCellAux/NoiseTools.h"
 
-#include "WireCellIface/SimpleTrace.h"
-#include "WireCellIface/SimpleFrame.h"
+#include "WireCellAux/SimpleTrace.h"
+#include "WireCellAux/SimpleFrame.h"
 
 
 #include <unordered_map>
@@ -20,9 +20,17 @@ WIRECELL_FACTORY(AddNoise, WireCell::Gen::IncoherentAddNoise,
 
 using namespace std;
 using namespace WireCell;
+
+using WireCell::Aux::SimpleTrace;
+using WireCell::Aux::SimpleFrame;
+
 using namespace WireCell::Aux::RandTools;
 using namespace WireCell::Aux::NoiseTools;
+using namespace WireCell::Aux::Spectra;
 
+Gen::AddNoise::AddNoise() : Aux::Logger("AddNoise", "gen")
+{
+}
 
 Gen::IncoherentAddNoise::IncoherentAddNoise()
     : Gen::NoiseBaseT<IChannelSpectrum>("IncoherentAddNoise")

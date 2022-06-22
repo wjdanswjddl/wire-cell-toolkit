@@ -8,14 +8,17 @@
 
 #include "WireCellImg/BlobReframer.h"
 #include "WireCellUtil/NamedFactory.h"
-#include "WireCellIface/SimpleFrame.h"
-#include "WireCellIface/SimpleTrace.h"
+#include "WireCellAux/SimpleFrame.h"
+#include "WireCellAux/SimpleTrace.h"
 
 WIRECELL_FACTORY(BlobReframer, WireCell::Img::BlobReframer,
                  WireCell::INamed,
                  WireCell::IClusterFramer, WireCell::IConfigurable)
 
 using namespace WireCell;
+
+using WireCell::Aux::SimpleTrace;
+using WireCell::Aux::SimpleFrame;
 
 Img::BlobReframer::BlobReframer(const std::string& frame_tag)
     : Aux::Logger("BlobReframer", "img")

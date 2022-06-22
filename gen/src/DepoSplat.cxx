@@ -1,11 +1,8 @@
 #include "WireCellGen/DepoSplat.h"
 #include "WireCellGen/GaussianDiffusion.h"
-#include "WireCellIface/SimpleTrace.h"
 
 #include "WireCellUtil/Binning.h"
 #include "WireCellUtil/NamedFactory.h"
-
-#include <iostream>
 
 // from ductor
 #include "WireCellGen/BinnedDiffusion.h"
@@ -13,15 +10,19 @@
 #include "WireCellUtil/Units.h"
 #include "WireCellUtil/Point.h"
 #include "WireCellUtil/NamedFactory.h"
-#include "WireCellIface/SimpleTrace.h"
-#include "WireCellIface/SimpleFrame.h"
+#include "WireCellAux/SimpleTrace.h"
+#include "WireCellAux/SimpleFrame.h"
 #include <string>
+
+// #include <iostream>
 
 
 WIRECELL_FACTORY(DepoSplat, WireCell::Gen::DepoSplat, WireCell::IDuctor, WireCell::IConfigurable)
 
 using namespace std;
 using namespace WireCell;
+using WireCell::Aux::SimpleTrace;
+using WireCell::Aux::SimpleFrame;
 
 Gen::DepoSplat::~DepoSplat() {}
 

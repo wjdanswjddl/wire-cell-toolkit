@@ -1,6 +1,6 @@
 #include "WireCellGen/Framer.h"
 
-#include "WireCellIface/SimpleChannelSlice.h"
+#include "WireCellAux/SimpleChannelSlice.h"
 
 #include "WireCellUtil/Testing.h"
 #include "WireCellUtil/Units.h"
@@ -19,7 +19,7 @@ int main()
     cc[2] = 2.0;
     cc[3] = 3.0;
     const double the_time = 11.0 * units::microsecond;
-    IChannelSlice::pointer cs(new SimpleChannelSlice(the_time, cc));
+    IChannelSlice::pointer cs(new Aux::SimpleChannelSlice(the_time, cc));
 
     IFramer::output_queue frameq;
     Assert(framer(cs, frameq));

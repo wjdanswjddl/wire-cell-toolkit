@@ -64,7 +64,7 @@ local perapa_pipelines = [
         img.magnify(anode, anode.name, "reframe"),
         img.dumpframes(anode, anode.name),
       ] else [
-        img.dump(anode, anode.name, params.lar.drift_speed),
+        img.dump(anode, anode.name),
       ], 
       "img-" + anode.name) for anode in tools.anodes];
 

@@ -4,8 +4,8 @@
 
 #include "WireCellUtil/Response.h"
 
-#include "WireCellIface/SimpleFrame.h"
-#include "WireCellIface/SimpleTrace.h"
+#include "WireCellAux/SimpleFrame.h"
+#include "WireCellAux/SimpleTrace.h"
 
 #include "WireCellUtil/NamedFactory.h"
 // #include "WireCellUtil/ExecMon.h" // debugging
@@ -107,7 +107,7 @@ bool OmnibusNoiseFilter::operator()(const input_pointer& inframe, output_pointer
     if (traces.empty()) {
         log->warn("no traces for tag \"{}\", sending empty frame at call={}",
                   m_intag, m_count);
-        outframe = std::make_shared<SimpleFrame>(
+        outframe = std::make_shared<Aux::SimpleFrame>(
             inframe->ident(), inframe->time(),
             std::make_shared<ITrace::vector>(), inframe->tick());
         ++m_count;
@@ -144,12 +144,12 @@ bool OmnibusNoiseFilter::operator()(const input_pointer& inframe, output_pointer
     int nchanged_samples = 0;
 
     // Collect our working area indexed by channel.
-    std::unordered_map<int, SimpleTrace*> bychan;
+    std::unordered_map<int, Aux::SimpleTrace*> bychan;
     for (auto trace : traces) {
         int ch = trace->channel();
 
         // make working area directly in simple trace to avoid memory fragmentation
-        SimpleTrace* signal = new SimpleTrace(ch, 0, m_nticks);
+        auto signal = new Aux::SimpleTrace(ch, 0, m_nticks);
         bychan[ch] = signal;
 
         // if good
@@ -236,7 +236,7 @@ bool OmnibusNoiseFilter::operator()(const input_pointer& inframe, output_pointer
 
     bychan.clear();
 
-    auto sframe = new SimpleFrame(inframe->ident(), inframe->time(), itraces, inframe->tick(), cmm);
+    auto sframe = new Aux::SimpleFrame(inframe->ident(), inframe->time(), itraces, inframe->tick(), cmm);
     IFrame::trace_list_t indices(itraces.size());
     for (size_t ind = 0; ind < itraces.size(); ++ind) {
         indices[ind] = ind;

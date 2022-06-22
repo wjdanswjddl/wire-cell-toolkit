@@ -15,8 +15,8 @@
 #include "WireCellAux/DftTools.h"
 #include "WireCellIface/IRandom.h"
 
-#include "WireCellIface/SimpleTrace.h"
-#include "WireCellIface/SimpleFrame.h"
+#include "WireCellAux/SimpleTrace.h"
+#include "WireCellAux/SimpleFrame.h"
 
 #include "WireCellUtil/Persist.h"
 #include "WireCellUtil/NamedFactory.h"
@@ -30,6 +30,8 @@ using namespace std;
 using namespace WireCell;
 using WireCell::Aux::DftTools::inv_c2r;
 
+using WireCell::Aux::SimpleTrace;
+using WireCell::Aux::SimpleFrame;
 
 using complex_vector_t = std::vector<std::complex<float>>;
 

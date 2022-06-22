@@ -7,7 +7,8 @@
 #include "WireCellImg/ChargeSolving.h"
 #include "WireCellImg/CSGraph.h"
 
-#include "WireCellIface/SimpleCluster.h"
+#include "WireCellAux/SimpleCluster.h"
+
 #include "WireCellUtil/NamedFactory.h"
 #include "WireCellUtil/Logging.h"
 
@@ -20,8 +21,6 @@ WIRECELL_FACTORY(ChargeSolving, WireCell::Img::ChargeSolving,
 using namespace WireCell;
 using namespace WireCell::Img;
 using namespace WireCell::Img::CS;
-
-
 
 Img::ChargeSolving::ChargeSolving()
     : Aux::Logger("ChargeSolving", "img")
@@ -43,9 +42,11 @@ WireCell::Configuration Img::ChargeSolving::default_configuration() const
     for (const auto& one : m_weighting_strategies) {
         cfg["weighting_strategies"].append(one);
     }
+    cfg["whiten"] = m_whiten;
 
     return cfg;
 }
+
 
 
 void blob_weight_uniform(const cluster_graph_t& /*cgraph*/, graph_t& csg)
@@ -58,6 +59,7 @@ void blob_weight_uniform(const cluster_graph_t& /*cgraph*/, graph_t& csg)
         vtx.value.uncertainty(1.0);
     }
 }
+
 void blob_weight_simple(const cluster_graph_t& cgraph, graph_t& csg)
 {
     for (auto desc : vertex_range(csg)) {
@@ -75,7 +77,7 @@ void blob_weight_simple(const cluster_graph_t& cgraph, graph_t& csg)
             vdesc_t ndesc = boost::target(edge, cgraph);
             const auto& nnode = cgraph[ndesc];
             if (nnode.code() == 'b') {
-                slice_idents.insert(get<blob_node_t>(nnode.ptr)->slice()->ident());
+                slice_idents.insert(get<blob_t>(nnode.ptr)->slice()->ident());
             }
         }
         vtx.value.uncertainty((float) slice_idents.size());
@@ -92,7 +94,7 @@ static blob_weighting_lut gStrategies{
     // distance....
 };
 
-
+// this depends on gStrategies.
 void Img::ChargeSolving::configure(const WireCell::Configuration& cfg)
 {
     float mt_val = get(cfg,"meas_value_threshold", m_meas_thresh.value());
@@ -114,27 +116,30 @@ void Img::ChargeSolving::configure(const WireCell::Configuration& cfg)
             THROW(ValueError() << errmsg{"Unknown weighting strategy: " + strat});
         }
     }
+    m_whiten = get<bool>(cfg, "whiten", m_whiten);
 }
+
 
 static void dump_cg(const cluster_graph_t& cg, Log::logptr_t& log)
 {
-    size_t mcount{0};
+    size_t mcount{0}, bcount{0};
     value_t bval;
     for (const auto& vtx : mir(boost::vertices(cg))) {
         const auto& node = cg[vtx];
         if (node.code() == 'b') {
-            const auto iblob = get<blob_node_t>(node.ptr);
+            const auto iblob = get<blob_t>(node.ptr);
             bval += value_t(iblob->value(), iblob->uncertainty());
+            ++bcount;
             continue;
         }
         if (node.code() == 'm') {
-            const auto imeas = get<meas_node_t>(node.ptr);
-            mcount += imeas->size();
+            const auto imeas = get<meas_t>(node.ptr);
+            ++mcount;
         }
     }
-    log->debug("cluster graph: vertices={} edges={} bval={} #chan={}",
+    log->debug("cluster graph: vertices={} edges={} $blob={} bval={} #meas={}",
                boost::num_vertices(cg), boost::num_edges(cg),
-               bval, mcount);
+               bcount, bval, mcount);
 }
 
 static void dump_sg(const graph_t& sg, Log::logptr_t& log)
@@ -198,8 +203,9 @@ bool Img::ChargeSolving::operator()(const input_pointer& in, output_pointer& out
     // }
 
     const size_t nstrats = m_weighting_strategies.size();
+    std::vector<float> blob_threshold(nstrats, 0); // fixme make configurable
 
-    SolveParams sparams{Ress::Params{Ress::lasso}};
+    SolveParams sparams{Ress::Params{Ress::lasso}, 1000, m_whiten};
     for (size_t ind = 0; ind < nstrats; ++ind) {
         const auto& strategy = m_weighting_strategies[ind];
         log->debug("cluster: {} strategy={}",
@@ -211,11 +217,8 @@ bool Img::ChargeSolving::operator()(const input_pointer& in, output_pointer& out
                        [&](graph_t& sg) {
                            //dump_sg(sg, log);
                            blob_weighter(in_graph, sg);
-                           auto new_csg = solve(sg, sparams);
-
-                           // fixme: add blob threshold pruning
-
-                           return new_csg;
+                           auto tmp_csg = solve(sg, sparams);
+                           return prune(tmp_csg, blob_threshold[ind]);
                        });
     }
     for (const auto& sg : sgs) {
@@ -231,7 +234,7 @@ bool Img::ChargeSolving::operator()(const input_pointer& in, output_pointer& out
                boost::num_vertices(packed),
                boost::num_edges(packed));
 
-    out = std::make_shared<SimpleCluster>(packed, in->ident());
+    out = std::make_shared<Aux::SimpleCluster>(packed, in->ident());
     return true;
 }
 

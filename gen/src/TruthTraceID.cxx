@@ -3,8 +3,8 @@
 
 #include "WireCellAux/DftTools.h"
 
-#include "WireCellIface/SimpleTrace.h"
-#include "WireCellIface/SimpleFrame.h"
+#include "WireCellAux/SimpleTrace.h"
+#include "WireCellAux/SimpleFrame.h"
 
 #include "WireCellUtil/Units.h"
 #include "WireCellUtil/Point.h"
@@ -17,7 +17,8 @@ WIRECELL_FACTORY(TruthTraceID, WireCell::Gen::TruthTraceID, WireCell::IDuctor, W
 using namespace std;
 using namespace WireCell;
 using WireCell::Aux::DftTools::inv_c2r;
-
+using WireCell::Aux::SimpleTrace;
+using WireCell::Aux::SimpleFrame;
 
 Gen::TruthTraceID::TruthTraceID()
   : m_anode_tn("AnodePlane")

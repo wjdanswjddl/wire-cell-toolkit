@@ -20,7 +20,6 @@
 #include "WireCellIface/IChannelResponse.h"
 #include "WireCellIface/IChannelSpectrum.h"
 #include "WireCellIface/IChannelStatus.h"
-#include "WireCellIface/ICluster.h"
 #include "WireCellIface/IClusterFanin.h"
 #include "WireCellIface/IClusterFilter.h"
 #include "WireCellIface/IClusterFramer.h"
@@ -65,6 +64,7 @@
 #include "WireCellIface/IGroupSpectrum.h"
 #include "WireCellIface/IHydraNode.h"
 #include "WireCellIface/IJoinNode.h"
+#include "WireCellIface/IMeasure.h"
 #include "WireCellIface/INamed.h"
 #include "WireCellIface/INode.h"
 #include "WireCellIface/IPlaneImpactResponse.h"
@@ -102,9 +102,6 @@
 #include "WireCellIface/IWireSource.h"
 #include "WireCellIface/IWireSummarizer.h"
 #include "WireCellIface/IWireSummary.h"
-#include "WireCellIface/SimpleBlob.h"
-#include "WireCellIface/SimpleDepoSet.h"
-#include "WireCellIface/SimpleWire.h"
 
 using namespace WireCell;
 
@@ -121,7 +118,6 @@ IChannelNoiseDatabase::~IChannelNoiseDatabase() {}
 IChannelResponse::~IChannelResponse() {}
 IChannelSpectrum::~IChannelSpectrum() {}
 IChannelStatus::~IChannelStatus() {}
-ICluster::~ICluster() {}
 IClusterFanin::~IClusterFanin() {}
 IClusterFilter::~IClusterFilter() {}
 IClusterFramer::~IClusterFramer() {}
@@ -167,6 +163,7 @@ IGroupSpectrum::~IGroupSpectrum() {}
 IHydraNodeBase::~IHydraNodeBase() {}
 IImpactResponse::~IImpactResponse() {}
 IJoinNodeBase::~IJoinNodeBase() {}
+IMeasure::~IMeasure() {}
 INamed::~INamed() {}
 INode::~INode() {}
 IPlaneImpactResponse::~IPlaneImpactResponse() {}
@@ -202,7 +199,4 @@ IWireSchema::~IWireSchema() {}
 IWireSource::~IWireSource() {}
 IWireSummarizer::~IWireSummarizer() {}
 IWireSummary::~IWireSummary() {}
-SimpleBlob::~SimpleBlob() {}
-SimpleBlobSet::~SimpleBlobSet() {}
-SimpleDepoSet::~SimpleDepoSet() {}
-SimpleWire::~SimpleWire() {}
+

@@ -3,7 +3,7 @@
 #include "WireCellUtil/Testing.h"
 #include "WireCellIface/IDepoFanout.h"
 #include "WireCellIface/IConfigurable.h"
-#include "WireCellIface/SimpleDepo.h"
+#include "WireCellAux/SimpleDepo.h"
 
 using namespace WireCell;
 
@@ -27,7 +27,7 @@ int main()
     Assert(dfo->output_types().size() == multiplicity);
 
     const int ident = 42;
-    auto realdepo = std::make_shared<SimpleDepo>(0, Point(0, 0, 0), 1.0, nullptr, 0, 0, ident);
+    auto realdepo = std::make_shared<Aux::SimpleDepo>(0, Point(0, 0, 0), 1.0, nullptr, 0, 0, ident);
 
     for (auto depo : IDepo::vector({realdepo, nullptr})) {
         IDepoFanout::output_vector outv;

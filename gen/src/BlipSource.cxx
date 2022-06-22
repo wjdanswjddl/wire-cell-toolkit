@@ -1,5 +1,5 @@
 #include "WireCellGen/BlipSource.h"
-#include "WireCellIface/SimpleDepo.h"
+#include "WireCellAux/SimpleDepo.h"
 #include "WireCellUtil/NamedFactory.h"
 #include "WireCellUtil/Exceptions.h"
 
@@ -8,6 +8,7 @@
 WIRECELL_FACTORY(BlipSource, WireCell::Gen::BlipSource, WireCell::IDepoSource, WireCell::IConfigurable)
 
 using namespace WireCell;
+using WireCell::Aux::SimpleDepo;
 
 Gen::BlipSource::BlipSource()
   : m_rng_tn("Random")

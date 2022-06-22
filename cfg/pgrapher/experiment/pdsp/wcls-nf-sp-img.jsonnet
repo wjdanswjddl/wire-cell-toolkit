@@ -92,7 +92,7 @@ local make_a_pipe = function(ind) {
         img.slicing(anode, aname),
         img.tiling(anode, aname),
         img.solving(anode, aname),
-        img.dump(anode, aname, params.lar.drift_speed),
+        img.dump(anode, aname),
     ], "nf-sp-img-" + aname)
 }.ret;
 local perapa_pipes = [ make_a_pipe(ind) for ind in anode_indices];

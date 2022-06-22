@@ -5,8 +5,8 @@
 
 #include "WireCellAux/DftTools.h"
 
-#include "WireCellIface/SimpleFrame.h"
-#include "WireCellIface/SimpleTrace.h"
+#include "WireCellAux/SimpleFrame.h"
+#include "WireCellAux/SimpleTrace.h"
 
 #include "WireCellIface/IFieldResponse.h"
 #include "WireCellIface/IFilterWaveform.h"
@@ -478,7 +478,7 @@ void OmnibusSigProc::save_data(
 
                 // save out
                 const int tbin = i1 - beg;
-                SimpleTrace* trace = new SimpleTrace(och.ident, tbin, q);
+                auto trace = new Aux::SimpleTrace(och.ident, tbin, q);
                 const size_t trace_index = itraces.size();
                 indices.push_back(trace_index);
                 itraces.push_back(ITrace::pointer(trace));
@@ -490,7 +490,7 @@ void OmnibusSigProc::save_data(
         }
         else {
             // Save the waveform densely, including zeros.
-            SimpleTrace* trace = new SimpleTrace(och.ident, 0, charge);
+            auto trace = new Aux::SimpleTrace(och.ident, 0, charge);
             const size_t trace_index = itraces.size();
             indices.push_back(trace_index);
             itraces.push_back(ITrace::pointer(trace));
@@ -575,7 +575,7 @@ void OmnibusSigProc::save_roi(ITrace::vector& itraces, IFrame::trace_list_t& ind
 
                 // save out
                 const int tbin = i1 - beg;
-                SimpleTrace* trace = new SimpleTrace(och.ident, tbin, q);
+                auto trace = new Aux::SimpleTrace(och.ident, tbin, q);
                 const size_t trace_index = itraces.size();
                 indices.push_back(trace_index);
                 itraces.push_back(ITrace::pointer(trace));
@@ -589,7 +589,7 @@ void OmnibusSigProc::save_roi(ITrace::vector& itraces, IFrame::trace_list_t& ind
         }
         else {
             // Save the waveform densely, including zeros.
-            SimpleTrace* trace = new SimpleTrace(och.ident, 0, charge);
+            auto trace = new Aux::SimpleTrace(och.ident, 0, charge);
             const size_t trace_index = itraces.size();
             indices.push_back(trace_index);
             itraces.push_back(ITrace::pointer(trace));
@@ -658,7 +658,7 @@ void OmnibusSigProc::save_ext_roi(ITrace::vector& itraces, IFrame::trace_list_t&
 
                 // save out
                 const int tbin = i1 - beg;
-                SimpleTrace* trace = new SimpleTrace(och.ident, tbin, q);
+                auto trace = new Aux::SimpleTrace(och.ident, tbin, q);
                 const size_t trace_index = itraces.size();
                 indices.push_back(trace_index);
                 itraces.push_back(ITrace::pointer(trace));
@@ -672,7 +672,7 @@ void OmnibusSigProc::save_ext_roi(ITrace::vector& itraces, IFrame::trace_list_t&
         }
         else {
             // Save the waveform densely, including zeros.
-            SimpleTrace* trace = new SimpleTrace(och.ident, 0, charge);
+            auto trace = new Aux::SimpleTrace(och.ident, 0, charge);
             const size_t trace_index = itraces.size();
             indices.push_back(trace_index);
             itraces.push_back(ITrace::pointer(trace));
@@ -725,7 +725,7 @@ void OmnibusSigProc::save_mproi(ITrace::vector& itraces, IFrame::trace_list_t& i
 
                 // save out
                 const int tbin = i1 - beg;
-                SimpleTrace* trace = new SimpleTrace(och.ident, tbin, q);
+                auto trace = new Aux::SimpleTrace(och.ident, tbin, q);
                 const size_t trace_index = itraces.size();
                 indices.push_back(trace_index);
                 itraces.push_back(ITrace::pointer(trace));
@@ -736,7 +736,7 @@ void OmnibusSigProc::save_mproi(ITrace::vector& itraces, IFrame::trace_list_t& i
         }
         else {
             // Save the waveform densely, including zeros.
-            SimpleTrace* trace = new SimpleTrace(och.ident, 0, charge);
+            auto trace = new Aux::SimpleTrace(och.ident, 0, charge);
             const size_t trace_index = itraces.size();
             indices.push_back(trace_index);
             itraces.push_back(ITrace::pointer(trace));
@@ -905,6 +905,7 @@ void OmnibusSigProc::init_overall_response(IFrame::pointer frame)
 
 void OmnibusSigProc::restore_baseline(Array::array_xxf& arr)
 {
+    int nempty=0;
     for (int i = 0; i != arr.rows(); i++) {
         Waveform::realseq_t signal(arr.cols());
         int ncount = 0;
@@ -913,6 +914,10 @@ void OmnibusSigProc::restore_baseline(Array::array_xxf& arr)
                 signal.at(ncount) = arr(i, j);
                 ncount++;
             }
+        }
+        if (!ncount) {
+            ++nempty;
+            continue;
         }
         signal.resize(ncount);
         float baseline = WireCell::Waveform::median(signal);
@@ -932,6 +937,10 @@ void OmnibusSigProc::restore_baseline(Array::array_xxf& arr)
         for (int j = 0; j != arr.cols(); j++) {
             if (arr(i, j) != 0) arr(i, j) -= baseline;
         }
+    }
+    if (nempty) {
+        log->debug("{} empty rows out of size=({},{})",
+                   nempty, arr.rows(), arr.cols());
     }
 }
 
@@ -1384,7 +1393,7 @@ bool OmnibusSigProc::operator()(const input_pointer& in, output_pointer& out)
     }
     const size_t ntraces = in->traces()->size();
     if (!ntraces) {
-        out = std::make_shared<SimpleFrame>(in->ident(), in->time(), std::make_shared<ITrace::vector>(), in->tick());
+        out = std::make_shared<Aux::SimpleFrame>(in->ident(), in->time(), std::make_shared<ITrace::vector>(), in->tick());
         log->debug("call={} forwarding empty frame={} ",
                    m_count, out->ident());
         ++m_count;
@@ -1594,7 +1603,7 @@ bool OmnibusSigProc::operator()(const input_pointer& in, output_pointer& out)
         }
     }
 
-    SimpleFrame* sframe = new SimpleFrame(in->ident(), in->time(), ITrace::shared_vector(itraces), in->tick(), m_cmm);
+    auto sframe = new Aux::SimpleFrame(in->ident(), in->time(), ITrace::shared_vector(itraces), in->tick(), m_cmm);
     sframe->tag_frame(m_frame_tag);
 
     // this assumes save_data produces itraces in OSP channel order

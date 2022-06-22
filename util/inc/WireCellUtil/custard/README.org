@@ -1,0 +1,150 @@
+#+title: 🍮 custard
+#+EXPORT_FILE_NAME: index.html
+#+setupfile: other/setup-page.org
+
+* Overview
+
+*custard* provides support for reading and writing data in ~tar~ and other
+formats to C++ applications in the form of a few "single-file,
+header-only" libraries.  An application may include only those headers
+needed to provide desired functionality:
+
+- [[file:custard.hpp][~custard.hpp~]] :: core support for encoding and decoding ~tar~ archive
+  member headers through a ~custard::Header~ class.  The codec is via
+  class methods and not I/O is provided.  Applications that wish to
+  handle I/O may find this header useful on its own.
+
+- [[file:custard_file.hpp][~custard_file.hpp~]] :: adds to *core* support for simple I/O via
+  ~std::stream~ with the ~custard::File~ class.  Some details of ~tar~
+  format are exposed to the application code but this header is useful
+  for simple applications wanting only ~tar~ file support with no
+  additional dependencies.
+
+- [[file:custard_stream.hpp][~custard_stream.hpp~]] :: adds to *core* support for serializing
+  ~custard::Header~ through the simple *custard stream codec* (described
+  below).  On its own, this library is not useful to an application
+  developer but provides base support for more useful libraries.
+
+- [[file:custard_boost.hpp][~custard_boost.hpp~]] :: adds *core* and *stream* support for
+  ~boost::iostreams~ in the form of input and output filters.  These
+  filters may work along with Boost's ~lzmq~ (xz), ~gzip~ and ~bzip2~
+  filters or a provided filter to run external programs such as [[https://github.com/vasi/pixz/][pixz]]
+  to support compressed ~tar~ streams.  Through the use of *custard
+  stream codec*, most details of the ~tar~ format need not be exposed to
+  the application.
+
+*custard* also provides *pigenc* (still under development and may be
+broken out to its own package).  It provides this functionality:
+
+- [[file:pigenc.hpp][~pigenc.hpp~]] :: provides a codec compatible with Numpy ~.npy~ file
+  format requiring minimal dependencies (~nlohmann::json~).
+
+- [[file:custard_pigenc.hpp][~custard_pigenc.hpp~]] :: adds to *stream* and *pigenc* support for
+  serializing C++ numerical collection types such as ~Eigen::Array~ and
+  ~std::vector~
+
+*custard* also provides optional *boost streams* for *zip* with the heavy
+lifting by [[https://github.com/richgel999/miniz/][miniz]].  To build this support one must define
+~CUSTARD_BOOST_USE_MINIZ~ prior to including the Boost support:
+
+#+begin_src c++
+  #define CUSTARD_BOOST_USE_MINIZ
+  #include "custard_boost.hpp"
+#+end_src
+
+This requires the user to provide the "amalgamated" ~miniz.h~ in the
+include path and to compile the "amalgamated" ~miniz.c~ into a user
+library.  Copies of these file are provided by custard or may be
+retrieved by the user:
+
+#+begin_example
+git clone https://github.com/richgel999/miniz.git
+cd miniz
+./amalgamate.sh
+cp amalgamation/miniz.h /path/to/user/include
+cp amalgamation/miniz.c /path/to/user/src
+#+end_example 
+
+
+* Custard Stream Codec
+
+The custard stream codec is essentially a simplification of the tar
+stream codec and can be used for other final formats such as zip.
+Formally, the stream is described as,
+
+#+begin_example
+   stream = *member
+   member = name *option body
+   name = "name" SP namestring LF
+   body = "body" SP numstring LF data
+   data = *OCTET
+   option = ("mode" / "mtime" / "uid" / "gid") SP numstring LF
+   option /= ("uname" / "gname" ) SP identstring LF
+#+end_example
+
+Informally, a custard stream consists of a sequence of members and
+each member a sequence of fields.  A field begins with a keyword
+literal string (eg. ~name~), followed by a space and then by a value
+which is terminated with a linefeed (~LF~).  The order of the fields
+are fixed though ~options~ may have arbitrary order.  An archive
+member (file) ~name~ must be the first, zero or more ~options~ may
+follow and the stream ends with a ~body~ field giving a string
+representation of a numeric value.  After the ~body~ field a sequence
+of arbitrary byte values but of a number fixed by the ~body~ value
+~numstring~ follow.  These bytes are the contents of the archive
+(file) member.
+
+* TODO
+
+This package works but lacks some niceties.  Some things still needed:
+
+- [ ] version strings
+- [ ] debug/verbose logging
+- [X] document custard stream codec
+- [ ] factor *pigenc* to allow use w/ or w/out *custard*
+- [ ] real installation (pkg-config, cmake)
+- [ ] add an ~arc_writer~ filter accepting a custard stream, appending a
+  suffix to each name, sending body through a given iostream and
+  finally merging new name and body to produce an output custard
+  stream.  The intention is to apply per file compression to tar
+  contents.
+- [X] ~zip~ format
+- [ ] actually test ~zip~
+- [ ] refactor ~tar_writer~ to use the custard header parser
+
+* Installation
+
+Currently, no special installation method is provided.  A developer
+may, for example, copy the desired headers into their source.  
+
+See below for license info.
+
+* Testing and examples
+
+The package provides a number of ~test_*.cpp~ program source files which
+test proper function and serve as an example.  They can be built and
+exercised by typing:
+
+#+begin_example
+  $ make
+#+end_example
+
+The tests may be run separate from building with:
+
+#+begin_example
+  $ bats test.bats
+#+end_example
+
+
+* Names
+
+The name *custard* comes from the mashing of the "C" in C++ and the
+~ustar~ "magic" string in tar files.  The name *pigenc* is somehow a mash
+of "Python", "Numpy", "Eigen" and "encode".
+
+* License
+
+*custard* is free software and may be used under the terms described in
+the file [[file:COPYING][COPYING]].  
+
+

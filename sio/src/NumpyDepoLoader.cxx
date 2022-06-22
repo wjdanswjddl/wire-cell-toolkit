@@ -6,7 +6,6 @@
 #include "WireCellUtil/Point.h"
 #include "WireCellUtil/NumpyHelper.h"
 #include "WireCellAux/Logger.h"
-#include "WireCellIface/SimpleDepo.h"
 
 #include <string>
 #include <vector>
