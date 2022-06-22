@@ -19,8 +19,6 @@ WIRECELL_FACTORY(L1SPFilter, WireCell::SigProc::L1SPFilter, WireCell::IFrameFilt
 using namespace Eigen;
 using namespace WireCell;
 using namespace WireCell::SigProc;
-using WireCell::Aux::SimpleFrame;
-using WireCell::Aux::SimpleTrace;
 
 using WireCell::Aux::DftTools::fwd_r2c;
 using WireCell::Aux::DftTools::inv_c2r;
@@ -342,7 +340,7 @@ bool L1SPFilter::operator()(const input_pointer& in, output_pointer& out)
     std::map<int, std::vector<int>> map_ch_flag_rois;
     // prepare for the output signal ...
     for (auto trace : sigtraces) {
-        auto newtrace = std::make_shared<SimpleTrace>(trace->channel(), trace->tbin(), trace->charge());
+        auto newtrace = std::make_shared<Aux::SimpleTrace>(trace->channel(), trace->tbin(), trace->charge());
         // How to access the sigtraces together ???
         if (map_ch_rois.find(trace->channel()) != map_ch_rois.end()) {
             std::vector<std::pair<int, int>>& rois_save = map_ch_rois[trace->channel()];
@@ -414,7 +412,7 @@ bool L1SPFilter::operator()(const input_pointer& in, output_pointer& out)
     }
 
     for (size_t i2 = 0; i2 != out_traces.size(); i2++) {
-        auto new_trace = std::make_shared<SimpleTrace>(out_traces.at(i2)->channel(), out_traces.at(i2)->tbin(),
+        auto new_trace = std::make_shared<Aux::SimpleTrace>(out_traces.at(i2)->channel(), out_traces.at(i2)->tbin(),
                                                        out_traces.at(i2)->charge());
         int ch = out_traces.at(i2)->channel();
         if (map_ch_rois.find(ch) != map_ch_rois.end()) {
@@ -467,14 +465,14 @@ bool L1SPFilter::operator()(const input_pointer& in, output_pointer& out)
     IFrame::trace_list_t tl(out_traces.size());
     std::iota(tl.begin(), tl.end(), 0);
 
-    auto sf = new SimpleFrame(in->ident(), in->time(), out_traces, in->tick());
+    auto sf = new Aux::SimpleFrame(in->ident(), in->time(), out_traces, in->tick());
     sf->tag_traces(outtag, tl);
     out = IFrame::pointer(sf);
 
     return true;
 }
 
-int L1SPFilter::L1_fit(std::shared_ptr<SimpleTrace>& newtrace,
+int L1SPFilter::L1_fit(std::shared_ptr<Aux::SimpleTrace>& newtrace,
                        std::shared_ptr<const WireCell::ITrace>& adctrace, int start_tick, int end_tick,
                        bool flag_shorted)
 {

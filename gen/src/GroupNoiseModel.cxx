@@ -54,9 +54,6 @@ void Gen::GroupNoiseModel::configure(const WireCell::Configuration& cfg)
     // desired for generated waveforms:
     const double spec_scale = get(cfg, "scale", 1.0);
     const size_t nsamples = get(cfg, "nsamples", 1024);
-    // Desired "half" spectrum size including the Nyquist bin if
-    // nsamples happens to be even.
-    const size_t nhalf = 1 + (size_t)floor(nsamples/2);
     const double tick = get(cfg, "tick", 0.5*units::us);
 
     size_t errors = 0;

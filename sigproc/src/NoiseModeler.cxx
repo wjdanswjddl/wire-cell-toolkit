@@ -60,6 +60,8 @@ WireCell::Configuration NoiseModeler::default_configuration() const
     // The name of file to write at terminate time.  It should have an
     // extension indicating uncompressed .json or compressed
     // .json.bz2.
+    //
+    // See aux/docs/noise.org for details of this format.
     cfg["outname"] = Json::nullValue;
 
     return cfg;
@@ -187,24 +189,6 @@ bool NoiseModeler::operator()(const input_pointer& adcframe)
 
 void NoiseModeler::finalize()
 {
-    //// Full schema used by EmpericalNoiseModel
-    // jentry["plane"].asInt();
-    // jentry["nsamples"].asInt();
-    // jentry["period"].asFloat();
-    // jentry["gain"].asFloat();
-    // jentry["shaping"].asFloat();
-    // jentry["wirelen"].asFloat();
-    // jentry["const"].asFloat();
-    // jentry["freqs"];
-    // jentry["amps"];
-
-    //// we include
-    // nsamples, period, freqs, amps
-    //// We add
-    // "groupID"
-    //// We exclude
-    // plane, gain, shaping, wirelen, const
-
     const size_t nout = 2*m_nhalfout;
     Json::Value jout = Json::arrayValue;
     for (const auto& [gid, col] : m_gcol) {

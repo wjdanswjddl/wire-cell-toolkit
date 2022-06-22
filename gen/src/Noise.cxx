@@ -3,9 +3,6 @@
 #include "WireCellAux/DftTools.h"
 #include "WireCellAux/RandTools.h"
 
-#include "WireCellIface/SimpleTrace.h"
-#include "WireCellIface/SimpleFrame.h"
-
 #include "WireCellUtil/NamedFactory.h"
 
 #include <unordered_set>

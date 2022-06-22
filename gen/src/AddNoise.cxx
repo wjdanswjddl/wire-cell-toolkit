@@ -26,11 +26,6 @@ using WireCell::Aux::SimpleFrame;
 
 using namespace WireCell::Aux::RandTools;
 using namespace WireCell::Aux::NoiseTools;
-using namespace WireCell::Aux::Spectra;
-
-Gen::AddNoise::AddNoise() : Aux::Logger("AddNoise", "gen")
-{
-}
 
 Gen::IncoherentAddNoise::IncoherentAddNoise()
     : Gen::NoiseBaseT<IChannelSpectrum>("IncoherentAddNoise")

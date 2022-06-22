@@ -3,8 +3,8 @@
 #include "WireCellAux/FrameTools.h"
 
 #include "WireCellIface/IAnodePlane.h"
-#include "WireCellIface/SimpleFrame.h"
-#include "WireCellIface/SimpleTrace.h"
+#include "WireCellAux/SimpleFrame.h"
+#include "WireCellAux/SimpleTrace.h"
 
 #include "WireCellUtil/Units.h"
 #include "WireCellUtil/Persist.h"
@@ -103,7 +103,7 @@ void Undigitizer::configure(const WireCell::Configuration& cfg)
             const float vout = adc/adcmax*(fullscale[1]-fullscale[0]) + fullscale[0];
             voltage[ind] = (vout-baseline[plane])/gain;
         }
-        return std::make_shared<SimpleTrace>(trace->channel(), trace->tbin(), voltage);
+        return std::make_shared<Aux::SimpleTrace>(trace->channel(), trace->tbin(), voltage);
     };        
         
 }
@@ -128,10 +128,10 @@ bool Undigitizer::operator()(const input_pointer& adcframe, output_pointer& vfra
     for (const auto& trace : adctraces) {
         vtraces.push_back(m_dac(trace));
     }
-    vframe = std::make_shared<SimpleFrame>(adcframe->ident(),
-                                           adcframe->time(),
-                                           vtraces,
-                                           adcframe->tick());
+    vframe = std::make_shared<Aux::SimpleFrame>(adcframe->ident(),
+                                                adcframe->time(),
+                                                vtraces,
+                                                adcframe->tick());
     ++m_count;
     return true;
 }
