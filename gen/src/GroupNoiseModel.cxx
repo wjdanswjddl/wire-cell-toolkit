@@ -102,6 +102,11 @@ void Gen::GroupNoiseModel::configure(const WireCell::Configuration& cfg)
 
         // The original waveform size and sampling period
         const size_t norig = jso["nsamples"].asInt();
+        if (!norig) {
+            log->critical("group {} lacks required \"nsamples\"", group);
+            ++errors;
+            continue;
+        }
         const double porig = jso["period"].asInt();
 
         const auto jfreqs = jso["freqs"];
@@ -125,6 +130,7 @@ void Gen::GroupNoiseModel::configure(const WireCell::Configuration& cfg)
         irrterp<float> terp(pts.begin(), pts.end());
         std::vector<float> sorig(norig, 0);
         terp(sorig.begin(), norig, 0, Frayleigh);
+
         Spectrum::hermitian_mirror(sorig.begin(), sorig.end());
 
         std::vector<float> spec(nsamples, 0);

@@ -46,7 +46,7 @@ WireCell::Configuration Undigitizer::default_configuration() const
     // in [voltage]
     cfg["fullscale"] = Json::arrayValue;
     // in [voltage]
-    cfg["baseline"] = Json::arrayValue;
+    cfg["baselines"] = Json::arrayValue;
 
     return cfg;
 }
@@ -72,9 +72,9 @@ void Undigitizer::configure(const WireCell::Configuration& cfg)
         ++errors;
     }
 
-    const auto baseline = get<std::vector<double>>(cfg, "baseline");
-    if (baseline.empty()) {
-        log->critical("baseline array is empty");
+    const auto baselines = get<std::vector<double>>(cfg, "baselines");
+    if (baselines.empty()) {
+        log->critical("baselines array is empty");
         ++errors;
     }
 
@@ -101,7 +101,7 @@ void Undigitizer::configure(const WireCell::Configuration& cfg)
             adc = std::max(adc, adcmin);
             adc = std::min(adc, adcmax);
             const float vout = adc/adcmax*(fullscale[1]-fullscale[0]) + fullscale[0];
-            voltage[ind] = (vout-baseline[plane])/gain;
+            voltage[ind] = (vout-baselines[plane])/gain;
         }
         return std::make_shared<Aux::SimpleTrace>(trace->channel(), trace->tbin(), voltage);
     };        

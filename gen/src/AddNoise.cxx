@@ -76,6 +76,9 @@ bool Gen::IncoherentAddNoise::operator()(const input_pointer& inframe, output_po
         for (auto& [mtn, model] : m_models) {
             const auto& spec = model->channel_spectrum(chid);
 
+            if (spec.empty()) {
+                continue;       // channel not in model
+            }
             // The model spec size may differ than expected nsamples.
             // We could interpolate to correct for that which would
             // slow things down.  Better to correct the model(s) code
@@ -149,6 +152,10 @@ bool Gen::CoherentAddNoise::operator()(const input_pointer& inframe, output_poin
             int grpid = model->groupid(chid);
             if (gwlu.find(grpid) == gwlu.end()) {
                 const auto& spec = model->group_spectrum(grpid);
+                
+                if (spec.empty()) {
+                    continue;       // channel not in model
+                }
 
                 // The model spec size may differ than expected nsamples.
                 // We could interpolate to correct for that which would
