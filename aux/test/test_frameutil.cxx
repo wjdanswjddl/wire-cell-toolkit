@@ -1,13 +1,15 @@
 #include "WireCellAux/FrameTools.h"
 #include "WireCellUtil/Testing.h"
 #include "WireCellUtil/Units.h"
-#include "WireCellIface/SimpleFrame.h"
-#include "WireCellIface/SimpleTrace.h"
+#include "WireCellAux/SimpleFrame.h"
+#include "WireCellAux/SimpleTrace.h"
 
 #include <iostream>
 
 using namespace std;
 using namespace WireCell;
+using WireCell::Aux::SimpleTrace;
+using WireCell::Aux::SimpleFrame;
 
 int main()
 {

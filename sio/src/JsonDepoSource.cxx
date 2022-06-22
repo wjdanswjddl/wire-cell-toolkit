@@ -2,7 +2,7 @@
 
 #include "WireCellIface/IRecombinationModel.h"
 
-#include "WireCellIface/SimpleDepo.h"
+#include "WireCellAux/SimpleDepo.h"
 #include "WireCellUtil/NamedFactory.h"
 
 #include "WireCellUtil/Point.h"
@@ -112,7 +112,7 @@ WireCell::Configuration Sio::JsonDepoSource::default_configuration() const
 IDepo::pointer Sio::JsonDepoSource::jdepo2idepo(Json::Value jdepo)
 {
     const double q = (*m_adapter)(jdepo);
-    auto idepo = std::make_shared<SimpleDepo>(
+    auto idepo = std::make_shared<Aux::SimpleDepo>(
         get(jdepo, "t", 0.0), Point(get(jdepo, "x", 0.0), get(jdepo, "y", 0.0), get(jdepo, "z", 0.0)), q);
     return idepo;
 }

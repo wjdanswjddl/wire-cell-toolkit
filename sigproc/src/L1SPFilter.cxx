@@ -2,12 +2,11 @@
 
 #include "WireCellAux/DftTools.h"
 #include "WireCellAux/FrameTools.h"
+#include "WireCellAux/SimpleFrame.h"
 
-#include "WireCellIface/SimpleFrame.h"
 #include "WireCellIface/IFieldResponse.h"
 
 #include "WireCellUtil/LassoModel.h"
-
 #include "WireCellUtil/NamedFactory.h"
 
 #include <Eigen/Dense>
@@ -20,6 +19,8 @@ WIRECELL_FACTORY(L1SPFilter, WireCell::SigProc::L1SPFilter, WireCell::IFrameFilt
 using namespace Eigen;
 using namespace WireCell;
 using namespace WireCell::SigProc;
+using WireCell::Aux::SimpleFrame;
+using WireCell::Aux::SimpleTrace;
 
 L1SPFilter::L1SPFilter(double gain, double shaping, double postgain, double ADC_mV, double fine_time_offset,
                        double coarse_time_offset)
@@ -469,7 +470,7 @@ bool L1SPFilter::operator()(const input_pointer& in, output_pointer& out)
     return true;
 }
 
-int L1SPFilter::L1_fit(std::shared_ptr<WireCell::SimpleTrace>& newtrace,
+int L1SPFilter::L1_fit(std::shared_ptr<SimpleTrace>& newtrace,
                        std::shared_ptr<const WireCell::ITrace>& adctrace, int start_tick, int end_tick,
                        bool flag_shorted)
 {

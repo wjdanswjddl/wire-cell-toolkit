@@ -1,8 +1,8 @@
 #include "WireCellImg/ChargeErrorFrameEstimator.h"
-#include "WireCellIface/SimpleFrame.h"
-#include "WireCellIface/SimpleTrace.h"
 #include "WireCellIface/IWaveformMap.h"
 #include "WireCellAux/FrameTools.h"
+#include "WireCellAux/SimpleFrame.h"
+#include "WireCellAux/SimpleTrace.h"
 
 #include "WireCellUtil/Units.h"
 #include "WireCellUtil/NamedFactory.h"
@@ -14,6 +14,10 @@ WIRECELL_FACTORY(ChargeErrorFrameEstimator, WireCell::Img::ChargeErrorFrameEstim
 
 using namespace WireCell;
 using namespace WireCell::Img;
+
+using WireCell::Aux::SimpleTrace;
+using WireCell::Aux::SimpleFrame;
+
 // One place for the defaults
 static Binning default_bins(1001, 0, (1+1000)*0.5*units::us);
 
@@ -185,10 +189,14 @@ bool ChargeErrorFrameEstimator::operator()(const input_pointer& in, output_point
         return true;  // eos
     }
 
-    log->debug("input: {}", Aux::taginfo(in));
-
     // calculate error traces
-    ITrace::vector err_traces = error_traces(Aux::tagged_traces(in, m_intag));
+    ITrace::vector in_traces = Aux::tagged_traces(in, m_intag);
+    ITrace::vector err_traces = error_traces(in_traces);
+
+    log->debug("input: {}, got {}: {} signal traces, made {}: {} err traces",
+               Aux::taginfo(in), m_intag, in_traces.size(),
+               m_outtag, err_traces.size());
+
 
     // make a copy of all input trace pointers
     ITrace::vector out_traces(*in->traces());

@@ -3,8 +3,8 @@
 
 #include "WireCellAux/DftTools.h"
 
-#include "WireCellIface/SimpleFrame.h"
-#include "WireCellIface/SimpleTrace.h"
+#include "WireCellAux/SimpleFrame.h"
+#include "WireCellAux/SimpleTrace.h"
 
 #include "WireCellUtil/NamedFactory.h"
 #include "WireCellUtil/Persist.h"
@@ -18,6 +18,8 @@ WIRECELL_FACTORY(AddGroupNoise, WireCell::Gen::AddGroupNoise,
 
 using namespace std;
 using namespace WireCell;
+using WireCell::Aux::SimpleTrace;
+using WireCell::Aux::SimpleFrame;
 
 Gen::AddGroupNoise::AddGroupNoise(const std::string &spectra_file,
                                   const std::string &map_file,

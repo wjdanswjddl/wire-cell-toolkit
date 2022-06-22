@@ -1,0 +1,405 @@
+#+title: WCT Configuration Structure Layers
+#+subtitle: No Copy Paste No ~if~ Branch
+
+* TODO
+
+- [ ] add ~mains~ section
+- [ ] add ~options~
+- [ ] generate dots by cross product of detector type, variants and mains
+- [ ] add ~uboone~
+- [ ] remove ~helpers~
+
+
+* Introduction
+
+The WCT configuration structure layers convention defines a Jsonnet
+API to satisfy a few goals:
+
+- Define a countable number of specific configurations for all
+  supported detectors.
+
+- Produce job configuration that is not directly dependent on details
+  of any given detector variant.
+
+- Facilitate extraction of the subset of configuration for a given
+  detector while still providing a means of consolidating
+  configuration that spans all supported detectors.
+
+- Give end-user control over elements specific to a job and
+  independent from a given detector variant.
+
+- Allow to inject system "service" configuration.
+
+It identifies these "layers":
+
+- mains :: Integration with the application (~wire-cell~ CLI or
+  art/LArSoft).
+
+- high :: The *high-level API* is *detector independent* and is used to
+  develop "main" Jsonnet structures to define some *job type*.
+
+- mid :: The *middle-level API* is also *detector independent* while its
+  implementation holds *detector-dependent* information.
+
+- low :: The *low-level API* is *detector independent* and provides
+  utilities to help make producing a mid-level API instance easier.
+
+The sections below describe each layer in some details.
+
+* Mains
+
+The "mains" layer provides the "fringe" subgraph that adapts a "core"
+graph to nodes that provide initial input and accept final output.
+
+For example, a ~wire-cell~ command line job is configured with a
+"fringe" of file I/O nodes that sources data to or sinks data from the
+"core" subgraph that provides the processing.
+
+Another example is an art/LArSoft job will have a "fringe" of nodes
+that handle transfer and transformation of objects between the art
+event store and the "core" WCT subgraph.
+
+
+* High
+
+The "high" layer API collects some general utilities such as
+~wirecell.jsonnet~, ~pgraph.jsonnet~, helpers to construct components to
+handle I/O, build a main graph.  It also provides a /factory method/ to
+create a *mid-layer API* object.
+
+A developer may use the *high-layer API*, and the returned *mid-layer API*
+object to construct *detector-independent* main Jsonnet configs.
+
+To construct a *mid-layer API object* the developer will typically have
+Jsonnet defining a function taking top-level arguments (TLAs) like:
+
+#+begin_src jsonnet
+local high = import "layers/high.jsonnet";
+function(detector, variant="nominal", options={sparse:true})
+    local services = high.services(platform);
+    local mid = high.mid(detector, variant, services=services, options=options);
+#+end_src
+
+The ~high.mid()~ factory takes these arguments and options:
+
+- ~detector~ :: the canonical name of a detector (~"dsp"~, ~"uboone"~, etc)
+- ~variant~ :: the canonical name of a detector variant (~"nominal"~, etc)
+- ~services~ :: *optional* used to inject "service" type component config
+  for ~IRandom~, ~IDFT~, etc.  As shown above, the default is simply made
+  explicit.
+- ~options~ :: see following comments.
+
+** Options
+
+The mid-layer API factory method allows the passing of an optional
+~options~ object.  A mid-layer API *must* produce a valid API object if no
+~options~ object is provided.  It *may* modify how it produces a mid-layer
+API object based on the content of ~options~.  It *should* only enact
+modifications based on ~options~ which are superficial to the meaning of
+the detector variant.  It *should* support "standard options" as
+described next.
+
+The intention of ~options~ is to provide a means for an end-user to
+communicate certain configuration required to match up the
+configuration provided by the mid-layer API object with configuration
+provided by some external code.  The following "standard options"
+should be honored by the mid-layer API.
+
+- ~sparse~ :: ...
+- frames :: per frame / tier control of sparse...
+
+* Mids
+
+Each detector variant *must* implement one or more *mid layer API*
+objects.  Each mid layer API object corresponds to a *variant* of the
+supported *detector*.  The API object provides methods to construct
+subgraphs covering a conceptual region of processing.  For example,
+the ~sim.signal()~ method provides a subgraph to configure "signal
+simulation".
+
+** Mid-layer API
+
+This describes the required API.  Some portions of the API are
+provided as sub-objects described in following subsections.
+
+- ~anodes()~ :: return an ordered list of configuration objects for the ~IAnodePlane~ instances.
+- drifter(name="") :: return subgraph for drifting.  A ~name~ may be given if caller requires more than one drifter.
+- ~sim.*~ :: the simulation sub-API.
+- ~sigproc.*~ :: the signal processing sub-API.
+- ~img(anode)~ :: return a subgraph to perform 3D imaging
+
+*** The ~sim.*~ sub-API
+
+The ~sim.*~ sub-API has the following methods:
+
+- ~track_depos(tracklist=/*default*/)~ :: return subgraph to generate depos from list of (ideal) tracks.  Default value must provide some tracks in the detector.  The exact "kinematics" is not important and this is used as fodder to get "something" out of later simulation subgraphs 
+
+- ~signal(anode)~ :: return subgraph to simulation depos to voltage level signals
+
+- ~noise(anode)~ :: return subgraph to apply voltage level noise 
+
+- ~digitizer(anode)~ :: return subgraph to digitize voltage to ADC.
+
+*** The ~sigproc.*~ sub-API
+
+The ~sigproc.*~ sub-API has the following methods:
+
+- ~nf(anode)~ :: return subgraph to perform noise filtering
+- ~sp(anode)~ :: return subgraph to perform signal processing
+- ~dnnroi(anode)~ :: return subgraph to perform refined signal
+  processing using DNN ROI inference.
+
+
+* Low
+
+The *low layer API* provides detector independent methods helpful in
+constructing configuration objects returned by the *mid layer API*.
+
+
+* Tutorial
+
+The *high-layer API* has conceptually two sets of methods.
+
+- methods to produce *detector-dependent* configuration objects by
+  creating a *mid-layer API* object which presents a
+  *detector-independent* interface.
+
+- methods to produce configuration objects for data flow graph nodes
+  which are *detector independent*.  For example, those which move data
+  between some external context (file, art/larsoft) and the rest of
+  the WCT data flow graph.
+
+An "end user" sees only a *detector independent* interface,
+parameterized by a *detector name* and a *detector variant name*.  A
+developer for detector-specific configuration will only need develop
+configuration code in the *mid layer API* directory and files specific
+to their detector.
+
+The following sections give a tutorial focused on how to develop the
+*mid-layer API* objects.  Then sections cover use of the broader
+*high-layer API*.
+
+
+** Introduction to mid-layer
+
+This tutorial will lead you through the process of developing a set of
+*mid-layer API objects* for the ProtoDUNE-SP (~pdsp~) detector spanning a
+few variants.
+
+Each detector and detector variant must define a mid-layer API object.
+This object contains methods (no data) which return WCT configuration
+objects.  Every mid-layer API is identical, though of course each API
+instance returns unique values.
+
+** Running something
+
+Assuming your ~WIRECELL_PATH~ includes the ~wire-cell-toolkit/cfg/~
+directory and the WCT binaries are installed, the mid-layer code
+covered by this tutorial can be exercised with:
+
+#+begin_example
+wcsonnet -A detector=pdsp layers/tut-high.jsonnet 
+#+end_example
+
+If you do not have WCT installed, you can use vanilla ~jsonnet~
+
+#+begin_example
+jsonnet \
+  -J /path/to/wire-cell-toolkit/cfg \
+  -A detector=pdsp \
+  /path/to/wire-cell-toolkit/cfg/layers/tut-high.jsonnet
+#+end_example
+
+Before continuing, read through the [[tut-high.jsonnet]] with some focus
+on how the ~mid~ object is created and then used.  The tutorial will
+describe how to develop Jsonnet code to provide that ~mid~ object in its
+proper form.
+
+** Create mid-layer directories
+
+Make the source directory named after the detector:
+
+#+begin_example
+mkdir -p cfg/layers/mids/pdsp/
+cd cfg/layers/mids/pdsp/
+mkdir api variants
+#+end_example
+
+** Variant parameters objects
+
+For our ~pdsp~ example we start with a single ~nominal~ variant parameter
+object defined in:
+
+#+begin_example
+variants/nominal.jsonnet
+#+end_example
+
+We can compile it directly:
+
+#+begin_example
+wcsonnet layers/mids/pdsp/variants/nominal.jsonnet
+#+end_example
+
+What goes in this object is up to you but following some conventions
+we can make all our variant parameter objects have a common structure
+and that structure will be convenient to reduce the amount of code we
+must write in the mid-layer API factory.  As you develop that API it
+is natural to make adjustments to the structure of the variant
+parameter objects.
+
+** Mid-layer API factory
+
+The job of the mid-layer API factory is to produce mid-layer API
+objects.  The entry point to that code must be in a detector-specific
+directory.  For our ~pdsp~ example, it is here:
+
+#+begin_example
+cfg/layers/mids/pdsp/mids.jsonnet
+#+end_example
+
+It is short enough we include it here:
+
+#+include: mids/pdsp/mids.jsonnet src jsonnet
+
+Each detector will customize the ~variants~ object defined locally so
+that it spans all known variants.  It may be extended by having one
+~variant/<name>.jsonnet~ per variant and having each ~import~'ed.  Or
+something else may be invented.
+
+Whatever that be, this ~mids.jsonnet~ must produce a
+~function(services,variants)~ that returns the appropriate mid-level API
+object matching the variant.
+
+In this example we see the ~api.jsonnet~ being imported.  This is the
+API factory which is parameterized by ~services~ and the ~variant~
+parameter object.
+
+** Services
+
+The ~services~ object holds configuration which is determined by the end
+user and not the developer of the mid-layer API.  However, the latter
+must know the (future) end user's decision before the mid-layer API
+can be written.  And, so the mid-layer API requires the ~services~
+object (dependency injection).
+
+** Mid-layer API construction
+
+Now, we visit
+
+#+begin_example
+cfg/layers/mids/pdsp/api.jsonnet
+#+end_example
+
+This function is what actually constructs the mid-layer API for ~pdsp~
+variants.  It returns an object with methods (and not data) that
+matches the mid-layer API.  To keep the body brief, the definition of
+each API method is mostly delegated to other code.
+
+Here we see the synergy made by structuring the variant parameter
+object such that we may call the low-layer API (~low~ object here).
+
+
+** Testing
+
+As we bring "official" configuration for ~pdsp~ into a mid-layer
+variants it is very important to test that we get back the same
+result.  We may compile "old" and "new" and use ~diff~ like tools.
+
+This can uncover "cosmetic" differences.  For example, the exact
+instance names do not matter and one goal of the new config is to keep
+them as brief as possible.  There can be order differences, for
+example due to using a more efficient manner of processing the variant
+parameter object.
+
+There are tests collected in the ~test/~ directory.  For example:
+
+#+begin_example
+./test/test-tut-high.sh
+#+end_example
+
+This needs ~jq~ and ~gron~ installed and it will show a "flat-json-diff"
+output
+
+* Implementation requirements
+
+These requirements a stated as a substitute for Jsonnet's lack of
+language features to enforce conventions.
+
+This section is written in the "must/shall" and "may/should" type
+language of RFC 2119.  It describes rules that must be followed when
+developing the configuration structure layers.
+
+** General
+
+Files found under ~cfg/layers/~ shall be considered part of the
+configuration structure layers (or "layers" for short).
+
+A layer file shall not import code from outside of the layers with the
+exception of files found at ~cfg/*.jsonnet~.
+
+
+** High
+
+All files matching ~layers/*.jsonnet~ shall compose the "high" layer
+implementation.
+
+The high layer shall not define nor directly import any
+detector-specific code.  Note: the generated file ~layers/mids.jsonnet~
+imports all ~mids/<detector>/mids.jsonnet~ files but the imported code
+presents a detector-independent API.
+
+The high layer shall not directly import files from ~low/~.
+
+** Mids
+
+All files matching ~layers/mids/*/*.jsonnet~ shall compose
+the "mid" layer.
+
+A mid layer shall provide a file located to define its canonical
+detector name:
+
+#+begin_example
+layers/mids/<detector>/mids.jsonnet
+#+end_example
+
+This file must produce a top-level function with signature and return
+type:
+
+#+begin_src jsonnet
+  function(services, variant="nominal") {
+      // mid API methods
+  }
+#+end_src
+
+A mid implementation should be in terms of the "low" layer API
+provided under ~low/~ and otherwise should avoid importing and using
+code that resides outside of its ~<detector>/~ directory.
+
+A mid implementation:
+
+- must include a ~"nominal"~ variant.
+- must include ~"real"~ and ~"fake"~ variants if the otherwise ~"nominal"~ variant must be distinguished between configuration for processing data from the real detector or from simulation, respectively.
+- may define additional variants.
+
+A mid implementation may extend the ~low.params~ object for each variant.
+
+** Low
+
+All files found under ~low/~ f compose the "low" layer.
+
+The low layer code shall import no code from high nor mid layers.
+
+The low layer code shall neither provide nor import any detector
+specific code.
+
+The low layer API method arguments shall not require detector-specific
+structure.
+
+The complexity of low method arguments should be managed to balanced
+reduced structural complexity with increased argument count.
+Non-scalar structured values may only be passed if their structure
+opaque to the method or represents a portion of the canonical
+~low.params~ structure.
+
+
+

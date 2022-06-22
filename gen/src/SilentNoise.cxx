@@ -1,14 +1,16 @@
 #include "WireCellGen/SilentNoise.h"  // holly noise
 #include "WireCellUtil/NamedFactory.h"
 #include "WireCellUtil/Units.h"
-#include "WireCellIface/SimpleFrame.h"
-#include "WireCellIface/SimpleTrace.h"
+#include "WireCellAux/SimpleFrame.h"
+#include "WireCellAux/SimpleTrace.h"
 
 #include <memory>
 
 WIRECELL_FACTORY(SilentNoise, WireCell::Gen::SilentNoise, WireCell::IFrameSource, WireCell::IConfigurable)
 
 using namespace WireCell;
+using WireCell::Aux::SimpleTrace;
+using WireCell::Aux::SimpleFrame;
 
 Gen::SilentNoise::SilentNoise()
   : m_count(0)

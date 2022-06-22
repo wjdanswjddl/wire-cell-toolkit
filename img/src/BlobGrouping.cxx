@@ -1,6 +1,7 @@
 #include "WireCellImg/BlobGrouping.h"
 
-#include "WireCellIface/SimpleCluster.h"
+#include "WireCellAux/SimpleCluster.h"
+#include "WireCellAux/SimpleMeasure.h"
 
 #include "WireCellUtil/NamedFactory.h"
 
@@ -45,15 +46,16 @@ static void fill_blob(layer_graphs_t& lgs, const cluster_indexed_graph_t& grind,
             if (cvtx.code() != 'c') {
                 continue;
             }
-            // auto ich = std::get<IChannel::pointer>(cvtx.ptr);
             lg.edge(nblob, cvtx);
         }
     }
 }
 
-static void fill_slice(cluster_indexed_graph_t& grind, ISlice::pointer islice)
+void Img::BlobGrouping::fill_slice(cluster_indexed_graph_t& grind, ISlice::pointer islice)
 {
     layer_graphs_t lgs;
+
+    auto activity = islice->activity();
 
     for (auto other : grind.neighbors(islice)) {
         if (other.code() != 'b') {
@@ -63,13 +65,18 @@ static void fill_slice(cluster_indexed_graph_t& grind, ISlice::pointer islice)
         fill_blob(lgs, grind, iblob);
     }
 
+    // measures
     for (auto lgit : lgs) {
         auto& lgrind = lgit.second;
         auto groups = lgrind.groups();
         for (auto& group : groups) {
-            // add a "measurement" to the graph
-            IChannel::vector* chans = new IChannel::vector;
-            IChannel::shared_vector imeas = IChannel::shared_vector(chans);
+
+            // Really, the data held by a "measure" is redundant with
+            // its location in the graph and the data held by the
+            // connected IChannels and the ISlice found via the
+            // connected IBlobs.
+            auto smeas = new Aux::SimpleMeasure(m_mcount++);
+            IMeasure::pointer imeas(smeas);
 
             for (auto& v : group.second) {
                 if (v.code() == 'b') {
@@ -79,8 +86,11 @@ static void fill_slice(cluster_indexed_graph_t& grind, ISlice::pointer islice)
                 }
                 if (v.code() == 'c') {
                     // (c-m)
+                    auto ich = std::get<IChannel::pointer>(v.ptr);
+                    smeas->sig += activity[ich];
                     grind.edge(v.ptr, imeas);
-                    chans->push_back(std::get<IChannel::pointer>(v.ptr));
+                    // logically, all must be same?
+                    smeas->wpid = ich->planeid(); 
                     continue;
                 }
             }
@@ -98,15 +108,18 @@ bool Img::BlobGrouping::operator()(const input_pointer& in, output_pointer& out)
 
     cluster_indexed_graph_t grind(in->graph());
 
+    m_mcount = 0;
+
     for (auto islice : oftype<ISlice::pointer>(grind)) {
         fill_slice(grind, islice);
     }
 
-    log->debug("cluster {}: nvertices={} nedges={}",
+    log->debug("cluster {}: nvertices={} nedges={} nmeas={}",
                in->ident(),
                boost::num_vertices(grind.graph()),
-               boost::num_edges(grind.graph()));
+               boost::num_edges(grind.graph()),
+               m_mcount);
 
-    out = std::make_shared<SimpleCluster>(grind.graph(), in->ident());
+    out = std::make_shared<Aux::SimpleCluster>(grind.graph(), in->ident());
     return true;
 }

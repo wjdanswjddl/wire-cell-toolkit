@@ -1,7 +1,7 @@
 #include "WireCellGen/AddCoherentNoise.h"
 
-#include "WireCellIface/SimpleTrace.h"
-#include "WireCellIface/SimpleFrame.h"
+#include "WireCellAux/SimpleTrace.h"
+#include "WireCellAux/SimpleFrame.h"
 
 #include "WireCellUtil/Persist.h"
 #include "WireCellUtil/NamedFactory.h"
@@ -17,6 +17,8 @@ WIRECELL_FACTORY(AddCoherentNoise, WireCell::Gen::AddCoherentNoise, WireCell::IF
 
 using namespace std;
 using namespace WireCell;
+using WireCell::Aux::SimpleTrace;
+using WireCell::Aux::SimpleFrame;
 
 Gen::AddCoherentNoise::AddCoherentNoise(const std::string& spectra_file, const std::string& rng)
   : m_spectra_file(spectra_file)

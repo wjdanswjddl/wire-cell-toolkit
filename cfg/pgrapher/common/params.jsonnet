@@ -245,6 +245,9 @@ local wc = import "wirecell.jsonnet";
         // This file gives per-channel calibrated responses.  See
         // "wirecell-sigproc channel-response" for one converter.
         chresp: null, 
+
+        // The sigproc DNNROI model file. 
+        dnnroi: "unet-l23-cosmic500-e50.ts",
     },
 }
 

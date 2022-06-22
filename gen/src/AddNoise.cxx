@@ -4,8 +4,8 @@
 #include "WireCellAux/RandTools.h"
 #include "WireCellAux/Spectra.h"
 
-#include "WireCellIface/SimpleTrace.h"
-#include "WireCellIface/SimpleFrame.h"
+#include "WireCellAux/SimpleTrace.h"
+#include "WireCellAux/SimpleFrame.h"
 
 #include "WireCellUtil/NamedFactory.h"
 
@@ -17,8 +17,13 @@ WIRECELL_FACTORY(AddNoise, WireCell::Gen::AddNoise,
 
 using namespace std;
 using namespace WireCell;
+
+using WireCell::Aux::SimpleTrace;
+using WireCell::Aux::SimpleFrame;
+
 using namespace WireCell::Aux::RandTools;
 using namespace WireCell::Aux::Spectra;
+
 
 Gen::AddNoise::AddNoise() : Aux::Logger("AddNoise", "gen")
 {

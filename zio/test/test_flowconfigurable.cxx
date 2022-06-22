@@ -4,13 +4,15 @@
 #include "WireCellUtil/Testing.h"
 #include "WireCellZio/FlowConfigurable.h"
 #include "WireCellZio/TensUtil.h"
-#include "WireCellIface/SimpleTrace.h"
-#include "WireCellIface/SimpleFrame.h"
+#include "WireCellAux/SimpleTrace.h"
+#include "WireCellAux/SimpleFrame.h"
 #include "WireCellAux/SimpleTensor.h"
 #include "WireCellAux/TaggedFrameTensorSet.h"
 
 using namespace std;
 using namespace WireCell;
+using WireCell::Aux::SimpleTrace;
+using WireCell::Aux::SimpleFrame;
 
 ITensorSet::pointer make_tensorset()
 {

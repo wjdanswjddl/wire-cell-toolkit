@@ -1,6 +1,6 @@
 #include "WireCellImg/FrameMasking.h"
-#include "WireCellIface/SimpleFrame.h"
-#include "WireCellIface/SimpleTrace.h"
+#include "WireCellAux/SimpleFrame.h"
+#include "WireCellAux/SimpleTrace.h"
 #include "WireCellIface/IWaveformMap.h"
 #include "WireCellAux/FrameTools.h"
 
@@ -84,12 +84,12 @@ bool FrameMasking::operator()(const input_pointer& in, output_pointer& out)
             }
             out_trace_indices[tag].push_back(out_traces.size());
             out_traces.push_back(
-                std::make_shared<SimpleTrace>(chid, tbin, out_charge));
+                std::make_shared<Aux::SimpleTrace>(chid, tbin, out_charge));
         }
     }
 
     // Basic frame stays the same.
-    auto sfout = new SimpleFrame(in->ident(), in->time(), out_traces, in->tick(), cmm);
+    auto sfout = new Aux::SimpleFrame(in->ident(), in->time(), out_traces, in->tick(), cmm);
 
     // tag traces
     for (auto tag : m_trace_tags) {

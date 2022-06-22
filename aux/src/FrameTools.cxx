@@ -1,6 +1,6 @@
 #include "WireCellAux/FrameTools.h"
-#include "WireCellIface/SimpleFrame.h"
-#include "WireCellIface/SimpleTrace.h"
+#include "WireCellAux/SimpleFrame.h"
+#include "WireCellAux/SimpleTrace.h"
 
 #include <iterator>
 #include <algorithm>
@@ -12,6 +12,8 @@
 #include <sstream>
 
 using namespace WireCell;
+using WireCell::Aux::SimpleTrace;
+using WireCell::Aux::SimpleFrame;
 
 std::string Aux::name(const WireCell::IFrame::pointer& frame)
 {

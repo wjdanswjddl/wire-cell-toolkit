@@ -6,8 +6,8 @@
 #include "WireCellUtil/Exceptions.h"
 #include "WireCellUtil/NamedFactory.h"
 
-#include "WireCellIface/SimpleTrace.h"
-#include "WireCellIface/SimpleFrame.h"
+#include "WireCellAux/SimpleTrace.h"
+#include "WireCellAux/SimpleFrame.h"
 
 #include "WireCellAux/FrameTools.h"
 
@@ -181,11 +181,11 @@ IFrame::pointer Sio::FrameFileSource::next()
 
         ITrace::ChargeSequence charges(row.data(), row.data() + arr.cols());
 
-        auto itrace = std::make_shared<SimpleTrace>(chid, tbin0, charges);
+        auto itrace = std::make_shared<Aux::SimpleTrace>(chid, tbin0, charges);
         all_traces.push_back(itrace);
     }
 
-    auto sframe = new SimpleFrame(fmd.ident, time, all_traces, tick);
+    auto sframe = new Aux::SimpleFrame(fmd.ident, time, all_traces, tick);
     if (! fmd.tag.empty()) {
         sframe->tag_frame(fmd.tag);
     }

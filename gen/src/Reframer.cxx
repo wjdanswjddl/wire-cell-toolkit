@@ -1,8 +1,8 @@
 #include "WireCellGen/Reframer.h"
 #include "WireCellUtil/Units.h"
 
-#include "WireCellIface/SimpleFrame.h"
-#include "WireCellIface/SimpleTrace.h"
+#include "WireCellAux/SimpleFrame.h"
+#include "WireCellAux/SimpleTrace.h"
 
 #include "WireCellUtil/NamedFactory.h"
 
@@ -15,6 +15,8 @@ WIRECELL_FACTORY(Reframer, WireCell::Gen::Reframer,
 
 using namespace std;
 using namespace WireCell;
+using WireCell::Aux::SimpleTrace;
+using WireCell::Aux::SimpleFrame;
 
 Gen::Reframer::Reframer()
     : Aux::Logger("Reframer", "gen")

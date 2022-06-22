@@ -6,7 +6,6 @@
 #include "WireCellIface/IAnodePlane.h"
 #include "WireCellIface/IAnodeFace.h"
 #include "WireCellIface/IWirePlane.h"
-#include "WireCellIface/SimpleDepo.h"
 
 #include <boost/range.hpp>
 

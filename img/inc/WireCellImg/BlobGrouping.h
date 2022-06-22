@@ -1,8 +1,13 @@
-/** BlobGrouping takes in a channel-level cluster and produces another with channels merged ('m' nodes)
+/** BlobGrouping takes in a channel-level cluster and produces another
+ * with channels merged measure ('m' nodes)
  *
  * The input cluster must have (b,w), (c,w) and (s,b) edges and may have (b,b) edges.
  *
- * The output cluster will have (m, b) and (s,b) edges and if the input has (b,b) edges, they are preserved.
+ * The output cluster will have (m, b) and (s,b) edges and if the
+ * input has (b,b) edges, they are preserved.
+ *
+ * The created m-node IMeasures will have sequential ident() unique to
+ * the context of the cluster.
  *
  * Grouping is done in the "coarse grained" strategy.
  *
@@ -15,25 +20,23 @@
 #include "WireCellIface/IConfigurable.h"
 #include "WireCellAux/Logger.h"
 
-namespace WireCell {
+namespace WireCell::Img {
 
-    namespace Img {
+    class BlobGrouping : public Aux::Logger, public IClusterFilter, public IConfigurable {
+      public:
+        BlobGrouping();
+        virtual ~BlobGrouping();
 
-        class BlobGrouping : public Aux::Logger, public IClusterFilter, public IConfigurable {
-           public:
-            BlobGrouping();
-            virtual ~BlobGrouping();
+        virtual void configure(const WireCell::Configuration& cfg);
+        virtual WireCell::Configuration default_configuration() const;
 
-            virtual void configure(const WireCell::Configuration& cfg);
-            virtual WireCell::Configuration default_configuration() const;
+        virtual bool operator()(const input_pointer& in, output_pointer& out);
 
-            virtual bool operator()(const input_pointer& in, output_pointer& out);
+      private:
+        void fill_slice(cluster_indexed_graph_t& grind, ISlice::pointer islice);
+        int m_mcount;
+    };
 
-           private:
-        };
-
-    }  // namespace Img
-
-}  // namespace WireCell
+}  // namespace WireCell::Img
 
 #endif /* WIRECELL_BLOBGROUPING_H */

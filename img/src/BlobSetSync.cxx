@@ -1,5 +1,5 @@
 #include "WireCellImg/BlobSetSync.h"
-#include "WireCellIface/SimpleBlob.h"
+#include "WireCellAux/SimpleBlob.h"
 
 #include "WireCellUtil/NamedFactory.h"
 
@@ -41,7 +41,7 @@ std::vector<std::string> Img::BlobSetSync::input_types()
 
 bool Img::BlobSetSync::operator()(const input_vector& invec, output_pointer& out)
 {
-    SimpleBlobSet* sbs = new SimpleBlobSet(0, nullptr);
+    Aux::SimpleBlobSet* sbs = new Aux::SimpleBlobSet(0, nullptr);
     out = IBlobSet::pointer(sbs);
 
     int neos = 0;

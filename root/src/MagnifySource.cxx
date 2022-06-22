@@ -1,6 +1,6 @@
 #include "WireCellRoot/MagnifySource.h"
-#include "WireCellIface/SimpleTrace.h"
-#include "WireCellIface/SimpleFrame.h"
+#include "WireCellAux/SimpleTrace.h"
+#include "WireCellAux/SimpleFrame.h"
 
 #include "WireCellUtil/NamedFactory.h"
 
@@ -143,7 +143,7 @@ bool Root::MagnifySource::operator()(IFrame::pointer& out)
                     }
                     const size_t index = all_traces.size();
                     tagged_traces[frametag].push_back(index);
-                    all_traces.push_back(std::make_shared<SimpleTrace>(channel_number, 0, charges));
+                    all_traces.push_back(std::make_shared<Aux::SimpleTrace>(channel_number, 0, charges));
 
                     ++channel_number;
                 }
@@ -153,7 +153,7 @@ bool Root::MagnifySource::operator()(IFrame::pointer& out)
         }
     }
 
-    auto sframe = new SimpleFrame(frame_ident, frame_time, all_traces, 0.5 * units::microsecond, cmm);
+    auto sframe = new Aux::SimpleFrame(frame_ident, frame_time, all_traces, 0.5 * units::microsecond, cmm);
     for (auto const& it : tagged_traces) {
         sframe->tag_traces(it.first, it.second);
         std::cerr << "MagnifySource: tag " << it.second.size() << " traces as: \"" << it.first << "\"\n";

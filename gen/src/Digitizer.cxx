@@ -1,8 +1,8 @@
 #include "WireCellGen/Digitizer.h"
 
 #include "WireCellIface/IWireSelectors.h"
-#include "WireCellIface/SimpleFrame.h"
-#include "WireCellIface/SimpleTrace.h"
+#include "WireCellAux/SimpleFrame.h"
+#include "WireCellAux/SimpleTrace.h"
 
 #include "WireCellAux/FrameTools.h"
 
@@ -16,6 +16,8 @@ WIRECELL_FACTORY(Digitizer, WireCell::Gen::Digitizer,
 
 using namespace std;
 using namespace WireCell;
+using WireCell::Aux::SimpleTrace;
+using WireCell::Aux::SimpleFrame;
 
 Gen::Digitizer::Digitizer(const std::string& anode,
                           int resolution, double gain,

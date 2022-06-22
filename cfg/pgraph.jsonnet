@@ -100,6 +100,15 @@ local wc = import "wirecell.jsonnet";
         oports: [$.port(inode, n) for n in std.range(0,nout)][:nout],
     },
 
+    // Unwrap the underlying object type and instance names
+    ptype(pn) ::
+        std.split(pn.name, ":")[0],
+    pname(pn) ::
+        local s = std.split(pn.name, ":");
+        if std.length(s) == 1
+        then ""
+        else s[1],
+    
 
     // Produce a new pnode from collections of input and output pnodes
     // and any internal nodes and edges.  The resulting "uses" and

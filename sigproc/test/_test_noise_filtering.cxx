@@ -1,7 +1,7 @@
 
 
-#include "WireCellIface/SimpleFrame.h"
-#include "WireCellIface/SimpleTrace.h"
+#include "WireCellAux/SimpleFrame.h"
+#include "WireCellAux/SimpleTrace.h"
 #include "WireCellSigProc/OmnibusNoiseFilter.h"
 #include "WireCellSigProc/Microboone.h"
 
@@ -23,6 +23,8 @@
 
 using namespace WireCell;
 using namespace std;
+using WireCell::Aux::SimpleTrace;
+using WireCell::Aux::SimpleFrame;
 
 int main(int argc, char *argv[])
 {

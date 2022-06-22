@@ -2,8 +2,8 @@
 #include "WireCellIface/IFrameFilter.h"
 #include "WireCellIface/IDFT.h"
 #include "WireCellIface/IConfigurable.h"
-#include "WireCellIface/SimpleFrame.h"
-#include "WireCellIface/SimpleTrace.h"
+#include "WireCellAux/SimpleFrame.h"
+#include "WireCellAux/SimpleTrace.h"
 #include "WireCellUtil/PluginManager.h"
 #include "WireCellUtil/Binning.h"
 #include "WireCellUtil/Response.h"
@@ -20,6 +20,8 @@ using namespace std;
 using namespace WireCell;
 using namespace WireCell::Test;
 using namespace WireCell::Waveform;
+using WireCell::Aux::SimpleTrace;
+using WireCell::Aux::SimpleFrame;
 
 // Make up a Gaussian charge distribution
 std::vector<float> blip(Binning bins, double time = 1 * units::ms, double sigma = 3 * units::us, double mag = 10000.0)

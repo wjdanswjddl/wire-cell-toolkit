@@ -5,8 +5,8 @@
 #include "WireCellUtil/Binning.h"
 #include "WireCellUtil/Exceptions.h"
 
-#include "WireCellIface/SimpleFrame.h"
-#include "WireCellIface/SimpleTrace.h"
+#include "WireCellAux/SimpleFrame.h"
+#include "WireCellAux/SimpleTrace.h"
 
 #include "WireCellAux/FrameTools.h"
 
@@ -15,6 +15,8 @@
 WIRECELL_FACTORY(MultiDuctor, WireCell::Gen::MultiDuctor, WireCell::IDuctor, WireCell::IConfigurable)
 
 using namespace WireCell;
+using WireCell::Aux::SimpleTrace;
+using WireCell::Aux::SimpleFrame;
 
 Gen::MultiDuctor::MultiDuctor(const std::string anode)
   : m_anode_tn(anode)

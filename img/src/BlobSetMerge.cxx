@@ -1,6 +1,6 @@
 #include "WireCellImg/BlobSetMerge.h"
 #include "WireCellImg/ImgData.h"
-#include "WireCellIface/SimpleBlob.h"
+#include "WireCellAux/SimpleBlob.h"
 
 #include "WireCellUtil/NamedFactory.h"
 
@@ -43,7 +43,7 @@ std::vector<std::string> Img::BlobSetMerge::input_types()
 bool Img::BlobSetMerge::operator()(const input_vector& invec, output_pointer& out)
 {
     Img::Data::Slice *oslice = nullptr;
-    SimpleBlobSet* sbs = new SimpleBlobSet(0, nullptr);
+    auto sbs = new Aux::SimpleBlobSet(0, nullptr);
     out = IBlobSet::pointer(sbs);
 
     int neos = 0;

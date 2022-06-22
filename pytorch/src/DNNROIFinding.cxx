@@ -1,11 +1,15 @@
-#include "WireCellIface/IAnodePlane.h"
+
 #include "WireCellPytorch/DNNROIFinding.h"
 #include "WireCellPytorch/Util.h"
+
+#include "WireCellIface/IAnodePlane.h"
 #include "WireCellIface/ITrace.h"
-#include "WireCellIface/SimpleFrame.h"
-#include "WireCellIface/SimpleTrace.h"
+
+#include "WireCellAux/SimpleFrame.h"
+#include "WireCellAux/SimpleTrace.h"
 #include "WireCellAux/FrameTools.h"
 #include "WireCellAux/PlaneTools.h"
+
 #include "WireCellUtil/NamedFactory.h"
 #include "WireCellUtil/Exceptions.h"
 #include "WireCellUtil/TimeKeeper.h"
@@ -190,7 +194,7 @@ ITrace::shared_vector Pytorch::DNNROIFinding::eigen_to_traces(const Array::array
             charge[icol] = wave(icol);
         }
         const auto ch = m_chlist[irow];
-        traces.push_back(std::make_shared<SimpleTrace>(ch, 0, charge));
+        traces.push_back(std::make_shared<Aux::SimpleTrace>(ch, 0, charge));
     }
     return std::make_shared<ITrace::vector>(traces.begin(), traces.end());
 }
@@ -293,9 +297,10 @@ bool Pytorch::DNNROIFinding::operator()(const IFrame::pointer& inframe, IFrame::
 
     // eigen to frame
     auto traces = eigen_to_traces(sp_charge);
-    SimpleFrame* sframe = new SimpleFrame(inframe->ident(), inframe->time(),
-                                          traces,
-                                          inframe->tick(), inframe->masks());
+    Aux::SimpleFrame* sframe = new Aux::SimpleFrame(
+        inframe->ident(), inframe->time(),
+        traces,
+        inframe->tick(), inframe->masks());
     sframe->tag_frame("DNNROIFinding");
     sframe->tag_traces(m_cfg.outtag, m_trace_indices);
     outframe = IFrame::pointer(sframe);

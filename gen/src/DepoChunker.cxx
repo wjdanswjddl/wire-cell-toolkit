@@ -1,11 +1,12 @@
 #include "WireCellGen/DepoChunker.h"
-#include "WireCellIface/SimpleDepoSet.h"
+#include "WireCellAux/SimpleDepoSet.h"
 #include "WireCellUtil/Units.h"
 
 #include "WireCellUtil/NamedFactory.h"
 WIRECELL_FACTORY(DepoChunker, WireCell::Gen::DepoChunker, WireCell::IDepoCollector, WireCell::IConfigurable)
 using namespace std;
 using namespace WireCell;
+using WireCell::Aux::SimpleDepoSet;
 
 Gen::DepoChunker::DepoChunker()
   : m_count(0)

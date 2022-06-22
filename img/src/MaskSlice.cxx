@@ -59,6 +59,8 @@ WireCell::Configuration Img::MaskSliceBase::default_configuration() const
     cfg["dummy_error"] = m_dummy_error;
     cfg["masked_charge"] = m_masked_charge;
     cfg["masked_error"] = m_masked_error;
+    // if both are zero, (default) determine tbin range from input
+    // frame.
     cfg["min_tbin"] = m_min_tbin;
     cfg["max_tbin"] = m_max_tbin;
 
@@ -96,13 +98,13 @@ void Img::MaskSliceBase::configure(const WireCell::Configuration& cfg)
         }
     }
     for (auto id : m_active_planes) {
-        log->debug("m_active_planes: {}", id);
+        log->debug("active planes: {}", id);
     }
     for (auto id : m_dummy_planes) {
-        log->debug("m_dummy_planes: {}", id);
+        log->debug("dummy planes: {}", id);
     }
     for (auto id : m_masked_planes) {
-        log->debug("m_masked_planes: {}", id);
+        log->debug("masked planes: {}", id);
     }
 }
 
@@ -113,8 +115,30 @@ void Img::MaskSliceBase::slice(const IFrame::pointer& in, slice_map_t& svcmap)
 
     // active slices
     auto charge_traces = Aux::tagged_traces(in, m_tag);
+    const size_t ntraces = charge_traces.size();
+
+    if (!ntraces) {
+        log->debug("no traces {} from frame {}", m_tag, in->ident());
+        return;
+    }
+
+    int min_tbin = m_min_tbin;
+    int max_tbin = m_max_tbin;
+    if (min_tbin == 0 and max_tbin == 0) {
+        std::vector<int> tbins(ntraces, 0), tends(ntraces, 0);
+        for (size_t tind = 0; tind<ntraces; ++tind) {
+            const auto& tr = charge_traces[tind];
+            tends[tind] = tbins[tind] = tr->tbin();
+            tends[tind] += tr->charge().size();
+        }
+        min_tbin = *std::min_element(tbins.begin(), tbins.end());
+        max_tbin = *std::max_element(tends.begin(), tends.end());
+    }
+
     auto charge_err_traces = Aux::tagged_traces(in, m_error_tag);
     if(charge_traces.size()!=charge_err_traces.size()) {
+        log->error("trace size mismatch: {}: {} and {}: {}",
+                   m_tag, charge_traces.size(), m_error_tag, charge_err_traces.size());
         THROW(RuntimeError() << errmsg{"charge_traces.size()!=charge_err_traces.size()"});
     }
     for (size_t idx=0; idx < charge_traces.size(); ++idx) {
@@ -134,9 +158,9 @@ void Img::MaskSliceBase::slice(const IFrame::pointer& in, slice_map_t& svcmap)
         const auto& error = err_trace->charge();
         const size_t nq = charge.size();
         for (size_t qind = 0; qind != nq; ++qind) {
-            if ((tbin + (int) qind) < m_min_tbin || (tbin + (int) qind) >= m_max_tbin) {
+            if ((tbin + (int) qind) < min_tbin || (tbin + (int) qind) >= max_tbin) {
                 log->warn("trace {} {} exceeds given range [{},{}), breaking.", trace->channel(), trace->tbin(),
-                          m_min_tbin, m_max_tbin);
+                          min_tbin, max_tbin);
                 break;
             }
             const auto q = charge[qind];
@@ -164,10 +188,10 @@ void Img::MaskSliceBase::slice(const IFrame::pointer& in, slice_map_t& svcmap)
     // dummy: to form slices active through all ticks/channels with special charge/error
     for (int plane_index : m_dummy_planes) {
         auto ichans = Aux::plane_channels(m_anode, plane_index);
-        log->debug("dummy: {} size {}", plane_index, ichans.size());
+        log->debug("dummy plane: {} size {}", plane_index, ichans.size());
         for (auto ich : ichans) {
-            for (auto itick = m_min_tbin; itick < m_max_tbin; ++itick) {
-                size_t slicebin = (m_min_tbin + itick) / m_tick_span;
+            for (auto itick = min_tbin; itick < max_tbin; ++itick) {
+                size_t slicebin = (min_tbin + itick) / m_tick_span;
                 auto s = svcmap[slicebin];
                 if (!s) {
                     const double start = slicebin * span;  // thus relative to slice frame's time.
@@ -185,6 +209,9 @@ void Img::MaskSliceBase::slice(const IFrame::pointer& in, slice_map_t& svcmap)
         const int chid = ch_tbins.first;
         auto tbins = ch_tbins.second;
         IChannel::pointer ich = m_anode->channel(chid);
+        if (!ich) {
+            continue;
+        }
         auto planeid = ich->planeid();
         if (std::find(m_masked_planes.begin(),m_masked_planes.end(),planeid.index())==m_masked_planes.end()) {
             continue;
@@ -192,8 +219,8 @@ void Img::MaskSliceBase::slice(const IFrame::pointer& in, slice_map_t& svcmap)
         for (auto tbin : ch_tbins.second) {
             // log->debug("t: {} {}", tbin.first, tbin.second);
             for (auto t = tbin.first; t != tbin.second; ++t) {
-                if (t < m_min_tbin || t >= m_max_tbin) {
-                    log->warn("cmm {} {} exceeds given range [{},{}), breaking.", chid, t, m_min_tbin, m_max_tbin);
+                if (t < min_tbin || t >= max_tbin) {
+                    log->warn("cmm {} {} exceeds given range [{},{}), breaking.", chid, t, min_tbin, max_tbin);
                     break;
                 }
                 size_t slicebin = t / m_tick_span;
@@ -208,7 +235,8 @@ void Img::MaskSliceBase::slice(const IFrame::pointer& in, slice_map_t& svcmap)
         }
     }
 
-    log->debug("Img::MaskSliceBase::slice done.");
+    log->debug("nslices={} from ntraces={}, tbin=[{}, {}]",
+               svcmap.size(), ntraces, min_tbin, max_tbin);
 }
 
 bool Img::MaskSlicer::operator()(const input_pointer& in, output_pointer& out)
@@ -255,12 +283,9 @@ bool Img::MaskSlices::operator()(const input_pointer& in, output_queue& slices)
         //     qtot += a.second;
         // }
 
+        // log->debug("slice: id={} t={} activity={}", s->ident(), s->start(), s->activity().size());
         slices.push_back(ISlice::pointer(s));
     }
 
-    log->debug("frame={}, make {} slices in [{},{}] from {}",
-               in->ident(), slices.size(),
-               slices.front()->ident(), slices.back()->ident(),
-               svcmap.size());
     return true;
 }

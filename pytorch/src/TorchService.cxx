@@ -2,6 +2,7 @@
 #include "WireCellPytorch/Util.h"
 #include "WireCellUtil/NamedFactory.h"
 #include "WireCellUtil/String.h"
+#include "WireCellUtil/Persist.h"
 
 WIRECELL_FACTORY(TorchService, 
                  WireCell::Pytorch::TorchService,
@@ -36,7 +37,7 @@ void Pytorch::TorchService::configure(const WireCell::Configuration& cfg)
     auto dev = get<std::string>(cfg, "device", "cpu");
     m_ctx.connect(dev);
 
-    auto model_path = cfg["model"].asString();
+    auto model_path = Persist::resolve(cfg["model"].asString());
     if (model_path.empty()) {
         log->critical("no TorchScript model file provided");
         THROW(ValueError() << errmsg{"no TorchScript model file provided"});

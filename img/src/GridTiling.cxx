@@ -3,7 +3,7 @@
 #include "WireCellUtil/RayTiling.h"
 #include "WireCellUtil/NamedFactory.h"
 #include "WireCellUtil/Units.h"
-#include "WireCellIface/SimpleBlob.h"
+#include "WireCellAux/SimpleBlob.h"
 
 WIRECELL_FACTORY(GridTiling, WireCell::Img::GridTiling,
                  WireCell::INamed,
@@ -46,7 +46,7 @@ WireCell::Configuration Img::GridTiling::default_configuration() const
 
 IBlobSet::pointer Img::GridTiling::make_empty(const input_pointer& slice)
 {
-    return std::make_shared<SimpleBlobSet>(slice->ident(), slice);
+    return std::make_shared<Aux::SimpleBlobSet>(slice->ident(), slice);
 }
 
 bool Img::GridTiling::operator()(const input_pointer& slice, output_pointer& out)
@@ -72,7 +72,7 @@ bool Img::GridTiling::operator()(const input_pointer& slice, output_pointer& out
     }
 
     const int sbs_ident = slice->ident();
-    SimpleBlobSet* sbs = new SimpleBlobSet(sbs_ident, slice);
+    Aux::SimpleBlobSet* sbs = new Aux::SimpleBlobSet(sbs_ident, slice);
     out = IBlobSet::pointer(sbs);
 
     const int nbounds_layers = 2;
@@ -144,8 +144,8 @@ bool Img::GridTiling::operator()(const input_pointer& slice, output_pointer& out
 
     const float blob_value = 0.0;  // tiling doesn't consider particular charge
     for (const auto& blob : blobs) {
-        SimpleBlob* sb = new SimpleBlob(m_blobs_seen++, blob_value,
-                                        0.0, blob, slice, m_face);
+        Aux::SimpleBlob* sb = new Aux::SimpleBlob(m_blobs_seen++, blob_value,
+                                                  0.0, blob, slice, m_face);
         sbs->m_blobs.push_back(IBlob::pointer(sb));
     }
     SPDLOG_LOGGER_TRACE(log, "anode={} face={} slice={} produced {} blobs",
