@@ -88,7 +88,7 @@ void Gen::EmpiricalNoiseModel::resample(NoiseSpectrum& spectrum) const
     }
 
     // scale the amplitude ...
-    double scale = sqrt(m_fft_length / (spectrum.nsamples * 1.0) * spectrum.period / (m_period * 1.0));
+    double scale = sqrt(m_fft_length / (spectrum.nsamples * 1.0));
     spectrum.constant *= scale;
     for (unsigned int ind = 0; ind != spectrum.amps.size(); ind++) {
         spectrum.amps[ind] *= scale;
@@ -137,6 +137,8 @@ void Gen::EmpiricalNoiseModel::resample(NoiseSpectrum& spectrum) const
 
 void Gen::EmpiricalNoiseModel::configure(const WireCell::Configuration& cfg)
 {
+    int errors = 0;
+
     m_anode_tn = get(cfg, "anode", m_anode_tn);
     m_anode = Factory::find_tn<IAnodePlane>(m_anode_tn);
 
@@ -144,10 +146,17 @@ void Gen::EmpiricalNoiseModel::configure(const WireCell::Configuration& cfg)
     if (m_chanstat_tn != "") {  // allow for an empty channel status, no deviation from norm
         m_chanstat = Factory::find_tn<IChannelStatus>(m_chanstat_tn);
     }
-
     log->debug("using anode {}, chanstat {}", m_anode_tn, m_chanstat_tn);
 
-    m_spectra_file = get(cfg, "spectra_file", m_spectra_file);
+    auto jspectra = cfg["spectra_file"]; // best if this were renamed "spectra"...
+    if (jspectra.isNull()) {
+        log->critical("required configuration parameter \"spectra_file\" is empty");
+        ++errors;
+    }
+    if (jspectra.isString()) {
+        m_spectra_file = jspectra.asString();
+        jspectra = Persist::load(m_spectra_file);
+    }
 
     std::string dft_tn = get<std::string>(cfg, "dft", "FftwDFT");
     m_dft = Factory::find_tn<IDFT>(dft_tn);
@@ -161,27 +170,27 @@ void Gen::EmpiricalNoiseModel::configure(const WireCell::Configuration& cfg)
     // m_gres = get(cfg, "gain_scale", m_gres);
     // m_fres = get(cfg, "freq_scale", m_fres);
 
-    // Load the data file assuming.  The file should be a list of
-    // dictionaries matching the
-    // wirecell.sigproc.noise.schema.NoiseSpectrum class.  Fixme:
-    // should break out this code separate.
-    auto jdat = Persist::load(m_spectra_file);
-    const int nentries = jdat.size();
-    m_spectral_data.clear();
-
+    // needs m_period and m_fft_length
     gen_elec_resp_default();
 
-    for (int ientry = 0; ientry < nentries; ++ientry) {
-        auto jentry = jdat[ientry];
+    // Load spectral data.  Fixme: should break out this code
+    // separate.
+    m_spectral_data.clear();
+    for (const auto& jentry : jspectra) {
         NoiseSpectrum* nsptr = new NoiseSpectrum();
 
+        // optional for this model
+
         nsptr->plane = jentry["plane"].asInt();
-        nsptr->nsamples = jentry["nsamples"].asInt();
-        nsptr->period = jentry["period"].asFloat();    // * m_tres;
         nsptr->gain = jentry["gain"].asFloat();        // *m_gres;
         nsptr->shaping = jentry["shaping"].asFloat();  // * m_tres;
         nsptr->wirelen = jentry["wirelen"].asFloat();  // * m_wlres;
-        nsptr->constant = jentry["const"].asFloat();
+        nsptr->constant = get(jentry, "const", 0.0);
+
+        // required from all WCT noise spectra
+
+        nsptr->nsamples = jentry["nsamples"].asInt();
+        nsptr->period = jentry["period"].asFloat();    // * m_tres;
 
         auto jfreqs = jentry["freqs"];
         const int nfreqs = jfreqs.size();
@@ -202,6 +211,10 @@ void Gen::EmpiricalNoiseModel::configure(const WireCell::Configuration& cfg)
         m_spectral_data[nsptr->plane].push_back(nsptr);  // assumes ordered by wire length!
         log->debug("nwanted={} plane={} ntold={} ngot={} ninput={}",
                    m_nsamples, nsptr->plane, nsptr->nsamples, nsptr->amps.size(), nfreqs);
+    }
+
+    if (errors) {
+        THROW(ValueError() << errmsg{"configuration errors"});
     }
 }
 

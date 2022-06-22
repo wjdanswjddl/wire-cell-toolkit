@@ -13,6 +13,11 @@ namespace WireCell {
 
     namespace Waveform {
 
+        /// This namespace defines types and primitive functions for
+        /// operating on time series "waveforms".  See also
+        /// WireCell::Spectrum for similar for operating on frequency
+        /// space spectra.
+
         /// The type for the signal in each bin.
         typedef float real_t;
 
@@ -74,8 +79,10 @@ namespace WireCell {
 
         /// Return a new sequence resampled and interpolated from the
         /// original wave defined over the domain to a new domain of
-        /// nsamples.
-        /// if Val is complex then Scalar must match the scala rtype  of Val
+        /// nsamples.  If Val is complex then Scalar must match the
+        /// scalar type of Val.
+        ///
+        /// See also Spectrum::resample()
         template <typename Val, typename Scalar>
         Sequence<Val> resample(const Sequence<Val>& wave, const Domain& domain, int nsamples, const Domain& newdomain)
         {

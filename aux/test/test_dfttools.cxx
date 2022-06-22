@@ -3,6 +3,7 @@
 #include "WireCellAux/DftTools.h"
 #include "WireCellAux/FftwDFT.h"
 #include "WireCellUtil/Waveform.h"
+#include "WireCellUtil/Spectrum.h"
 
 #include <iostream>
 #include <memory>
@@ -11,6 +12,7 @@
 using namespace std::literals;
 
 using namespace WireCell;
+using namespace WireCell::Spectrum;
 using namespace WireCell::Aux::Test;
 using namespace WireCell::Aux::DftTools;
 
@@ -128,11 +130,13 @@ void test_hs1d()
 {
     std::cerr << "1d hermitian symmetry\n";
     //                            0      1      2      3      4     5
-    complex_vector_t even{{1,11},{2,22},{3,33},{4,44},{5,55},{6,66}};
-    complex_vector_t odd(even.begin(), even.end()-1);
+    const complex_vector_t even{{1,11},{2,22},{3,33},{4,44},{5,55},{6,66}};
+    const complex_vector_t odd(even.begin(), even.end()-1);
 
-    auto evens = hermitian_symmetry(even);
-    auto odds = hermitian_symmetry(odd);
+    complex_vector_t evens(even.size());
+    complex_vector_t odds(odd.size());
+    hermitian_mirror(even.begin(), even.end(), evens.begin());
+    hermitian_mirror(odd.begin(), odd.end(), odds.begin());
 
     // The Nyquist bin must be real.
     { size_t ind=3;
@@ -141,7 +145,10 @@ void test_hs1d()
         assert(std::abs(evens[ind].imag()) < 1e-6);
     }
 
-    for (size_t ind=0; ind<3; ++ind) {
+    assert(std::abs(even[0]) == evens[0]);
+    assert(std::abs(odd[0]) == odds[0]);
+
+    for (size_t ind=1; ind<3; ++ind) {
         assert(even[ind] == evens[ind]);
         assert(odd[ind] == odds[ind]);
     }
@@ -171,8 +178,8 @@ void test_hs2d_axis1()
     dump("odd", odd);
     std::cerr << odd << std::endl;
 
-    auto evens = hermitian_symmetry(even, 1);
-    auto odds = hermitian_symmetry(odd, 1);
+    auto evens = hermitian_mirror(even, 1);
+    auto odds = hermitian_mirror(odd, 1);
 
     // The Nyquist bin must be real.
     { size_t ind=3;
@@ -186,7 +193,10 @@ void test_hs2d_axis1()
     dump("odds", odds);
     std::cerr << odds << std::endl;
 
-    for (size_t ind=0; ind<3; ++ind) {
+    assert(std::abs(even(0,0)) == evens(0,0));
+    assert(std::abs(odd(0,0)) == odds(0,0));
+
+    for (size_t ind=1; ind<3; ++ind) {
         assert(even(0,ind) == evens(0,ind));
         assert(odd(0,ind) == odds(0,ind));
     }
@@ -202,6 +212,8 @@ void test_hs2d_axis1()
         assert(odd(0,ind) == std::conj(odds(0,odd_other)));
     }
 }
+
+                     
 void test_hs2d_axis0()
 {
     using c = std::complex<float>;
@@ -215,8 +227,8 @@ void test_hs2d_axis0()
     dump("odd", odd);
     std::cerr << odd << std::endl;
 
-    auto evens = hermitian_symmetry(even, 0);
-    auto odds = hermitian_symmetry(odd, 0);
+    auto evens = hermitian_mirror(even, 0);
+    auto odds = hermitian_mirror(odd, 0);
 
     // The Nyquist bin must be real.
     { size_t ind=3;
@@ -230,7 +242,10 @@ void test_hs2d_axis0()
     dump("odds", odds);
     std::cerr << odds << std::endl;
 
-    for (size_t ind=0; ind<3; ++ind) {
+    assert(std::abs(even(0,0)) == evens(0,0));
+    assert(std::abs(odd(0,0)) == odds(0,0));
+
+    for (size_t ind=1; ind<3; ++ind) {
         assert(even(ind,0) == evens(ind,0));
         assert(odd(ind,0) == odds(ind,0));
     }

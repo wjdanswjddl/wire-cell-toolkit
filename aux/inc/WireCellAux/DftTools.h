@@ -59,19 +59,6 @@ namespace WireCell::Aux::DftTools {
     using complex_vector_t = std::vector<complex_t>;
     using complex_array_t = Eigen::ArrayXXcf;
 
-    /// Produce a spectrum with Hermitian-symmetry along the given
-    /// axis enforced.  The samples above the Nyquist frequency will
-    /// be mirrored and complex conjugates of the samples below the
-    /// Nyquist frequency.  The zero sample is not mirrored and if the
-    /// number of samples is even the central "Nyquist bin" is not
-    /// mirrored (it is its own mirror).
-    complex_vector_t hermitian_symmetry(const complex_vector_t& spec);
-    complex_array_t hermitian_symmetry(const complex_array_t& spec, int axis);
-
-    // As above perform the transform in-place.
-    void hermitian_symmetry_inplace(complex_vector_t& spec);
-    void hermitian_symmetry_inplace(complex_array_t& spec, int axis);
-
     // Perform forward DFT, returning a complex spectrum given a
     // complex waveform.  The 2D array version lacking an "axis"
     // performs foward DFT in both directions.

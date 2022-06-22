@@ -5,6 +5,7 @@
 #include "WireCellAux/RandTools.h"
 #include "WireCellAux/DftTools.h"
 #include "WireCellUtil/Waveform.h"
+#include "WireCellUtil/Spectrum.h"
 #include "WireCellUtil/Interpolate.h"
 #include "WireCellUtil/Stream.h"
 #include "WireCellUtil/String.h"
@@ -13,6 +14,7 @@
 #include <iostream>
 
 using namespace WireCell;
+using namespace WireCell::Spectrum;
 using namespace WireCell::String;
 using namespace WireCell::Aux::Testing;
 using namespace WireCell::Aux::RandTools;
@@ -96,8 +98,8 @@ real_vector_t sample_spectrum(const points_t& points,
 
     // Note, this is wasteful, better if we were to implement a
     // Hermitian symmetry for reals, but I'm lazy.
-    complex_vector_t cspec(spec.begin(), spec.end());
-    hermitian_symmetry_inplace(cspec);
+    complex_vector_t cspec(spec.size());
+    hermitian_mirror(spec.begin(), spec.end(), cspec.begin());
 
     for (size_t ind=0; ind<nsamples; ++ind) {
         spec[ind] = std::abs(cspec[ind]);

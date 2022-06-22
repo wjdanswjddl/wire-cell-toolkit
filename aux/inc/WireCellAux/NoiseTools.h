@@ -19,7 +19,6 @@ namespace WireCell::Aux::NoiseTools {
     using real_vector_t = std::vector<float>;
     using complex_vector_t = std::vector< std::complex<float> >;
     
-
     // Return size which optimizes for both spectral resolution and
     // stability given nwaves waveforms of size nticks.
     inline

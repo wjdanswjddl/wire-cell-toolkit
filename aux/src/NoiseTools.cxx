@@ -1,12 +1,16 @@
 #include "WireCellAux/NoiseTools.h"
 #include "WireCellUtil/Waveform.h"
+#include "WireCellUtil/Spectrum.h"
+#include "WireCellUtil/Interpolate.h"
 
 #include <cmath>
 
 using namespace WireCell;
 using namespace WireCell::Waveform;
+using namespace WireCell::Spectrum;
 using namespace WireCell::Aux::DftTools;
 using namespace WireCell::Aux::NoiseTools;
+
 
 Collector::Collector()
 {
@@ -195,7 +199,7 @@ GeneratorN::spec(const real_vector_t& sigmas)
         spec[nhalf] = std::abs(spec[nhalf]);
     }        
 
-    hermitian_symmetry_inplace(spec);
+    hermitian_mirror(spec.begin(), spec.end());
     return spec;
 }
 
@@ -245,7 +249,7 @@ GeneratorU::spec(const real_vector_t& sigmas)
         // Must be real, can be negative.
         spec.at(nhalf).real(sigmas.at(nhalf)*sqrt(-2*log(uniforms.at(nhalf))));
     }
-    hermitian_symmetry_inplace(spec);
+    hermitian_mirror(spec.begin(), spec.end());
     return spec;
 }
 

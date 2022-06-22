@@ -1,4 +1,5 @@
 #include "WireCellAux/DftTools.h"
+#include "WireCellUtil/Spectrum.h"
 #include <algorithm>
 
 #include <iostream>             // debugging
@@ -6,72 +7,9 @@
 
 using namespace WireCell;
 using namespace WireCell::Aux;
+using namespace WireCell::Spectrum; // hermitian_mirror
 
 /*** helpers, both vector/array types ***/
-
-// 1D vector
-void DftTools::hermitian_symmetry_inplace(DftTools::complex_vector_t& spec)
-{
-    const size_t fullsize = spec.size();
-    const size_t halfsize = fullsize/2; // integer division
-    size_t extra = 0;
-    if (spec.size() % 2) {           // odd, no Nyquist bin
-        extra = 1;
-    }
-    else { // even, has a Nyquist bin.
-        // Force the Nyquist bin to be real.  When user gives us
-        // complex it is likely due to them making a fluctuated
-        // spectra and thus best to keep amplitude and remove phase
-        // instead of taking real part.  Thus abs().
-        spec[halfsize] = std::abs(spec[halfsize]);
-    }
-    for (size_t ind=halfsize+extra; ind<fullsize; ++ind) {
-        spec[ind] = std::conj(spec[fullsize-ind]);
-    }
-}
-DftTools::complex_vector_t DftTools::hermitian_symmetry(const DftTools::complex_vector_t& spec)
-{
-    DftTools::complex_vector_t ret(spec.begin(), spec.end());
-    hermitian_symmetry_inplace(ret);
-    return ret;
-}
-
-// 2D array
-// axis=1 means along columns, ie on a per-row basis
-void DftTools::hermitian_symmetry_inplace(DftTools::complex_array_t& spec, int axis)
-{
-    const size_t fullsize = axis ? spec.cols() : spec.rows();
-    const size_t halfsize = fullsize/2; // integer division
-    size_t extra = 0;
-    if (spec.size() % 2) {           // odd, no Nyquist bin
-        extra = 1;
-    }
-    else {              // see comments in same block above for vector
-        if (axis) {
-            spec.col(halfsize) = spec.col(halfsize).abs();
-        }
-        else {
-            spec.row(halfsize) = spec.row(halfsize).abs();
-        }
-    }
-
-    if (axis) {
-        for (size_t ind=halfsize+extra; ind<fullsize; ++ind) {
-            spec.col(ind) = spec.col(fullsize-ind).conjugate();
-        }
-    }
-    else {
-        for (size_t ind=halfsize+extra; ind<fullsize; ++ind) {
-            spec.row(ind) = spec.row(fullsize-ind).conjugate();
-        }
-    }
-}
-DftTools::complex_array_t DftTools::hermitian_symmetry(const DftTools::complex_array_t& spec, int axis)
-{
-    DftTools::complex_array_t ret = spec;
-    hermitian_symmetry_inplace(ret, axis);
-    return ret;
-}
 
 
 /*** vector ***/
@@ -101,7 +39,9 @@ DftTools::complex_vector_t DftTools::inv(const IDFT::pointer& dft, const DftTool
 DftTools::real_vector_t DftTools::inv_c2r(const IDFT::pointer& dft, const DftTools::complex_vector_t& spec)
 {
     // fixme: in future, expand IDFT to have c2r 
-    complex_vector_t symspec = hermitian_symmetry(spec);
+    complex_vector_t symspec(spec.size());
+    hermitian_mirror(spec.begin(), spec.end(), symspec.begin());
+
     auto cvec = inv(dft, symspec);
     real_vector_t rvec(cvec.size());
     std::transform(cvec.begin(), cvec.end(), rvec.begin(),
@@ -192,7 +132,7 @@ DftTools::complex_array_t DftTools::fwd_r2c(const IDFT::pointer& dft, const DftT
 
 DftTools::real_array_t DftTools::inv_c2r(const IDFT::pointer& dft, const DftTools::complex_array_t& spec, int axis)
 {
-    complex_array_t symspec = hermitian_symmetry(spec, axis);
+    complex_array_t symspec = hermitian_mirror(spec, axis);
     complex_array_t cwave = inv(dft, symspec, axis);
     // Drops the small imaginary that is accrued due to round-off errors.
     return cwave.real();        

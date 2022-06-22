@@ -6,6 +6,9 @@
 #include "WireCellUtil/Exceptions.h"
 #include "WireCellUtil/Units.h"
 #include "WireCellUtil/Interpolate.h"
+#include "WireCellUtil/Spectrum.h"
+
+#include "WireCellAux/DftTools.h"
 
 WIRECELL_FACTORY(GroupNoiseModel,
                  WireCell::Gen::GroupNoiseModel,
@@ -24,20 +27,21 @@ WireCell::Configuration Gen::GroupNoiseModel::default_configuration() const
 {
     Configuration cfg;
 
-    /// Configuration: spectra_file.  Name of file containing
-    /// array of per-group data with "groupID", array "freqs" of
-    /// frequency and array "amps" of amplitude.
-    cfg["spectral_file"] = "";
-    /// Configuration: map_file.  Name of file containing array of
-    /// per group data with "groupID" and array "channels" holding
-    /// IDs of channels in the group.
-    cfg["map_file"] = "";
+    /// Configuration: spectra.  See aux/docs/noise.org.
+    cfg["spectra"] = Json::nullValue;
+
+    /// Configuration: groups.  See aux/docs/noise.org.
+    cfg["groups"] = Json::nullValue;
+
     /// Configuration: spec_scale.  An arbitrary factor multiplied to
-    /// each spectrum read from file.
-    cfg["spec_scale"] = 1.0;
-    /// Configuration: nsamples.  The number of frequency samples
-    /// in returned (no loaded) spectra.
-    cfg["nsamples"] = 1024;        
+    /// each spectral input amplitude.
+    cfg["scale"] = 1.0;
+
+    /// Configuration: nsamples.  This gives the size of the spectra
+    /// returned to the user.  It is distinct from both the "nsamples"
+    /// in the spectral_file and the size of the freqs/amps array.
+    cfg["nsamples"] = 1024;
+
     /// Configuration: tick.  The sampling time period
     /// corresponding to 1/Fmax of the produced spectra
     cfg["tick"] = 0.5*units::us;
@@ -47,53 +51,97 @@ WireCell::Configuration Gen::GroupNoiseModel::default_configuration() const
 
 void Gen::GroupNoiseModel::configure(const WireCell::Configuration& cfg)
 {
-    double spec_scale = get(cfg, "spec_scale", 1.0);
-    size_t nsamples = get(cfg, "nsamples", 1024);
-    double tick = get(cfg, "tick", 0.5*units::us);
+    // desired for generated waveforms:
+    const double spec_scale = get(cfg, "scale", 1.0);
+    const size_t nsamples = get(cfg, "nsamples", 1024);
+    // Desired "half" spectrum size including the Nyquist bin if
+    // nsamples happens to be even.
+    const size_t nhalf = 1 + (size_t)floor(nsamples/2);
+    const double tick = get(cfg, "tick", 0.5*units::us);
 
-    std::string map_file = cfg["map_file"].asString();
-    if (map_file.empty()) {
-        THROW(ValueError() << errmsg{"no map file given to GroupNoiseModel"});
+    size_t errors = 0;
+
+    // for debug() output
+    std::string map_file = "<config>";
+    std::string spectral_file = "<config>";
+
+    auto jgroups = cfg["groups"];
+    if (jgroups.isNull()) {
+        log->critical("no parameter \"group\" given");
+        ++errors;
     }
-    std::string spectral_file = cfg["spectral_file"].asString();
-    if (spectral_file.empty()) {
-        THROW(ValueError() << errmsg{"no spectral file given to GroupNoiseModel"});
+    if (jgroups.isString()) {
+        map_file = jgroups.asString();
+        jgroups = Persist::load(map_file);
     }
 
+    auto jspectra = cfg["spectra"];
+    if (jspectra.isNull()) {
+        log->critical("no parameter \"spectra\" given");
+        ++errors;
+    }
+    if (jspectra.isString()) {
+        spectral_file = jspectra.asString();
+        jspectra = Persist::load(spectral_file);
+    }
+
+    // Intern channel groups data.
     std::set<int> groups;
     m_ch2grp.clear();
-    auto mapdata = Persist::load(map_file);
-    for (unsigned int i = 0; i < mapdata.size(); ++i) {
-        auto jdata = mapdata[i];
-        const int groupID = jdata["groupID"].asInt();
-        groups.insert(groupID);
-        for (auto jch : jdata["channels"]) {
-            m_ch2grp[jch.asInt()] = groupID;
+    for (const auto& jcg : jgroups) {
+        auto jgroup = jcg["group"].isNull() ? jcg["groupID"] : jcg["group"];
+        const int group = jgroup.asInt();
+        groups.insert(group);
+        for (const auto& jch : jcg["channels"]) {
+            m_ch2grp[jch.asInt()] = group;
         }
     }
     
-    const double Fmax = 1/tick;
-    const double dF = Fmax/nsamples;
-
+    // Read in, resample and intern the spectra.
     m_grp2amp.clear();
-    auto specdata = Persist::load(spectral_file);
-    for (unsigned int i = 0; i < specdata.size(); ++i) {
-        auto jdata = specdata[i];
-        const int groupID = jdata["groupID"].asInt();
-        auto spec_freq = jdata["freqs"];
-        auto spec_amps = jdata["amps"];
-        const int npts = spec_freq.size();
+    for (const auto& jso : jspectra) {
+        auto jgroup = jso["group"].isNull() ? jso["groupID"] : jso["group"];
+        const int group = jgroup.asInt();
+
+        // The original waveform size and sampling period
+        const size_t norig = jso["nsamples"].asInt();
+        const double porig = jso["period"].asInt();
+
+        const auto jfreqs = jso["freqs"];
+        const auto jamps = jso["amps"];
+        const size_t npts = jfreqs.size();
+
+        const double Fnyquist = 1.0/(2*porig);
+        const double Frayleigh = 1.0/(norig*porig);
+
         std::unordered_map<float, float> pts;
-        for (int ind=0; ind<npts; ++ind) {
-            const float freq = spec_freq[ind].asFloat();
-            pts[freq] = spec_scale * spec_amps[ind].asFloat();
+        for (int ind=0; ind<(int)npts; ++ind) {
+            const float freq = jfreqs[ind].asFloat();
+            if (freq > Fnyquist) {
+                // only read in half-spectrum
+                continue;
+            }
+            pts[freq] = spec_scale * jamps[ind].asFloat();
         }
+
+        // Restore original, full spectrum
         irrterp<float> terp(pts.begin(), pts.end());
+        std::vector<float> sorig(norig, 0);
+        terp(sorig.begin(), norig, 0, Frayleigh);
+        Spectrum::hermitian_mirror(sorig.begin(), sorig.end());
+
         std::vector<float> spec(nsamples, 0);
-        terp(spec.begin(), nsamples, 0, dF);
-        m_grp2amp[groupID] = spec;
+        Spectrum::resample(sorig.begin(), sorig.end(),
+                           spec.begin(), spec.end(),
+                           tick / porig);
+        
+        m_grp2amp[group] = spec;
     }
     
+    if (errors) {
+        THROW(ValueError() << errmsg{"configuration error"});
+    }
+
     log->debug("loaded {} channels from {} in {} groups and {} spectra from {}",
                m_ch2grp.size(), map_file, groups.size(), m_grp2amp.size(), spectral_file);
 }
@@ -107,10 +155,10 @@ const Gen::GroupNoiseModel::amplitude_t& Gen::GroupNoiseModel::channel_spectrum(
     if (git == m_ch2grp.end()) {
         return dummy;
     }
-    int groupID = git->second;
+    int group = git->second;
 
     // Lookup groups spectrum
-    auto ait = m_grp2amp.find(groupID);
+    auto ait = m_grp2amp.find(group);
     if (ait == m_grp2amp.end()) {
         return dummy;
     }
@@ -127,15 +175,15 @@ int Gen::GroupNoiseModel::groupid(int chid) const
     return git->second;
 }
 
-const Gen::GroupNoiseModel::amplitude_t& Gen::GroupNoiseModel::group_spectrum(int groupid) const
+const Gen::GroupNoiseModel::amplitude_t& Gen::GroupNoiseModel::group_spectrum(int group) const
 {
     static amplitude_t dummy;
-    if (groupid < 0) {
+    if (group < 0) {
         return dummy;
     }
 
     // Lookup groups spectrum
-    auto ait = m_grp2amp.find(groupid);
+    auto ait = m_grp2amp.find(group);
     if (ait == m_grp2amp.end()) {
         return dummy;
     }
