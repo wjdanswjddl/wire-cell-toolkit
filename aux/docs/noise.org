@@ -184,13 +184,121 @@ user is suggested to subsample large, detailed spectra to achieve file
 size reduction while still faithfully representing the spectral shapes
 with an acceptable resolution.
 
-* Python
 
-The ~wire-cell-python~ package provides the ~namedtuple~:
+* Validation
 
-#+begin_src python
-wirecell.sigproc.noise.schema.NoiseSpectrum
+** Round-trip
+
+The "round-trip" consists of these steps:
+
+- A set of fictional noise spectral amplitudes are defined.
+- The set is interpreted both as coherent and incoherent noise.
+- Separately, each are used to simulate a noise frame with a ~GroupedNoiseModel~
+- Each are digitized to ADC and result saved to file.
+- Each ADC frame is returned to voltage level with an ~Undigitizer~
+- Each V frame is analyzed by a ~NoiseModeler~
+  - Traces are judged by a ~NoiseRanker~
+  - Survivors added to a ~NoiseCollector~
+  - Finally, group spectra are saved to file.
+
+*** Input spectra
+
+The input spectra can be viewed with:
+
+#+begin_example
+wirecell-sigproc plot-noise-spectra \
+  gen/test/test-noise-spectra.jsonnet orig.pdf
+#+end_example
+
+This will generate the spectra in Jsonnet.  It evaluates to a function with the following signature:
+
+#+begin_src jsonnet
+function(ngrps=10, nsamples=4096, nsave=64, period=0.5*wc.us, fpeak=0.1, rms=0.1*wc.volt)
 #+end_src
 
-which enumerates the required and known optional attributes described
-above.
+- ~ngrps~ :: number of spectral groups to generate.  Each group will have ~grpnum/ngrps~ of the ~rms~.
+- ~nsamples~ :: number of waveform time samples (number of "ticks") from which the spectrum is assumed to have originated.
+- ~nsave~ :: how many sub-smampled points to produce.
+- ~period~ :: the waveform sampling period ("tick")  from which the spectrum is assumed to have originated.
+- ~peak~ :: the location of the spectral peak expressed as a fraction of the Nyquist frequency (~0.5/period~).
+- ~rms~ :: the expected RMS from waveforms generated from the returned mean spectral amplitude.
+
+*** Model details
+
+Some understanding of the model is needed to provide proper values.  The spectrum shape in the frequency domain is modeled by a Rayleigh distribution with parameter $\sigma_s = \mathtt{peak} * F_{Nyquist}$ and an multiplicative scale $S$.  This is an ad-hoc choice of model and does not relate to the fact that each spectral bin $k$ is distributed also by a Rayleigh distribution with $\sigma_k,\ k\in[0,N-1]$ where $N$ is given by ~nsamples~.  The first two "raw" moments for each Rayleigh-distributed frequency bin are related through their $\sigma_k$ as:
+
+\[\langle|X_k|\rangle = \sqrt{\frac{\pi}{2}}\sigma_k\]
+and 
+
+\[\langle|X_k|^2\rangle = 2\sigma_k^2\]
+
+solving:
+
+\[\langle|X_k|\rangle^2 = \frac{\pi}{4} \langle|X_k|^2\rangle,\ k\in[0,N-1]\]
+
+We may calculate RMS on a per-waveform basis in either time or frequency domain
+
+\[\sigma_{rms}^2 = \sum_k|x_k|^2/N = E/N = \sum_k|X_k|^2/N^2\]
+We may form its average $\langle\cdot\rangle$ over many waveforms,
+
+\[\langle \sigma_{rms}^2 \rangle = \sum_k \langle |X_k|^2 \rangle / N^2 = \sum_k \frac{4}{\pi} \langle |X_k| \rangle^2/N^2\]
+
+Thus, we must choose $\sigma_s$ and $S$ so that the above sum gives desired $\langle\sigma_{rms}^2\rangle$.  We want to first "tune" $\sigma_s$ so that ~peak~ lands close to some real world noise spectrum peak so we take it as given and find $S$.
+
+The Rayleigh PDF is $R(x;\sigma) = \frac{x}{\sigma^2}e^{-x^2/(2\sigma^2)}$ and our spectrum is $S\cdot R(X;\sigma_s) \triangleq S\cdot R_k = \langle|X_k|\rangle$.  Solving,
+
+\[S^2 = \frac{\pi N^2 \langle\sigma_{rms}^2\rangle}{4 \sum_k R_k^2} \]
+
+Thus the ~rms~ parameter is identified as providing the desired value of the $\sqrt{\langle\sigma_{rms}^2\rangle}$. An example with $N=4096,\ \sigma_{rms}=0.1\mathrm{V},\ \mathtt{peak}=0.1,\ T=0.5\mu\mathrm{s}$ and saving 65 subsampled points is:
+
+
+#+ATTR_ORG: :width 800
+[[file:test-noise-spectra-in-0.svg]]
+
+
+*** Visualize the model
+
+The above plot was made with a command like the following.  Any of the parameters of the model may be set from the command line, such as:
+#+begin_example
+wirecell-sigproc plot-noise-spectra \
+  -A nsamples=1024 \
+  -A nsave=100 \
+  gen/test/test-noise-spectra.jsonnet \
+  orig-specta.pdf
+#+end_example
+
+*** Performing the round-trip
+
+A main configuration file for ~wire-cell~ is provided that uses the
+above ~est-noise-spectra.jsonnet~ as the starting point for the
+round-trip.  It can be exercised with default parameters like:
+
+#+begin_example
+$ wire-cell -c  gen/test/test-noise-roundtrip.jsonnet
+$ ls -l test-noise-roundtrip-*{npz,json.bz2}
+#+end_example
+
+The job flow graph is:
+
+#+ATTR_ORG: :width 800
+[[file:test-noise-roundtrip-flow-graph.svg]]
+
+It produces a cross product of $(inco,cohe) \otimes (adc,dac)$ where
+
+- inco :: incoherent grouped noise (3 groups)
+- cohe :: coherent grouped noise (10 groups)
+- adc :: the simulated ADC
+- dac :: the ADC rescaled back to voltage level
+
+Each cross produces a ~.npz~ file and each noise type results in a
+~.json.bz2~ file of output spectra.  These too can be visualized
+
+#+begin_example
+wirecell-sigproc plot-noise-spectra \
+  test-noise-roundtrip-inco-spectra.json.bz2 \
+  inco-spectra.pdf
+
+wirecell-sigproc plot-noise-spectra \
+  test-noise-roundtrip-cohe-spectra.json.bz2 \
+  cohe-spectra.pdf
+#+end_example

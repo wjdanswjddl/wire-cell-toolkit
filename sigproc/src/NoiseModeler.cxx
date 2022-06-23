@@ -143,44 +143,52 @@ NoiseModeler::Collector& NoiseModeler::nc(int chid)
 }
 
 
-bool NoiseModeler::operator()(const input_pointer& adcframe)
+// we expect voltage-level frames
+bool NoiseModeler::operator()(const input_pointer& frame)
 {
-    if (!adcframe) {
+    if (!frame) {
         log->debug("EOS at count={}", m_count);
         ++m_count;
         return true;
     }
 
-    auto adctraces = Aux::untagged_traces(adcframe);
-    if (adctraces.empty()) {
+    auto traces = Aux::untagged_traces(frame);
+    if (traces.empty()) {
         log->debug("no traces in input frame {} at call={}",
-                   adcframe->ident(), m_count);
+                   frame->ident(), m_count);
         ++m_count;
         return true;
     }
     
     if (m_tick == 0) {
-        m_tick = adcframe->tick();
+        m_tick = frame->tick();
     }
 
-    for (const auto& trace : adctraces) {
+    int got=0;
+    for (const auto& trace : traces) {
         const auto& vwave = trace->charge();
 
         // default set-on-first-seen pattern
         if (! m_nfft) {
             m_nfft = vwave.size();
+            log->debug("set nfft={} based on first seen", m_nfft);
         }
         if (!m_nhalfout) {
-            m_nhalfout = 1 << (size_t)ceil(sqrt(m_nfft));
+            m_nhalfout = ceil(sqrt(m_nfft));
+            log->debug("set nsave={} based on first seen", m_nhalfout);
         }
 
         if (! m_isnoise(trace)) {
             continue;
         }
 
+        ++got;
         auto& col = nc(trace->channel());
         col.add(vwave.begin(), vwave.end());
     }
+
+    log->debug("got {} noise traces out of {} at frame {} in {} groups at count={}",
+               got, traces.size(), frame->ident(), m_gcol.size(), m_count);
 
     ++m_count;
     return true;
@@ -192,8 +200,16 @@ void NoiseModeler::finalize()
     const size_t nout = 2*m_nhalfout;
     Json::Value jout = Json::arrayValue;
     for (const auto& [gid, col] : m_gcol) {
+
+        if (col.nwaves() == 0) {
+            log->warn("collected no waves for group {}", gid);
+            continue;
+        }
+
         Json::Value jentry = Json::objectValue;
-        jentry["groupID"] = gid;
+
+        // Set the group number.  ("groupID" is deprecated)
+        jentry["group"] = gid;
 
         // This is the original sampling period and file needs it so
         // user can know Fnyquist, etc.
@@ -234,6 +250,8 @@ void NoiseModeler::finalize()
         jentry["freqs"] = jfreq;
         jentry["amps"] = jamps;
         jout.append(jentry);
+        log->debug("group {} nwaves={} nsamples={} nfft={}, nsave={}",
+                   gid, col.nwaves(), nticks, m_nfft, m_nhalfout);
     }
     Persist::dump(m_outname, jout, true);
 }

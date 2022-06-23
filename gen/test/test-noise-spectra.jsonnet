@@ -1,4 +1,5 @@
 // A contrived noise model suitable for GroupNoiseModel
+// See aux/docs/noise.org for description.
 
 local wc = import "wirecell.jsonnet";
 
@@ -6,43 +7,27 @@ local wc = import "wirecell.jsonnet";
 local rayleigh = function(x, sigma=0.1)
     x / (sigma*sigma) * std.exp(-0.5*std.pow(x/sigma, 2));
 
-// Generate a bogus but roughly realistic spectrum for a given group
-// number grp out of ngrps and for .
-// 
-// "nsamples" is how many "regular" samples ("ticks") that the
-// "original" waveforms had which were used to form the mean
-// amplitude.  The freqs/amps arrays returned will have arbitrary size
-// smaller than "nsamples" (by the sqrt).  May tune "knob" to get some
-// rough noise level and "scale" effectively sets to units of measure.
-local genspec = function(
-    // The group number (arb)
-    grpnum,
-    // The number of samples (ticks) in the (fictional) waveforms
-    // leading to the returned spectrum.
-    nsamples, 
-    // The period of those samples
-    period,
-    // The location of the spectral peak expressed as a fraction of
-    // the Nyquist frequency = 0.5/period.
-    fpeak,
-    // A scale multiplied to the raw spectrum in order to provide
-    // correct units of measure,
-    scale,
-    // Number of points out of nsamples to save
-    nsave)
-    {
+local gen = function(grpnum, nsamples, period, fpeak, rms, nsave) {
+    local fsample = 1.0/period,
+    local fnyquist = 0.5*fsample,
+    local frayleigh = fsample/nsamples,
     
-        // The Rayleigh frequency / frequency bin size
-        local fstep = 0.5/period,
-        nsamples: nsamples,
-        period: period,
-        groupID: grpnum,
-        freqs: [ind*fstep for ind in std.range(0, nsave-1)],
-        amps: [scale*rayleigh(freq, 0.5*fpeak/period) for freq in $.freqs],
-    };
+    local fsigma = fpeak*fnyquist,
+    local nstep = nsamples/(2*nsave),
 
+    // only up to Nyquist frequency, and then double
+    local half_freqs = [ind*frayleigh for ind in std.range(0, nsamples/2)],
+    local half_Rk = [rayleigh(freq, fsigma) for freq in half_freqs],
 
-// See above for parameter docstrings
-function(ngrps=10, nsamples=4096, nsave=64, period=0.5*wc.us, fpeak=0.1, scale=10*wc.volt) [
-    genspec(grp, nsamples, period, fpeak, scale*grp/ngrps, nsave) for grp in std.range(1, ngrps)
+    local num = 3.141592*nsamples*nsamples*rms*rms,
+    local den = 4*2*std.foldl(function(s,r) s + r*r, half_Rk, 0),
+    local S = std.sqrt(num/den),
+    nsamples: nsamples,
+    period: period,
+    group: grpnum,
+    freqs: half_freqs[0:nsamples:nstep],
+    amps: [S*R for R in half_Rk[0:nsamples:nstep]],
+};
+function(ngrps=10, nsamples=4096, nsave=64, period=0.5*wc.us, fpeak=0.1, rms=10*wc.mV) [
+    gen(grp, nsamples, period, fpeak, rms*grp/ngrps, nsave) for grp in std.range(1, ngrps)
 ]

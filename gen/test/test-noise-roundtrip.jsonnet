@@ -28,7 +28,8 @@ local nsamples_modelin = 4096;
 local nsamples_modelinsave = 64;
 
 // Size of generated waveforms.
-local nsamples_generate = 6000;
+//local nsamples_generate = 6000;
+local nsamples_generate = 4096;
 
 // As above but for saving out the model.
 local nsamples_modelout = 4096;
@@ -43,7 +44,9 @@ local wires = {
     }};
 local isnoise = {
     type: "NoiseRanker",
-    data: {},
+    data: {
+        maxdev: 10*wc.mV,
+    },
 };
 
 // pdsp apa 0, dumped from "real" jsonnet
@@ -103,7 +106,8 @@ local models = {
         name: one,
         data: {
             // This can also be given as a JSON/Jsonnet file
-            spectra: tns(nsamples=nsamples_modelin, nsave=nsamples_modelinsave),
+            spectra: tns(nsamples=nsamples_modelin, nsave=nsamples_modelinsave,
+                         rms=10*wc.mV),
             groups: tng[one],
             nsamples: nsamples_generate,
             tick: 0.5*wc.us,
@@ -122,21 +126,28 @@ local pipes = {
                 nsamples: nsamples_generate,
             }}, nin=1, nout=1, uses=[models[one], svcs.dft, svcs.rng]),
 
+        // tap input to modeler
+        pg.fan.tap('FrameFanout',  pg.pnode({
+            type: "FrameFileSink",
+            name: one+'vin',
+            data: {
+                outname: "test-noise-roundtrip-%s-vin.npz"%one, 
+                digitize: false,
+            },
+        }, nin=1, nout=0), one+'vin'),
+
         // digitize
         pg.pnode({
             type: "Digitizer",
             name: one,
-            data: digidata {
-                frame_tag: one,
-            }}, nin=1, nout=1, uses=[anode]),
+            data: digidata}, nin=1, nout=1, uses=[anode]),
 
         // tap generated noise
         pg.fan.tap('FrameFanout',  pg.pnode({
             type: "FrameFileSink",
             name: one+'adc',
             data: {
-                outname: "test-noise-roundtrip-%sadc.npz"%one, 
-                tags: [one],
+                outname: "test-noise-roundtrip-%s-adc.npz"%one, 
                 digitize: true,
             },
         }, nin=1, nout=0), one+'adc'),
@@ -153,9 +164,8 @@ local pipes = {
             type: "FrameFileSink",
             name: one+'dac',
             data: {
-                outname: "test-noise-roundtrip-%sdac.npz"%one, 
-                tags: [one],
-                digitize: true,
+                outname: "test-noise-roundtrip-%s-dac.npz"%one, 
+                digitize: false,
             },
         }, nin=1, nout=0), one+'dac'),
         

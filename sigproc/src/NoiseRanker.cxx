@@ -18,16 +18,17 @@ WireCell::Configuration NoiseRanker::default_configuration() const
 {
     Configuration cfg;
 
-    /// Maximum deviation from median and still considered noise
-    // rank is 1-sum(abs(V_n-median))>maxdev)/N
-    cfg["maxdev"] = 0.1*units::volt;
+    /// Maximum deviation from median and still considered noise.  The
+    // returned rank = 1-sum(abs(V_n-median))>maxdev)/N.  Eg, 2V/12
+    // bit ~ 0.5 mV/ADC, say 10 ADC noise and then a few sigma.
+    cfg["maxdev"] = 10*units::mV;
 
     return cfg;
 }
 
 void NoiseRanker::configure(const WireCell::Configuration& cfg)
 {
-    m_maxdev = get(cfg, "maxdev", 0.1*units::volt);
+    m_maxdev = get(cfg, "maxdev", 10*units::mV);
 }
 
 double NoiseRanker::rank(const WireCell::ITrace::pointer& trace)

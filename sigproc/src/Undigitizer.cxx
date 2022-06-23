@@ -132,6 +132,8 @@ bool Undigitizer::operator()(const input_pointer& adcframe, output_pointer& vfra
                                                 adcframe->time(),
                                                 vtraces,
                                                 adcframe->tick());
+    log->debug("frame {} with {} traces at call={}",
+               vframe->ident(), vtraces.size(), m_count);
     ++m_count;
     return true;
 }
