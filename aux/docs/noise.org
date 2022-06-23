@@ -302,3 +302,9 @@ wirecell-sigproc plot-noise-spectra \
   test-noise-roundtrip-cohe-spectra.json.bz2 \
   cohe-spectra.pdf
 #+end_example
+
+Or, run it all as:
+
+#+begin_example
+aux/test/test-noise-roundtrip.sh 
+#+end_example
