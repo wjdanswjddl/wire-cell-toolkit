@@ -107,7 +107,7 @@ local models = {
         data: {
             // This can also be given as a JSON/Jsonnet file
             spectra: tns(nsamples=nsamples_modelin, nsave=nsamples_modelinsave,
-                         rms=10*wc.mV),
+                         rms=1*wc.mV), // PDSP is eg 1.3 mV
             groups: tng[one],
             nsamples: nsamples_generate,
             tick: 0.5*wc.us,

@@ -13,7 +13,7 @@ local gen = function(grpnum, nsamples, period, fpeak, rms, nsave) {
     local frayleigh = fsample/nsamples,
     
     local fsigma = fpeak*fnyquist,
-    local nstep = nsamples/(2*nsave),
+    local nstep = std.floor(nsamples/(2*nsave)),
 
     // only up to Nyquist frequency, and then double
     local half_freqs = [ind*frayleigh for ind in std.range(0, nsamples/2)],
@@ -28,6 +28,7 @@ local gen = function(grpnum, nsamples, period, fpeak, rms, nsave) {
     freqs: half_freqs[0:nsamples:nstep],
     amps: [S*R for R in half_Rk[0:nsamples:nstep]],
 };
-function(ngrps=10, nsamples=4096, nsave=64, period=0.5*wc.us, fpeak=0.1, rms=10*wc.mV) [
+function(ngrps=10, nsamples=4096, nsave=64, period=0.5*wc.us, fpeak=0.1, rms=1*wc.mV)
+[
     gen(grp, nsamples, period, fpeak, rms*grp/ngrps, nsave) for grp in std.range(1, ngrps)
 ]
