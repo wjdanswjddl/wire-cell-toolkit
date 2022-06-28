@@ -1,0 +1,169 @@
+# Default configuration.  Provide your own with --configfile or
+# override specific args with --config
+configfile: workflow.source_path("depo-ssi-viz.yaml")
+
+# evil shortcut to promote keys to variables
+for k,v in config.items(): globals()[k] = v
+
+# derived from config.  note, may need variant as partial key.
+anodes = {
+    "pdsp": list(range(6)),
+    "uboone": [0]
+}[detector]
+
+# literals, tied to the job and not subject to config
+frame_tiers = ["adc", "sig"]
+cluster_tiers = ["img"]
+
+# where output goes
+wctdir=f"{outdir}/{detector}/wct"   # wire-cell output
+pltdir=f"{outdir}/{detector}/plots" # plot PDFs
+pvdir=f"{outdir}/{detector}/pv"     # paraview files
+
+rule jsonify:
+    input: 
+        jobcfg
+    output:
+        f"{wctdir}/depo-ssi-viz.json"
+    params:
+        depos=f"{wctdir}/drifted-depos.npz",
+        frames=f"{wctdir}/frames-%(tier)s-%(anode)s.npz",
+        clusters=f"{wctdir}/clusters-%(tier)s-%(anode)s.npz"
+    shell: """
+    wcsonnet \
+      -A 'detector={detector}' \
+      -A 'variant={variant}' \
+      -A 'depofile={depofile}' \
+      -A 'depos={params.depos}' \
+      -A 'frames={params.frames}' \
+      -A 'clusters={params.clusters}' \
+      {input} > {output}
+    """
+
+rule wctify:
+    input:
+        cfg=rules.jsonify.output,
+        depos=depofile
+    output:
+        log=f"{wctdir}/wire-cell.log",
+        depos=f"{wctdir}/drifted-depos.npz",
+        frames=expand(f"{wctdir}/frames-{{tier}}-{{anode}}.npz", tier=frame_tiers, anode=anodes),
+        clusters=expand(f"{wctdir}/clusters-{{tier}}-{{anode}}.npz", tier=cluster_tiers, anode=anodes)
+    shell: """
+    wire-cell -l {output.log} -L debug -c {input.cfg}
+    """
+
+rule plot_depos:
+    input:
+        rules.wctify.output.depos
+    output:
+        f"{pltdir}/plot-depos-{{plotname}}.pdf"
+    shell: """
+    wirecell-gen plot-depos -p {wildcards.plotname} -g0 {input} {output}
+    """
+
+rule plot_depos_all:
+    input:
+        expand(f"{pltdir}/plot-depos-{{plotname}}.pdf", plotname=["tyqscat", "tzqscat"])
+
+
+rule plot_adc_frames:
+    input:
+        f"{wctdir}/frames-adc-{{anode}}.npz"
+    output:
+        f"{pltdir}/frames-adc-{{anode}}.pdf"
+    shell: """
+    wirecell-util npz-to-img \
+    --cmap seismic \
+    --title "$(basename {input})" \
+    --xtitle 'Relative tick number' \
+    --ytitle 'Relative channel number' \
+    --ztitle 'ADC (median subtracted)' \
+    --vmin '-50' --vmax '50' --mask 0 --dpi 600 \
+    --baseline='median'\
+    -o "{output}" "{input}"
+    """
+
+rule plot_sig_frames:
+    input:
+        f"{wctdir}/frames-sig-{{anode}}.npz"
+    output:
+        f"{pltdir}/frames-sig-{{anode}}.pdf"
+    shell: """
+    wirecell-util npz-to-img \
+    --cmap viridis \
+    --title "$(basename {input})" \
+    --xtitle 'Relative tick number' \
+    --ytitle 'Relative channel number' \
+    --ztitle 'Signal (ionization electrons)' \
+    --vmin '0' --vmax '10000' --mask 0 --dpi 600 \
+    -o "{output}" "{input}"
+    """
+
+rule plot_all_frames:
+    input:
+        expand(f"{pltdir}/frames-{{tier}}-{{anode}}.pdf", tier=frame_tiers, anode=anodes)
+
+
+rule pv_depos_orig:
+    input:
+        depofile
+    output:
+        f"{pvdir}/depos-orig.vtp"
+    shell: """
+    wirecell-img paraview-depos --speed 0 {input} {output}
+    """
+rule pv_depos_drifted:
+    input:
+        rules.wctify.output.depos
+    output:
+        f"{pvdir}/depos-drifted.vtp"
+    params:
+        drift_speed
+    shell: """
+    wirecell-img paraview-depos --speed {params} {input} {output}
+    """
+rule depos_all:
+    input:
+        rules.pv_depos_orig.output,
+        rules.pv_depos_drifted.output
+
+rule pv_blobs:
+    input:
+        f"{wctdir}/clusters-{{tier}}-{{anode}}.npz"
+    output:
+        f"{pvdir}/clusters-{{tier}}-{{anode}}.vtu"
+    params:
+        drift_speed
+    shell: """
+    wirecell-img paraview-blobs --speed "{params}" {input} {output} || touch {output}
+    """
+rule pv_blobs_all:
+    input:
+        expand(rules.pv_blobs.output, tier=["img"], anode=anodes)
+
+rule plot_blobs:
+    input:
+        f"{wctdir}/clusters-{{tier}}-{{anode}}.npz"
+    output:
+        f"{pltdir}/clusters-{{tier}}-{{anode}}-{{plotname}}.pdf"
+    shell: """
+    if [ -s {input} ] ; then
+      wirecell-img plot-blobs -p {wildcards.plotname} {input} {output}
+    else
+      touch {output}
+    fi
+    """
+rule plot_blobs_all:
+    input:
+        expand(f"{pltdir}/clusters-{{tier}}-{{anode}}-{{plotname}}.pdf", tier=cluster_tiers, anode=anodes, plotname=["ty", "tz"])
+
+rule dotify:
+    input: 
+        rules.jsonify.output
+    output:
+        f"{wctdir}/depo-ssi-viz-flow-graph.pdf"
+    shell: """
+    wirecell-pgraph dotify --no-params {input} {output}
+    """
+        

@@ -104,6 +104,10 @@ void Sio::ClusterFileSink::configure(const WireCell::Configuration& cfg)
     }
     m_prefix = get<std::string>(cfg, "prefix", m_prefix);
     m_format = get<std::string>(cfg, "format", m_format);
+    // force-override format if .npz
+    if (String::endswith(m_outname, ".npz")) {
+        m_format = "numpy";
+    }
     if (m_format == "json") {
         m_serializer = [&](const ICluster& cluster){this->jsonify(cluster);};
     }

@@ -1,0 +1,6 @@
+jobcfg: img/test/depo-ssi-viz.jsonnet
+depofile: test/data/muon-depos.npz
+outdir: build/img/test/depo-ssi-viz
+detector: pdsp
+variant: nominal
+drift_speed: "1.56*mm/us"
