@@ -50,7 +50,7 @@ rule wctify:
         frames=expand(f"{wctdir}/frames-{{tier}}-{{anode}}.npz", tier=frame_tiers, anode=anodes),
         clusters=expand(f"{wctdir}/clusters-{{tier}}-{{anode}}.npz", tier=cluster_tiers, anode=anodes)
     shell: """
-    wire-cell -l {output.log} -L debug -c {input.cfg}
+    wire-cell -l stderr -l {output.log} -L debug -c {input.cfg}
     """
 
 rule plot_depos:

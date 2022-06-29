@@ -105,9 +105,10 @@ void ClusterArrays::core_nodes() const
 
     nvtxs = boost::num_vertices(m_graph);
 
-    // Map ordering value to its vertex
+    // Map vertex to its ordering value
     using ordering_t = int;
-    using ordered_t = std::map<ordering_t, cluster_vertex_t>;
+    using order_vtx_t = std::pair<ordering_t, cluster_vertex_t>;
+    using ordered_t = std::set<order_vtx_t>;
     // Map node type code to its set of ordered vertices
     using grouped_t = std::unordered_map<char, ordered_t>;
 
@@ -116,7 +117,7 @@ void ClusterArrays::core_nodes() const
         const auto& node = m_graph[vdesc];
         char code = node.code();
         ordering_t order = node.ident();
-        node_types[code][order] = vdesc;
+        node_types[code].insert(std::make_pair(order, vdesc));
     }
     
     const size_t ntypes = cluster_node_t::known_codes.size();

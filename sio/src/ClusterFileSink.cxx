@@ -8,13 +8,37 @@
 
 #include "WireCellAux/FrameTools.h"
 
-// This is found at *compile* time in util/inc/.
 #include "WireCellUtil/custard/custard_boost.hpp"
 
 WIRECELL_FACTORY(ClusterFileSink, WireCell::Sio::ClusterFileSink,
                  WireCell::INamed,
                  WireCell::IClusterSink, WireCell::ITerminal,
                  WireCell::IConfigurable)
+
+static void dump_cluster(WireCell::Log::logptr_t& log,
+                         const WireCell::ICluster::pointer& cluster)
+{
+    const auto& gr = cluster->graph();
+    const auto known = WireCell::cluster_node_t::known_codes;
+    const size_t ncodes = known.size();
+    std::vector<size_t> counts(ncodes, 0);
+
+    for (auto vtx : boost::make_iterator_range(boost::vertices(gr))) {
+        const auto& vobj = gr[vtx];
+        ++counts[vobj.ptr.index() - 1]; // node type index=0 is the bogus node type
+    }
+
+    std::stringstream ss;
+    for (size_t ind=0; ind < ncodes; ++ind) {
+        ss << known[ind] << ":" << counts[ind] << " ";
+    }
+
+    log->debug("cluster {}: nvertices={} nedges={} types: {}",
+               cluster->ident(),
+               boost::num_vertices(gr),
+               boost::num_edges(gr),
+               ss.str());
+}
 
 using namespace WireCell;
 
@@ -122,6 +146,7 @@ void Sio::ClusterFileSink::configure(const WireCell::Configuration& cfg)
     }
 }
 
+
 bool Sio::ClusterFileSink::operator()(const ICluster::pointer& cluster)
 {
     if (!cluster) {             // EOS
@@ -129,7 +154,8 @@ bool Sio::ClusterFileSink::operator()(const ICluster::pointer& cluster)
         ++m_count;
         return true;
     }
-    
+
+    dump_cluster(log, cluster);
     m_serializer(*cluster);
 
     ++m_count;
