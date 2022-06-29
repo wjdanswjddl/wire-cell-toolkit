@@ -234,15 +234,13 @@ GeneratorU::spec(const real_vector_t& sigmas)
 
     auto uniforms = uniform(nsamples);
 
-    constexpr double π {3.141592653589793};
-
     // The zero-frequency bin must be real and may be negative.
     spec.at(0).real(sigmas.at(0)*sqrt(-2*log(uniforms.at(0))));
 
     for (size_t ind=1; ind < nhalf; ++ind) {
         float mode = sigmas.at(ind);
         float rad = mode*sqrt(-2*log(uniforms.at(ind)));
-        float ang = 2 * π * uniforms.at(ind+nhalf);
+        float ang = 2 * 3.141592653589793 * uniforms.at(ind+nhalf);
         spec.at(ind) = std::polar(rad, ang);
     }
     if (nextra) {       // have Nyquist bin
