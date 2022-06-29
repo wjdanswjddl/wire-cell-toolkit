@@ -105,11 +105,6 @@ void test_hermitian_eigen_rows()
     std::cerr << arr << "\n";
     auto harr = hermitian_mirror(arr, axis);
 
-    for (auto row : arr.rowwise()) {
-        hermitian_mirror(row.begin(),
-                         row.end(),
-                         row.begin());
-    }
     std::cerr << arr << "\n";
 
 }

@@ -6,6 +6,8 @@
 #include <complex>
 #include <algorithm>
 
+#include "Eigen/Core"           // for version test
+
 namespace WireCell::Spectrum {
 
     /** This namespace holds types and functions for primitive
@@ -90,19 +92,45 @@ namespace WireCell::Spectrum {
     template<typename Array>
     void hermitian_mirror_inplace(Array& arr, int axis) {
         if (axis == 0) {        // along rows means column-wise
+#if EIGEN_VERSION_AT_LEAST(3,4,0)
             for (auto col : arr.colwise()) {
                 hermitian_mirror(col.begin(),
                                  col.end(),
                                  col.begin());
             }
+#else
+            for (long icol=0; icol<arr.cols(); ++icol) {
+                std::vector<typename Array::Scalar> tmp(arr.rows(), 0);
+                for (long ind=0; ind<arr.rows(); ++ind) {
+                    tmp[ind] = arr(ind, icol);
+                }
+                hermitian_mirror(tmp.begin(), tmp.end(), tmp.begin());
+                for (long ind=0; ind<arr.rows(); ++ind) {
+                    arr(ind, icol) = tmp[ind];
+                }
+            }                
+#endif
             return;
         }
         if (axis == 1) {        // along columns mean row-wise
+#if EIGEN_VERSION_AT_LEAST(3,4,0)
             for (auto row : arr.rowwise()) {
                 hermitian_mirror(row.begin(),
                                  row.end(),
                                  row.begin());
             }
+#else
+            for (long irow=0; irow<arr.rows(); ++irow) {
+                std::vector<typename Array::Scalar> tmp(arr.cols(), 0);
+                for (long ind=0; ind<arr.cols(); ++ind) {
+                    tmp[ind] = arr(irow, ind);
+                }
+                hermitian_mirror(tmp.begin(), tmp.end(), tmp.begin());
+                for (long ind=0; ind<arr.cols(); ++ind) {
+                    arr(irow, ind) = tmp[ind];
+                }
+            }                
+#endif
             return;
         }
         THROW(ValueError() << errmsg{"illegal axis"});
