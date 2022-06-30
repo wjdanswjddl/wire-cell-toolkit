@@ -102,20 +102,27 @@ void Sio::ClusterFileSink::dotify(const ICluster& cluster)
 
 void Sio::ClusterFileSink::numpify(const ICluster& cluster)
 {
-    Aux::ClusterArrays ca(cluster.graph());
-    
     auto fn = [&](const std::string& name) {
         return this->fqn(cluster, name, "npy");
     };
 
-    write_numpy(ca.idents(), fn("idents"));
-    write_numpy(ca.edges(), fn("edges"));
-    write_numpy(ca.node_ranges(), fn("ranges"));
-    write_numpy(ca.signals(), fn("signals"));
-    write_numpy(ca.slice_durations(), fn("slice_durations"));
-    write_numpy(ca.wire_endpoints(), fn("wire_endpoints"));
-    write_numpy(ca.wire_addresses(), fn("wire_addresses"));
-    write_numpy(ca.blob_shapes(), fn("blob_shapes"));
+    Aux::ClusterArrays ca(cluster.graph());
+
+    // write nodes
+    for (auto nc : ca.node_codes()) {
+        const auto& na = ca.node_array(nc);
+        std::string name = "_nodes";
+        name[0] = nc;
+        write_numpy(na, fn(name));
+    }
+
+    // write edges
+    for (auto ec : ca.edge_codes()) {
+        const auto& ea = ca.edge_array(ec);
+        auto name = ca.edge_code_str(ec);
+        name += "edges";
+        write_numpy(ea, fn(name));
+    }
 }
 
 void Sio::ClusterFileSink::configure(const WireCell::Configuration& cfg)

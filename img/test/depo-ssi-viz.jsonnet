@@ -57,5 +57,6 @@ function(detector, variant="nominal",
         ]) for anode in anodes];
     local body = high.pg.fan.fanout('DepoSetFanout', apipes);
     local graph = high.pg.pipeline([source, drifter, drifted, body], "main");
-    high.main(graph, 'TbbFlow')
+    local executor = "TbbFlow";
+    high.main(graph, executor)
 
