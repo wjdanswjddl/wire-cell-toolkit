@@ -87,3 +87,22 @@ void Aux::fill(Array::array_xxf& data, Array::array_xxi& info,
 
 }
 
+std::vector<IDepo::vector>
+Aux::depos_by_slice(const IDepo::vector& depos, const Binning& tbins,
+                    double time_offset, double nsigma)
+{
+    std::vector<IDepo::vector> ret(tbins.nbins());
+    for (const auto& depo : depos) {
+        const double t = depo->time() + time_offset;
+        const double sigma = depo->extent_long();
+        const double tmin = t - sigma*nsigma;
+        const double tmax = t + sigma*nsigma;
+        int beg = std::max(tbins.bin(tmin),   0);
+        const int end = std::min(tbins.bin(tmin)+1, tbins.nbins());
+        while (beg < end) {
+            ret[beg].push_back(depo);
+            ++beg;
+        }
+    }
+    return ret;
+}

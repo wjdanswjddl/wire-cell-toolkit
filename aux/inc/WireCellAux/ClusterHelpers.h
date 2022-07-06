@@ -32,6 +32,10 @@ namespace WireCell::Aux {
     /// principle, clusters can span frames.
     IFrame::pointer find_frame(const ICluster& cluster);
 
+    /// Return the blobs for each slice
+    using blobs_by_slice_t = std::unordered_map<ISlice::pointer, IBlob::vector>;
+    blobs_by_slice_t blobs_by_slice(const ICluster& cluster);
+
 }
 
 #endif

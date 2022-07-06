@@ -18,7 +18,7 @@ namespace WireCell {
 
        public:
         /** Create a binning
-            \param nbins gives the number of uniform, discrete separation between bounds.
+            \param nbins gives the number of uniform partitions of space between bounds.
             \param minval gives the lower bound of the linear space (low edge of bin 0)
             \param maxval gives the upper bound of the linear space (high edge of bin nbins-1)
         */
@@ -106,6 +106,38 @@ namespace WireCell {
     {
         os << bins.nbins() << "@[" << bins.min() << "," << bins.max() << "]";
         return os;
+    }
+
+    // Return a subset of the binning which contains the bounds
+    inline
+    Binning subset(const Binning& bins, double xmin, double xmax) {
+        if (xmin > xmax) std::swap(xmin, xmax);
+        const int lo = std::max(0,            bins.bin(xmin));
+        const int hi = std::min(bins.nbins(), bins.bin(xmax));
+        return Binning(hi-lo, bins.edge(lo), bins.edge(hi));
+    }
+
+    // Add the absolutely normlized, bin-integrated Gaussian
+    // distribution to iterated elements.  Return sum of bin integrals
+    // which will not < 1.0 given finite binning span.
+    template<typename OutputIt>
+    double gaussian(OutputIt out, const Binning& bins, double mean=0, double sigma=1)
+    {
+        const double scale = 1.0/sqrt(2)*sigma;
+        const int nedges = bins.nbins() + 1;
+        double last_erf = 0;
+        double total = 0;
+        for (int edge = 0 ; edge < nedges; ++edge) {
+            const double this_erf = std::erf(scale*(bins.edge(edge) - mean));
+            if (edge) {
+                const double bin_erf = (this_erf - last_erf);
+                total += bin_erf;
+                *out = bin_erf;
+                ++out;
+            }
+            last_erf = this_erf;
+        }
+        return total;
     }
 
 }  // namespace WireCell

@@ -11,6 +11,7 @@
 #include "WireCellIface/IAnodePlane.h"
 #include "WireCellIface/IApplication.h"
 #include "WireCellIface/IBlob.h"
+#include "WireCellIface/IBlobDepoFill.h"
 #include "WireCellIface/IBlobSet.h"
 #include "WireCellIface/IBlobSetFanin.h"
 #include "WireCellIface/IBlobSetFanout.h"
@@ -107,6 +108,7 @@ IAnodeFace::~IAnodeFace() {}
 IAnodePlane::~IAnodePlane() {}
 IApplication::~IApplication() {}
 IBlob::~IBlob() {}
+IBlobDepoFill::~IBlobDepoFill() {}
 IBlobSet::~IBlobSet() {}
 IBlobSetFanin::~IBlobSetFanin() {}
 IBlobSetFanout::~IBlobSetFanout() {}

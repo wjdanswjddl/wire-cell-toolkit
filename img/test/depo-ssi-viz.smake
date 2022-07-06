@@ -59,13 +59,12 @@ rule plot_depos:
     output:
         f"{pltdir}/plot-depos-{{plotname}}.pdf"
     shell: """
-    wirecell-gen plot-depos -p {wildcards.plotname} -g0 {input} {output}
+    wirecell-gen plot-depos -p {wildcards.plotname} {input} {output}
     """
 
 rule plot_depos_all:
     input:
-        expand(f"{pltdir}/plot-depos-{{plotname}}.pdf", plotname=["tyqscat", "tzqscat"])
-
+        expand(rules.plot_depos.output, plotname=["tyqscat", "tzqscat"])
 
 rule plot_adc_frames:
     input:
@@ -100,7 +99,7 @@ rule plot_sig_frames:
     -o "{output}" "{input}"
     """
 
-rule plot_all_frames:
+rule plot_frames_all:
     input:
         expand(f"{pltdir}/frames-{{tier}}-{{anode}}.pdf", tier=frame_tiers, anode=anodes)
 
@@ -123,11 +122,6 @@ rule pv_depos_drifted:
     shell: """
     wirecell-img paraview-depos --speed {params} {input} {output}
     """
-rule depos_all:
-    input:
-        rules.pv_depos_orig.output,
-        rules.pv_depos_drifted.output
-
 rule pv_blobs:
     input:
         f"{wctdir}/clusters-{{tier}}-{{anode}}.npz"
@@ -138,8 +132,11 @@ rule pv_blobs:
     shell: """
     wirecell-img paraview-blobs --speed "{params}" {input} {output} || touch {output}
     """
-rule pv_blobs_all:
+
+rule pv_all:
     input:
+        rules.pv_depos_orig.output,
+        rules.pv_depos_drifted.output,
         expand(rules.pv_blobs.output, tier=["img"], anode=anodes)
 
 rule plot_blobs:
@@ -158,6 +155,13 @@ rule plot_blobs_all:
     input:
         expand(f"{pltdir}/clusters-{{tier}}-{{anode}}-{{plotname}}.pdf", tier=cluster_tiers, anode=anodes, plotname=["ty", "tz"])
 
+rule plot_all:
+    input:
+        rules.plot_depos_all.input,
+        rules.plot_frames_all.input,
+        rules.plot_blobs_all.input
+
+
 rule dotify:
     input: 
         rules.jsonify.output
@@ -166,4 +170,10 @@ rule dotify:
     shell: """
     wirecell-pgraph dotify --no-params {input} {output}
     """
+        
+rule all:
+    input:
+        rules.dotify.output,
+        rules.pv_all.input,
+        rules.plot_all.input
         
