@@ -1,5 +1,5 @@
 #ifndef WIRECELLAUX_SLICETOOLS
-#define WIRECELLAUX_DEPOTOOLS
+#define WIRECELLAUX_SLICETOOLS
 
 #include "WireCellIface/ISlice.h"
 #include "WireCellUtil/Binning.h"

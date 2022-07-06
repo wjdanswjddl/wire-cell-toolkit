@@ -5,6 +5,8 @@
 #define WIRECELLAUX_DEPOTOOLS
 
 #include "WireCellIface/IDepo.h"
+#include "WireCellIface/IAnodePlane.h"
+
 #include "WireCellUtil/Array.h"
 #include "WireCellUtil/Binning.h"
 
@@ -33,6 +35,13 @@ namespace WireCell::Aux {
     std::vector<IDepo::vector>
     depos_by_slice(const IDepo::vector& depos, const Binning& tbins,
                    double time_offset=0, double nsigma=3.0);
+
+    /** Return subset of depos which are within the sensitive area of
+     * a single anode face or both faces of an anode plane.
+     */
+    IDepo::vector sensitive(const IDepo::vector& depos, IAnodeFace::pointer face);
+    IDepo::vector sensitive(const IDepo::vector& depos, IAnodePlane::pointer anode);
+
 }
 
 #endif

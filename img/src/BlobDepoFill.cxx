@@ -1,6 +1,7 @@
 #include "WireCellImg/BlobDepoFill.h"
 
 #include "WireCellAux/SliceTools.h"
+#include "WireCellAux/DepoTools.h"
 #include "WireCellAux/SimpleBlob.h"
 
 #include "WireCellUtil/GraphTools.h"
@@ -14,6 +15,7 @@ WIRECELL_FACTORY(BlobDepoFill, WireCell::Img::BlobDepoFill,
                  WireCell::IBlobDepoFill, WireCell::IConfigurable)
 
 using namespace WireCell;
+using WireCell::Aux::sensitive;
 using WireCell::GraphTools::mir;
 
 Img::BlobDepoFill::BlobDepoFill()
@@ -61,13 +63,13 @@ void Img::BlobDepoFill::configure(const WireCell::Configuration& cfg)
     }
 }
 
-// A bidrectional graph holding s-d-w with weighted edges giving the
+// A directed graph holding s-d-w nodes with weighted edges giving the
 // integral of the Gausian section.  Always add edges in order as:
 // add_edge(s,d) and add_edge(d,w)
 namespace idweight {
     struct node_t { size_t idx; char code; };
     struct edge_t { double weight; };
-    using graph_t = boost::adjacency_list<boost::setS, boost::vecS, boost::bidirectionalS,
+    using graph_t = boost::adjacency_list<boost::setS, boost::vecS, boost::directionalS,
                                           node_t, edge_t>;
     using vdesc_t = boost::graph_traits<graph_t>::vertex_descriptor;
     using edesc_t = boost::graph_traits<graph_t>::edge_descriptor;
@@ -195,19 +197,19 @@ bool Img::BlobDepoFill::operator()(const input_tuple_type& intup,
         // sbins indices are also the s-node descriptors.
         const auto sbins = Aux::binning(slices.begin(), slices.end());
 
-        // Precalculate the location of depo centers in wire axis
-        std::vector<double> dwcenter;
-
-        // Get depos "on" current face
+        // Get depos in the sensitive area of the current face and
+        // precalcualte their central position in the primary wire
+        // plane coordinate system.
         IDepo::vector depos;
-        for (const auto& maybe : *(ideposet->depos())) {
+        std::vector<double> dwcenter;
+        for (const auto& maybe : sensitive(*(ideposet->depos()), iaf)) {
             const auto rpos = pimpos->relative(maybe->pos());
-            if (rpos[0] >= 0) {
-                depos.push_back(maybe);
-                dwcenter.push_back(pimpos->transform(maybe->pos())[1]);
+            if (rpos[0] < 0) {
+                continue;       // depo is behind the face.
             }
+            depos.push_back(maybe);
+            dwcenter.push_back(pimpos->transform(maybe->pos())[1]);
         }
-
 
         // Make the s-d-w graph holding Gaussian integrals.  Note,
         // nodes are indexed in order: [{s},{d},{w}]

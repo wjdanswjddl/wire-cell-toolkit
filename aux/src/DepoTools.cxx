@@ -106,3 +106,26 @@ Aux::depos_by_slice(const IDepo::vector& depos, const Binning& tbins,
     }
     return ret;
 }
+IDepo::vector Aux::sensitive(const IDepo::vector& depos, IAnodeFace::pointer face)
+{
+    IDepo::vector ret;
+    auto bb = face->sensitive();
+    if (bb.empty()) {
+        return ret;
+    }
+    for (const auto& depo : depos) {
+        if (bb.inside(depo->pos())) {
+            ret.push_back(depo);
+        }
+    }
+    return ret;
+}
+IDepo::vector Aux::sensitive(const IDepo::vector& depos, IAnodePlane::pointer anode)
+{
+    IDepo::vector ret;
+    for (const auto& face : anode->faces()) {
+        auto one = sensitive(depos, face);
+        ret.insert(ret.end(), one.begin(), one.end());
+    }
+    return ret;    
+}

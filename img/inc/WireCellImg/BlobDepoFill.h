@@ -5,11 +5,10 @@
    Except for replacing blob charge all input blob information is
    retained in the output.
 
-   Configuration guidance:
-
-   - Input depo set must be prepared so that it contains only depos
-     that influence the AnodePlane from which the blobs were also
-     derived.
+   The depos are best to be post-drift.  They may span multiple
+   AnodePlanes in the transverse direction and will be filtered in the
+   same way as DepoTransform.  The faces refereced by the blobs are
+   used to perform this filtering.
 
  */
 
