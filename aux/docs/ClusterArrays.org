@@ -33,6 +33,8 @@ type is described in the following subsection.  Some column types are
 inherently integer but are represented precisely as ~double~ and are
 marked with "(int)".
 
+Take care that the enumerated lists below are 1-based counts, one more
+than the 0-based array indices.
 
 *** Channel
 
@@ -42,7 +44,8 @@ wire segments over the duration of a time slice.
 1. /ident/, (int) channel ID as defined in the "wires" file
 2. /value/, the central value of the signal
 3. /uncertainty/, the uncertainty in the value
-
+4. /index/, (int) the channel index
+5. /wpid/, (int) the wire plane id
 
 *** Wire
 
@@ -72,13 +75,18 @@ signal contained by this region.
 1. /ident/, (int) the application determined ID number.
 2. /value/, the central value of the signal
 3. /uncertainty/, the uncertainty in the value
-4. /min1/, (int) the WIP providing lower bound of the blob in plane 1.
-5. /max1/, (int) the WIP providing upper bound of the blob in plane 1.
-6. /min2/, (int) the WIP providing lower bound of the blob in plane 2.
-7. /max2/, (int) the WIP providing upper bound of the blob in plane 2.
-8. /min3/, (int) the WIP providing lower bound of the blob in plane 3.
-9. /max3/, (int) the WIP providing upper bound of the blob in plane 3.
-
+4. /faceid/, (int) the face ident 
+5. /sliceid/, (int) the slice ident
+6. /start/, the start time of the blob
+7. /span/, the time span of the blob
+8. /min1/, (int) the WIP providing lower bound of the blob in plane 1.
+9. /max1/, (int) the WIP providing upper bound of the blob in plane 1.
+10. /min2/, (int) the WIP providing lower bound of the blob in plane 2.
+11. /max2/, (int) the WIP providing upper bound of the blob in plane 2.
+12. /min3/, (int) the WIP providing lower bound of the blob in plane 3.
+13. /max3/, (int) the WIP providing upper bound of the blob in plane 3.
+14. /ncorners/, (int) the number of corners
+15. 24 columns holding /corners as (y,z) pairs/, 12 pairs, of which /ncorners/ are valid.
 
 *** Slice
 
@@ -87,8 +95,11 @@ A slice represents a duration in drift/readout time.
 1. /ident/, (int) the application determined ID number.
 2. /value/, the central value of the signal.
 3. /uncertainty/, the uncertainty in the value.
-4. /start/, the start time of the slice.
-5. /span/, the duration time of the slice.
+4. /frameid/, (int) the frame ident number
+5. /start/, the start time of the slice.
+6. /span/, the duration time of the slice.
+
+The ~ISlice~ also holds the "activity map" mapping channels in slice to charge.
 
 
 *** Measure
@@ -100,6 +111,7 @@ Its signal is the sum of channel signals.
 1. /ident/, (int) the application determined ID number.
 2. /value/, the central value of the signal.
 3. /uncertainty/, the uncertainty in the value.
+4. /wpid/, the wire plane ID
 
 ** Edge array schema
 

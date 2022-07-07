@@ -50,8 +50,14 @@ rule wctify:
         frames=expand(f"{wctdir}/frames-{{tier}}-{{anode}}.npz", tier=frame_tiers, anode=anodes),
         clusters=expand(f"{wctdir}/clusters-{{tier}}-{{anode}}.npz", tier=cluster_tiers, anode=anodes)
     shell: """
-    wire-cell -l stderr -l {output.log} -L debug -c {input.cfg}
+    wire-cell -l stderr -l {output.log} -L debug -c {input.cfg} || exit -1
+    if [ -n "$(file {output.clusters} | grep empty)" ] ; then
+        rm -f {output.clusters}
+        touch {output.clusters}
+    fi
     """
+## use of zip leaves an "empty" file of a few bytes which makes it hard to test for later.
+
 
 rule plot_depos:
     input:
@@ -130,7 +136,11 @@ rule pv_blobs:
     params:
         drift_speed
     shell: """
-    wirecell-img paraview-blobs --speed "{params}" {input} {output} || touch {output}
+    if [ -s {input} ] ; then
+        wirecell-img paraview-blobs --speed "{params}" {input} {output}
+    else
+        touch {output}
+    fi
     """
 
 rule pv_all:
@@ -151,6 +161,7 @@ rule plot_blobs:
       touch {output}
     fi
     """
+
 rule plot_blobs_all:
     input:
         expand(f"{pltdir}/clusters-{{tier}}-{{anode}}-{{plotname}}.pdf", tier=cluster_tiers, anode=anodes, plotname=["ty", "tz"])

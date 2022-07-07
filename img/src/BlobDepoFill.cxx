@@ -69,7 +69,7 @@ void Img::BlobDepoFill::configure(const WireCell::Configuration& cfg)
 namespace idweight {
     struct node_t { size_t idx; char code; };
     struct edge_t { double weight; };
-    using graph_t = boost::adjacency_list<boost::setS, boost::vecS, boost::directionalS,
+    using graph_t = boost::adjacency_list<boost::setS, boost::vecS, boost::directedS,
                                           node_t, edge_t>;
     using vdesc_t = boost::graph_traits<graph_t>::vertex_descriptor;
     using edesc_t = boost::graph_traits<graph_t>::edge_descriptor;

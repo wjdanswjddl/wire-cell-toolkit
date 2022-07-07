@@ -128,7 +128,16 @@ void ClusterArrays::init(const cluster_graph_t& graph)
     // node array type.  See ClusterArray.org for definitive
     // description and keep it in sync here.
     std::unordered_map<node_code_t, size_t> node_array_ncols = {
-        {'c',3}, {'w',11}, {'b',9}, {'s',5}, {'m', 3},
+        // [ident, value, uncertainty, index, wpid]
+        {'c',3+2},
+        // [ident, wip, seg, ch, plane, [tail x,y,z], [head x,y,z]]
+        {'w',11},
+        // [ident,sigv,sigu, faceid,sliceid,start,span, [3x2 wire bounds], nc,[12 corner y,z]]
+        {'b',3+4+3*2+1+12*2},
+        // [ident,sigv,sigu, frameid, start, span]
+        {'s',3+3},
+        // [ident,sigv,sigu, wpid]
+        {'m', 4},
     };
 
     // Allocate node arrays
@@ -196,7 +205,7 @@ void ClusterArrays::init(const cluster_graph_t& graph)
         auto hsa = m_v2s[hvtx];
 
         // Do manual ordering to keep code/index correlated
-        if (hsa.code > tsa.code) {
+        if (hsa.code < tsa.code) {
             std::swap(tsa, hsa);
         }
         auto ecode = edge_code(tsa.code, hsa.code);
@@ -223,6 +232,7 @@ void ClusterArrays::init_signals(const cluster_graph_t& graph, cluster_vertex_t 
     }
     {   // slice start and span, just after sigv/sigu.
         node_array_t::size_type col = sigu_col;
+        srow[++col] = islice->frame()->ident();
         srow[++col] = islice->start();
         srow[++col] = islice->span();
     }
@@ -239,7 +249,16 @@ void ClusterArrays::init_signals(const cluster_graph_t& graph, cluster_vertex_t 
             const auto& mnode = graph[mvtx];
             if (mnode.code() != 'm') { continue; }
 
-            auto mrow = node_row(mvtx);
+            {
+                auto mrow = node_row(mvtx);
+                auto imeas = std::get<meas_t>(mnode.ptr);
+                auto mval = imeas->signal();
+                node_array_t::size_type col = 0;
+                mrow[col++] = imeas->ident();
+                mrow[col++] = mval.value();
+                mrow[col++] = mval.uncertainty();
+                mrow[col++] = imeas->planeid().ident();
+            }
 
             for (auto cvtx : mir(boost::adjacent_vertices(mvtx, graph))) {
                 const auto& cnode = graph[cvtx];
@@ -253,10 +272,10 @@ void ClusterArrays::init_signals(const cluster_graph_t& graph, cluster_vertex_t 
                 auto cval = sigit->second;
 
                 auto crow = node_row(cvtx);
-                crow[sigv_col] += cval.value();
-                crow[sigu_col] += cval.uncertainty();
-                mrow[sigv_col] += cval.value();
-                mrow[sigu_col] += cval.uncertainty();
+                crow[sigv_col] = cval.value();
+                crow[sigu_col] = cval.uncertainty();
+                crow[sigu_col+1] = ichan->index();
+                crow[sigu_col+2] = ichan->planeid().ident();
             }
         }
     }
@@ -292,17 +311,47 @@ void ClusterArrays::init_blob(const cluster_graph_t& graph, cluster_vertex_t bvt
     auto brow = node_row(bvtx);
     const auto& bnode = graph[bvtx];
     const auto& iblob = get<blob_t>(bnode.ptr);
-    const auto& strips = iblob->shape().strips();
+    const auto iface = iblob->face();
+    const auto islice = iblob->slice();
+    const auto& coords = iface->raygrid();
 
+    const auto& shape = iblob->shape();
+    const auto& strips = shape.strips();
+
+    // skip common [ident,sigv,sigu] filled elsewhere
+    node_array_t::size_type col = 3;
+
+    // 3:faceid, 4:sliceid, 5:start, 6:span
+    brow[col++] = iface->ident();
+    brow[col++] = islice->ident();
+    brow[col++] = islice->start();
+    brow[col++] = islice->span();
+
+    // 3x2 wire bounds: [7:13]
     for (size_t sind = 0; sind < 3; ++sind) {
         size_t strip_index = 2 + sind; // skip "virtual" layers
         const auto& bounds = strips[strip_index].bounds;
 
-        // [ident,sigv,sigu] + pairs
-        node_array_t::size_type col = 3 + sind*2;
         brow[col++] = bounds.first;  // these are 
         brow[col++] = bounds.second; // WIP numbers
     }
 
+    // 13, [14:38]
+    //// corners is an awkward array.  Each of the 3 pairs of planes
+    //// has 4 corners so a total of 12 but only those corners
+    //// contained by each of the three "strips" that make up the blob
+    //// are relevant and given.  Best we can do, I think is to use
+    //// 1+2*12 = 25 columns.  First to given the number of corners,
+    //// than that number of (y,z) pairs and zero pad any remainder.
+    //// Alternatively we may define a second array type of shape 3 x
+    //// N with columns (rowid, y, z).
+
+    const auto& corners = shape.corners();
+    brow[col++] = corners.size();
+    for (const auto& c : corners) {
+        auto pos = coords.ray_crossing(c.first, c.second);
+        brow[col++] = pos[1];
+        brow[col++] = pos[2];
+    }
 }
 
