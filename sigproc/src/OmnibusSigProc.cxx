@@ -41,7 +41,7 @@ OmnibusSigProc::OmnibusSigProc(
     bool use_roi_debug_mode, bool use_roi_refinement, const std::string& tight_lf_tag, const std::string& loose_lf_tag,
     const std::string& cleanup_roi_tag, const std::string& break_roi_loop1_tag, const std::string& break_roi_loop2_tag,
     const std::string& shrink_roi_tag, const std::string& extend_roi_tag, const std::string& mp3_roi_tag,
-    const std::string& mp2_roi_tag)
+    const std::string& mp2_roi_tag, std::vector<int> rebase_planes, int rebase_nbins)
   : Aux::Logger("OmnibusSigProc", "sigproc")
   , m_anode_tn(anode_tn)
   , m_per_chan_resp(per_chan_resp_tn)
@@ -98,6 +98,8 @@ OmnibusSigProc::OmnibusSigProc(
   , m_use_multi_plane_protection(false)
   , m_mp3_roi_tag(mp3_roi_tag)
   , m_mp2_roi_tag(mp2_roi_tag)
+  , m_rebase_planes(rebase_planes)
+  , m_rebase_nbins(rebase_nbins)
   , m_isWrapped(false)
   , m_sparse(false)
 {
@@ -205,6 +207,15 @@ void OmnibusSigProc::configure(const WireCell::Configuration& config)
     m_use_multi_plane_protection = get<bool>(config, "use_multi_plane_protection", m_use_multi_plane_protection);
     m_mp3_roi_tag = get(config, "mp3_roi_tag", m_mp3_roi_tag);
     m_mp2_roi_tag = get(config, "mp2_roi_tag", m_mp2_roi_tag);
+    
+
+    if (config.isMember("rebase_planes")) {
+       m_rebase_planes.clear();
+       for (auto jplane : config["rebase_planes"]) {
+           m_rebase_planes.push_back(jplane.asInt());
+       }
+    }
+    m_rebase_nbins = get(config, "rebase_nbins", m_rebase_nbins);
 
     m_isWrapped = get<bool>(config, "isWrapped", m_isWrapped);
 
@@ -336,6 +347,8 @@ WireCell::Configuration OmnibusSigProc::default_configuration() const
     cfg["use_multi_plane_protection"] = m_use_multi_plane_protection;  // default false
     cfg["mp3_roi_tag"] = m_mp3_roi_tag;
     cfg["mp2_roi_tag"] = m_mp2_roi_tag;
+    
+    cfg["rebase_nbins"] = m_rebase_nbins;    
 
     cfg["isWarped"] = m_isWrapped;  // default false
 
@@ -383,6 +396,11 @@ void OmnibusSigProc::load_data(const input_pointer& in, int plane)
             }
         }
     }
+	//rabes for this plane
+	if (std::find(m_rebase_planes.begin(), m_rebase_planes.end(), plane) != m_rebase_planes.end()) {
+            rebase_waveform(m_r_data[plane],m_rebase_nbins);
+        }
+
     log->debug("call={} load plane index: {}, ntraces={}, input bad regions: {}",
                m_count, plane, traces->size(), nbad);
     check_data(plane, "load data");
@@ -931,6 +949,42 @@ void OmnibusSigProc::restore_baseline(Array::array_xxf& arr)
         }
     }
 }
+
+
+void OmnibusSigProc::rebase_waveform(Array::array_xxf& arr,const int& n_bins)
+{
+    	for (int i = 0; i != arr.rows(); ++i) {
+            Waveform::realseq_t signal(arr.cols());
+            int ncount = 0;
+            for (int j = 0; j != arr.cols(); ++j) {
+                signal.at(ncount) = arr(i, j);
+                ncount++;
+            }
+
+            signal.resize(ncount);
+	    Waveform::realseq_t front_sig(n_bins);
+	    Waveform::realseq_t back_sig(n_bins);
+            
+	    for (int j = 0; j < n_bins; ++j) {
+                front_sig.at(j) = signal.at(j);
+	        back_sig.at(j) = signal.at(arr.cols()-j-1);
+            }
+
+	    float front_base = WireCell::Waveform::mean_rms(front_sig).first;
+	    float back_base = WireCell::Waveform::mean_rms(back_sig).first;
+	    double t1 = n_bins/2.0;
+	    double t2 = m_nticks - n_bins/2.0;
+	    double m = (back_base - front_base)/(t2-t1);
+	    double b = back_base - m*t2;
+
+	    for (int j = 0; j < m_nticks; ++j) {
+	        double corr = m*j+b;
+	        arr(i,j) -= corr;
+	    }	
+        }
+}
+
+
 
 void OmnibusSigProc::decon_2D_init(int plane)
 {
