@@ -13,7 +13,7 @@ anodes = {
 
 # literals, tied to the job and not subject to config
 frame_tiers = ["adc", "sig"]
-cluster_tiers = ["img"]
+cluster_tiers = ["img", "tru"]
 
 # where output goes
 wctdir=f"{outdir}/{detector}/wct"   # wire-cell output

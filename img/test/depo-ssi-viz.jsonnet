@@ -4,6 +4,8 @@
 // some more.
 
 local high = import "layers/high.jsonnet";
+local wc = high.wc;
+local pg = high.pg;
 
 // Produces a top-level function.  Must give a detector type and may
 // give a variant.  The outpat gives a pattern used to form output
@@ -25,12 +27,56 @@ function(detector, variant="nominal",
                   else high.fio.depo_file_source(indepos);
 
     local drifter = mid.drifter();
-    local drifted = high.fio.tap('DepoSetFanout',
-                                 high.fio.depo_file_sink(outdepos));
 
     local anodes = mid.anodes();
+    local nanodes = std.length(anodes);
+    local anode_iota = std.range(0, nanodes-1);
+
+    // Catch blobs for depo filling
+    local bcatcher = function(aid)
+        local anode = anodes[aid];
+        local aname = anode.data.ident;
+        local bsf = pg.pnode({
+            type:'BlobSetFanout',
+            name: 'catch%d'%aname,
+            data: {
+                multiplicity: 2
+            }}, nin=1, nout=2);
+        local dbf = pg.pnode({
+            type:'BlobDepoFill',
+            name: aname,
+            data: {
+                speed: 1.56*wc.mm/wc.us, // fixme, breaks detector independence!!!!!!!!
+                
+            }}, nin=2, nout=1);
+        local fbs = pg.pipeline([
+            pg.pnode({
+                type:'BlobClustering',
+                name:'tru%d'%aid,
+                data: {
+                }}, nin=1, nout=1),
+            high.fio.cluster_file_sink(std.format(clusters, {
+                tier:"tru", anode: anode.data.ident})),
+        ], name='tru%d'%aid);
+        pg.intern([bsf, dbf], centernodes=[fbs],
+                  edges=[pg.edge(bsf,dbf,1,0),
+                         pg.edge(dbf,fbs,0,0)],
+                  iports=[bsf.iports[0], dbf.iports[1]],
+                  oports=[bsf.oports[0]],
+                  name=aname);
+
+    local bcatchers = [bcatcher(aid) for aid in anode_iota];
+
+    local inject_bcatcher = function(img, bc, aid)
+        local edge = {
+            tail: {node: 'BlobSetSync:%d'%aid, port: 0},
+            head: {node: 'BlobClustering:%d'%aid, port:0}
+        };
+        pg.insert_node(img, edge, bc, bc, 0, 0);
+
     local apipes = [
-        high.pg.pipeline([
+        local anode = anodes[aid];
+        pg.pipeline([
             mid.sim.signal(anode),
             mid.sim.noise(anode),
             mid.sim.digitizer(anode),
@@ -50,13 +96,27 @@ function(detector, variant="nominal",
                                  tier:"sig", anode: anode.data.ident}),
                              tags=["gauss%d" % anode.data.ident])),
 
-            mid.img(anode),
-             
+            inject_bcatcher(mid.img(anode), bcatchers[aid], aid),
+
             high.fio.cluster_file_sink(std.format(clusters, {
                 tier:"img", anode: anode.data.ident})),
-        ]) for anode in anodes];
-    local body = high.pg.fan.fanout('DepoSetFanout', apipes);
-    local graph = high.pg.pipeline([source, drifter, drifted, body], "main");
+        ]) for aid in anode_iota];
+
+    local body = pg.fan.fanout('DepoSetFanout', apipes, "work");
+
+    local mfan = pg.pnode({
+        type:'DepoSetFanout',
+        name:'play',
+        data: {
+            multiplicity: nanodes,
+        }}, nin=1, nout=nanodes);
+    local mind = pg.intern([mfan], centernodes=bcatchers,
+                           edges=[high.pg.edge(mfan, bcatchers[aid], aid, 1),
+                                  for aid in anode_iota]);
+    local butt = high.fio.depo_file_sink(outdepos);
+    local neck = pg.fan.fanout('DepoSetFanout', [body, mind, butt], name='drifted');
+
+    local graph = pg.pipeline([source, drifter, neck], "main");
     local executor = "TbbFlow";
     high.main(graph, executor)
 
