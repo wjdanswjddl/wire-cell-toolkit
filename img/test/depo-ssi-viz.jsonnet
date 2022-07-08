@@ -10,23 +10,23 @@ local high = import "layers/high.jsonnet";
 // files.  A %(tier)s is interpolated by a tier name ("adc", "sig",
 // "img") for each major link in the processing chain and a %(anode)s
 // is interpolated by the anode plane ident.  Valid output extensions
-// include .npz, .zip. .tar, .tar.gz, .tgz, etc.  If a depofile is
+// include .npz, .zip. .tar, .tar.gz, .tgz, etc.  If a indepos is
 // given, read depos from there, else generate some internally.
 function(detector, variant="nominal",
-         depofile=null,
-         depos="drifted-depos.npz",
+         indepos=null,
+         outdepos="depos-drifted.npz",
          frames="frames-%(tier)s-%(anode)s.npz",
          clusters="clusters-%(tier)s-%(anode)s.npz")
 
     local mid = high.mid(detector, variant, options={sparse:false});
 
-    local source = if std.type(depofile) == "null"
+    local source = if std.type(indepos) == "null"
                   then mid.sim.track_depos()
-                  else high.fio.depo_file_source(depofile);
+                  else high.fio.depo_file_source(indepos);
 
     local drifter = mid.drifter();
     local drifted = high.fio.tap('DepoSetFanout',
-                                 high.fio.depo_file_sink(depos));
+                                 high.fio.depo_file_sink(outdepos));
 
     local anodes = mid.anodes();
     local apipes = [

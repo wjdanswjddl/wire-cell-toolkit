@@ -163,7 +163,7 @@ bool Img::BlobDepoFill::operator()(const input_tuple_type& intup,
         if (iblobset or ideposet) {
             log->warn("join node did not get synchronized EOS");
         }
-        log->debug("EOS at count={}", m_count);
+        log->debug("EOS at call={}", m_count);
         ++m_count;
         return true;
     }

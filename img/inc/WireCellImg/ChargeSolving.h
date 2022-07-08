@@ -79,6 +79,7 @@ namespace WireCell {
             // "whitened" via Cholesky decomposition.
             bool m_whiten{true};
 
+            int m_count{0};
         };
 
     }  // namespace Img

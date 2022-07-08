@@ -20,21 +20,53 @@ wctdir=f"{outdir}/{detector}/wct"   # wire-cell output
 pltdir=f"{outdir}/{detector}/plots" # plot PDFs
 pvdir=f"{outdir}/{detector}/pv"     # paraview files
 
+rule intern_depos:
+    input:
+        f"{depofile}"
+    output:
+        f"{wctdir}/depos-input.npz"
+    shell: """
+    cp {input} {output}
+    """
+
+rule augment_depos:
+    input: 
+        rules.intern_depos.output
+    output:
+        f"{wctdir}/depos-augmented.npz"
+    shell: """
+    wirecell-img transform-depos -o {output} \
+      --rotate 'x:45*degree' \
+      --rotate 'z:45*degree' \
+      --forward {input}
+    """
+
+# Explanation of the tourtourous coupling you see w.r.t Jsonnet/JSON
+# handling.  For simple jobs without all the extra diagnostics, we
+# would NOT generate a JSON version of the Jsonnet config.  We would
+# simply have wire-cell consume Jsonnet directly.  But we also want to
+# process the config in Python and the Python jsonnet package only
+# provides the slower C++/Jsonnet implementation.  So we use the
+# faster wcsonnet/Go/Jsonnet to make the JSON for Python to consume.
+# But, since we make the JSON anyways, we might was well use it also
+# when calling wire-cell so we do not need to repeat all TLAs.  Clear
+# as mud.
 rule jsonify:
     input: 
         jobcfg
     output:
         f"{wctdir}/depo-ssi-viz.json"
     params:
-        depos=f"{wctdir}/drifted-depos.npz",
+        indepos=rules.augment_depos.output,
+        outdepos=f"{wctdir}/depos-drifted.npz",
         frames=f"{wctdir}/frames-%(tier)s-%(anode)s.npz",
         clusters=f"{wctdir}/clusters-%(tier)s-%(anode)s.npz"
     shell: """
     wcsonnet \
       -A 'detector={detector}' \
       -A 'variant={variant}' \
-      -A 'depofile={depofile}' \
-      -A 'depos={params.depos}' \
+      -A 'indepos={params.indepos}' \
+      -A 'outdepos={params.outdepos}' \
       -A 'frames={params.frames}' \
       -A 'clusters={params.clusters}' \
       {input} > {output}
@@ -43,42 +75,57 @@ rule jsonify:
 rule wctify:
     input:
         cfg=rules.jsonify.output,
-        depos=depofile
+        depos=rules.augment_depos.output
     output:
         log=f"{wctdir}/wire-cell.log",
-        depos=f"{wctdir}/drifted-depos.npz",
+        drifted=f"{wctdir}/depos-drifted.npz",
         frames=expand(f"{wctdir}/frames-{{tier}}-{{anode}}.npz", tier=frame_tiers, anode=anodes),
         clusters=expand(f"{wctdir}/clusters-{{tier}}-{{anode}}.npz", tier=cluster_tiers, anode=anodes)
     shell: """
     wire-cell -l stderr -l {output.log} -L debug -c {input.cfg} || exit -1
-    if [ -n "$(file {output.clusters} | grep empty)" ] ; then
-        rm -f {output.clusters}
-        touch {output.clusters}
-    fi
+    for one in {output.clusters} ; do
+        if [ -n "$(file $one | grep empty)" ] ; then
+          echo "Empty cluster file $one"
+          rm -f $one
+          touch $one
+        fi
+    done
     """
 ## use of zip leaves an "empty" file of a few bytes which makes it hard to test for later.
 
 
-rule plot_depos:
+rule plot_drifted:
     input:
-        rules.wctify.output.depos
+        rules.wctify.output.drifted
     output:
-        f"{pltdir}/plot-depos-{{plotname}}.pdf"
+        f"{pltdir}/plot-depos-drifted-{{index}}-{{plotname}}.pdf"
     shell: """
-    wirecell-gen plot-depos -p {wildcards.plotname} {input} {output}
+    wirecell-gen plot-depos -p {wildcards.plotname} -i{wildcards.index} {input} {output}
+    """
+rule plot_augmented:
+    input:
+        rules.augment_depos.output
+    output:
+        f"{pltdir}/plot-depos-augmented-{{index}}-{{plotname}}.pdf"
+    shell: """
+    wirecell-gen plot-depos -p {wildcards.plotname} -i{wildcards.index} {input} {output}
     """
 
 rule plot_depos_all:
     input:
-        expand(rules.plot_depos.output, plotname=["tyqscat", "tzqscat"])
+        expand(rules.plot_drifted.output,
+               index=[0,1], plotname=["tyqscat", "tzqscat"]),
+        expand(rules.plot_augmented.output,
+               index=[0,1], plotname=["qxz", "qzy", "qxy"])
 
 rule plot_adc_frames:
     input:
         f"{wctdir}/frames-adc-{{anode}}.npz"
     output:
-        f"{pltdir}/frames-adc-{{anode}}.pdf"
+        f"{pltdir}/frames-adc-{{anode}}-{{index}}.pdf"
     shell: """
     wirecell-util npz-to-img \
+    --array frame_orig{wildcards.anode}_{wildcards.index} \
     --cmap seismic \
     --title "$(basename {input})" \
     --xtitle 'Relative tick number' \
@@ -93,9 +140,10 @@ rule plot_sig_frames:
     input:
         f"{wctdir}/frames-sig-{{anode}}.npz"
     output:
-        f"{pltdir}/frames-sig-{{anode}}.pdf"
+        f"{pltdir}/frames-sig-{{anode}}-{{index}}.pdf"
     shell: """
     wirecell-util npz-to-img \
+    --array frame_gauss{wildcards.anode}_{wildcards.index} \
     --cmap viridis \
     --title "$(basename {input})" \
     --xtitle 'Relative tick number' \
@@ -107,20 +155,21 @@ rule plot_sig_frames:
 
 rule plot_frames_all:
     input:
-        expand(f"{pltdir}/frames-{{tier}}-{{anode}}.pdf", tier=frame_tiers, anode=anodes)
+        expand(f"{pltdir}/frames-{{tier}}-{{anode}}-{{index}}.pdf",
+               tier=frame_tiers, anode=anodes, index=[0,1])
 
 
 rule pv_depos_orig:
     input:
-        depofile
+        rules.augment_depos.output
     output:
-        f"{pvdir}/depos-orig.vtp"
+        f"{pvdir}/depos-augmented.vtp"
     shell: """
     wirecell-img paraview-depos --speed 0 {input} {output}
     """
 rule pv_depos_drifted:
     input:
-        rules.wctify.output.depos
+        rules.wctify.output.drifted
     output:
         f"{pvdir}/depos-drifted.vtp"
     params:

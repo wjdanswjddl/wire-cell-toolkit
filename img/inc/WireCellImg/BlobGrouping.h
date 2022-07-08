@@ -34,7 +34,8 @@ namespace WireCell::Img {
 
       private:
         void fill_slice(cluster_indexed_graph_t& grind, ISlice::pointer islice);
-        int m_mcount;
+        int m_mcount{0};
+        int m_count{0};
     };
 
 }  // namespace WireCell::Img

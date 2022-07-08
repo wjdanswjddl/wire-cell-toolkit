@@ -33,7 +33,7 @@ static void dump_cluster(WireCell::Log::logptr_t& log,
         ss << known[ind] << ":" << counts[ind] << " ";
     }
 
-    log->debug("cluster {}: nvertices={} nedges={} types: {}",
+    log->debug("cluster={} nvertices={} nedges={} types: {}",
                cluster->ident(),
                boost::num_vertices(gr),
                boost::num_edges(gr),

@@ -103,6 +103,7 @@ bool Img::BlobGrouping::operator()(const input_pointer& in, output_pointer& out)
     if (!in) {
         log->debug("EOS");
         out = nullptr;
+        ++m_count;
         return true;
     }
 
@@ -114,12 +115,14 @@ bool Img::BlobGrouping::operator()(const input_pointer& in, output_pointer& out)
         fill_slice(grind, islice);
     }
 
-    log->debug("cluster {}: nvertices={} nedges={} nmeas={}",
+    log->debug("call={} cluster={} nvertices={} nedges={} nmeas={}",
+               m_count,
                in->ident(),
                boost::num_vertices(grind.graph()),
                boost::num_edges(grind.graph()),
                m_mcount);
 
     out = std::make_shared<Aux::SimpleCluster>(grind.graph(), in->ident());
+    ++m_count;
     return true;
 }
