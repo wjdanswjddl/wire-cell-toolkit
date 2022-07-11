@@ -42,8 +42,7 @@ namespace WireCell {
                 const std::string& break_roi_loop1_tag = "break_roi_1st",
                 const std::string& break_roi_loop2_tag = "break_roi_2nd",
                 const std::string& shrink_roi_tag = "shrink_roi", const std::string& extend_roi_tag = "extend_roi",
-                const std::string& mp3_roi_tag = "mp3_roi", const std::string& mp2_roi_tag = "mp2_roi",
-		std::vector<int> rebase_planes = {0}, int rebase_nbins=200);
+                const std::string& mp3_roi_tag = "mp3_roi", const std::string& mp2_roi_tag = "mp2_roi");
             virtual ~OmnibusSigProc();
 
             virtual bool operator()(const input_pointer& in, output_pointer& out);
@@ -236,8 +235,8 @@ namespace WireCell {
             std::string m_mp2_roi_tag;
 
 	    //Rebase waveforms for each channel of spesific wire-plane. 
-	    std::vector<int> m_rebase_planes; 
-            int m_rebase_nbins;
+	    std::vector<int> m_rebase_planes{-999}; 
+            int m_rebase_nbins=200;
 
             bool m_isWrapped;
 

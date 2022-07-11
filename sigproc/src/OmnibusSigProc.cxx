@@ -41,7 +41,7 @@ OmnibusSigProc::OmnibusSigProc(
     bool use_roi_debug_mode, bool use_roi_refinement, const std::string& tight_lf_tag, const std::string& loose_lf_tag,
     const std::string& cleanup_roi_tag, const std::string& break_roi_loop1_tag, const std::string& break_roi_loop2_tag,
     const std::string& shrink_roi_tag, const std::string& extend_roi_tag, const std::string& mp3_roi_tag,
-    const std::string& mp2_roi_tag, std::vector<int> rebase_planes, int rebase_nbins)
+    const std::string& mp2_roi_tag)
   : Aux::Logger("OmnibusSigProc", "sigproc")
   , m_anode_tn(anode_tn)
   , m_per_chan_resp(per_chan_resp_tn)
@@ -98,8 +98,6 @@ OmnibusSigProc::OmnibusSigProc(
   , m_use_multi_plane_protection(false)
   , m_mp3_roi_tag(mp3_roi_tag)
   , m_mp2_roi_tag(mp2_roi_tag)
-  , m_rebase_planes(rebase_planes)
-  , m_rebase_nbins(rebase_nbins)
   , m_isWrapped(false)
   , m_sparse(false)
 {
