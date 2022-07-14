@@ -98,7 +98,7 @@ Aux::depos_by_slice(const IDepo::vector& depos, const Binning& tbins,
         const double tmin = t - sigma*nsigma;
         const double tmax = t + sigma*nsigma;
         int beg = std::max(tbins.bin(tmin),   0);
-        const int end = std::min(tbins.bin(tmin)+1, tbins.nbins());
+        const int end = std::min(tbins.bin(tmax)+1, tbins.nbins());
         while (beg < end) {
             ret[beg].push_back(depo);
             ++beg;
