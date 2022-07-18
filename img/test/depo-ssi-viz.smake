@@ -16,9 +16,10 @@ frame_tiers = ["adc", "sig"]
 cluster_tiers = ["img", "tru"]
 
 # where output goes
-wctdir=f"{outdir}/{detector}/wct"   # wire-cell output
-pltdir=f"{outdir}/{detector}/plots" # plot PDFs
-pvdir=f"{outdir}/{detector}/pv"     # paraview files
+detdir=f"{outdir}/{detector}"
+wctdir=f"{detdir}/wct"   # wire-cell output
+pltdir=f"{detdir}/plots" # plot PDFs
+pvdir =f"{detdir}/pv"    # paraview files
 
 rule intern_depos:
     input:
@@ -59,8 +60,8 @@ rule jsonify:
     params:
         indepos=rules.augment_depos.output,
         outdepos=f"{wctdir}/depos-drifted.npz",
-        frames=f"{wctdir}/frames-%(tier)s-%(anode)s.npz",
-        clusters=f"{wctdir}/clusters-%(tier)s-%(anode)s.npz"
+        frames=f"{wctdir}/frames-%(tier)s-a%(anode)s.npz",
+        clusters=f"{wctdir}/clusters-%(tier)s-a%(anode)s.npz"
     shell: """
     wcsonnet \
       -A 'detector={detector}' \
@@ -79,8 +80,8 @@ rule wctify:
     output:
         log=f"{wctdir}/wire-cell.log",
         drifted=f"{wctdir}/depos-drifted.npz",
-        frames=expand(f"{wctdir}/frames-{{tier}}-{{anode}}.npz", tier=frame_tiers, anode=anodes),
-        clusters=expand(f"{wctdir}/clusters-{{tier}}-{{anode}}.npz", tier=cluster_tiers, anode=anodes)
+        frames=expand(f"{wctdir}/frames-{{tier}}-a{{anode}}.npz", tier=frame_tiers, anode=anodes),
+        clusters=expand(f"{wctdir}/clusters-{{tier}}-a{{anode}}.npz", tier=cluster_tiers, anode=anodes)
     shell: """
     wire-cell -l stderr -l {output.log} -L debug -c {input.cfg} || exit -1
     for one in {output.clusters} ; do
@@ -98,7 +99,7 @@ rule plot_drifted:
     input:
         rules.wctify.output.drifted
     output:
-        f"{pltdir}/plot-depos-drifted-{{index}}-{{plotname}}.pdf"
+        f"{pltdir}/plot-depos-drifted-i{{index}}-{{plotname}}.pdf"
     shell: """
     wirecell-gen plot-depos -p {wildcards.plotname} -i{wildcards.index} {input} {output}
     """
@@ -106,7 +107,7 @@ rule plot_augmented:
     input:
         rules.augment_depos.output
     output:
-        f"{pltdir}/plot-depos-augmented-{{index}}-{{plotname}}.pdf"
+        f"{pltdir}/plot-depos-augmented-i{{index}}-{{plotname}}.pdf"
     shell: """
     wirecell-gen plot-depos -p {wildcards.plotname} -i{wildcards.index} {input} {output}
     """
@@ -120,9 +121,9 @@ rule plot_depos_all:
 
 rule plot_adc_frames:
     input:
-        f"{wctdir}/frames-adc-{{anode}}.npz"
+        f"{wctdir}/frames-adc-a{{anode}}.npz"
     output:
-        f"{pltdir}/frames-adc-{{anode}}-{{index}}.pdf"
+        f"{pltdir}/frames-adc-a{{anode}}-i{{index}}.pdf"
     shell: """
     wirecell-util npz-to-img \
     --array frame_orig{wildcards.anode}_{wildcards.index} \
@@ -138,9 +139,9 @@ rule plot_adc_frames:
 
 rule plot_sig_frames:
     input:
-        f"{wctdir}/frames-sig-{{anode}}.npz"
+        f"{wctdir}/frames-sig-a{{anode}}.npz"
     output:
-        f"{pltdir}/frames-sig-{{anode}}-{{index}}.pdf"
+        f"{pltdir}/frames-sig-a{{anode}}-i{{index}}.pdf"
     shell: """
     wirecell-util npz-to-img \
     --array frame_gauss{wildcards.anode}_{wildcards.index} \
@@ -155,7 +156,7 @@ rule plot_sig_frames:
 
 rule plot_frames_all:
     input:
-        expand(f"{pltdir}/frames-{{tier}}-{{anode}}-{{index}}.pdf",
+        expand(f"{pltdir}/frames-{{tier}}-a{{anode}}-i{{index}}.pdf",
                tier=frame_tiers, anode=anodes, index=[0,1])
 
 
@@ -179,9 +180,9 @@ rule pv_depos_drifted:
     """
 rule pv_blobs:
     input:
-        f"{wctdir}/clusters-{{tier}}-{{anode}}.npz"
+        f"{wctdir}/clusters-{{tier}}-a{{anode}}.npz"
     output:
-        f"{pvdir}/clusters-{{tier}}-{{anode}}.vtu"
+        f"{pvdir}/clusters-{{tier}}-a{{anode}}.vtu"
     params:
         drift_speed
     shell: """
@@ -200,9 +201,9 @@ rule pv_all:
 
 rule plot_blobs:
     input:
-        f"{wctdir}/clusters-{{tier}}-{{anode}}.npz"
+        f"{wctdir}/clusters-{{tier}}-a{{anode}}.npz"
     output:
-        f"{pltdir}/clusters-{{tier}}-{{anode}}-{{plotname}}.pdf"
+        f"{pltdir}/clusters-{{tier}}-a{{anode}}-{{plotname}}.pdf"
     shell: """
     if [ -s {input} ] ; then
       wirecell-img plot-blobs -p {wildcards.plotname} {input} {output}
@@ -213,7 +214,7 @@ rule plot_blobs:
 
 rule plot_blobs_all:
     input:
-        expand(f"{pltdir}/clusters-{{tier}}-{{anode}}-{{plotname}}.pdf", tier=cluster_tiers, anode=anodes, plotname=["ty", "tz"])
+        expand(f"{pltdir}/clusters-{{tier}}-a{{anode}}-{{plotname}}.pdf", tier=cluster_tiers, anode=anodes, plotname=["ty", "tz", "views"])
 
 rule plot_all:
     input:

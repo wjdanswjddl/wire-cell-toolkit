@@ -48,8 +48,10 @@ bool Img::BlobSetFanout::operator()(const input_pointer& in, output_vector& outv
 {
     // Note: if "in" indicates EOS, just pass it on
     if (in) {
-        log->debug("call={} fanout blob set {} with {}",
-                   m_count, in->ident(), in->blobs().size());
+        const auto nblobs = in->blobs().size();
+        // Too noisy for debug().
+        log->trace("call={} fanout blob set {} with {}",
+                   m_count, in->ident(), nblobs);
     }
     else {
         log->debug("EOS at call={}", m_count);
