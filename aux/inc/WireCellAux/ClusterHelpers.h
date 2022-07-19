@@ -36,6 +36,13 @@ namespace WireCell::Aux {
     using blobs_by_slice_t = std::unordered_map<ISlice::pointer, IBlob::vector>;
     blobs_by_slice_t blobs_by_slice(const ICluster& cluster);
 
+    /// Return number of vertices of each type by type code
+    using code_counts_t = std::unordered_map<char, size_t>;
+    code_counts_t counts_by_type(const ICluster& cluster);
+
+    /// Return the vertex descriptors for the given type code (in "cwsbm")
+    std::vector<cluster_vertex_t> vdesc_by_code(const ICluster& cluster, char code);
+
 }
 
 #endif

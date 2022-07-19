@@ -1,15 +1,23 @@
 /**
-   BlobDepoFill produces a new blobset with blob charge filled
+   BlobDepoFill produces a new cluster with blob charge filled
    from depo charge.
 
-   Except for replacing blob charge all input blob information is
-   retained in the output.
+   Except for replacing blob charge all input information is retained
+   in the output.  Blobs in which no depo charge is found will get
+   assigned zero value.  Depo charge not located inside any input
+   blobs will be lost and in particular will not result in any new
+   blobs.
 
-   The depos are best to be post-drift.  They may span multiple
-   AnodePlanes in the transverse direction and will be filtered in the
-   same way as DepoTransform.  The faces refereced by the blobs are
-   used to perform this filtering.
+   The the depos to input are best to be post-drift in order to more
+   accurately align them to blob volumes and to filter them in the
+   drift direction to be relevant to the anode planes under
+   consideration.  OTOH, the depo set may span multiple AnodePlanes in
+   the transverse direction as the input depos will be filtered so
+   that only those in the active region of the anode plane are
+   considered (ie, same as DepoTransform).  The faces referenced by
+   the blobs are used to perform this filtering.
 
+   See DepoBlobFill.org for details on how this component works.
  */
 
 #ifndef WIRECELLIMG_BLOBDEPOFILL

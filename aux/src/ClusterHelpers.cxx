@@ -73,3 +73,15 @@ Aux::blobs_by_slice_t Aux::blobs_by_slice(const ICluster& cluster)
     }
     return ret;
 }
+
+Aux::code_counts_t Aux::counts_by_type(const ICluster& cluster)
+{
+    Aux::code_counts_t ret;
+    const auto& gr = cluster.graph();
+    for (auto vtx : boost::make_iterator_range(boost::vertices(gr))) {
+        const auto& vobj = gr[vtx];
+        const char code = vobj.code();
+        ret[code] += 1;
+    }
+    return ret;
+}

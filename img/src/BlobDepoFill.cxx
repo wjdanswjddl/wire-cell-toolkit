@@ -3,6 +3,8 @@
 #include "WireCellAux/SliceTools.h"
 #include "WireCellAux/DepoTools.h"
 #include "WireCellAux/SimpleBlob.h"
+#include "WireCellAux/SimpleCluster.h"
+#include "WireCellAux/ClusterHelpers.h"
 
 #include "WireCellUtil/GraphTools.h"
 #include "WireCellUtil/Exceptions.h"
@@ -78,7 +80,8 @@ namespace idweight {
 // Produce an s-d-w graph with nodes packed in [{s},{d},{w}] order
 static
 idweight::graph_t
-slice_and_dice_depos(const Binning& sbins,       // run over s nodes
+slice_and_dice_depos(Log::logptr_t& log,
+                     const Binning& sbins,       // run over s nodes
                      const IDepo::vector& depos, // run over d nodes
                      const Pimpos& pimpos,       // run over w nodes
                      double speed, // to convert longitudinal extent to time
@@ -120,12 +123,15 @@ slice_and_dice_depos(const Binning& sbins,       // run over s nodes
             const double tmin = tmean - tsigma*nsigma;
             const double tmax = tmean + tsigma*nsigma;
             const Binning tbins = subset(sbins, tmin, tmax);
-            std::vector<double> weights(tbins.nbins());
-            gaussian(weights.begin(), tbins, tmean, tsigma);
+            const auto ntbins = tbins.nbins();
+            if (ntbins) {
+                std::vector<double> weights(ntbins);
+                gaussian(weights.begin(), tbins, tmean, tsigma);
 
-            for (int it=0; it<tbins.nbins(); ++it) {
-                const idweight::vdesc_t sdesc = sbins.bin(tbins.center(it));
-                boost::add_edge(sdesc, ddesc, {weights[it]}, gr);
+                for (int it=0; it<ntbins; ++it) {
+                    const idweight::vdesc_t sdesc = sbins.bin(tbins.center(it));
+                    boost::add_edge(sdesc, ddesc, {weights[it]}, gr);
+                }
             }
         }
 
@@ -137,14 +143,17 @@ slice_and_dice_depos(const Binning& sbins,       // run over s nodes
             const double wsigma = idepo->extent_tran();
 
             auto wbins = subset(pbins, wmean-wsigma*nsigma, wmean+wsigma*nsigma);
-            std::vector<double> weights(wbins.nbins(), 0);
-            gaussian(weights.begin(), wbins, wmean, wsigma);
+            const auto nwbins = wbins.nbins();
+            if (nwbins) {
+                std::vector<double> weights(wbins.nbins(), 0);
+                gaussian(weights.begin(), wbins, wmean, wsigma);
 
-            // make edge from each d to w
-            int wip = pbins.bin(wbins.center(0));
-            for (int wind = 0; wind < wbins.nbins(); ++wind) {
-                const idweight::vdesc_t wdesc = wip + wind + nsbins + ndepos;
-                boost::add_edge(ddesc, wdesc, {weights[wind]}, gr);
+                // make edge from each d to w
+                int wip = pbins.bin(wbins.center(0));
+                for (int wind = 0; wind < wbins.nbins(); ++wind) {
+                    const idweight::vdesc_t wdesc = wip + wind + nsbins + ndepos;
+                    boost::add_edge(ddesc, wdesc, {weights[wind]}, gr);
+                }
             }
         }
     }
@@ -152,57 +161,114 @@ slice_and_dice_depos(const Binning& sbins,       // run over s nodes
     return gr;
 }
 
+static 
+ICluster::pointer make_cluster(const ICluster::pointer& icluster,
+                        std::unordered_map<cluster_vertex_t, std::pair<double, double>>& blob_value)
+{
+    cluster_graph_t gr;
+    boost::copy_graph(icluster->graph(), gr);
+
+    // Collect the info from just b-type nodes
+    for (const auto& vdesc : mir(boost::vertices(gr))) {
+        const char code = gr[vdesc].code();
+        if (code == 'b') {
+            auto bold = std::get<IBlob::pointer>(gr[vdesc].ptr);
+            // make a new IBlob with new charge and set it as payload
+            auto [val, unc] = blob_value[vdesc];
+            auto bnew = std::make_shared<Aux::SimpleBlob>(
+                bold->ident(), val, unc,
+                bold->shape(), bold->slice(), bold->face());
+            gr[vdesc].ptr = bnew;
+        }
+    }
+    return std::make_shared<Aux::SimpleCluster>(gr, icluster->ident());
+}
+
 
 bool Img::BlobDepoFill::operator()(const input_tuple_type& intup,
                                    output_pointer& out)
 {
     out = nullptr;
-    auto iblobset = std::get<0>(intup);
+    auto icluster = std::get<0>(intup);
     auto ideposet = std::get<1>(intup);
-    if (!iblobset or !ideposet) {
-        if (iblobset or ideposet) {
-            log->warn("join node did not get synchronized EOS");
+    if (!icluster or !ideposet) {
+        // If one is EOS, both should be EOS
+        if (icluster) {
+            const auto blobs = oftype<IBlob::pointer>(icluster->graph());
+            log->warn("join node got non-EOS ICluster {} with {} blobs on EOS",
+                      icluster->ident(), blobs.size());
+        }
+        if (ideposet) {
+            log->warn("join node got non-EOS IDepoSet {} with {} depos on EOS",
+                      ideposet->ident(),
+                      ideposet->depos()->size());
         }
         log->debug("EOS at call={}", m_count);
         ++m_count;
         return true;
     }
-    
-    // The enormouse code below fills this.
-    std::unordered_map<IBlob::pointer, std::pair<double, double>> blob_value;
+    log->debug("call={} fill cluster {} with deposet {}",
+               m_count, icluster->ident(), ideposet->ident());
 
-    // must separate blobs into faces and from each face take pimpos
-    // from wire plane at pindex.
-    std::unordered_map<IAnodeFace::pointer, IBlob::vector> face2blobs;
-    for (const auto& iblob : iblobset->blobs()) {
-        face2blobs[iblob->face()].push_back(iblob);
-        blob_value[iblob] = {0.0, 0.0};
+    const auto& ingr = icluster->graph();
+
+    // We will collect the new blob charge by its vertex descriptor.
+    std::unordered_map<cluster_vertex_t, std::pair<double, double>> blob_value;
+
+    // Form sets of blobs with common anode face.
+    std::unordered_map<IAnodeFace::pointer, std::vector<cluster_vertex_t>> face2blobs;
+
+    // Collect the info from just b-type nodes
+    for (const auto& vdesc : mir(boost::vertices(ingr))) {
+        const char code = ingr[vdesc].code();
+        if (code == 'b') {
+            auto iblob = std::get<IBlob::pointer>(ingr[vdesc].ptr);
+            face2blobs[iblob->face()].push_back(vdesc);
+            blob_value[vdesc] = {0.0, 0.0};
+        }
     }
 
-    // Process each face separately
-    for (const auto& [iaf, ibv] : face2blobs) {
+    if (blob_value.empty()) {
+        out = make_cluster(icluster, blob_value);
+        log->debug("call={} no input blobs", m_count);
+        ++m_count;
+        return true;
+    }
 
-        auto iwp = iaf->planes()[m_pindex];
-        const Pimpos* pimpos = iwp->pimpos();
-        const auto& coords = iaf->raygrid();
+    // just for logging.
+    size_t nblobs=0;
 
-        // Get slices spanned by this face's blobs
+    // Now, Process each face separately.
+    for (const auto& [ianodeface, bdescvector] : face2blobs) {
+
+        auto iwireplane = ianodeface->planes()[m_pindex];
+        const Pimpos* pimpos = iwireplane->pimpos();
+        const auto& coords = ianodeface->raygrid();
+
+        // Collect the slices spanned by this face's blobs and map
+        // each them to the graph vertex descriptors of the blobs in
+        // the slice.
         std::unordered_set<ISlice::pointer> slices;
-        for (const auto& iblob : ibv) {
-            slices.insert(iblob->slice());
+        std::unordered_map<ISlice::pointer, std::vector<cluster_vertex_t>> slice2blobs;
+        for (const auto& bdesc : bdescvector) {
+            auto iblob = std::get<IBlob::pointer>(ingr[bdesc].ptr);
+            auto islice = iblob->slice();
+            slices.insert(islice);
+            slice2blobs[islice].push_back(bdesc);
         }
 
-        // Binning spanning the slices' start and span times.  Because
-        // of the order that the s-d-w graph below is filled, the
-        // sbins indices are also the s-node descriptors.
+        // Make a Binning htat spans the slices' start and span times.
+        // Because we take care to fill the s-d-w graph below in a
+        // particular order, the sbins indices are also directly the
+        // graphs's s-node descriptors.
         const auto sbins = Aux::binning(slices.begin(), slices.end());
 
         // Get depos in the sensitive area of the current face and
-        // precalcualte their central position in the primary wire
-        // plane coordinate system.
+        // pre-calculate their central position in the primary wire
+        // plane "pimpos" coordinate system.
         IDepo::vector depos;
         std::vector<double> dwcenter;
-        for (const auto& maybe : sensitive(*(ideposet->depos()), iaf)) {
+        for (const auto& maybe : sensitive(*(ideposet->depos()), ianodeface)) {
             const auto rpos = pimpos->relative(maybe->pos());
             if (rpos[0] < 0) {
                 continue;       // depo is behind the face.
@@ -211,21 +277,18 @@ bool Img::BlobDepoFill::operator()(const input_tuple_type& intup,
             dwcenter.push_back(pimpos->transform(maybe->pos())[1]);
         }
 
-        // Make the s-d-w graph holding Gaussian integrals.  Note,
-        // nodes are indexed in order: [{s},{d},{w}]
-        auto gr = slice_and_dice_depos(sbins, depos, *pimpos,
+        // Make the s-d-w graph holding Gaussian integrals over slice
+        // and primary wire directions.  Note, nodes are indexed in
+        // order to keep each type contiguous: [{s},{d},{w}].  {s} is
+        // ordered as per slice Binning, {d} ordered per deposet, {w}
+        // ordered per pimpos wires.
+        auto gr = slice_and_dice_depos(log, sbins, depos, *pimpos,
                                        m_speed, m_nsigma, m_toffset);
 
-        // Process blobs on a per-slice basis for better caching
-        std::unordered_map<ISlice::pointer, IBlob::vector> slice2blobs;
-        for (const auto& iblob: ibv) {
-            ISlice::pointer islice = iblob->slice();
-            slice2blobs[islice].push_back(iblob);
-        }
-
         // Each slice
-        for (const auto& [islice,blobs] : slice2blobs) {
+        for (const auto& [islice,bdescs] : slice2blobs) {
             const auto sdesc = sbins.bin(islice->start() + 0.5*islice->span());
+            nblobs += bdescs.size();
 
             // Each depo in the slice
             for (auto sdedge : mir(boost::out_edges(sdesc, gr))) {
@@ -244,8 +307,9 @@ bool Img::BlobDepoFill::operator()(const input_tuple_type& intup,
                     const auto wdesc = boost::target(dwedge, gr);
                     const int wip = gr[wdesc].idx;
 
-                    // Many reloops over the blobs
-                    for (const auto& iblob : blobs) {
+                    // Each blob in slice
+                    for (const auto& bdesc : bdescs) {
+                        auto iblob = std::get<IBlob::pointer>(ingr[bdesc].ptr);
         
                         // blob bounds
                         const auto& strips = iblob->shape().strips();
@@ -260,7 +324,10 @@ bool Img::BlobDepoFill::operator()(const input_tuple_type& intup,
                         RayGrid::coordinate_t rgc{2+m_pindex, wip};
 
                         std::vector<double> lo, hi;
-                        // fixme: assumes first 2 layers are overall bounds
+                        // fixme: assumes first 2 layers are "fake
+                        // planes" given the overall sensitive bounds.
+                        // Should always hold, but someone someday may
+                        // get "creative".
                         const int nfake = 2;
                         const int nplanes = coords.nlayers() - nfake;
                         for (int irel=1; irel<nplanes; ++irel) {
@@ -289,7 +356,7 @@ bool Img::BlobDepoFill::operator()(const input_tuple_type& intup,
                         const double e2 = std::erf(depo_scale*(w2 - depo_center));
                         const double w_weight = e2 - e1;
                         const double dq = sd_weight * dw_weight * w_weight * idepo->charge();
-                        auto& bv = blob_value[iblob];
+                        auto& bv = blob_value[bdesc];
                         bv.first += dq;
                         bv.second += 0; // how to estimate?
                     } // over blobs
@@ -298,22 +365,9 @@ bool Img::BlobDepoFill::operator()(const input_tuple_type& intup,
         } // over slices
     } // over faces
 
-
-    // copy out
-    IBlob::vector out_blobs;
-    for (const auto& iblob : iblobset->blobs()) {
-        const auto& bv = blob_value[iblob];
-        out_blobs.push_back(
-            std::make_shared<Aux::SimpleBlob>(
-                iblob->ident(),
-                bv.first,
-                bv.second,
-                iblob->shape(),
-                iblob->slice(),
-                iblob->face()
-                ));
-    }
-    out = std::make_shared<Aux::SimpleBlobSet>(iblobset->ident(), iblobset->slice(), out_blobs);
+    out = make_cluster(icluster, blob_value);
+    log->debug("call={} nblobs={}", m_count, nblobs);
+    ++m_count;
     return true;
 }
 

@@ -1,5 +1,5 @@
-/** IBlobDepoFill is something taking in an IBlobSet and an
- * IDepoSet and producing an IBlobSet.
+/** IBlobDepoFill inputs an ICluster and an IDepoSet to produce an
+ * ICluster.
  */
 
 #ifndef WIRECELL_IBLOBDEPOFILL
@@ -7,12 +7,12 @@
 
 #include "WireCellUtil/IComponent.h"
 #include "WireCellIface/IJoinNode.h"
-#include "WireCellIface/IBlobSet.h"
+#include "WireCellIface/ICluster.h"
 #include "WireCellIface/IDepoSet.h"
 
 namespace WireCell {
 
-    class IBlobDepoFill : public IJoinNode<std::tuple<IBlobSet, IDepoSet>, IBlobSet> {
+    class IBlobDepoFill : public IJoinNode<std::tuple<ICluster, IDepoSet>, ICluster> {
        public:
         typedef std::shared_ptr<IBlobDepoFill> pointer;
 

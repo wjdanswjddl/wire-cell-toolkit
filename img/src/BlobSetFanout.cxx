@@ -50,7 +50,7 @@ bool Img::BlobSetFanout::operator()(const input_pointer& in, output_vector& outv
     if (in) {
         const auto nblobs = in->blobs().size();
         // Too noisy for debug().
-        log->trace("call={} fanout blob set {} with {}",
+        log->debug("call={} fanout blob set {} with {}",
                    m_count, in->ident(), nblobs);
     }
     else {

@@ -22,6 +22,7 @@
 #include "WireCellIface/IChannelSpectrum.h"
 #include "WireCellIface/IChannelStatus.h"
 #include "WireCellIface/IClusterFanin.h"
+#include "WireCellIface/IClusterFanout.h"
 #include "WireCellIface/IClusterFilter.h"
 #include "WireCellIface/IClusterFramer.h"
 #include "WireCellIface/IClusterSink.h"
@@ -119,6 +120,7 @@ IChannelResponse::~IChannelResponse() {}
 IChannelSpectrum::~IChannelSpectrum() {}
 IChannelStatus::~IChannelStatus() {}
 IClusterFanin::~IClusterFanin() {}
+IClusterFanout::~IClusterFanout() {}
 IClusterFilter::~IClusterFilter() {}
 IClusterFramer::~IClusterFramer() {}
 IClusterSink::~IClusterSink() {}
