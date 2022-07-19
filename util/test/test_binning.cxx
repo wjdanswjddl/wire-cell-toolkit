@@ -34,6 +34,14 @@ void test_subset()
         Assert(s.min()     == a.min());
         Assert(s.max()     == a.max());
     }
+    {
+        Binning b(122, 1.528e+06, 1.772e+06);
+        std::cerr << "b: " << b << "\n";
+        auto s = subset(b, 1791637.8683138976, 1795821.8405835067);
+        std::cerr << "s: " << s << "\n";
+        Assert(s.nbins() == 0);
+        
+    }
 }
 
 void test_gaussian()
