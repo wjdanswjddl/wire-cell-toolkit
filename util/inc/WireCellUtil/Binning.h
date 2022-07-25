@@ -121,25 +121,39 @@ namespace WireCell {
         return Binning(hi-lo, bins.edge(lo), bins.edge(hi));
     }
 
+    // P(X<=L) for X ~ N(mean,sigma)
+    inline
+    double gcumulative(double L, double mean=0, double sigma=1) {
+        const double scale = sqrt(2)*sigma;
+        return 0.5+0.5*std::erf((L - mean)/scale);
+    }
+    // P(L1 <= X <= L2) for X ~ N(mean,sigma)
+    inline
+    double gbounds(double L1, double L2, double mean=0, double sigma=1) {
+        if (L1 == L2) return 0;
+        if (L1 > L2) std::swap(L1, L2);
+        const double scale = sqrt(2)*sigma;
+        return 0.5*( std::erf((L2 - mean)/scale) - std::erf((L1 - mean)/scale));
+    }
+        
     // Add the absolutely normlized, bin-integrated Gaussian
     // distribution to iterated elements.  Return sum of bin integrals
     // which will not < 1.0 given finite binning span.
     template<typename OutputIt>
     double gaussian(OutputIt out, const Binning& bins, double mean=0, double sigma=1)
     {
-        const double scale = 1.0/sqrt(2)*sigma;
         const int nedges = bins.nbins() + 1;
-        double last_erf = 0;
+        double last_cumu = 0;
         double total = 0;
         for (int edge = 0 ; edge < nedges; ++edge) {
-            const double this_erf = std::erf(scale*(bins.edge(edge) - mean));
+            const double this_cumu = gcumulative(bins.edge(edge), mean, sigma);
             if (edge) {
-                const double bin_erf = (this_erf - last_erf);
-                total += bin_erf;
-                *out = bin_erf;
+                const double bin_cumu = (this_cumu - last_cumu);
+                total += bin_cumu;
+                *out = bin_cumu;
                 ++out;
             }
-            last_erf = this_erf;
+            last_cumu = this_cumu;
         }
         return total;
     }
