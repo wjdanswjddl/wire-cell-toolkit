@@ -268,7 +268,10 @@ bool Img::BlobDepoFill::operator()(const input_tuple_type& intup,
         // plane "pimpos" coordinate system.
         IDepo::vector depos;
         std::vector<double> dwcenter;
-        for (const auto& maybe : sensitive(*(ideposet->depos()), ianodeface)) {
+        auto mydepos = sensitive(*(ideposet->depos()), ianodeface);
+        log->debug("call={} face={} nblobs={} ndepos={}",
+                   m_count, bdescvector.size(), mydepos.size());
+        for (const auto& maybe : mydepos) {
             const auto rpos = pimpos->relative(maybe->pos());
             if (rpos[0] < 0) {
                 continue;       // depo is behind the face.
@@ -299,7 +302,6 @@ bool Img::BlobDepoFill::operator()(const input_tuple_type& intup,
                 const double depo_center = dwcenter[didx];
                 const double depo_min = depo_center - idepo->extent_tran()*m_nsigma;
                 const double depo_max = depo_center + idepo->extent_tran()*m_nsigma;
-                const double depo_scale = 1.0/(sqrt(2.0)*idepo->extent_tran());
 
                 // Each wire hit by the depo
                 for (auto dwedge : mir(boost::out_edges(ddesc, gr))) {
@@ -352,10 +354,9 @@ bool Img::BlobDepoFill::operator()(const input_tuple_type& intup,
 
                         const double w1 = std::max(wlo, depo_min);
                         const double w2 = std::min(whi, depo_max);
-                        const double e1 = std::erf(depo_scale*(w1 - depo_center));
-                        const double e2 = std::erf(depo_scale*(w2 - depo_center));
-                        const double w_weight = e2 - e1;
-                        const double dq = sd_weight * dw_weight * w_weight * idepo->charge();
+
+                        const double w_weight = gbounds(w1,w2,depo_center, idepo->extent_tran());
+                        const double dq = sd_weight * dw_weight * w_weight * std::abs(idepo->charge());
                         auto& bv = blob_value[bdesc];
                         bv.first += dq;
                         bv.second += 0; // how to estimate?

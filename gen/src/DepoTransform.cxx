@@ -157,12 +157,14 @@ bool Gen::DepoTransform::operator()(const input_pointer& in, output_pointer& out
     }
 
     auto depos = in->depos();
+    size_t ndepos_used=0;
 
     Binning tbins(m_readout_time / m_tick, m_start_time, m_start_time + m_readout_time);
     ITrace::vector traces;
     for (auto face : m_anode->faces()) {
         // Select the depos which are in this face's sensitive volume
         IDepo::vector face_depos = Aux::sensitive(*depos, face);
+        ndepos_used += face_depos.size();
 
         int iplane = -1;
         for (auto plane : face->planes()) {
@@ -203,7 +205,8 @@ bool Gen::DepoTransform::operator()(const input_pointer& in, output_pointer& out
     }
 
     auto frame = make_shared<SimpleFrame>(m_frame_count, m_start_time, traces, m_tick);
-    log->debug("call={} frame={} ntraces={}", m_frame_count, m_count, traces.size());
+    log->debug("call={} frame={} ndepos_in={} ndepos_used={} ntraces={}",
+               m_count, m_frame_count, depos->size(), ndepos_used, traces.size());
 
     ++m_frame_count;
     ++m_count;

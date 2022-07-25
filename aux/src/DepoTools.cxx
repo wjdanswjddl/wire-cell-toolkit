@@ -106,6 +106,7 @@ Aux::depos_by_slice(const IDepo::vector& depos, const Binning& tbins,
     }
     return ret;
 }
+
 IDepo::vector Aux::sensitive(const IDepo::vector& depos, IAnodeFace::pointer face)
 {
     IDepo::vector ret;
