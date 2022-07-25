@@ -235,7 +235,7 @@ namespace WireCell {
             std::string m_mp2_roi_tag;
 
 	    //Rebase waveforms for each channel of spesific wire-plane. 
-	    std::vector<int> m_rebase_planes{-999}; 
+	    std::vector<int> m_rebase_planes{}; 
             int m_rebase_nbins=200;
 
             bool m_isWrapped;
