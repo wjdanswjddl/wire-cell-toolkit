@@ -55,8 +55,8 @@ namespace WireCell::Spectrum {
     template<typename It>
     void hermitian_mirror(It beg, It end) {
 
-        // Zero frequency bin
-        *beg = std::abs(*beg);
+        // Zero frequency bin.
+        *beg = std::real(*beg);
 
         // if len is even: mid is Nyquist bin.
         //           else: mid is last "postive" freq bin.
