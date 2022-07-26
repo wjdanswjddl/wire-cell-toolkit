@@ -394,10 +394,11 @@ void OmnibusSigProc::load_data(const input_pointer& in, int plane)
             }
         }
     }
-	//rabes for this plane
-	if (std::find(m_rebase_planes.begin(), m_rebase_planes.end(), plane) != m_rebase_planes.end()) {
-            rebase_waveform(m_r_data[plane],m_rebase_nbins);
-        }
+    //rebase for this plane
+    if (std::find(m_rebase_planes.begin(), m_rebase_planes.end(), plane) != m_rebase_planes.end()) {
+        log->debug("rebase_waveform for plane {} with m_rebase_nbins = {}", plane, m_rebase_nbins);
+        rebase_waveform(m_r_data[plane],m_rebase_nbins);
+    }
 
     log->debug("call={} load plane index: {}, ntraces={}, input bad regions: {}",
                m_count, plane, traces->size(), nbad);
