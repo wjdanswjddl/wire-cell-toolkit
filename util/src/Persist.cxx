@@ -257,7 +257,7 @@ WireCell::Persist::Parser::Parser(const std::vector<std::string>& load_paths, co
         m_load_paths.push_back(boost::filesystem::path(path));
     }
     for (auto path : get_path()) {
-        debug("search path: {}", path);
+        //debug("search path: {}", path);
         m_load_paths.push_back(boost::filesystem::path(path));
     }
     // load paths into jsonnet backwards to counteract its reverse ordering

@@ -10,6 +10,11 @@
 using namespace std;
 
 using namespace WireCell;
+using WireCell::Aux::DftTools::fwd;
+using WireCell::Aux::DftTools::fwd_r2c;
+using WireCell::Aux::DftTools::inv;
+using WireCell::Aux::DftTools::inv_c2r;
+
 
 Gen::ImpactTransform::ImpactTransform(IPlaneImpactResponse::pointer pir,
                                       const IDFT::pointer& dft,
@@ -143,7 +148,7 @@ Gen::ImpactTransform::ImpactTransform(IPlaneImpactResponse::pointer pir,
 
         // Do FFT on time
         // Do FFT on wire
-        c_data = Aux::fwd(m_dft, c_data);
+        c_data = fwd(m_dft, c_data);
 
         // std::cout << i << std::endl;
         {
@@ -152,7 +157,7 @@ Gen::ImpactTransform::ImpactTransform(IPlaneImpactResponse::pointer pir,
             {
                 Waveform::compseq_t rs1 = m_vec_map_resp.at(i)[0]->spectrum();
                 // do a inverse FFT
-                Waveform::realseq_t rs1_t = Aux::inv_c2r(m_dft, rs1);
+                Waveform::realseq_t rs1_t = inv_c2r(m_dft, rs1);
                 // pick the first xxx ticks
                 Waveform::realseq_t rs1_reduced(m_end_tick - m_start_tick, 0);
                 for (int icol = 0; icol != m_end_tick - m_start_tick; icol++) {
@@ -160,7 +165,7 @@ Gen::ImpactTransform::ImpactTransform(IPlaneImpactResponse::pointer pir,
                     rs1_reduced.at(icol) = rs1_t[icol];
                 }
                 // do a FFT
-                rs1 = Aux::fwd_r2c(m_dft, rs1_reduced);
+                rs1 = fwd_r2c(m_dft, rs1_reduced);
 
                 for (int icol = 0; icol != m_end_tick - m_start_tick; icol++) {
                     resp_f_w(0, icol) = rs1[icol];
@@ -169,21 +174,21 @@ Gen::ImpactTransform::ImpactTransform(IPlaneImpactResponse::pointer pir,
 
             for (int irow = 0; irow != m_num_pad_wire; irow++) {
                 Waveform::compseq_t rs1 = m_vec_map_resp.at(i)[irow + 1]->spectrum();
-                Waveform::realseq_t rs1_t = Aux::inv_c2r(m_dft, rs1);
+                Waveform::realseq_t rs1_t = inv_c2r(m_dft, rs1);
                 Waveform::realseq_t rs1_reduced(m_end_tick - m_start_tick, 0);
                 for (int icol = 0; icol != m_end_tick - m_start_tick; icol++) {
                     if (icol >= int(rs1_t.size())) break;
                     rs1_reduced.at(icol) = rs1_t[icol];
                 }
-                rs1 = Aux::fwd_r2c(m_dft, rs1_reduced);
+                rs1 = fwd_r2c(m_dft, rs1_reduced);
                 Waveform::compseq_t rs2 = m_vec_map_resp.at(i)[-irow - 1]->spectrum();
-                Waveform::realseq_t rs2_t = Aux::inv_c2r(m_dft, rs2);
+                Waveform::realseq_t rs2_t = inv_c2r(m_dft, rs2);
                 Waveform::realseq_t rs2_reduced(m_end_tick - m_start_tick, 0);
                 for (int icol = 0; icol != m_end_tick - m_start_tick; icol++) {
                     if (icol >= int(rs2_t.size())) break;
                     rs2_reduced.at(icol) = rs2_t[icol];
                 }
-                rs2 = Aux::fwd_r2c(m_dft, rs2_reduced);
+                rs2 = fwd_r2c(m_dft, rs2_reduced);
                 for (int icol = 0; icol != m_end_tick - m_start_tick; icol++) {
                     resp_f_w(irow + 1, icol) = rs1[icol];
                     resp_f_w(end_ch - start_ch - 1 - irow + 2 * npad_wire, icol) = rs2[icol];
@@ -193,14 +198,14 @@ Gen::ImpactTransform::ImpactTransform(IPlaneImpactResponse::pointer pir,
 
             // Do FFT on wire for response // slight larger
             // Now becomes the f and f in both time and wire domain ...
-            resp_f_w = Aux::fwd(m_dft, resp_f_w, 0);
+            resp_f_w = fwd(m_dft, resp_f_w, 0);
 
             // multiply them together
             c_data = c_data * resp_f_w;
         }
 
         // Do inverse FFT on wire
-        c_data = Aux::inv(m_dft, c_data, 0);
+        c_data = inv(m_dft, c_data, 0);
 
         // Add to wire result in frequency
         acc_data_f_w += c_data;
@@ -229,9 +234,9 @@ Gen::ImpactTransform::ImpactTransform(IPlaneImpactResponse::pointer pir,
             m_vec_vec_charge.at(i).shrink_to_fit();
 
             // Do FFT on time
-            data_f_w = Aux::fwd_r2c(m_dft, data_t_w, 1);
+            data_f_w = fwd_r2c(m_dft, data_t_w, 1);
             // Do FFT on wire
-            data_f_w = Aux::fwd(m_dft, data_f_w, 0);
+            data_f_w = fwd(m_dft, data_f_w, 0);
         }
 
         {
@@ -242,7 +247,7 @@ Gen::ImpactTransform::ImpactTransform(IPlaneImpactResponse::pointer pir,
                 Waveform::compseq_t rs1 = m_vec_map_resp.at(i)[0]->spectrum();
 
                 // do a inverse FFT
-                Waveform::realseq_t rs1_t = Aux::inv_c2r(m_dft, rs1);
+                Waveform::realseq_t rs1_t = inv_c2r(m_dft, rs1);
                 // pick the first xxx ticks
                 Waveform::realseq_t rs1_reduced(m_end_tick - m_start_tick, 0);
                 // std::cout << rs1.size() << " " << nsamples << " " << m_end_tick << " " <<  m_start_tick << std::endl;
@@ -252,7 +257,7 @@ Gen::ImpactTransform::ImpactTransform(IPlaneImpactResponse::pointer pir,
                     //  std::cout << icol << " " << rs1_t[icol] << std::endl;
                 }
                 // do a FFT
-                rs1 = Aux::fwd_r2c(m_dft, rs1_reduced);
+                rs1 = fwd_r2c(m_dft, rs1_reduced);
 
                 for (int icol = 0; icol != m_end_tick - m_start_tick; icol++) {
                     //   std::cout << icol << " " << rs1[icol] << " " << temp_resp_f_w(0,icol) << std::endl;
@@ -261,21 +266,21 @@ Gen::ImpactTransform::ImpactTransform(IPlaneImpactResponse::pointer pir,
             }
             for (int irow = 0; irow != m_num_pad_wire; irow++) {
                 Waveform::compseq_t rs1 = m_vec_map_resp.at(i)[irow + 1]->spectrum();
-                Waveform::realseq_t rs1_t = Aux::inv_c2r(m_dft, rs1);
+                Waveform::realseq_t rs1_t = inv_c2r(m_dft, rs1);
                 Waveform::realseq_t rs1_reduced(m_end_tick - m_start_tick, 0);
                 for (int icol = 0; icol != m_end_tick - m_start_tick; icol++) {
                     if (icol >= int(rs1_t.size())) break;
                     rs1_reduced.at(icol) = rs1_t[icol];
                 }
-                rs1 = Aux::fwd_r2c(m_dft, rs1_reduced);
+                rs1 = fwd_r2c(m_dft, rs1_reduced);
                 Waveform::compseq_t rs2 = m_vec_map_resp.at(i)[-irow - 1]->spectrum();
-                Waveform::realseq_t rs2_t = Aux::inv_c2r(m_dft, rs2);
+                Waveform::realseq_t rs2_t = inv_c2r(m_dft, rs2);
                 Waveform::realseq_t rs2_reduced(m_end_tick - m_start_tick, 0);
                 for (int icol = 0; icol != m_end_tick - m_start_tick; icol++) {
                     if (icol >= int(rs2_t.size())) break;
                     rs2_reduced.at(icol) = rs2_t[icol];
                 }
-                rs2 = Aux::fwd_r2c(m_dft, rs2_reduced);
+                rs2 = fwd_r2c(m_dft, rs2_reduced);
                 for (int icol = 0; icol != m_end_tick - m_start_tick; icol++) {
                     resp_f_w(irow + 1, icol) = rs1[icol];
                     resp_f_w(end_ch - start_ch - 1 - irow + 2 * npad_wire, icol) = rs2[icol];
@@ -283,19 +288,19 @@ Gen::ImpactTransform::ImpactTransform(IPlaneImpactResponse::pointer pir,
             }
             // Do FFT on wire for response // slight larger
             // Now becomes the f and f in both time and wire domain ...
-            resp_f_w = Aux::fwd(m_dft, resp_f_w, 0);
+            resp_f_w = fwd(m_dft, resp_f_w, 0);
             // multiply them together
             data_f_w = data_f_w * resp_f_w;
         }
 
         // Do inverse FFT on wire
-        data_f_w = Aux::inv(m_dft, data_f_w, 0);
+        data_f_w = inv(m_dft, data_f_w, 0);
 
         // Add to wire result in frequency
         acc_data_f_w += data_f_w;
     }
 
-    acc_data_f_w = Aux::inv(m_dft, acc_data_f_w, 1); 
+    acc_data_f_w = inv(m_dft, acc_data_f_w, 1); 
     Array::array_xxf real_m_decon_data = acc_data_f_w.real();
     Array::array_xxf img_m_decon_data = acc_data_f_w.imag().colwise().reverse();
     m_decon_data = real_m_decon_data + img_m_decon_data;
@@ -328,12 +333,12 @@ Waveform::realseq_t Gen::ImpactTransform::waveform(int iwire) const
             wf.resize(nlength, 0);
             Waveform::realseq_t long_resp = m_pir->closest(0)->long_aux_waveform();
             long_resp.resize(nlength, 0);
-            Waveform::compseq_t spec = Aux::fwd_r2c(m_dft, wf);
-            Waveform::compseq_t long_spec = Aux::fwd_r2c(m_dft, long_resp);
+            Waveform::compseq_t spec = fwd_r2c(m_dft, wf);
+            Waveform::compseq_t long_spec = fwd_r2c(m_dft, long_resp);
             for (size_t i = 0; i != nlength; i++) {
                 spec.at(i) *= long_spec.at(i);
             }
-            wf = Aux::inv_c2r(m_dft, spec);
+            wf = inv_c2r(m_dft, spec);
             wf.resize(nsamples, 0);
         }
 

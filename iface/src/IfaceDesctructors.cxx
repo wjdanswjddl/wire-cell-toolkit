@@ -61,6 +61,7 @@
 #include "WireCellIface/IFrameSource.h"
 #include "WireCellIface/IFrameSplitter.h"
 #include "WireCellIface/IFunctionNode.h"
+#include "WireCellIface/IGroupSpectrum.h"
 #include "WireCellIface/IHydraNode.h"
 #include "WireCellIface/IJoinNode.h"
 #include "WireCellIface/IMeasure.h"
@@ -92,6 +93,7 @@
 #include "WireCellIface/ITerminal.h"
 #include "WireCellIface/ITiling.h"
 #include "WireCellIface/ITrace.h"
+#include "WireCellIface/ITraceRanker.h"
 #include "WireCellIface/IWaveform.h"
 #include "WireCellIface/IWaveformMap.h"
 #include "WireCellIface/IWireGenerator.h"
@@ -157,6 +159,7 @@ IFrameSlices::~IFrameSlices() {}
 IFrameSource::~IFrameSource() {}
 IFrameSplitter::~IFrameSplitter() {}
 IFunctionNodeBase::~IFunctionNodeBase() {}
+IGroupSpectrum::~IGroupSpectrum() {}
 IHydraNodeBase::~IHydraNodeBase() {}
 IImpactResponse::~IImpactResponse() {}
 IJoinNodeBase::~IJoinNodeBase() {}
@@ -187,6 +190,7 @@ ITensorSetUnpacker::~ITensorSetUnpacker() {}
 ITerminal::~ITerminal() {}
 ITiling::~ITiling() {}
 ITrace::~ITrace() {}
+ITraceRanker::~ITraceRanker() {}
 IWaveform::~IWaveform() {}
 IWaveformMap::~IWaveformMap() {}
 IWireGenerator::~IWireGenerator() {}

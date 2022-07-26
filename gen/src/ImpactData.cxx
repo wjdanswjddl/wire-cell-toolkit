@@ -6,6 +6,7 @@
 
 using namespace WireCell;
 using namespace std;
+using WireCell::Aux::DftTools::fwd_r2c;
 
 Gen::ImpactData::ImpactData(int impact)
   : m_impact(impact)
@@ -56,8 +57,8 @@ void Gen::ImpactData::calculate(const IDFT::pointer& dft, int nticks) const
         }
     }
 
-    m_spectrum = Aux::fwd_r2c(dft, m_waveform);
-    m_weight_spectrum = Aux::fwd_r2c(dft, m_weights);
+    m_spectrum = fwd_r2c(dft, m_waveform);
+    m_weight_spectrum = fwd_r2c(dft, m_weights);
 }
 
 // std::pair<int,int> Gen::ImpactData::strip() const

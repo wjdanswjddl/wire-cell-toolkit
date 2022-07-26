@@ -35,33 +35,35 @@ void Pgrapher::configure(const WireCell::Configuration& cfg)
 
 {
     Pgraph::Factory fac;
-    l->debug("connecting: {} edges", cfg["edges"].size());
+    log->debug("connecting: {} edges", cfg["edges"].size());
     for (auto jedge : cfg["edges"]) {
         auto tail = get_node(jedge["tail"]);
         auto head = get_node(jedge["head"]);
 
-        SPDLOG_LOGGER_TRACE(l, "connecting: {}", jedge);
+        SPDLOG_LOGGER_TRACE(log, "connecting: {}", jedge);
 
         bool ok = m_graph.connect(fac(tail.first), fac(head.first), tail.second, head.second);
         if (!ok) {
-            l->critical("failed to connect edge: {}", jedge);
+            log->critical("failed to connect edge: {}", jedge);
             THROW(ValueError() << errmsg{"failed to connect edge"});
         }
     }
     if (!m_graph.connected()) {
-        l->critical("graph not fully connected");
+        log->critical("graph not fully connected");
         THROW(ValueError() << errmsg{"graph not fully connected"});
     }
 }
 
 void Pgrapher::execute()
 {
+    log->debug("executing graph");
     m_graph.execute();
+    log->debug("graph execution complete");
     m_graph.print_timers();
 }
 
 Pgrapher::Pgrapher()
-  : l(Log::logger("pgraph"))
+    : Aux::Logger("Pgrapher", "pgraph")
 {
 }
 Pgrapher::~Pgrapher() {}

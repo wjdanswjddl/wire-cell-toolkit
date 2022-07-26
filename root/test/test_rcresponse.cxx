@@ -14,6 +14,7 @@
 #include "TH1F.h"
 
 using namespace WireCell;
+using namespace WireCell::Aux::DftTools;
 
 int main(int argc, char* argv[])
 {
@@ -36,7 +37,7 @@ int main(int argc, char* argv[])
     const auto& wavep1 = rcr.waveform_samples();
     // skip first which holds delta
     Waveform::realseq_t wave(wavep1.begin()+1, wavep1.end());
-    auto spec = Aux::fwd_r2c(idft, wave);
+    auto spec = fwd_r2c(idft, wave);
     auto mag = Waveform::magnitude(spec);
 
     TGraph* g = new TGraph(wave.size());

@@ -19,6 +19,7 @@
 
 using namespace WireCell;
 using namespace WireCell::Waveform;
+using namespace WireCell::Aux::DftTools;
 
 struct FakeFR : public Response::Generator {
     double scale, shift;
@@ -122,22 +123,22 @@ int main(int argc, char* argv[])
     p.draw(fce, fbin_short, "fce", "Fine CE");
 
     // convolve + rebin fine->coarse
-    auto fcc = Aux::convolve(idft, ffr, fce);
+    auto fcc = convolve(idft, ffr, fce);
     p.draw(fcc, fbin_long, "fcc", "Fine conv");
     auto ccc2 = rebin(fcc, rebinfactor);
     p.draw(ccc2, cbin_long, "ccc2", "Coarse rebin conv");
-    auto fccs = Aux::convolve(idft, ffrs, fce);
+    auto fccs = convolve(idft, ffrs, fce);
     p.draw(fccs, fbin_long, "fccs", "Fine conv shifted");
     auto cccs2 = rebin(fccs, rebinfactor);
     p.draw(cccs2, cbin_long, "cccs2", "Coarse rebin conv shifted");
 
     // rebin fine->coarse + convolve
-    auto ccc = Aux::convolve(idft, cfr, cce);
+    auto ccc = convolve(idft, cfr, cce);
     for (size_t ind=0; ind<ccc.size(); ++ind) {
         ccc[ind] *= rebinfactor;
     }
     p.draw(ccc, cbin_long, "ccc", "Coarse native conv");
-    auto cccs = Aux::convolve(idft, cfrs, cce);
+    auto cccs = convolve(idft, cfrs, cce);
     for (size_t ind=0; ind<ccc.size(); ++ind) {
         cccs[ind] *= rebinfactor;
     }
