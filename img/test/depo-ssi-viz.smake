@@ -17,30 +17,27 @@ cluster_tiers = ["img", "tru"]
 
 # where output goes
 detdir=f"{outdir}/{detector}"
-wctdir=f"{detdir}/wct"   # wire-cell output
-pltdir=f"{detdir}/plots" # plot PDFs
-pvdir =f"{detdir}/pv"    # paraview files
+jobdir=f"{detdir}/{{dname}}"
+wctdir=f"{jobdir}/wct"   # wire-cell output
+pltdir=f"{jobdir}/plots" # plot PDFs
+pvdir =f"{jobdir}/pv"    # paraview files
 
+
+# fixme: this is a function of depo file
+event_indices = [0]
+
+print("MUON",depofiles["muon"])
+def depo_file(wc):
+    return depofiles[wc.dname]
 rule intern_depos:
     input:
-        f"{depofile}"
+        depo_file
     output:
-        f"{wctdir}/depos-input.npz"
+        f"{wctdir}/depos-orig.npz"
     shell: """
     cp {input} {output}
     """
 
-rule augment_depos:
-    input: 
-        rules.intern_depos.output
-    output:
-        f"{wctdir}/depos-augmented.npz"
-    shell: """
-    wirecell-img transform-depos -o {output} \
-      --rotate 'x:45*degree' \
-      --rotate 'z:45*degree' \
-      --forward {input}
-    """
 
 # Explanation of the tourtourous coupling you see w.r.t Jsonnet/JSON
 # handling.  For simple jobs without all the extra diagnostics, we
@@ -58,7 +55,7 @@ rule jsonify:
     output:
         f"{wctdir}/depo-ssi-viz.json"
     params:
-        indepos=rules.augment_depos.output,
+        indepos=rules.intern_depos.output,
         outdepos=f"{wctdir}/depos-drifted.npz",
         frames=f"{wctdir}/frames-%(tier)s-a%(anode)s.npz",
         clusters=f"{wctdir}/clusters-%(tier)s-a%(anode)s.npz"
@@ -73,15 +70,18 @@ rule jsonify:
       {input} > {output}
     """
 
+
 rule wctify:
     input:
         cfg=rules.jsonify.output,
-        depos=rules.augment_depos.output
+        depos=rules.intern_depos.output
     output:
-        log=f"{wctdir}/wire-cell.log",
+        log=f"{wctdir}/wire-cell.log", 
         drifted=f"{wctdir}/depos-drifted.npz",
-        frames=expand(f"{wctdir}/frames-{{tier}}-a{{anode}}.npz", tier=frame_tiers, anode=anodes),
-        clusters=expand(f"{wctdir}/clusters-{{tier}}-a{{anode}}.npz", tier=cluster_tiers, anode=anodes)
+        frames=expand(f"{wctdir}/frames-{{tier}}-a{{anode}}.npz",
+                      tier=frame_tiers, anode=anodes, dname='{dname}'),
+        clusters=expand(f"{wctdir}/clusters-{{tier}}-a{{anode}}.npz",
+                        tier=cluster_tiers, anode=anodes, dname='{dname}')
     shell: """
     wire-cell -l stderr -l {output.log} -L debug -c {input.cfg} || exit -1
     for one in {output.clusters} ; do
@@ -94,55 +94,30 @@ rule wctify:
     """
 ## use of zip leaves an "empty" file of a few bytes which makes it hard to test for later.
 
-rule wctifyone:
-    input: 
-        cfg=jobcfg,
-        indepos=rules.intern_depos.output
-    output:
-        log=f"{wctdir}/one-wire-cell.log",
-        drifted=f"{wctdir}/one-depos-drifted.npz",
-        frames=expand(f"{wctdir}/one-frames-{{tier}}-a{{anode}}.npz", tier=frame_tiers, anode=anodes),
-        clusters=expand(f"{wctdir}/one-clusters-{{tier}}-a{{anode}}.npz", tier=cluster_tiers, anode=anodes)
-    params:
-        frames=f"{wctdir}/one-frames-%(tier)s-a%(anode)s.npz",
-        clusters=f"{wctdir}/one-clusters-%(tier)s-a%(anode)s.npz"
-    shell: """
-    wire-cell \
-      -l stdout -l {output.log} -L debug \
-      -A 'detector={detector}' \
-      -A 'variant={variant}' \
-      -A 'indepos={input.indepos}' \
-      -A 'outdepos={output.drifted}' \
-      -A 'frames={params.frames}' \
-      -A 'clusters={params.clusters}' \
-      -c {input}
-    """
-    
-
 
 rule plot_drifted:
     input:
         rules.wctify.output.drifted
     output:
-        f"{pltdir}/plot-depos-drifted-i{{index}}-{{plotname}}.pdf"
+        f"{pltdir}/depos-drifted-i{{index}}-{{plotname}}.pdf"
     shell: """
     wirecell-gen plot-depos -p {wildcards.plotname} -i{wildcards.index} {input} {output}
     """
-rule plot_augmented:
+rule plot_interned:
     input:
-        rules.augment_depos.output
+        rules.intern_depos.output
     output:
-        f"{pltdir}/plot-depos-augmented-i{{index}}-{{plotname}}.pdf"
+        f"{pltdir}/depos-interned-i{{index}}-{{plotname}}.pdf"
     shell: """
     wirecell-gen plot-depos -p {wildcards.plotname} -i{wildcards.index} {input} {output}
     """
 
 rule plot_depos_all:
     input:
-        expand(rules.plot_drifted.output,
-               index=[0,1], plotname=["tyqscat", "tzqscat"]),
-        expand(rules.plot_augmented.output,
-               index=[0,1], plotname=["qxz", "qzy", "qxy"])
+        expand(rules.plot_drifted.output, dname=depofiles,
+               index=event_indices, plotname=["tyqscat", "tzqscat"]),
+        expand(rules.plot_interned.output, dname=depofiles,
+               index=event_indices, plotname=["qxz", "qzy", "qxy"])
 
 rule plot_adc_frames:
     input:
@@ -182,37 +157,45 @@ rule plot_sig_frames:
 rule plot_frames_all:
     input:
         expand(f"{pltdir}/frames-{{tier}}-a{{anode}}-i{{index}}.pdf",
-               tier=frame_tiers, anode=anodes, index=[0,1])
+               dname=depofiles,
+               tier=frame_tiers, anode=anodes, index=event_indices)
 
 
 rule pv_depos_orig:
     input:
-        rules.augment_depos.output
+        rules.intern_depos.output
     output:
-        f"{pvdir}/depos-augmented.vtp"
+        [f"{pvdir}/depos-orig-i%d.vtp" % n for n in event_indices]
+    params:
+        outpat=f"{pvdir}/depos-orig-i%d.vtp"
     shell: """
-    wirecell-img paraview-depos --speed 0 {input} {output}
+    wirecell-img paraview-depos {input} {params.outpat}
     """
+
 rule pv_depos_drifted:
     input:
         rules.wctify.output.drifted
     output:
-        f"{pvdir}/depos-drifted.vtp"
+        [f"{pvdir}/depos-drifted-i%d.vtp"%n for n in event_indices]
     params:
-        drift_speed
+        speed = drift_speed,
+        outpat = f"{pvdir}/depos-drifted-i%d.vtp"
     shell: """
-    wirecell-img paraview-depos --speed {params} {input} {output}
+    wirecell-img paraview-depos -D '{params.speed},0' {input} {params.outpat}
     """
+
 rule pv_blobs:
     input:
         f"{wctdir}/clusters-{{tier}}-a{{anode}}.npz"
     output:
-        f"{pvdir}/clusters-{{tier}}-a{{anode}}.vtu"
+        [f"{pvdir}/clusters-{{tier}}-a{{anode}}-i%d.vtu"%n for n in event_indices]
     params:
-        drift_speed
+        speed=drift_speed,
+        time=start_time,
+        outpat=f"{pvdir}/clusters-{{tier}}-a{{anode}}-i%d.vtu"
     shell: """
     if [ -s {input} ] ; then
-        wirecell-img paraview-blobs --speed "{params}" {input} {output}
+        wirecell-img paraview-blobs -B '{params.speed},{params.time}' {input} {params.outpat}
     else
         touch {output}
     fi
@@ -220,9 +203,10 @@ rule pv_blobs:
 
 rule pv_all:
     input:
-        rules.pv_depos_orig.output,
-        rules.pv_depos_drifted.output,
-        expand(rules.pv_blobs.output, tier=["img"], anode=anodes)
+        expand(rules.pv_depos_orig.output, dname=depofiles),
+        expand(rules.pv_depos_drifted.output, dname=depofiles),
+        expand(rules.pv_blobs.output, tier=["img"], anode=anodes,
+               dname=depofiles)
 
 rule plot_blobs:
     input:
@@ -236,10 +220,31 @@ rule plot_blobs:
       touch {output}
     fi
     """
+rule plot_depos_blobs:
+    input:
+        depos=rules.wctify.output.drifted,
+        blobs=f"{wctdir}/clusters-{{tier}}-a{{anode}}.npz"
+    output:
+        f"{pltdir}/depos-blobs-{{tier}}-a{{anode}}-{{plotname}}.pdf"
+    params:
+        speed=drift_speed,
+        time=start_time
+    shell: """
+    if [ -s {input.blobs} ] ; then
+      wirecell-img plot-depos-blobs -B '{params.speed},{params.time}' -D '{params.speed},0' -p {wildcards.plotname} {input.depos} {input.blobs} {output}
+    else
+      touch {output}
+    fi
+    """
 
 rule plot_blobs_all:
     input:
-        expand(f"{pltdir}/clusters-{{tier}}-a{{anode}}-{{plotname}}.pdf", tier=cluster_tiers, anode=anodes, plotname=["ty", "tz", "views"])
+        expand(f"{pltdir}/clusters-{{tier}}-a{{anode}}-{{plotname}}.pdf",
+               tier=cluster_tiers, anode=anodes, dname=depofiles,
+               plotname=["ty", "tz", "views"]),
+        expand(rules.plot_depos_blobs.output, tier=['tru','img'],
+               anode=anodes, dname=depofiles,
+               plotname=['outlines'])
 
 rule plot_all:
     input:
@@ -259,7 +264,7 @@ rule dotify:
         
 rule all:
     input:
-        rules.dotify.output,
-        rules.pv_all.input,
-        rules.plot_all.input
+        expand(rules.dotify.output, dname=depofiles),
+        rules.pv_all.input
+        # rules.plot_all.input
         
