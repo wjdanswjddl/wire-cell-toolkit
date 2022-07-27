@@ -6,6 +6,7 @@
 
 #include "WireCellImg/LCBlobRemoval.h"
 #include "WireCellImg/CSGraph.h"
+#include "WireCellImg/ImgTool.h"
 
 #include "WireCellAux/SimpleCluster.h"
 
@@ -21,6 +22,7 @@ WIRECELL_FACTORY(LCBlobRemoval, WireCell::Img::LCBlobRemoval,
 using namespace WireCell;
 using namespace WireCell::Img;
 using namespace WireCell::Img::CS;
+using namespace WireCell::Img::Tool;
 
 Img::LCBlobRemoval::LCBlobRemoval()
     : Aux::Logger("LCBlobRemoval", "img")
@@ -116,6 +118,19 @@ bool Img::LCBlobRemoval::operator()(const input_pointer& in, output_pointer& out
     const auto in_graph = in->graph();
     dump_cg(in_graph, log);
     auto out_graph = prune(in_graph, m_blob_thresh.value());
+    auto groups = get_geom_clusters(in_graph);
+    auto ctq = get_2D_projection(out_graph, groups.begin()->second);
+    for (int k=0; k<ctq.outerSize(); ++k) {
+        for (sparse_dmat_t::InnerIterator it(ctq,k); it; ++it)
+        {
+            log->debug("row: {} col {} value {} index {}",
+                it.row(),   // row index
+                it.col(),   // col index (here it is equal to k)
+                it.value(),
+                it.index() // inner index, here it is equal to it.row()
+            );
+        }
+    }
 
     dump_cg(out_graph, log);
     out = std::make_shared<Aux::SimpleCluster>(out_graph, in->ident());
