@@ -120,6 +120,7 @@ bool Img::LCBlobRemoval::operator()(const input_pointer& in, output_pointer& out
     auto out_graph = prune(in_graph, m_blob_thresh.value());
     auto id2cluster = get_geom_clusters(out_graph);
     std::unordered_map<int, layer_projection_map_t> id2lproj;
+    std::unordered_set<WirePlaneLayer_t> layers;
     for (auto ic : id2cluster) {
         int id = ic.first;
         auto cluster = ic.second;
@@ -128,7 +129,25 @@ bool Img::LCBlobRemoval::operator()(const input_pointer& in, output_pointer& out
         for (auto lproj : id2lproj[id]) {
             auto layer = lproj.first;
             auto proj = lproj.second;
-            log->debug("{{{},{}}} => {}", id, layer, dump(proj));
+            layers.insert(layer);
+            // log->debug("{{{},{}}} => {}", id, layer, dump(proj));
+        }
+    }
+
+    for (auto layer : layers) {
+        for (auto ref_ilp : id2lproj) {
+            auto ref_id = ref_ilp.first;
+            auto& ref_proj = ref_ilp.second[layer];
+            for (auto tar_ilp : id2lproj) {
+                auto tar_id = tar_ilp.first;
+                if (tar_id == ref_id) continue;
+                auto& tar_proj = tar_ilp.second[layer];
+                int coverage = compare(ref_proj, tar_proj);
+                if (coverage == 1) {
+                    log->debug("ref: {{{},{}}} => {}", ref_id, layer, dump(ref_proj));
+                    log->debug("tar: {{{},{}}} => {}", tar_id, layer, dump(tar_proj));
+                }
+            }
         }
     }
 

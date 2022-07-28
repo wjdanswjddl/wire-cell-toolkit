@@ -59,7 +59,7 @@ namespace WireCell {
             std::string dump(const Projection2D& proj2d, bool verbose=false);
 
             // 1: tar is part of ref
-            // int compare(const Projection2D& ref, const Projection2D& tar);
+            int compare(const Projection2D& ref, const Projection2D& tar);
 
         }  // namespace Tool
     }  // namespace Img

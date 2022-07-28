@@ -172,6 +172,18 @@ std::string WireCell::Img::Tool::dump(const Projection2D& proj2d, bool verbose) 
     return ss.str();
 }
 
-// int WireCell::Img::Tool::compare(const Projection2D& ref, const Projection2D& tar) {
-//     auto diff = ref.m_lproj - ref.m_lproj
-// }
+int WireCell::Img::Tool::compare(const Projection2D& ref, const Projection2D& tar) {
+    sparse_dmat_t diff = ref.m_proj - tar.m_proj;
+    size_t nneg = 0;
+    for (int k=0; k<diff.outerSize(); ++k) {
+        for (sparse_dmat_t::InnerIterator it(diff,k); it; ++it)
+        {
+            if (it.value() < 0) {
+                ++nneg;
+            }
+        }
+    }
+    if (nneg==0) return 1;
+
+    return 0;
+}
