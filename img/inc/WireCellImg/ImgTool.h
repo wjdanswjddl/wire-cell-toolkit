@@ -1,7 +1,5 @@
 /**
-
    Some common tools
-
 */
 
 #include "WireCellIface/IFrame.h"
@@ -27,15 +25,33 @@ namespace WireCell {
 
             // For matrix representation of the graphs.
             using sparse_dmat_t = Eigen::SparseMatrix<double>;
+            using layer_projection_map_t = std::unordered_map<WirePlaneLayer_t, sparse_dmat_t>;
+
+            // chan_min, chan_max, tick_min, tick_max
+            using projection_bound_t = std::tuple<int, int, int, int>;
+
+            struct Projection2D {
+                layer_projection_map_t m_lproj;
+                projection_bound_t m_bound;
+            };
 
             using vdesc_t = boost::graph_traits<cluster_graph_t>::vertex_descriptor;
             using edesc_t = boost::graph_traits<cluster_graph_t>::edge_descriptor;
 
+            // return vertex descriptors connected to the given vertex descriptor.
+            std::vector<vdesc_t> neighbors(const WireCell::cluster_graph_t& cg, const vdesc_t& vd);
+
             // 
+            template <typename Type>
+            std::vector<vdesc_t> neighbors_oftype(const WireCell::cluster_graph_t& cg, const vdesc_t& vd);
+
+            // returns group id -> vdesc_t in each group
             std::unordered_map<int, std::vector<vdesc_t> > get_geom_clusters(const WireCell::cluster_graph_t& cg);
 
-            //
-            sparse_dmat_t get_2D_projection(const WireCell::cluster_graph_t& cg, std::vector<vdesc_t>);
+            // returns layer ID -> channel-tick-charge matrix
+            Projection2D get_2D_projection(const WireCell::cluster_graph_t& cg, std::vector<vdesc_t>);
+
+            std::string dump(const Projection2D& proj2d, bool verbose=false);
 
         }  // namespace Tool
     }  // namespace Img
