@@ -96,16 +96,13 @@ std::unordered_map<int, std::vector<vdesc_t> > WireCell::Img::Tool::get_geom_clu
     return groups;
 }
 
-Projection2D WireCell::Img::Tool::get_2D_projection(
+layer_projection_map_t WireCell::Img::Tool::get_2D_projection(
     const WireCell::cluster_graph_t& cg, std::vector<vdesc_t> group)
 {
     using triplet_t = Eigen::Triplet<double>;
     using triplet_vec_t = std::vector<triplet_t>;
     std::unordered_map<WirePlaneLayer_t, triplet_vec_t> lcoeff;
-    int chan_min = std::numeric_limits<int>::max();
-    int chan_max = std::numeric_limits<int>::min();
-    int tick_min = std::numeric_limits<int>::max();
-    int tick_max = std::numeric_limits<int>::min();
+    layer_projection_map_t ret;
 
     // assumes one blob linked to one slice
     // use b-w-c to find all channels linked to the blob
@@ -131,51 +128,50 @@ Projection2D WireCell::Img::Tool::get_2D_projection(
                     auto charge = activity[chan].value();
                     // FIXME how to fill this?
                     lcoeff[layer].push_back({index, start, charge});
-                    if (index < chan_min) chan_min = index;
-                    if (index > chan_max) chan_max = index;
-                    if (start < tick_min) tick_min = start;
-                    if (start > tick_max) tick_max = start;
+                    if (index < std::get<0>(ret[layer].m_bound)) std::get<0>(ret[layer].m_bound) = index;
+                    if (index > std::get<1>(ret[layer].m_bound)) std::get<1>(ret[layer].m_bound) = index;
+                    if (start < std::get<2>(ret[layer].m_bound)) std::get<2>(ret[layer].m_bound) = start;
+                    if (start > std::get<3>(ret[layer].m_bound)) std::get<3>(ret[layer].m_bound) = start;
                 }
             }
             // std::cout << std::endl;
         }
     }
 
-    Projection2D proj2d;
-    proj2d.m_bound = {chan_min, chan_max, tick_min, tick_max};
-    auto& lproj = proj2d.m_lproj;
     for (auto lc : lcoeff) {
         auto l = lc.first;
         auto c = lc.second;
-        lproj[l] = sparse_dmat_t(8256,9592);
-        lproj[l].setFromTriplets(c.begin(), c.end());
+        ret[l].m_proj = sparse_dmat_t(8256,9592);
+        ret[l].m_proj.setFromTriplets(c.begin(), c.end());
     }
-    return proj2d;
+    return ret;
 }
 
 std::string WireCell::Img::Tool::dump(const Projection2D& proj2d, bool verbose) {
     std::stringstream ss;
-    ss << "Projection2D ";
-    ss << "bounds: "
-    << " " << std::get<0>(proj2d.m_bound)
-    << " " << std::get<1>(proj2d.m_bound)
-    << " " << std::get<2>(proj2d.m_bound)
-    << " " << std::get<3>(proj2d.m_bound);
+    ss << "Projection2D:"
+    << " {" << std::get<0>(proj2d.m_bound)
+    << "," << std::get<1>(proj2d.m_bound)
+    << "," << std::get<2>(proj2d.m_bound)
+    << "," << std::get<3>(proj2d.m_bound)
+    << "}";
 
-    for (const auto lm : proj2d.m_lproj) {
-        ss << " layer: " << lm.first;
-        auto ctq = lm.second;
-        size_t counter = 0;
-        for (int k=0; k<ctq.outerSize(); ++k) {
-            for (sparse_dmat_t::InnerIterator it(ctq,k); it; ++it)
-            {
-                if (verbose) {
-                    ss << " {" << it.row() << ", " << it.col() << "}->" << it.value();
-                }
-                ++counter;
+    auto ctq = proj2d.m_proj;
+    size_t counter = 0;
+    for (int k=0; k<ctq.outerSize(); ++k) {
+        for (sparse_dmat_t::InnerIterator it(ctq,k); it; ++it)
+        {
+            if (verbose) {
+                ss << " {" << it.row() << ", " << it.col() << "}->" << it.value();
             }
+            ++counter;
         }
-        ss << " #: " << counter;
     }
+    ss << " #: " << counter;
+    
     return ss.str();
 }
+
+// int WireCell::Img::Tool::compare(const Projection2D& ref, const Projection2D& tar) {
+//     auto diff = ref.m_lproj - ref.m_lproj
+// }
