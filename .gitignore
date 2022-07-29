@@ -63,3 +63,7 @@ ltximg
 *.junk
 *.png
 *.txt
+auto
+latexmk-out
+*.tex
+

@@ -82,14 +82,14 @@ Waveform::compseq_t Waveform::complex(const Waveform::realseq_t& real, const Wav
 }
 
 
-Waveform::real_t WireCell::Waveform::median(Waveform::realseq_t& wave) { return percentile(wave, 0.5); }
+Waveform::real_t WireCell::Waveform::median(const Waveform::realseq_t& wave) { return percentile(wave, 0.5); }
 
-Waveform::real_t WireCell::Waveform::median_binned(Waveform::realseq_t& wave) { return percentile_binned(wave, 0.5); }
+Waveform::real_t WireCell::Waveform::median_binned(const Waveform::realseq_t& wave) { return percentile_binned(wave, 0.5); }
 
-Waveform::real_t WireCell::Waveform::percentile(Waveform::realseq_t& wave, real_t percentage)
+Waveform::real_t WireCell::Waveform::percentile(const Waveform::realseq_t& wave, real_t p)
 {
-    if (percentage < 0.0 or percentage > 1.0) {
-        THROW(ValueError() << errmsg{"percentage out of range"});
+    if (p < 0.0 or p > 1.0) {
+        THROW(ValueError() << errmsg{"percentile out of range"});
     }
     const size_t siz = wave.size();
     if (siz == 0) {
@@ -98,13 +98,14 @@ Waveform::real_t WireCell::Waveform::percentile(Waveform::realseq_t& wave, real_
     if (siz == 1) {
         return wave[0];
     }
-    size_t mid = percentage * siz;
+    size_t mid = p * siz;
     mid = std::min(mid, siz - 1);
-    std::nth_element(wave.begin(), wave.begin() + mid, wave.end());
-    return wave.at(mid);
+    realseq_t mywave(wave.begin(), wave.end());
+    std::nth_element(mywave.begin(), mywave.begin() + mid, mywave.end());
+    return mywave.at(mid);
 }
 
-Waveform::real_t WireCell::Waveform::percentile_binned(Waveform::realseq_t& wave, real_t percentage)
+Waveform::real_t WireCell::Waveform::percentile_binned(const Waveform::realseq_t& wave, real_t p)
 {
     const auto mm = std::minmax_element(wave.begin(), wave.end());
     const auto vmin = *mm.first;
@@ -119,7 +120,7 @@ Waveform::real_t WireCell::Waveform::percentile_binned(Waveform::realseq_t& wave
         hist[bin] += 1.0;
     }
 
-    const int imed = wave.size() * percentage;
+    const int imed = wave.size() * p;
     int count = 0;
     for (int ind = 0; ind < nbins; ++ind) {
         count += hist[ind];
@@ -129,7 +130,7 @@ Waveform::real_t WireCell::Waveform::percentile_binned(Waveform::realseq_t& wave
         }
     }
     // can't reach here, return bogus value.
-    return vmin + (vmax - vmin) * percentage;
+    return vmin + (vmax - vmin) * p;
 }
 
 std::pair<int, int> WireCell::Waveform::edge(const realseq_t& wave)

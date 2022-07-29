@@ -66,7 +66,7 @@ int main(int argc, char* argv[])
     auto chids = anode->channels();
     cerr << "Got " << chids.size() << " channels\n";
     for (auto chid : chids) {
-        const auto& amp = (*empnomo)(chid);
+        const auto& amp = empnomo->channel_spectrum(chid);
         double tot = 0;
         for (auto v : amp) {
             tot += v;

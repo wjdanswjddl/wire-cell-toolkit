@@ -19,6 +19,8 @@ WIRECELL_FACTORY(PlaneImpactResponse,
 
 using namespace std;
 using namespace WireCell;
+using WireCell::Aux::DftTools::fwd_r2c;
+using WireCell::Aux::DftTools::inv_c2r;
 
 
 Gen::PlaneImpactResponse::PlaneImpactResponse(int plane_ident, size_t nbins, double tick)
@@ -111,7 +113,7 @@ void Gen::PlaneImpactResponse::build_responses()
         }
         // note: we are ignoring waveform_start which will introduce
         // an arbitrary phase shift....
-        auto spec = Aux::fwd_r2c(dft, wave);
+        auto spec = fwd_r2c(dft, wave);
         for (size_t ibin = 0; ibin < n_short_length; ++ibin) {
             short_spec[ibin] *= spec[ibin];
         }
@@ -137,14 +139,14 @@ void Gen::PlaneImpactResponse::build_responses()
         }
         // note: we are ignoring waveform_start which will introduce
         // an arbitrary phase shift....
-        auto spec = Aux::fwd_r2c(dft, wave);
+        auto spec = fwd_r2c(dft, wave);
         for (size_t ibin = 0; ibin < n_long_length; ++ibin) {
             long_spec[ibin] *= spec[ibin];
         }
     }
     WireCell::Waveform::realseq_t long_wf;
     if (nlong > 0) {
-        long_wf = Aux::inv_c2r(dft, long_spec);
+        long_wf = inv_c2r(dft, long_spec);
     }
     const auto& fr = ifr->field_response();
     const auto& pr = *fr.plane(m_plane_ident);
@@ -230,7 +232,7 @@ void Gen::PlaneImpactResponse::build_responses()
             // sum up over coarse ticks.
             wave[bin] += induced_charge;
         }
-        WireCell::Waveform::compseq_t spec = Aux::fwd_r2c(dft, wave);
+        WireCell::Waveform::compseq_t spec = fwd_r2c(dft, wave);
 
         // Convolve with short responses
         if (nshort) {
@@ -238,10 +240,10 @@ void Gen::PlaneImpactResponse::build_responses()
                 spec[find] *= short_spec[find];
             }
         }
-        Waveform::realseq_t wf = Aux::inv_c2r(dft, spec);
+        Waveform::realseq_t wf = inv_c2r(dft, spec);
 
         wf.resize(m_nbins, 0);
-        spec = Aux::fwd_r2c(dft, wf);
+        spec = fwd_r2c(dft, wf);
 
         IImpactResponse::pointer ir =
             std::make_shared<Gen::ImpactResponse>(

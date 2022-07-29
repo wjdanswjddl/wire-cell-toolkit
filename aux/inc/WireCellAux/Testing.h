@@ -11,7 +11,7 @@
  */
 
 #include "WireCellAux/DftTools.h"
-#include "WireCellAux/RandTools.h"
+#include "WireCellIface/IRandom.h"
 
 #include "WireCellIface/IConfigurable.h"
 #include "WireCellIface/IAnodePlane.h"

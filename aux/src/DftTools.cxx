@@ -1,4 +1,5 @@
 #include "WireCellAux/DftTools.h"
+#include "WireCellUtil/Spectrum.h"
 #include <algorithm>
 
 #include <iostream>             // debugging
@@ -6,106 +7,45 @@
 
 using namespace WireCell;
 using namespace WireCell::Aux;
+using namespace WireCell::Spectrum; // hermitian_mirror
 
 /*** helpers, both vector/array types ***/
-
-// 1D vector
-void Aux::hermitian_symmetry_inplace(Aux::complex_vector_t& spec)
-{
-    const size_t fullsize = spec.size();
-    const size_t halfsize = fullsize/2; // integer division
-    size_t extra = 0;
-    if (spec.size() % 2) {           // odd, no Nyquist bin
-        extra = 1;
-    }
-    else { // even, has a Nyquist bin.
-        // Force the Nyquist bin to be real.  When user gives us
-        // complex it is likely due to them making a fluctuated
-        // spectra and thus best to keep amplitude and remove phase
-        // instead of taking real part.  Thus abs().
-        spec[halfsize] = std::abs(spec[halfsize]);
-    }
-    for (size_t ind=halfsize+extra; ind<fullsize; ++ind) {
-        spec[ind] = std::conj(spec[fullsize-ind]);
-    }
-}
-Aux::complex_vector_t Aux::hermitian_symmetry(const Aux::complex_vector_t& spec)
-{
-    Aux::complex_vector_t ret(spec.begin(), spec.end());
-    hermitian_symmetry_inplace(ret);
-    return ret;
-}
-
-// 2D array
-// axis=1 means along columns, ie on a per-row basis
-void Aux::hermitian_symmetry_inplace(Aux::complex_array_t& spec, int axis)
-{
-    const size_t fullsize = axis ? spec.cols() : spec.rows();
-    const size_t halfsize = fullsize/2; // integer division
-    size_t extra = 0;
-    if (spec.size() % 2) {           // odd, no Nyquist bin
-        extra = 1;
-    }
-    else {              // see comments in same block above for vector
-        if (axis) {
-            spec.col(halfsize) = spec.col(halfsize).abs();
-        }
-        else {
-            spec.row(halfsize) = spec.row(halfsize).abs();
-        }
-    }
-
-    if (axis) {
-        for (size_t ind=halfsize+extra; ind<fullsize; ++ind) {
-            spec.col(ind) = spec.col(fullsize-ind).conjugate();
-        }
-    }
-    else {
-        for (size_t ind=halfsize+extra; ind<fullsize; ++ind) {
-            spec.row(ind) = spec.row(fullsize-ind).conjugate();
-        }
-    }
-}
-Aux::complex_array_t Aux::hermitian_symmetry(const Aux::complex_array_t& spec, int axis)
-{
-    Aux::complex_array_t ret = spec;
-    hermitian_symmetry_inplace(ret, axis);
-    return ret;
-}
 
 
 /*** vector ***/
 
-Aux::complex_vector_t Aux::fwd(const IDFT::pointer& dft, const Aux::complex_vector_t& seq)
+DftTools::complex_vector_t DftTools::fwd(const IDFT::pointer& dft, const DftTools::complex_vector_t& seq)
 {
     complex_vector_t ret(seq.size());
     dft->fwd1d(seq.data(), ret.data(), ret.size());
     return ret;
 }
 
-Aux::complex_vector_t Aux::fwd_r2c(const IDFT::pointer& dft, const Aux::real_vector_t& vec)
+DftTools::complex_vector_t DftTools::fwd_r2c(const IDFT::pointer& dft, const DftTools::real_vector_t& vec)
 {
     complex_vector_t cvec(vec.size());
     std::transform(vec.begin(), vec.end(), cvec.begin(),
-                   [](float re) { return Aux::complex_t(re,0.0); } );
+                   [](float re) { return DftTools::complex_t(re,0.0); } );
     return fwd(dft, cvec);
 }
 
-Aux::complex_vector_t Aux::inv(const IDFT::pointer& dft, const Aux::complex_vector_t& spec)
+DftTools::complex_vector_t DftTools::inv(const IDFT::pointer& dft, const DftTools::complex_vector_t& spec)
 {
     complex_vector_t ret(spec.size());
     dft->inv1d(spec.data(), ret.data(), ret.size());
     return ret;
 }
 
-Aux::real_vector_t Aux::inv_c2r(const IDFT::pointer& dft, const Aux::complex_vector_t& spec)
+DftTools::real_vector_t DftTools::inv_c2r(const IDFT::pointer& dft, const DftTools::complex_vector_t& spec)
 {
     // fixme: in future, expand IDFT to have c2r 
-    complex_vector_t symspec = hermitian_symmetry(spec);
+    complex_vector_t symspec(spec.size());
+    hermitian_mirror(spec.begin(), spec.end(), symspec.begin());
+
     auto cvec = inv(dft, symspec);
     real_vector_t rvec(cvec.size());
     std::transform(cvec.begin(), cvec.end(), rvec.begin(),
-                   [](const Aux::complex_t& c) { return std::real(c); });
+                   [](const DftTools::complex_t& c) { return std::real(c); });
     return rvec;
 }
 
@@ -120,20 +60,20 @@ Aux::real_vector_t Aux::inv_c2r(const IDFT::pointer& dft, const Aux::complex_vec
 // - We then have column-wise storage order but IDFT assumes row-wise
 // - so we reverse (nrows, ncols) and meaning of axis.
 
-Aux::complex_array_t Aux::fwd(const IDFT::pointer& dft, 
-                              const Aux::complex_array_t& arr, 
+DftTools::complex_array_t DftTools::fwd(const IDFT::pointer& dft, 
+                              const DftTools::complex_array_t& arr, 
                               int axis)
 {
-    Aux::complex_array_t ret = arr; 
+    DftTools::complex_array_t ret = arr; 
     dft->fwd1b(ret.data(), ret.data(), ret.cols(), ret.rows(), !axis);
     return ret;
 }
 
-Aux::complex_array_t Aux::inv(const IDFT::pointer& dft,
-                              const Aux::complex_array_t& arr,
+DftTools::complex_array_t DftTools::inv(const IDFT::pointer& dft,
+                              const DftTools::complex_array_t& arr,
                               int axis)
 {
-    Aux::complex_array_t ret = arr; 
+    DftTools::complex_array_t ret = arr; 
     dft->inv1b(ret.data(), ret.data(), ret.cols(), ret.rows(), !axis);
     return ret;
 }
@@ -145,14 +85,14 @@ Aux::complex_array_t Aux::inv(const IDFT::pointer& dft,
   transpose().  An extra copy would remove that complication but this
   interface tries to keep it.
  */
-using ROWM = Eigen::Array<Aux::complex_t, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>;
-using COLM = Eigen::Array<Aux::complex_t, Eigen::Dynamic, Eigen::Dynamic, Eigen::ColMajor>;
+using ROWM = Eigen::Array<DftTools::complex_t, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>;
+using COLM = Eigen::Array<DftTools::complex_t, Eigen::Dynamic, Eigen::Dynamic, Eigen::ColMajor>;
 
 template<typename trans>
-Aux::complex_array_t doit(const Aux::complex_array_t& arr, trans func)
+DftTools::complex_array_t doit(const DftTools::complex_array_t& arr, trans func)
 {
-    const Aux::complex_t* in_data = arr.data();
-    Aux::complex_vector_t out_vec(arr.rows()*arr.cols());
+    const DftTools::complex_t* in_data = arr.data();
+    DftTools::complex_vector_t out_vec(arr.rows()*arr.cols());
 
     // std::cerr << "dft::doit: (" << arr.rows() << "," << arr.cols() << ") IsRowMajor:" << arr.IsRowMajor << std::endl;
 
@@ -165,7 +105,7 @@ Aux::complex_array_t doit(const Aux::complex_array_t& arr, trans func)
     return Eigen::Map<COLM>(out_vec.data(), arr.rows(), arr.cols());
 }
 
-Aux::complex_array_t Aux::fwd(const IDFT::pointer& dft, const Aux::complex_array_t& arr)
+DftTools::complex_array_t DftTools::fwd(const IDFT::pointer& dft, const DftTools::complex_array_t& arr)
 {
     return doit(arr, [&](const complex_t* in_data,
                          complex_t* out_data,
@@ -174,7 +114,7 @@ Aux::complex_array_t Aux::fwd(const IDFT::pointer& dft, const Aux::complex_array
     });
 }
 
-Aux::complex_array_t Aux::inv(const IDFT::pointer& dft, const Aux::complex_array_t& arr)
+DftTools::complex_array_t DftTools::inv(const IDFT::pointer& dft, const DftTools::complex_array_t& arr)
 {
     return doit(arr, [&](const complex_t* in_data,
                          complex_t* out_data,
@@ -184,15 +124,15 @@ Aux::complex_array_t Aux::inv(const IDFT::pointer& dft, const Aux::complex_array
 }
 
 
-Aux::complex_array_t Aux::fwd_r2c(const IDFT::pointer& dft, const Aux::real_array_t& wave, int axis)
+DftTools::complex_array_t DftTools::fwd_r2c(const IDFT::pointer& dft, const DftTools::real_array_t& wave, int axis)
 {
     complex_array_t cwave = wave.cast<complex_t>();
     return fwd(dft, cwave, axis);
 }
 
-Aux::real_array_t Aux::inv_c2r(const IDFT::pointer& dft, const Aux::complex_array_t& spec, int axis)
+DftTools::real_array_t DftTools::inv_c2r(const IDFT::pointer& dft, const DftTools::complex_array_t& spec, int axis)
 {
-    complex_array_t symspec = hermitian_symmetry(spec, axis);
+    complex_array_t symspec = hermitian_mirror(spec, axis);
     complex_array_t cwave = inv(dft, symspec, axis);
     // Drops the small imaginary that is accrued due to round-off errors.
     return cwave.real();        
@@ -202,17 +142,17 @@ Aux::real_array_t Aux::inv_c2r(const IDFT::pointer& dft, const Aux::complex_arra
 
 /*** high level functions ***/
 
-Aux::real_vector_t Aux::convolve(const IDFT::pointer& dft,
-                                 const Aux::real_vector_t& in1,
-                                 const Aux::real_vector_t& in2)
+DftTools::real_vector_t DftTools::convolve(const IDFT::pointer& dft,
+                                 const DftTools::real_vector_t& in1,
+                                 const DftTools::real_vector_t& in2)
 {
     size_t size = in1.size() + in2.size() - 1;
-    Aux::complex_vector_t cin1(size,0), cin2(size,0);
+    DftTools::complex_vector_t cin1(size,0), cin2(size,0);
 
     std::transform(in1.begin(), in1.end(), cin1.begin(),
-                   [](float re) { return Aux::complex_t(re,0.0); } );
+                   [](float re) { return DftTools::complex_t(re,0.0); } );
     std::transform(in2.begin(), in2.end(), cin2.begin(),
-                   [](float re) { return Aux::complex_t(re,0.0); } );
+                   [](float re) { return DftTools::complex_t(re,0.0); } );
 
     dft->fwd1d(cin1.data(), cin1.data(), size);
     dft->fwd1d(cin2.data(), cin2.data(), size);
@@ -221,27 +161,27 @@ Aux::real_vector_t Aux::convolve(const IDFT::pointer& dft,
         cin1[ind] *= cin2[ind];
     }
 
-    Aux::real_vector_t ret(size);
+    DftTools::real_vector_t ret(size);
     std::transform(cin1.begin(), cin1.end(), ret.begin(),
                    [](const complex_t& c) { return std::real(c); });
     return ret;
 }
 
-Aux::real_vector_t Aux::replace(const IDFT::pointer& dft,
-                                const Aux::real_vector_t& meas,
-                                const Aux::real_vector_t& res1,
-                                const Aux::real_vector_t& res2)
+DftTools::real_vector_t DftTools::replace(const IDFT::pointer& dft,
+                                const DftTools::real_vector_t& meas,
+                                const DftTools::real_vector_t& res1,
+                                const DftTools::real_vector_t& res2)
 {
     size_t sizes[3] = {meas.size(), res1.size(), res2.size()};
     size_t size = sizes[0] + sizes[1] + sizes[2] - *std::min_element(sizes, sizes + 3) - 1;
 
-    Aux::complex_vector_t cmeas(size,0), cres1(size,0), cres2(size,0);
+    DftTools::complex_vector_t cmeas(size,0), cres1(size,0), cres2(size,0);
     std::transform(meas.begin(), meas.end(), cmeas.begin(),
-                   [](float re) { return Aux::complex_t(re,0.0); } );
+                   [](float re) { return DftTools::complex_t(re,0.0); } );
     std::transform(res1.begin(), res1.end(), cres1.begin(),
-                   [](float re) { return Aux::complex_t(re,0.0); } );
+                   [](float re) { return DftTools::complex_t(re,0.0); } );
     std::transform(res2.begin(), res2.end(), cres2.begin(),
-                   [](float re) { return Aux::complex_t(re,0.0); } );
+                   [](float re) { return DftTools::complex_t(re,0.0); } );
 
     dft->fwd1d(cmeas.data(), cmeas.data(), size);
     dft->fwd1d(cres1.data(), cres1.data(), size);
@@ -250,7 +190,7 @@ Aux::real_vector_t Aux::replace(const IDFT::pointer& dft,
     for (size_t ind=0; ind<size; ++ind) {
         cmeas[ind] *= res2[ind]/res1[ind];
     }
-    Aux::real_vector_t ret(size);
+    DftTools::real_vector_t ret(size);
     std::transform(cmeas.begin(), cmeas.end(), ret.begin(),
                    [](const complex_t& c) { return std::real(c); });
 

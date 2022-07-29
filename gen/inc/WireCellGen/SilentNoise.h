@@ -1,6 +1,7 @@
 #ifndef WIRECELLGEN_SILENTNOISE
 #define WIRECELLGEN_SILENTNOISE
 
+#include "WireCellAux/Logger.h"
 #include "WireCellIface/IFrameSource.h"
 #include "WireCellIface/IConfigurable.h"
 
@@ -11,7 +12,10 @@ namespace WireCell {
         /// an trivial example which real noise models may copy.
         /// Although it inherits from IConfigurable, it's not really.
         /// Again, just giving an example.
-        class SilentNoise : public IFrameSource, public IConfigurable {
+        class SilentNoise : public Aux::Logger,
+                            public IFrameSource,
+                            public IConfigurable
+        {
            public:
             SilentNoise();
             virtual ~SilentNoise();

@@ -43,7 +43,7 @@ namespace WireCell {
             virtual ~EmpiricalNoiseModel();
 
             /// IChannelSpectrum
-            virtual const amplitude_t& operator()(int chid) const;
+            virtual const amplitude_t& channel_spectrum(int chid) const;
 
             // get constant term
             virtual const std::vector<float>& freq() const;

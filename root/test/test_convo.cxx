@@ -20,8 +20,10 @@
 #include <iostream>
 #include <map>
 
-using namespace WireCell;
 using namespace std;
+using namespace WireCell;
+using namespace WireCell::Aux::DftTools;
+
 
 std::vector<TH1F*> plot_wave(TCanvas& canvas, int padnum, std::string name, std::pair<double, double> bounds,
                              const Binning& bins, const Waveform::realseq_t& tdomain,
@@ -133,16 +135,16 @@ int main(int argc, char* argv[])
             }
 
             // frequency space
-            Waveform::compseq_t charge_spectrum = Aux::fwd_r2c(idft, electrons);
-            Waveform::compseq_t raw_response_spectrum = Aux::fwd_r2c(idft, raw_response);
-            Waveform::compseq_t response_spectrum = Aux::fwd_r2c(idft, response);
+            Waveform::compseq_t charge_spectrum = fwd_r2c(idft, electrons);
+            Waveform::compseq_t raw_response_spectrum = fwd_r2c(idft, raw_response);
+            Waveform::compseq_t response_spectrum = fwd_r2c(idft, response);
 
             // convolve
             Waveform::compseq_t conv_spectrum(nticks, Waveform::complex_t(0.0, 0.0));
             for (int ind = 0; ind < nticks; ++ind) {
                 conv_spectrum[ind] = response_spectrum[ind] * charge_spectrum[ind];
             }
-            Waveform::realseq_t conv = Aux::inv_c2r(idft, conv_spectrum);
+            Waveform::realseq_t conv = inv_c2r(idft, conv_spectrum);
             for (int ind = 0; ind < nticks; ++ind) {
                 conv[ind] /= nticks;
             }
