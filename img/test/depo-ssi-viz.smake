@@ -21,12 +21,11 @@ jobdir=f"{detdir}/{{dname}}"
 wctdir=f"{jobdir}/wct"   # wire-cell output
 pltdir=f"{jobdir}/plots" # plot PDFs
 pvdir =f"{jobdir}/pv"    # paraview files
-
+figdir=f"{docdir}/{{dname}}"
 
 # fixme: this is a function of depo file
 event_indices = [0]
 
-print("MUON",depofiles["muon"])
 def depo_file(wc):
     return depofiles[wc.dname]
 rule intern_depos:
@@ -176,10 +175,10 @@ rule pv_depos_drifted:
     input:
         rules.wctify.output.drifted
     output:
-        [f"{pvdir}/depos-drifted-i%d.vtp"%n for n in event_indices]
+        [f"{pvdir}/depos-undrifted-i%d.vtp"%n for n in event_indices]
     params:
         speed = drift_speed,
-        outpat = f"{pvdir}/depos-drifted-i%d.vtp"
+        outpat = f"{pvdir}/depos-undrifted-i%d.vtp"
     shell: """
     wirecell-img paraview-depos -D '{params.speed},0' {input} {params.outpat}
     """
@@ -205,45 +204,98 @@ rule pv_all:
     input:
         expand(rules.pv_depos_orig.output, dname=depofiles),
         expand(rules.pv_depos_drifted.output, dname=depofiles),
-        expand(rules.pv_blobs.output, tier=["img"], anode=anodes,
+        expand(rules.pv_blobs.output, tier=["img","tru"], anode=anodes,
                dname=depofiles)
 
-rule plot_blobs:
+def plot_pattern(multipage, basedir=pltdir):
+    '''
+    Provide a general multipage vs multifile plot file pattern
+    '''
+    base = f"{basedir}/{{category}}-{{tier}}-a{{anode}}-{{plotname}}"
+    if multipage:
+        return base + ".{ext}"
+    return base + "-i%d.{ext}"
+
+def plot_output(multipage, basedir=pltdir):
+    '''
+    Generate output file or files pattern.  Wildcards unresolved, but expanded for number of events.
+    '''
+    pat = plot_pattern(multipage, basedir)
+    if multipage:
+        return pat
+    return [pat%n for n in event_indices]
+
+def plot_blobs_params(w):
+    '''
+    Generate the params dict for plot category "blobs"
+    '''
+    ret = dict(pages = expand(plot_pattern(w['ext'] in ('pdf',)), **w))
+    return ret
+
+rule plot_blobs_multipage:
     input:
         f"{wctdir}/clusters-{{tier}}-a{{anode}}.npz"
-    output:
-        f"{pltdir}/clusters-{{tier}}-a{{anode}}-{{plotname}}.pdf"
+    output: plot_output(True)
+    params: p = plot_blobs_params
+    wildcard_constraints:
+        category = "blobs"
     shell: """
     if [ -s {input} ] ; then
-      wirecell-img plot-blobs -p {wildcards.plotname} {input} {output}
+      wirecell-img plot-{wildcards.category} -p {wildcards.plotname} {input} {params.p[pages]}
     else
       touch {output}
     fi
     """
-rule plot_depos_blobs:
+use rule plot_blobs_multipage as plot_blobs_multifile with:
+    output: plot_output(False)
+
+def plot_debls_params(w):
+    ret = dict(
+        plot="depos-blobs",
+        speed=drift_speed,
+        time=start_time,
+        pages = expand(plot_pattern(w['ext'] in ('pdf',)), **w))
+    return ret
+
+## apparently inheritance doesn't cover shell so we will copy-paste from plot_blobs_multipage.
+rule plot_debls_multipage:
     input:
         depos=rules.wctify.output.drifted,
         blobs=f"{wctdir}/clusters-{{tier}}-a{{anode}}.npz"
-    output:
-        f"{pltdir}/depos-blobs-{{tier}}-a{{anode}}-{{plotname}}.pdf"
-    params:
-        speed=drift_speed,
-        time=start_time
+    output: plot_output(True)
+    wildcard_constraints:
+        category = "debls"
+    params: p = plot_debls_params
     shell: """
     if [ -s {input.blobs} ] ; then
-      wirecell-img plot-depos-blobs -B '{params.speed},{params.time}' -D '{params.speed},0' -p {wildcards.plotname} {input.depos} {input.blobs} {output}
+      wirecell-img plot-{params.p[plot]} -B '{params.p[speed]},{params.p[time]}' -D '{params.p[speed]},0' -p {wildcards.plotname} {input.depos} {input.blobs} {params.p[pages]}
     else
       touch {output}
     fi
     """
+use rule plot_debls_multipage as plot_debls_multifile with:
+    output: plot_output(False)
 
+#f"{pltdir}/clusters-{{tier}}-a{{anode}}-{{plotname}}.pdf",
 rule plot_blobs_all:
     input:
-        expand(f"{pltdir}/clusters-{{tier}}-a{{anode}}-{{plotname}}.pdf",
+        expand(rules.plot_blobs_multipage.output,
                tier=cluster_tiers, anode=anodes, dname=depofiles,
+               category=['blobs'], ext=['pdf'],
                plotname=["ty", "tz", "views"]),
-        expand(rules.plot_depos_blobs.output, tier=['tru','img'],
+        expand(rules.plot_blobs_multifile.output,
+               tier=cluster_tiers, anode=anodes, dname=depofiles,
+               category=['blobs'], ext=['png'],
+               plotname=["ty", "tz", "views"]),
+        expand(rules.plot_debls_multipage.output,
+               tier=['tru','img'],
                anode=anodes, dname=depofiles,
+               category=['debls'], ext=['pdf'],
+               plotname=['outlines']),
+        expand(rules.plot_debls_multifile.output,
+               tier=['tru','img'],
+               anode=anodes, dname=depofiles,
+               category=['debls'], ext=['png'],
                plotname=['outlines'])
 
 rule plot_all:
@@ -262,9 +314,27 @@ rule dotify:
     wirecell-pgraph dotify --no-params {input} {output}
     """
         
+def copy_names(srcs, tgtdir):
+    ret = [os.path.join(tgtdir, os.path.basename(src)) for src in set(srcs)]
+    return ret
+
+rule copy_for_docs:
+    input: plot_output(True)
+    output: plot_output(True, figdir)
+    shell: 'cp {input} {output}'
+rule copy_all:
+    input:
+        expand(rules.copy_for_docs.output,
+               tier=['tru','img'],
+               anode=[5], dname=depofiles,
+               category=['debls'], ext=['pdf'],
+               plotname=['outlines'])
+
 rule all:
     input:
         expand(rules.dotify.output, dname=depofiles),
-        rules.pv_all.input
-        # rules.plot_all.input
+        rules.pv_all.input,
+        rules.plot_all.input
+
         
+
