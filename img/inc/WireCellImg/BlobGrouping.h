@@ -33,8 +33,6 @@ namespace WireCell::Img {
         virtual bool operator()(const input_pointer& in, output_pointer& out);
 
       private:
-        void fill_slice(cluster_indexed_graph_t& grind, ISlice::pointer islice);
-        int m_mcount{0};
         int m_count{0};
     };
 

@@ -4,6 +4,7 @@
 #include "WireCellAux/SimpleMeasure.h"
 
 #include "WireCellUtil/NamedFactory.h"
+#include "WireCellUtil/GraphTools.h"
 
 #include <boost/graph/connected_components.hpp>
 
@@ -12,8 +13,124 @@ WIRECELL_FACTORY(BlobGrouping, WireCell::Img::BlobGrouping,
                  WireCell::IClusterFilter, WireCell::IConfigurable)
 
 using namespace WireCell;
+using namespace WireCell::GraphTools;
 
-typedef std::unordered_map<WirePlaneLayer_t, cluster_indexed_graph_t> layer_graphs_t;
+
+// blob/channel graph with original graph vertices on per-slice basis.
+namespace bcdesc {
+    struct nprop_t { cluster_vertex_t desc; };
+    struct eprop_t { };
+
+    using graph_t = boost::adjacency_list<boost::setS, boost::vecS, boost::undirectedS,
+                                          nprop_t, eprop_t>;
+
+    using vdesc_t = boost::graph_traits<graph_t>::vertex_descriptor;
+    using edesc_t = boost::graph_traits<graph_t>::edge_descriptor;
+}
+
+
+static
+void doit(cluster_graph_t& cgraph)
+{
+    // Count to set measure idents.
+    int tot_meas = 0;
+
+    for (const auto& svtx : vertex_range(cgraph)) {
+        const auto& snode = cgraph[svtx];
+        const char scode = snode.code();
+        if (scode != 's') {
+            continue;
+        }
+
+        const auto islice = std::get<ISlice::pointer>(snode.ptr);
+        ISlice::map_t activity = islice->activity();
+
+        // Recieve b and c reached from this s per plane
+        std::vector<bcdesc::graph_t> bcs(3); // fixme: hard-code 3 planes
+
+        for (auto bvtx : mir(boost::adjacent_vertices(svtx, cgraph))) {
+            const auto& bnode = cgraph[bvtx];
+            const char bcode = bnode.code();
+            if (bcode != 'b') {
+                continue;
+            }
+            
+            // add this blob to each plane graph
+            std::vector<bcdesc::vdesc_t> bidx;
+            for (auto& bc : bcs) {
+                bidx.push_back(boost::add_vertex({bvtx}, bc));
+            }
+
+            // wires
+            for (auto wvtx : mir(boost::adjacent_vertices(bvtx, cgraph))) {
+                const auto& wnode = cgraph[wvtx];
+                const char wcode = wnode.code();
+                if (wcode != 'w') {
+                    continue;
+                }
+                
+                // channels
+                for (auto cvtx : mir(boost::adjacent_vertices(wvtx, cgraph))) {
+                    const auto& cnode = cgraph[cvtx];
+                    const char ccode = cnode.code();
+                    if (ccode != 'c') {
+                        continue;
+                    }
+
+                    auto ich = std::get<IChannel::pointer>(cnode.ptr);
+                    const auto wpid = ich->planeid();
+                    const auto pind = wpid.index();
+                    auto& bc = bcs[pind];
+
+                    const auto cidx = boost::add_vertex({ cvtx }, bc);
+                    boost::add_edge(bidx[pind], cidx, bc);
+
+                } // channels
+            } // wires
+        } // blobs
+        
+        // now have a per-slice, per-plane graph of blob-channel vertices
+        for (const auto& bc : bcs) {
+            // every cc's int locally names a measure
+            std::unordered_map<bcdesc::vdesc_t, int> cc;
+            boost::connected_components(bc, boost::make_assoc_property_map(cc));
+            
+            std::unordered_map<int, std::pair<Aux::SimpleMeasure*,cluster_vertex_t>> measures;
+
+            for (const auto& [idx, num] : cc) {
+                Aux::SimpleMeasure* sm=nullptr;
+                cluster_vertex_t mvtx;
+
+                const auto it = measures.find(num);
+                if (it == measures.end()) {
+                    sm = new Aux::SimpleMeasure(tot_meas++);
+                    mvtx = boost::add_vertex(IMeasure::pointer(sm), cgraph);
+                    measures[num] = std::make_pair(sm, mvtx);
+                }
+                else {
+                    sm = it->second.first;
+                    mvtx = it->second.second;
+                }
+
+                // edge to measure for either blob or channel
+                const auto vtx = bc[idx].desc;
+                boost::add_edge(mvtx, vtx, cgraph);
+
+                // if channel, accumulate signal
+                const auto& node = cgraph[vtx];
+                if (node.code() == 'c') {
+                    auto ich = std::get<IChannel::pointer>(node.ptr);
+                    const auto sig = activity[ich];
+                    const auto wpid = ich->planeid();
+                    sm->sig += sig;
+                    sm->wpid = wpid;
+                }
+            }
+        }
+               
+    } // slices
+}
+
 
 Img::BlobGrouping::BlobGrouping()
     : Aux::Logger("BlobGrouping", "img")
@@ -30,74 +147,6 @@ WireCell::Configuration Img::BlobGrouping::default_configuration() const
     return cfg;
 }
 
-static void fill_blob(layer_graphs_t& lgs, const cluster_indexed_graph_t& grind, IBlob::pointer iblob)
-{
-    cluster_node_t nblob{iblob};
-
-    for (auto wvtx : grind.neighbors(nblob)) {
-        if (wvtx.code() != 'w') {
-            continue;
-        }
-        auto iwire = std::get<IWire::pointer>(wvtx.ptr);
-        auto layer = iwire->planeid().layer();
-        auto& lg = lgs[layer];
-
-        for (auto cvtx : grind.neighbors(wvtx)) {
-            if (cvtx.code() != 'c') {
-                continue;
-            }
-            lg.edge(nblob, cvtx);
-        }
-    }
-}
-
-void Img::BlobGrouping::fill_slice(cluster_indexed_graph_t& grind, ISlice::pointer islice)
-{
-    layer_graphs_t lgs;
-
-    auto activity = islice->activity();
-
-    for (auto other : grind.neighbors(islice)) {
-        if (other.code() != 'b') {
-            continue;
-        }
-        IBlob::pointer iblob = std::get<IBlob::pointer>(other.ptr);
-        fill_blob(lgs, grind, iblob);
-    }
-
-    // measures
-    for (auto lgit : lgs) {
-        auto& lgrind = lgit.second;
-        auto groups = lgrind.groups();
-        for (auto& group : groups) {
-
-            // Really, the data held by a "measure" is redundant with
-            // its location in the graph and the data held by the
-            // connected IChannels and the ISlice found via the
-            // connected IBlobs.
-            auto smeas = new Aux::SimpleMeasure(m_mcount++);
-            IMeasure::pointer imeas(smeas);
-
-            for (auto& v : group.second) {
-                if (v.code() == 'b') {
-                    // (b-m)
-                    grind.edge(v.ptr, imeas);
-                    continue;
-                }
-                if (v.code() == 'c') {
-                    // (c-m)
-                    auto ich = std::get<IChannel::pointer>(v.ptr);
-                    smeas->sig += activity[ich];
-                    grind.edge(v.ptr, imeas);
-                    // logically, all must be same?
-                    smeas->wpid = ich->planeid(); 
-                    continue;
-                }
-            }
-        }
-    }
-}
-
 bool Img::BlobGrouping::operator()(const input_pointer& in, output_pointer& out)
 {
     if (!in) {
@@ -107,22 +156,24 @@ bool Img::BlobGrouping::operator()(const input_pointer& in, output_pointer& out)
         return true;
     }
 
-    cluster_indexed_graph_t grind(in->graph());
+    cluster_graph_t cgraph;
+    boost::copy_graph(in->graph(), cgraph);
+    doit(cgraph);
 
-    m_mcount = 0;
-
-    for (auto islice : oftype<ISlice::pointer>(grind)) {
-        fill_slice(grind, islice);
-    }
-
-    log->debug("call={} cluster={} nvertices={} nedges={} nmeas={}",
+    log->debug("call={} cluster={} nvertices={} nedges={}",
                m_count,
                in->ident(),
-               boost::num_vertices(grind.graph()),
-               boost::num_edges(grind.graph()),
-               m_mcount);
+               boost::num_vertices(cgraph),
+               boost::num_edges(cgraph));
 
-    out = std::make_shared<Aux::SimpleCluster>(grind.graph(), in->ident());
+    out = std::make_shared<Aux::SimpleCluster>(cgraph, in->ident());
     ++m_count;
     return true;
+
+
+    // new way
+    // [13:38:06.958] I [ timer  ] Timer: WireCell::Img::BlobGrouping : 8.557092 sec
+
+    // old way, using IndexedGraph ...
+    // [12:23:35.901] I [ timer  ] Timer: WireCell::Img::BlobGrouping : 40.23048 sec
 }
