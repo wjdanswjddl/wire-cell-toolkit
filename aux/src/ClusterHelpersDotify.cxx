@@ -35,13 +35,12 @@ struct label_writer_t {
     }
 };
 
-std::string Aux::dotify(const ICluster& cluster,
+std::string Aux::dotify(const cluster_graph_t& gr,
                         const std::string& codes)
 {
     std::unordered_set<char> keep(codes.begin(), codes.end());
 
     // use indexed graph basically just for the copy()
-    const cluster_graph_t& gr = cluster.graph();
     cluster_indexed_graph_t grind;
 
     for (const auto& v : boost::make_iterator_range(boost::vertices(gr))) {

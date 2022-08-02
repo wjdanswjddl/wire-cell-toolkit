@@ -13,10 +13,9 @@ using WireCell::GraphTools::mir;
 using slice_t = cluster_node_t::slice_t;
 
 // maybe useful to export
-ISlice::vector WireCell::Aux::find_slices(const ICluster& cluster)
+ISlice::vector WireCell::Aux::find_slices(const cluster_graph_t& gr)
 {
     ISlice::vector ret;
-    const auto& gr = cluster.graph();
     for (auto vtx : boost::make_iterator_range(boost::vertices(gr))) {
         const auto& vobj = gr[vtx];
         if (vobj.ptr.index() != 4) {
@@ -29,9 +28,8 @@ ISlice::vector WireCell::Aux::find_slices(const ICluster& cluster)
     return ret;
 }
 
-IFrame::pointer WireCell::Aux::find_frame(const ICluster& cluster)
+IFrame::pointer WireCell::Aux::find_frame(const cluster_graph_t& gr)
 {
-    const auto& gr = cluster.graph();
     for (auto vtx : boost::make_iterator_range(boost::vertices(gr))) {
         const auto& vobj = gr[vtx];
         if (vobj.ptr.index() != 4) {
@@ -44,17 +42,16 @@ IFrame::pointer WireCell::Aux::find_frame(const ICluster& cluster)
     return nullptr;
 }
 
-std::string WireCell::Aux::name(const ICluster& cluster)
-{
-    std::stringstream ss;
-    ss << "cluster_" << cluster.ident();
-    return ss.str();
-}
+// std::string WireCell::Aux::name(const ICluster& cluster)
+// {
+//     std::stringstream ss;
+//     ss << "cluster_" << cluster.ident();
+//     return ss.str();
+// }
 
-Aux::blobs_by_slice_t Aux::blobs_by_slice(const ICluster& cluster)
+Aux::blobs_by_slice_t Aux::blobs_by_slice(const cluster_graph_t& gr)
 {
     Aux::blobs_by_slice_t ret;
-    const auto& gr = cluster.graph();
     for (auto vtx : boost::make_iterator_range(boost::vertices(gr))) {
         const auto& vobj = gr[vtx];
         if (vobj.code() != 's') {
@@ -74,10 +71,9 @@ Aux::blobs_by_slice_t Aux::blobs_by_slice(const ICluster& cluster)
     return ret;
 }
 
-Aux::code_counts_t Aux::counts_by_type(const ICluster& cluster)
+Aux::code_counts_t Aux::counts_by_type(const cluster_graph_t& gr)
 {
     Aux::code_counts_t ret;
-    const auto& gr = cluster.graph();
     for (auto vtx : boost::make_iterator_range(boost::vertices(gr))) {
         const auto& vobj = gr[vtx];
         const char code = vobj.code();

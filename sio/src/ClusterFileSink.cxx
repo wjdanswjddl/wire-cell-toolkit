@@ -77,7 +77,7 @@ std::string Sio::ClusterFileSink::fqn(const ICluster& cluster, std::string name,
 
 void Sio::ClusterFileSink::jsonify(const ICluster& cluster)
 {
-    auto top = Aux::jsonify(cluster);
+    auto top = Aux::jsonify(cluster.graph());
     std::stringstream topss;
     topss << top;
     auto tops = topss.str();
@@ -90,7 +90,7 @@ void Sio::ClusterFileSink::jsonify(const ICluster& cluster)
 
 void Sio::ClusterFileSink::dotify(const ICluster& cluster)
 {
-    auto top = Aux::dotify(cluster);
+    auto top = Aux::dotify(cluster.graph());
     std::stringstream topss;
     topss << top;
     auto tops = topss.str();
