@@ -141,10 +141,12 @@ namespace WireCellTbb {
         WireCell::IHydraNodeBase::pointer m_wcnode;
         mutable std::vector<seqno_t> m_seqnos;
         const size_t nin;
+        NodeInfo& m_info;
       public:
-        HydraOutputBody(WireCell::INode::pointer wcnode)
+        HydraOutputBody(WireCell::INode::pointer wcnode, NodeInfo& info)
             : m_seqnos(Nout, 0)
             , nin(wcnode->input_types().size())
+            , m_info(info)
         {
             m_wcnode = std::dynamic_pointer_cast<WireCell::IHydraNodeBase>(wcnode);
         }
@@ -155,7 +157,9 @@ namespace WireCellTbb {
             size_t index = in.first;
             iqv[index].push_back(in.second);
 
+            m_info.start();
             bool ok = (*m_wcnode)(iqv, oqv);
+            m_info.stop();
             if (!ok) {
                 std::cerr << "TbbFlow: hydra body return false ignored\n";
             }
@@ -168,9 +172,10 @@ namespace WireCellTbb {
     build_hydra_output(tbb::flow::graph& graph,
                        WireCell::INode::pointer wcnode,
                        sender_port_vector& senders,
-                       std::vector<tbb::flow::graph_node*>& nodes)
+                       std::vector<tbb::flow::graph_node*>& nodes,
+                       NodeInfo& info)                       
     {
-        auto mfn = new mfunc_node_type<Nout>(graph, 1, HydraOutputBody<Nout>(wcnode));
+        auto mfn = new mfunc_node_type<Nout>(graph, 1, HydraOutputBody<Nout>(wcnode, info));
         nodes.push_back(mfn);
 
         auto spv = outdexer_ports(*mfn, std::make_index_sequence<Nout>{});
@@ -193,6 +198,7 @@ namespace WireCellTbb {
       public:
         HydraWrapper(tbb::flow::graph& graph, WireCell::INode::pointer wcnode)
         {
+            m_info.set(wcnode);
             const size_t nin = wcnode->input_types().size();
             const size_t nout = wcnode->output_types().size();
 
@@ -210,9 +216,9 @@ namespace WireCellTbb {
             if(nout < 1 || nout > 3) {
                 THROW(WireCell::ValueError() << WireCell::errmsg{"unsupported size for hydra output"});
             }
-            if (1 == nout) be = build_hydra_output<1>(graph, wcnode, m_tx, m_nodes);
-            if (2 == nout) be = build_hydra_output<2>(graph, wcnode, m_tx, m_nodes);
-            if (3 == nout) be = build_hydra_output<3>(graph, wcnode, m_tx, m_nodes);
+            if (1 == nout) be = build_hydra_output<1>(graph, wcnode, m_tx, m_nodes, m_info);
+            if (2 == nout) be = build_hydra_output<2>(graph, wcnode, m_tx, m_nodes, m_info);
+            if (3 == nout) be = build_hydra_output<3>(graph, wcnode, m_tx, m_nodes, m_info);
             // ... more if needed
 
             // Join input front-end half to output back-end half
