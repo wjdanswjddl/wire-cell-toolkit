@@ -17,10 +17,10 @@ namespace WireCell::Aux {
     /// Return JSON representation of the cluster.
     Json::Value jsonify(const cluster_graph_t& cgraph);
 
-    /// Return GraphViz dot representation of the cluster.  The nodes
+    /// Return GraphViz dot representation of the cluster.  The "types"
     /// is a list (string) of cluster node type codes to include.  If
     /// empty, all node types will be included.
-    std::string dotify(const cluster_graph_t& cgraph, const std::string& nodes="bsm");
+    std::string dotify(const cluster_graph_t& cgraph, const std::string& types="bsm");
 
     /// Return the slices in the cluster.
     ISlice::vector find_slices(const cluster_graph_t& cgraph);
@@ -37,7 +37,7 @@ namespace WireCell::Aux {
     using code_counts_t = std::unordered_map<char, size_t>;
     code_counts_t counts_by_type(const cluster_graph_t& cgraph);
 
-    /// Return the vertex descriptors for the given type code (in "cwsbm")
+    // Return the vertex descriptors for the given type code (in "cwsbm")
     // std::vector<cluster_vertex_t> vdesc_by_code(const cluster_graph_t& cgraph, char code);
 
 }

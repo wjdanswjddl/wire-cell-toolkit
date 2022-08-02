@@ -5,7 +5,8 @@
 
 #include "WireCellUtil/NamedFactory.h"
 #include "WireCellUtil/GraphTools.h"
-
+#include <boost/graph/filtered_graph.hpp>
+#include <boost/graph/copy.hpp>
 #include <boost/graph/connected_components.hpp>
 
 WIRECELL_FACTORY(BlobGrouping, WireCell::Img::BlobGrouping,
@@ -147,6 +148,8 @@ WireCell::Configuration Img::BlobGrouping::default_configuration() const
     return cfg;
 }
 
+using Filtered = boost::filtered_graph<cluster_graph_t, boost::keep_all, boost::function<bool(cluster_vertex_t)> >;
+
 bool Img::BlobGrouping::operator()(const input_pointer& in, output_pointer& out)
 {
     if (!in) {
@@ -156,17 +159,25 @@ bool Img::BlobGrouping::operator()(const input_pointer& in, output_pointer& out)
         return true;
     }
 
-    cluster_graph_t cgraph;
-    boost::copy_graph(in->graph(), cgraph);
-    doit(cgraph);
+    const cluster_graph_t& ingr = in->graph();
+
+    // Remove measures and copy to make a writable graph to receive
+    // new measures.
+    Filtered fg(ingr, {}, [&](cluster_vertex_t vtx) {
+        return ingr[vtx].code() != 'm';
+    });
+    cluster_graph_t outgr;
+    boost::copy_graph(fg, outgr);
+
+    doit(outgr);
 
     log->debug("call={} cluster={} nvertices={} nedges={}",
                m_count,
                in->ident(),
-               boost::num_vertices(cgraph),
-               boost::num_edges(cgraph));
+               boost::num_vertices(outgr),
+               boost::num_edges(outgr));
 
-    out = std::make_shared<Aux::SimpleCluster>(cgraph, in->ident());
+    out = std::make_shared<Aux::SimpleCluster>(outgr, in->ident());
     ++m_count;
     return true;
 
