@@ -40,6 +40,45 @@ namespace WireCell::Aux {
     // Return the vertex descriptors for the given type code (in "cwsbm")
     // std::vector<cluster_vertex_t> vdesc_by_code(const cluster_graph_t& cgraph, char code);
 
+    // Return a flat vector of vertices in cgraph by their type code.
+    // Vectors have no particular ordering.
+    using cluster_vertices_t = std::vector<cluster_vertex_t>;
+    using cluster_vertices_type_map_t = std::unordered_map<char, cluster_vertices_t>;
+    cluster_vertices_type_map_t vertices_type_map(const cluster_graph_t& cgraph);
+
+    namespace cluster::directed {
+        using graph_t  = boost::adjacency_list<boost::setS, boost::vecS, boost::directedS, cluster_node_t>;
+        using vertex_t = boost::graph_traits<graph_t>::vertex_descriptor;
+        using edge_t = boost::graph_traits<graph_t>::edge_descriptor;
+
+        /// Return a directed version of the cgraph with direction
+        /// determined by a vertex type code order.  The vertices and
+        /// edges and their order within their sets are unchanged in
+        /// the returned graph.  However, the order of an individual
+        /// edge edpoints (which is "source" vs "target") is subject
+        /// change based on the "order" string which provides cluster
+        /// node type codes in ascending value.  Eg, with the default
+        /// "order" string, an edge formed with an s-type and a b-type
+        /// will produce an s-b edge.  Edges between like types (eg
+        /// b-b edge) or edges with the type code of one or both
+        /// endpoints that are not represented in the "order" string
+        /// will be output in their original order.
+        graph_t type_directed(const cluster_graph_t& cgraph,
+                              const std::string& order = "sbmwc");
+    
+    }
+    /// Return an s-b-w graph given an s-b-w-c cluster graph.  The
+    /// c-nodes (and any m-nodes) are removed.
+    cluster_graph_t extract_sbw(const cluster_graph_t& cgraph);
+
+    /// Return an sbc graph given an sbwc cluster graph.  The w-nodes
+    /// are removed and b-c edges made.  Any m-nodes are also removed.
+    cluster_graph_t extract_sbc(const cluster_graph_t& cgraph);
+
+    /// Simply return an sbw or sbc depending on if code is 'w' or 'c'
+    /// or return an empty graph.
+    cluster_graph_t extract_sbX(const cluster_graph_t& cgraph, char code);
+
 }
 
 #endif

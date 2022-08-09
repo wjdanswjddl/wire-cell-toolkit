@@ -90,5 +90,14 @@ int main()
     boost::copy_graph(fg2, g3);
     dump(g3, "g3");
 
+    std::cerr << "g2: #v:" << boost::num_vertices(g2) << " #e:" << boost::num_edges(g2) << std::endl;
+    std::cerr << "g3: #v:" << boost::num_vertices(g3) << " #e:" << boost::num_edges(g3) << std::endl;
+    boost::copy_graph(g2,g3);
+    std::cerr << "copy_graph(g2,g3):\n";
+    std::cerr << "g2: #v:" << boost::num_vertices(g2) << " #e:" << boost::num_edges(g2) << std::endl;
+    std::cerr << "g3: #v:" << boost::num_vertices(g3) << " #e:" << boost::num_edges(g3) << std::endl;
+    dump(g2, "g2");
+    dump(g3, "g3");
+
     return 0;
 }

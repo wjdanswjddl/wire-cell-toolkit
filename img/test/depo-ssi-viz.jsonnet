@@ -73,7 +73,7 @@ function(detector, variant="nominal",
         local anode = anodes[aid];
         pg.pipeline([
             mid.sim.signal(anode),
-            //mid.sim.noise(anode),
+            mid.sim.noise(anode),
             mid.sim.digitizer(anode),
 
             high.fio.tap('FrameFanout',
@@ -82,7 +82,7 @@ function(detector, variant="nominal",
                                  tier:"adc", anode: anode.data.ident}),
                              tags=["orig%d" % anode.data.ident])),
 
-            // mid.sigproc.nf(anode),
+            mid.sigproc.nf(anode),
             mid.sigproc.sp(anode),
             
             high.fio.tap('FrameFanout',
