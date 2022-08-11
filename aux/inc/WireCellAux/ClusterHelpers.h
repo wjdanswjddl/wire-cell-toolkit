@@ -10,6 +10,11 @@
 #include "WireCellIface/ISlice.h"
 #include "WireCellIface/ICluster.h"
 
+#include <boost/graph/graphviz.hpp>
+#include <sstream>
+#include <functional>
+#include <unordered_set>
+
 #include <string>
 
 namespace WireCell::Aux {
@@ -17,10 +22,35 @@ namespace WireCell::Aux {
     /// Return JSON representation of the cluster.
     Json::Value jsonify(const cluster_graph_t& cgraph);
 
-    /// Return GraphViz dot representation of the cluster.  The "types"
-    /// is a list (string) of cluster node type codes to include.  If
-    /// empty, all node types will be included.
-    std::string dotify(const cluster_graph_t& cgraph, const std::string& types="bsm");
+    /// Return GraphViz dot representation of a cluster graph like
+    /// graph.
+    template <typename CGraph>
+    std::string dotify(const CGraph& cgraph) {
+        std::stringstream ss;
+        using vertex_t = typename boost::graph_traits<CGraph>::vertex_descriptor;
+        boost::write_graphviz(ss, cgraph, [&](std::ostream& out, vertex_t v) {
+            const auto& dat = cgraph[v];
+            out << "[label=\"" << dat.code() << dat.ident() << "\"]";
+        });
+        return ss.str() + "\n";
+    }
+
+    // Return a cluster graph like graph with any nodes that have type
+    // codes missing gfrom the "codes" string excluded.
+    template <typename CGraph>
+    CGraph type_filter(const CGraph& cgraph, const std::string& codes) {
+        using vertex_t = typename boost::graph_traits<CGraph>::vertex_descriptor;
+        using Filtered = typename boost::filtered_graph<CGraph, boost::keep_all,
+                                               std::function<bool(vertex_t)> >;
+        std::unordered_set<char> keep(codes.begin(), codes.end());
+        Filtered fg(cgraph, {}, [&](vertex_t vtx) {
+            return keep.find(cgraph[vtx].code()) != keep.end();
+        });
+        CGraph gr;
+        boost::copy_graph(fg, gr);
+        return gr;
+    }
+
 
     /// Return the slices in the cluster.
     ISlice::vector find_slices(const cluster_graph_t& cgraph);
@@ -78,6 +108,7 @@ namespace WireCell::Aux {
     /// Simply return an sbw or sbc depending on if code is 'w' or 'c'
     /// or return an empty graph.
     cluster_graph_t extract_sbX(const cluster_graph_t& cgraph, char code);
+
 
 }
 

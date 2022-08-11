@@ -255,6 +255,7 @@ Notes:
 - Using a relatively slow Xeon E5-2630 2.2 GHz
 - The \textbf{surface cosmics} sample uncovers that ~BlobGrouping~ scales very poorly with #blobs:
   - Across the 6 PDSP APAs: \textbf{10-400 sec}.  The single muon: 200 ms worse case.
+  - Replaced use of ~IndexedGraph~ with more targeted indexing gives $5\times$ speedup
 
 * Exercising
 
