@@ -109,10 +109,10 @@ ITrace::vector Aux::untagged_traces(IFrame::pointer frame)
     auto traces = frame->traces();
     size_t ntraces = traces->size();
 
-    std::unordered_set<size_t> tagged;
+    std::vector<size_t> tagged;
     for (auto tag : frame->trace_tags()) {
         const auto& taglist = frame->tagged_traces(tag);
-        tagged.insert(taglist.begin(), taglist.end());
+        tagged.insert(tagged.end(), taglist.begin(), taglist.end());
     }
     std::vector<size_t> all(ntraces), untagged;
     std::iota(all.begin(), all.end(), 0);
