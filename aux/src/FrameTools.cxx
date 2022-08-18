@@ -114,6 +114,7 @@ ITrace::vector Aux::untagged_traces(IFrame::pointer frame)
         const auto& taglist = frame->tagged_traces(tag);
         tagged.insert(tagged.end(), taglist.begin(), taglist.end());
     }
+    std::sort(tagged.begin(), tagged.end());
     std::vector<size_t> all(ntraces), untagged;
     std::iota(all.begin(), all.end(), 0);
     std::set_difference(all.begin(), all.end(), tagged.begin(), tagged.end(),
