@@ -1,11 +1,3 @@
-// This is a main entry point for configuring a wire-cell CLI job to
-// simulate protoDUNE-SP.  It is simplest signal-only simulation with
-// one set of nominal field response function.  It excludes noise.
-// The kinematics are a mixture of Ar39 "blips" and some ideal,
-// straight-line MIP tracks.
-//
-// Output is a Python numpy .npz file.
-
 local g = import 'pgraph.jsonnet';
 local f = import 'pgrapher/common/funcs.jsonnet';
 local wc = import 'wirecell.jsonnet';
@@ -20,29 +12,8 @@ local sim_maker = import 'pgrapher/experiment/pdsp/sim.jsonnet';
 local sim = sim_maker(params, tools);
 
 local stubby = {
-  tail: wc.point(1000.0, 3000.0, 0.0, wc.mm),
-  head: wc.point(1000.0, 3000.0, 6000.0, wc.mm),
-};
-
-// Something close to APA 0 (smallest Y,Z)
-local close0 = {
-  tail: wc.point(-3.000, 3.0, 1.000, wc.m),
-  head: wc.point(-3.000, 3.0, 2.000, wc.m),
-};
-
-local parallel = {
-  tail: wc.point(-1.000, 3.0, 1.000, wc.m),
-  head: wc.point(-1.000, 3.0, 2.000, wc.m),
-};
-
-local apa6 = {
-  tail: wc.point(0.5, 4, 2.4, wc.m),
-  head: wc.point(3.5, 2, 4.5, wc.m),
-};
-
-local cathpier = {
-  tail: wc.point(-113, 585, 409, wc.cm),
-  head: wc.point( 118,  24, 269, wc.cm),
+  tail: wc.point(3000.0, 1000.0, 0.0, wc.mm),
+  head: wc.point(3000.0, 1000.0, 2300.0, wc.mm),
 };
 
 local tracklist = [
@@ -84,7 +55,7 @@ local bagger = sim.make_bagger();
 local sn_pipes = sim.splusn_pipelines;
 
 local multimagnify = import 'pgrapher/experiment/pdsp/multimagnify.jsonnet';
-local magoutput = 'protodune-sim-check.root';
+local magoutput = 'case3.root';
 
 local multi_magnify = multimagnify('orig', tools, magoutput);
 local magnify_pipes = multi_magnify.magnify_pipelines;
@@ -124,7 +95,7 @@ local sp_pipes = [sp.make_sigproc(a) for a in tools.anodes];
 local parallel_pipes = [
   g.pipeline([
                sn_pipes[n],
-               magnify_pipes[n],
+               // magnify_pipes[n],
                // nf_pipes[n],
                // magnify_pipes2[n],
                sp_pipes[n],
@@ -150,8 +121,20 @@ local plainbagger = g.pnode({
             gate: [0, 0],
         },
     }, nin=1, nout=1);
+
+local deposet_rotate = g.pnode({
+        type:'DepoSetRotate',
+        name:'deposet_rotate',
+        data: {
+            rotate: true,
+            transpose: [1,0,2],
+            scale: [-1,1,1],
+        },
+    }, nin=1, nout=1);
+
 // FIXME: need a "bagger" after "setdrifter" for trimming out-of-window depos
-local graph = g.pipeline([depos, plainbagger, setdrifter, parallel_graph, sink]);
+// local graph = g.pipeline([depos, plainbagger, setdrifter, parallel_graph, sink]);
+local graph = g.pipeline([depos, plainbagger, deposet_rotate, setdrifter, parallel_graph, sink]);
 
 local app = {
   type: 'Pgrapher',
