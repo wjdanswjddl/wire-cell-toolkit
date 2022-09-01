@@ -68,10 +68,13 @@ interval container library.
 The ~xi, yi, cs~ returned from ~recs.regions()~ at ~(3)~ gives the interval
 in the horizontal X direction and the vertical Y direction of one
 region.  See the Boost documentation for all that one can do with
-~boost::icl~ intervals.
+~boost::icl~ intervals.  Finally at ~(4)~ the set of ~Value~ values
+associated with the region is iterated upon.
 
-Finally at ~(4)~ the set of ~Value~ values associated with the region is
-iterated upon.
+An interval map has a ~find()~ method.  It may be used with ~Rectangles~
+but one must first do a ~find()~ on the ~xmap()~ which gives access to
+Y-maps.   FIXME: provide example
+
 
 * See more
 
