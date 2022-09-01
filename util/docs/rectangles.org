@@ -1,0 +1,83 @@
+#+title: Rectangles - a 2D interval tree
+
+* Intervals, trees, sets and maps.
+
+A 1D interval is a line segment defined by its endpoint values.
+Either endpoint may be considered inside (closed interval) or outside
+(open interval).  Generally, we will assume a /right open/ interval
+meaning the lower endpoint is considered inside the interval and the
+upper endpoint is just outside the interval.
+
+An /interval tree/ is a data structure that allows (relatively) fast
+insert and queries on a set of intervals.  Queries can be either to
+find all intervals that cover a given point on the line or which cover
+a given interval.  Coverage takes into consideration closed or open
+endpoints.
+
+An interval tree may be used only to store intervals in which it is an
+/interval set/.  Or, a value may be kept associated with an interval in
+which case one has an /interval map/.  In the latter case, when
+intervals overlap, the interval map requires a way to associate a
+value separately to each division of the interval.  The value is thus
+held one or more sets and thus must be copyable.
+
+* Interval rectangles and regions
+
+The 1D interval can be extended to 2D to become a rectangle in some
+Cartesian space.  As in the 1D case, a value may be associated with
+each rectangle.
+
+As rectangles overlap, they become fragmented into regions.  These are
+also rectangular in shape but are given a name as they have a set of
+values associated instead of a single value.
+
+* WCT implementation
+
+In brief pseudocode:
+
+#+begin_src c++
+  #include "WireCellUtil/Rectangles.h"
+  using namespace WireCell;
+  
+  // (1)
+  using rec_t = Rectangles<int, char>;
+  rec_t recs;
+  
+  // (2)
+  recs.add(0,7, 0, 4, 'a');
+  recs += rec_t::rectangle_t(rec_t::interval_t(3,11),
+                             rec_t::interval_t(2, 6), 'b');
+  // (3)
+  for (const auto& [xi, yi, cs] : recs.regions()) {
+      auto x1 = xi.lower();
+      auto x2 = xi.upper();
+      //...
+  
+      // (4)
+      for (char c : cs) {
+          // ...
+      }
+  }
+#+end_src
+
+A ~Rectangles<Key,Value>~ is created at ~(1)~ and loaded up with a number
+of rectangles at ~(2)~ via the ~add()~ method or the ~operator+=~.  This
+latter is provided to mimic the underlying ~boost::icl~ 1D Boost
+interval container library.
+
+The ~xi, yi, cs~ returned from ~recs.regions()~ at ~(3)~ gives the interval
+in the horizontal X direction and the vertical Y direction of one
+region.  See the Boost documentation for all that one can do with
+~boost::icl~ intervals.
+
+Finally at ~(4)~ the set of ~Value~ values associated with the region is
+iterated upon.
+
+* See more
+
+- https://www.boost.org/doc/libs/1_80_0/libs/icl/doc/html/index.html
+
+- https://en.wikipedia.org/wiki/Interval_tree
+
+- the ~util/test/test_rectangles*.cxx~ test programs
+  
