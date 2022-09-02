@@ -19,7 +19,7 @@ Coordinates::Coordinates(const ray_pair_vector_t& rays, int normal_axis, double 
         return v;
     };
 
-    // must go through 1, 2 and 3 combonations
+    // must go through 1, 2 and 3 combinations
 
     // First, find the per-layer things
     for (layer_index_t ilayer = 0; ilayer < m_nlayers; ++ilayer) {

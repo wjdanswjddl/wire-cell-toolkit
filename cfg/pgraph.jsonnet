@@ -172,12 +172,13 @@ local wc = import "wirecell.jsonnet";
     // single source.  The joiner must be capable of handling and
     // N-join.  Each source is connected to joiner's input ports in
     // order.
-    join_sources(joiner, sources, n=2) :: $.intern(outnodes=[joiner],
-                                                   centernodes=sources,
-                                                   iports=[],
-                                                   edges=std.mapWithIndex(function(ind,s) $.edge(s,joiner,0,ind),
-                                                                          sources),
-                                                  ),
+    join_sources(joiner, sources, n=2) :: 
+        $.intern(outnodes=[joiner],
+                 centernodes=sources,
+                 iports=[],
+                 edges=std.mapWithIndex(function(ind,s) $.edge(s,joiner,0,ind),
+                                        sources),
+                ),
     
 
     // Call this to return the edges from a graph (a pnode).  It takes
