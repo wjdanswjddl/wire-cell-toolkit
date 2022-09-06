@@ -8,13 +8,37 @@
 
 #include "WireCellAux/FrameTools.h"
 
-// This is found at *compile* time in util/inc/.
 #include "WireCellUtil/custard/custard_boost.hpp"
 
 WIRECELL_FACTORY(ClusterFileSink, WireCell::Sio::ClusterFileSink,
                  WireCell::INamed,
                  WireCell::IClusterSink, WireCell::ITerminal,
                  WireCell::IConfigurable)
+
+static void dump_cluster(WireCell::Log::logptr_t& log,
+                         const WireCell::ICluster::pointer& cluster)
+{
+    const auto& gr = cluster->graph();
+    const auto known = WireCell::cluster_node_t::known_codes;
+    const size_t ncodes = known.size();
+    std::vector<size_t> counts(ncodes, 0);
+
+    for (auto vtx : boost::make_iterator_range(boost::vertices(gr))) {
+        const auto& vobj = gr[vtx];
+        ++counts[vobj.ptr.index() - 1]; // node type index=0 is the bogus node type
+    }
+
+    std::stringstream ss;
+    for (size_t ind=0; ind < ncodes; ++ind) {
+        ss << known[ind] << ":" << counts[ind] << " ";
+    }
+
+    log->debug("cluster={} nvertices={} nedges={} types: {}",
+               cluster->ident(),
+               boost::num_vertices(gr),
+               boost::num_edges(gr),
+               ss.str());
+}
 
 using namespace WireCell;
 
@@ -53,7 +77,7 @@ std::string Sio::ClusterFileSink::fqn(const ICluster& cluster, std::string name,
 
 void Sio::ClusterFileSink::jsonify(const ICluster& cluster)
 {
-    auto top = Aux::jsonify(cluster);
+    auto top = Aux::jsonify(cluster.graph());
     std::stringstream topss;
     topss << top;
     auto tops = topss.str();
@@ -66,7 +90,7 @@ void Sio::ClusterFileSink::jsonify(const ICluster& cluster)
 
 void Sio::ClusterFileSink::dotify(const ICluster& cluster)
 {
-    auto top = Aux::dotify(cluster);
+    auto top = Aux::dotify(cluster.graph());
     std::stringstream topss;
     topss << top;
     auto tops = topss.str();
@@ -78,20 +102,27 @@ void Sio::ClusterFileSink::dotify(const ICluster& cluster)
 
 void Sio::ClusterFileSink::numpify(const ICluster& cluster)
 {
-    Aux::ClusterArrays ca(cluster.graph());
-    
     auto fn = [&](const std::string& name) {
         return this->fqn(cluster, name, "npy");
     };
 
-    write_numpy(ca.idents(), fn("idents"));
-    write_numpy(ca.edges(), fn("edges"));
-    write_numpy(ca.node_ranges(), fn("ranges"));
-    write_numpy(ca.signals(), fn("signals"));
-    write_numpy(ca.slice_durations(), fn("slice_durations"));
-    write_numpy(ca.wire_endpoints(), fn("wire_endpoints"));
-    write_numpy(ca.wire_addresses(), fn("wire_addresses"));
-    write_numpy(ca.blob_shapes(), fn("blob_shapes"));
+    Aux::ClusterArrays ca(cluster.graph());
+
+    // write nodes
+    for (auto nc : ca.node_codes()) {
+        const auto& na = ca.node_array(nc);
+        std::string name = "_nodes";
+        name[0] = nc;
+        write_numpy(na, fn(name));
+    }
+
+    // write edges
+    for (auto ec : ca.edge_codes()) {
+        const auto& ea = ca.edge_array(ec);
+        auto name = ca.edge_code_str(ec);
+        name += "edges";
+        write_numpy(ea, fn(name));
+    }
 }
 
 void Sio::ClusterFileSink::configure(const WireCell::Configuration& cfg)
@@ -104,6 +135,10 @@ void Sio::ClusterFileSink::configure(const WireCell::Configuration& cfg)
     }
     m_prefix = get<std::string>(cfg, "prefix", m_prefix);
     m_format = get<std::string>(cfg, "format", m_format);
+    // force-override format if .npz
+    if (String::endswith(m_outname, ".npz")) {
+        m_format = "numpy";
+    }
     if (m_format == "json") {
         m_serializer = [&](const ICluster& cluster){this->jsonify(cluster);};
     }
@@ -118,6 +153,7 @@ void Sio::ClusterFileSink::configure(const WireCell::Configuration& cfg)
     }
 }
 
+
 bool Sio::ClusterFileSink::operator()(const ICluster::pointer& cluster)
 {
     if (!cluster) {             // EOS
@@ -125,7 +161,8 @@ bool Sio::ClusterFileSink::operator()(const ICluster::pointer& cluster)
         ++m_count;
         return true;
     }
-    
+
+    dump_cluster(log, cluster);
     m_serializer(*cluster);
 
     ++m_count;
