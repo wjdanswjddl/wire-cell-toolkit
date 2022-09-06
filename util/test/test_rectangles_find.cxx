@@ -9,7 +9,8 @@
 using namespace svg;
 using namespace WireCell;
 using boost::icl::length;
-using rects_t = Rectangles<double, char>;
+// <Value,XKey,YKey>
+using rects_t = Rectangles<char, double, int>;
 
 // scale from [0,1] to cartesian domain axis.
 const double scale = 1000;
@@ -59,13 +60,14 @@ std::string charstr(char c)
     return letter.str(); 
 }
 
-rects_t::interval_t line(std::function<double()>& r)
+template<typename Key = double>
+rects_t::interval_t<Key> line(std::function<double()>& r)
 {
-    double a = scale*r(), b = scale*r();
+    Key a = scale*r(), b = scale*r();
     if (a > b) {
         std::swap(a,b);
     }
-    return rects_t::interval_t(a,b);
+    return rects_t::interval_t<Key>(a,b);
 }
 
 Document rect2svg(Document& doc,
@@ -125,7 +127,7 @@ rects_t doit(int nrecs, std::function<double()> r, Document& doc)
 {
     rects_t recs;
     for (int count=0; count < nrecs; ++count) {
-        auto rect = rects_t::rectangle_t(line(r), line(r));
+        auto rect = rects_t::rectangle_t(line<double>(r), line<int>(r));
         char letter = 'a'+count;
         auto ele = rects_t::element_t(rect, letter);
         recs += ele;
@@ -145,8 +147,8 @@ rects_t doit(int nrecs, std::function<double()> r, Document& doc)
 }
 
 void doquery(const rects_t& rects,
-             const rects_t::interval_t& xi,
-             const rects_t::interval_t& yi,
+             const rects_t::xinterval_t& xi,
+             const rects_t::yinterval_t& yi,
              Document& doc)
 {
     doc << Rectangle(Point(xi.lower(), yi.lower()),
@@ -194,8 +196,9 @@ int main(int argc, char* argv[])
     auto recs = doit(nrecs, rand, doc);
 
     const double ks = 0.1*scale;
-    auto ki = rects_t::interval_t(0.5*scale-ks, 0.5*scale+ks);
-    doquery(recs, ki, ki, doc);
+    auto kxi = rects_t::xinterval_t(0.5*scale-ks, 0.5*scale+ks);
+    auto kyi = rects_t::yinterval_t(0.5*scale-ks, 0.5*scale+ks);
+    doquery(recs, kxi, kyi, doc);
 
     
     doc.save();
