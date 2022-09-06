@@ -8,12 +8,17 @@ using namespace WireCell;
 
 int main(int argc, char* argv[])
 {
-    using rec_t = Rectangles<char, int>;
-    rec_t recs;
+    using rect_t = Rectangles<char, int>;
+    rect_t recs;
 
+    // one way to add rectangle + value data.
     recs.add(0,7, 0, 4, 'a');
-    recs += rec_t::rectangle_t(rec_t::xinterval_t(3,11),
-                               rec_t::yinterval_t(2, 6), 'b');
+
+    // another way to do it.
+    recs += rect_t::element_t(
+        rect_t::rectangle_t(rect_t::xinterval_t(3,11),
+                            rect_t::yinterval_t(2, 6)),
+        'b');
 
     std::string fname = argv[0];
     fname += ".euk";
@@ -26,7 +31,8 @@ int main(int argc, char* argv[])
     };
 
     int ind=0;
-    for (const auto& [xi, yi, cs] : recs.regions()) {
+    for (const auto& [rec, cs] : recs.regions()) {
+        const auto& [xi, yi] = rec;
         rect_t::xkey_t x1 = xi.lower();
         rect_t::xkey_t x2 = xi.upper();
         rect_t::ykey_t y1 = yi.lower();
