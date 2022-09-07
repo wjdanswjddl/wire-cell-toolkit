@@ -26,6 +26,8 @@ ClusterShadow::graph_t ClusterShadow::shadow(const cluster_graph_t& cgraph,
 
     // Add the cluster vertices.
     ClusterShadow::graph_t cs_graph(nclust);
+    cs_graph[boost::graph_bundle].stype = bs_graph[boost::graph_bundle].stype;
+
     for (auto& [bs_vtx, cs_vtx] : clusters) { // each blob with its geom cluster ID
         auto& cs_node = cs_graph[cs_vtx];
         ++cs_node.nblobs;
