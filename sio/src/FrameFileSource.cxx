@@ -46,8 +46,8 @@ void Sio::FrameFileSource::configure(const WireCell::Configuration& cfg)
 
     m_in.clear();
     input_filters(m_in, m_inname);
-    if (m_in.size() < 2) {     // must have at least get tar filter + file source.
-        THROW(ValueError() << errmsg{"FrameFielSource: unsupported inname: " + m_inname});
+    if (m_in.size() < 1) {
+        THROW(ValueError() << errmsg{"FrameFileSource: unsupported inname: " + m_inname});
     }
 
     m_tags.clear();
