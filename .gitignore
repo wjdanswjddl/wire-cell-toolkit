@@ -67,3 +67,5 @@ auto
 latexmk-out
 *.tex
 
+svg-inkscape
+*.html
