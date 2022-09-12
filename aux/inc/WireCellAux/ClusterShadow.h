@@ -16,11 +16,15 @@ namespace WireCell::Aux::ClusterShadow {
         char stype;
     };
 
-    // Data type to describe one view of a cluster in terms of the
-    // x=time and y=index 2D rectangles that are spanned by the blobs.
-    // Blobs are represented as ICluster graph vertex descriptors.
-    // The coverages of a pair of clusters in shadow may be compared
-    // with set-theoretic operations (difference, intersection, etc).
+    // The "coverage" is a Rectangles to describe each tomographic
+    // view of the cluster.  An interval on the Y-axis spans either
+    // channel or wire indices (integral number).  An interval on the
+    // X-axis spans a time slice (floating point number).  In
+    // principle the time slice spans need not be uniform.  The value
+    // of the Rectangles map are blob vertex descriptors into the
+    // original ICluster graph.  The coverages of a pair of clusters
+    // in shadow may be compared with set-theoretic operations
+    // (difference, intersection, etc).
     using coverage_t = Rectangles<cluster_vertex_t, double, int>;
 
     // A node summarizes a geometric cluster.

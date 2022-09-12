@@ -28,8 +28,9 @@
 #ifndef WIRECELL_UTIL_RECTANGLES
 #define WIRECELL_UTIL_RECTANGLES
 
-#include <set>
+#include "WireCellUtil/Binning.h"
 #include "boost/icl/interval_map.hpp"
+#include <set>
 
 namespace WireCell {
 
@@ -83,13 +84,19 @@ namespace WireCell {
         }
 
         // Add rectangle as pair of intervals.
-        void add(const xinterval_t xi, const yinterval_t& yi, const value_t& val) {
+        void add(const xinterval_t& xi, const yinterval_t& yi, const set_t& vset) {
             ymap_t ymap;
-            ymap += std::make_pair(yi, set_t{val});
+            ymap += std::make_pair(yi, vset);
             m_xmap += std::make_pair(xi, ymap);
+        }
+        void add(const xinterval_t& xi, const yinterval_t& yi, const value_t& val) {
+            add(xi, yi, set_t{val});
         }
 
         // Add rectangle as rectangle.
+        void add(const rectangle_t& r, const set_t& vset) {
+            add(r.first, r.second, vset);
+        }
         void add(const rectangle_t& r, const value_t& val) {
             add(r.first, r.second, val);
         }
@@ -136,6 +143,42 @@ namespace WireCell {
       private:
         xmap_t m_xmap;
     };
+
+    // A Rectangles which is indexed like a pixelized image or array.
+    // The columns run along the X dimension, rows run along the Y.
+    template<typename Value, typename Set = std::set<Value>>
+    using Rectarray = Rectangles<Value, size_t, size_t, Set>;
+
+    // Return a new Rectangles that is the result of mapping the input
+    // Rectangles domain to a discretized "pixel" domain defined via
+    // the binnings.  The bins of the binnings are interpreted as
+    // pixel dimensions.  Any regions out of range of the Binnings are
+    // truncated.
+    template<typename Rec, typename Ret = Rectarray<typename Rec::value_t, typename Rec::set_t>>
+    Ret pixelize(const Rec& inrec, const Binning xbins, const Binning& ybins)
+    {
+        using pxint_t = typename Ret::xinterval_t;
+        using pyint_t = typename Ret::yinterval_t;
+        Ret ret;
+
+        const auto nxbins = xbins.nbins();
+        const auto nybins = ybins.nbins();
+
+        for (const auto& [xi, ymap] : inrec.xmap()) {
+            auto pxi = pxint_t::right_open(std::clamp(xbins.bin(lower(xi)), 0, nxbins-1),
+                                           std::clamp(xbins.bin(upper(xi)), 0, nxbins-1));
+            
+            for (const auto& [yi, val] : ymap) {
+                auto pyi = pyint_t::right_open(std::clamp(ybins.bin(lower(yi)), 0, nybins-1),
+                                               std::clamp(ybins.bin(upper(yi)), 0, nybins-1));
+                ret.add(pxi, pyi, val);
+            }
+        }
+        return ret;        
+    }
+
+    
+
 }
 
 

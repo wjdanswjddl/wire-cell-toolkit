@@ -91,8 +91,9 @@ Document rect2svg(Document& doc,
 }
 
 
+template<typename Region>
 Document region2svg(Document& doc,
-                    const rects_t::region_t& reg,
+                    const Region& reg,
                     const Color& bg,
                     const Color& fg)
 {
@@ -130,6 +131,7 @@ rects_t doit(int nrecs, std::function<double()> r, Document& doc)
         auto rect = rects_t::rectangle_t(line<double>(r), line<int>(r));
         char letter = 'a'+count;
         auto ele = rects_t::element_t(rect, letter);
+        std::cerr << "Adding " << letter << ": " << rect.first << " x " << rect.second << std::endl;
         recs += ele;
         auto bg = colors[0][1+count%7];
         auto fg = colors[0][0];
@@ -199,8 +201,29 @@ int main(int argc, char* argv[])
     auto kxi = rects_t::xinterval_t(0.5*scale-ks, 0.5*scale+ks);
     auto kyi = rects_t::yinterval_t(0.5*scale-ks, 0.5*scale+ks);
     doquery(recs, kxi, kyi, doc);
-
-    
     doc.save();
+
+    {
+        const double scale2 = scale/10;
+        const size_t nx = scale2;
+        const size_t ny = scale2;
+        auto irecs = pixelize(recs,
+                              Binning(2*nx, -scale, scale),
+                              Binning(2*ny, -scale, scale));
+        Dimensions dimensions2(2*scale2, 2*scale2);
+        std::string fname2 = argv[0];
+        fname2 += "2.svg";
+        Document doc2(fname2, Layout(dimensions2, Layout::TopLeft));
+
+        int count = 0;
+        for (const auto& ireg : irecs.regions()) {
+            auto bg = colors[1][1+count%7];
+            auto fg = colors[1][0];
+            region2svg(doc2, ireg, bg, fg);
+            ++count;
+        }
+        doc2.save();
+    }
+
     return 0;
 }

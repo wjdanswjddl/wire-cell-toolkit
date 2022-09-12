@@ -1,7 +1,6 @@
 #+title: WCT Rectangles
 #+BEAMER_HEADER: \title[WCT Rectangles]{Wire-Cell Toolkit Rectangles}
 #+setupfile: ~/sync/talks/setup.org
-#+include: ~/sync/talks/setup-listings.org
 #+LATEX_CLASS_OPTIONS: [serif,professionalfont,colorlinks,aspectratio=149]
 #+latex_header: \usepackage{svg}
 
@@ -14,7 +13,7 @@
 
 * Intervals
 
-Consider the 1D domain, either $x \in \mathbb{R}$ or $i \in \mathbb{I}$.
+Consider the 1D number line, either integer/discrete or real/continuous valued.
 
 #+begin_src ditaa :file simple-interval.png :cmdline -s 4.0 :exports results
           
@@ -26,30 +25,32 @@ Consider the 1D domain, either $x \in \mathbb{R}$ or $i \in \mathbb{I}$.
 
 #+end_src
 
-An /interval/ $[x_1, x_2)$ is some /right-open/, finite, contiguous subset $x_1 \le x < x_2$.
-- Example, $[2,5)$ 2 is in the interval, \textbf{5 is not},
-  - /ie/ like Python/C++ iterators, "end" is just-past last,
-  - $[2,5)$ and $[5,7)$ are not overlapping.
-- Also possible, but ignored here: /closed $[a,b]$, open/ $(a,b)$ or /left-open/ $(a,b]$.
+#+RESULTS:
+[[file:simple-interval.png]]
+
+
+An /interval/ is some finite, contiguous subset of the number line,
+- Here, confine to the /right-open/ inteval: ~[2,5)~.
+- ~2~ is in the interval, ~5~ is not (/ie/, just like Python/C++ iterator ranges)
+- ~[2,5)~ and ~[5,7)~ are not overlapping
 
 
 * Interval tree - a binary tree of intervals
 
-Interval tree provides optimized storage and query of intervals.
+For $n$ stored intervals (and $m$ returned), naive operations require at
+least $\mathcal{O}(n)$.
 
-- For $n$ stored intervals, naive operations require at least $\mathcal{O}(n)$.
+With a tree structure, expect:
 
-With a tree structure and queries returning $m$ intervals, expect:
+- creation :: $\mathcal{O}(n\log n)$ 
 
 - insert/delete :: $\mathcal{O}(\log n)$ 
 
-- full creation :: $\mathcal{O}(n\log n)$ 
+- memory :: $\mathcal{O}(n)$ 
 
 - point query :: $\mathcal{O}(\log n + m)$
 
 - interval query :: $\mathcal{O}(\log n)$
-
-- memory :: $\mathcal{O}(n)$ 
 
 \vfill
 
@@ -64,19 +65,11 @@ Adds /set-theoretic/ operations: /union/ (addition), /difference/
 
 \vfill
 
-Set-addition, result is governed by an /interval combining style/.  Given:
+Set addition and interval overlaps:
 
-\[s_1 \equiv \{[1, 4)\},\ s_2 \equiv \{[2, 5)\},\ s_3 \equiv \{[5, 7)\}\]
-
-Then $s_1 + s_2 + s_3$ depends on one of three styles:
-
-- joining :: $\{[1, 7)\}$ (combine on overlap and touch)
-- separating :: $\{[1, 5), [5, 7)\}$ (combine on overlap, not touch)
-- splitting :: $\{[1,2),[2,4),[4,5),[5,7)\}$ (split on overlap, keep borders)
-
-\vfill 
-
-Note: interval sets have no value associated to intervals....
+- ~s1 = {[1, 4)}~
+- ~s2 = {[2, 5)}~
+- ~s1 + s2 = {[1, 2), [2, 4), [4, 5)}~
 
 * Interval maps - associate values with intervals.
 
@@ -90,76 +83,64 @@ Note: interval sets have no value associated to intervals....
 
 #+end_src
 
-An interval map still holds intervals as interval sets.
+#+RESULTS:
+[[file:simple-interval-map.png]]
 
-And the interval's value(s) is itself held in a \textbf{set}.
+An interval map holds an interval's value(s) in a \textbf{set}.
 
 * Interval map: aggregation on overlap
 
-** \textbf{Differing values} aggregate same regardless of /interval combining style/:
+In pseudocode:
 
-\[m_1 \equiv \{[1, 4) \to 0\},\ m_2 \equiv \{[2, 5) \to 1\},\ m_3 \equiv \{[5, 7) \to 2\}\]
+#+begin_example
+interval_map m;
 
-Then $m_1 + m_2 + m_3$ produces the following independent of the style:
+m.add([2,5), v1) -> { [2,5) -> {v1} }
 
-\[([1,2) \to \{0 \}), ([2,4) \to \{0, 1 \}), ([4,5) \to \{1 \}), ([5,7) \to \{2 \})\}\]
-
-\footnotesize Note, overlap $[2,4)$ has set with two values $\{0,1\}$.
-
-** \textbf{Common values} are subject to /interval combining style/:
-
-\[m_1 \equiv \{[1, 4) \to 0\},\ m_2 \equiv \{[2, 5) \to 0\},\ m_3 \equiv \{[5, 7) \to 0\}\]
-
-Then $m_1 + m_2 + m_3$ depends on one of just two styles:
-
-- joining :: $\{([1,7) \to {0 })\}$
-- splitting :: $\{([1,2)\to{0 }), ([2,4)\to\{0 \}), ([4,5)\to\{0 \}),([5,7)\to\{0 \})\}$
+m.add([1,4), v2) -> { [1, 2)->{v2},
+                      [2, 4)->{v1,v2},
+                      [4, 5)->{v1} }
+#+end_example
 
 
 
 * Boost Interval Container Library (~boost::icl~)
 
-
 - https://www.boost.org/doc/libs/master/libs/icl
-- Supports containers: intervals, interval sets and interval maps.
-- Supports the /interval combining styles/ described above.
+- Supports intervals, interval sets and interval maps.
 - Provides family of free functions and operators.
   - creation, set operations, queries, iteration
-  - All functions work on all types of containers, where it makes sense.
+
 
 
 * ~boost::icl~ interval map example
 
 \footnotesize
 #+begin_src C++
-  using key_t = int;    // the interval domain type
-  using val_t = double; // associated value type
-  using set_t = std::set<val_t>;
-  // with "joining" combining style:
-  using imap_t = boost::icl::interval_map<key_t, set_t>;
-  // or with "splitting" combinging style:
-  // using imap_t = boost::icl::split_interval_map<key_t, set_t>;
-  using interval_t = imap_t::interval_type;
-
+  using key_t = int;
+  using val_t = double;
+  using imap_t = boost::icl::interval_map<key_t, val_t>;
+  using interval_t = boost::icl::interval<key_t>::interval_type;
+  
   imap_t m;
   m += std::make_pair(interval_t::right_open(0, 7), 42.0);
-
+  
   auto qi = interval_t::right_open(1, 2);
   auto mq = m & qi; // "bitwise and"
   for (const auto& [i, s] : mq) {
       cout << "in interval " << i << " we have set {";
       for (const auto& v : s) { cout << " " << v; }
       cout << " }\n";
-  } 
+  }
 #+end_src
 
-* Extend interval map to 2D -- ~WireCell::Rectangles~
+* Extend interval map to 2D - ~WireCell::Rectangles~
 
 [[file:hlwm-disjoin.png]]
 
 \tiny (thank ~herbstluftwm~ for the artwork)
 
-* A dimensional hierarchy implementation of 2D interval maps
+* Dimensional hierarchy of interval maps.
 
 \textbf{Very} simple implementation.  
 
@@ -174,10 +155,10 @@ Then $m_1 + m_2 + m_3$ depends on one of just two styles:
   using xmap_t = boost::icl::interval_map<xkey_t, ymap_t>;
 #+end_src
 
-Essentially, an X-dimension map to a Y-dimension map to a set of values.
+Essentially, X dimension interval map maps to a Y dimension interval
+map which finally maps to a set of values.
 
-That's really all there is.
-- ~WireCell::Rectangles~ provides a light dusting of syntactic sugar.
+Everything else in ~Rectangles~ merely provides some syntactic sugar.
 
 * Example - random rectangles
 
@@ -213,53 +194,44 @@ X-> [501.495,600) Y-> [572.966,600) {b}
   
 ** 
 
-\footnotesize The /dimensional hierarchy/ implementation
+\footnotesize The dimensional hierarchy strategy to extend to 2D
 results in each X-interval projecting across \textbf{all} rectangles.
-Rectangles which may not overlap in the Y-dimension nonetheless become segmented along the X-dimension.
-This increases the complexity-$n$.  Will it be prohibitive?
+This causes segmentation of rectangles which do not overlap in Y with
+the one providing the X-interval.
 
-* Cluster Shadows - apply ~Rectangles~
+* Cluster Shadows 
 
-A \textbf{Geometric Cluster} is a /connected component/ of a ~b-b~ graph where:
-
+A \textbf{Geometric Cluster} is a /connected component/ of a ~b-b~ graph
+- ~ICluster~ already has this ~b-b~ subgraph embedded
 - ~b-b~ edges formed between ~b~ nodes in neighboring slices which overlap.
+- Todo: form these ~b-b~ edges given dead/bad channels
 
-- ~ICluster~ already has this ~b-b~ subgraph embedded.
-
-- TODO: form these ~b-b~ edges given dead/bad channels/blobs.
-
-A \textbf{Blob Shadow} (see last presentation).
+A \textbf{Blob Shadow} (see last presentation)
 
 - Describes overlap of two blobs in one view.
 
 - Can be wire-type or channel-type shadow.
 
-- Results in a (different) ~b-b~ \textbf{blob shadow graph}, edge is the shadow.
+- Results in a ~b-b~ \textbf{blob shadow graph}, edge is the shadow.
 
-A \textbf{Cluster Shadow Graph} combines these two ~b-b~ graphs.
-
-- Makes a ~g-g~ graph, each ~g~ is "geometric cluster".
-
-- A ~g~ holds one ~Rectangles~, each giving the cluster's projection in a view.
-
-- A ~g-g~ edge for any cluster pair with non-zero shadow.
+A \textbf{Cluster Shadow Graph} combines tese two ~b-b~ graphs
+- Makes a ~g-g~ graph, each ~g~ is "geometric cluster"
+- A ~g~ holds a ~Rectangles~ of the cluster for each view
+- A ~g-g~ edge for any cluster pair with non-zero shadow
 
 * Application: blob deghosting
 
 A ghost blob truly has no charge and tends to have shadows with real blobs.
 
-Use the ~Rectangles~ from Cluster Shadows (CS) to find them:
+Use the ~Rectangles~ from Cluster Shadows to find them:
 
-- Iterate over ~g-g~ edges to check pair-wise, per-view cluster shadows.
-- Use set-difference and/or set-intersection of the CS ~Rectangles.~
-- Possible metrics: area or charge*area or charge/area in diff/inter to total.
+- Iterate over ~b-b~ edges of a CS graph.
+- Get set-difference and/or set-intersection of the CS ~Rectangles.~
+- Compare area or charge*area or charge/area in diff/inter to total.
 - Define selection criteria for ghosts.
   - compare against ~BlobDepoFill~ true charge blobs
 
-This work is still TODO.
-- Functions to find frame charge in 2D intervals of ~Rectangles~.
-- Develop and choose the metrics and their selection criteria
-
+This work is still a big TODO.
 
 # Local Variables:
 # eval: (fix-latex-previews)
