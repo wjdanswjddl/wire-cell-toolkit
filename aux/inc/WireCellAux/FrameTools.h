@@ -116,21 +116,14 @@ namespace WireCell {
         /// outside of any individual trace.
         IFrame::pointer sum(std::vector<IFrame::pointer> frames, int ident);
 
-        /// Return the sum of trace samples inside the Rectangles rec.
-        /// Two functions must be provided to map the Rectangles.  One
-        /// must map the rec's X dimension to the sapce of trace
-        /// ticks.  Note, this mapping should assume a 0 tick origin
-        /// (ie, the trace's tbin value will be applied internally).
-        /// The second must map the rec's Y dimension to a channel
-        /// ident.  That is the ID number as held by a trace.  Note,
-        /// the actual values held in the rec are ignored.
-        template<typename Rec>
-        double rectsum(const Rec& rec, const ITrace::vector& traces,
-                       std::function<size_t(const Rec::xkey_t&)> xdim,
-                       std::function<int(const Rec::ykey_t&)> ydim);
-
 
     }  // namespace Aux
 }  // namespace WireCell
 
 #endif
+
+
+
+
+
+
