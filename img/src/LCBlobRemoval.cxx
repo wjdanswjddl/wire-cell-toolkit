@@ -12,8 +12,10 @@
 
 #include "WireCellUtil/NamedFactory.h"
 #include "WireCellUtil/Logging.h"
+#include "WireCellUtil/String.h"
 
 #include <iterator>
+#include <chrono>
 
 WIRECELL_FACTORY(LCBlobRemoval, WireCell::Img::LCBlobRemoval,
                  WireCell::INamed,
@@ -119,6 +121,7 @@ bool Img::LCBlobRemoval::operator()(const input_pointer& in, output_pointer& out
     dump_cg(in_graph, log);
     auto out_graph = prune(in_graph, m_blob_thresh.value());
     auto id2cluster = get_geom_clusters(out_graph);
+    log->debug("found: {} blob geom clusters", id2cluster.size());
     std::unordered_map<int, layer_projection_map_t> id2lproj;
     std::unordered_set<WirePlaneLayer_t> layers;
     for (auto ic : id2cluster) {
@@ -131,9 +134,18 @@ bool Img::LCBlobRemoval::operator()(const input_pointer& in, output_pointer& out
             auto proj = lproj.second;
             layers.insert(layer);
             // log->debug("{{{},{}}} => {}", id, layer, dump(proj));
+            const std::string aname = String::format("proj2d_%d.tar.gz", (int)layer);
+            // write(proj, aname);
         }
+        // exit(42);
     }
 
+    // debug
+    auto time_start = std::chrono::high_resolution_clock::now();
+    std::map<std::string, int> counters = {
+        {"ncomp", 0},
+        {"n1", 0}
+    };
     for (auto layer : layers) {
         for (auto ref_ilp : id2lproj) {
             auto ref_id = ref_ilp.first;
@@ -142,13 +154,21 @@ bool Img::LCBlobRemoval::operator()(const input_pointer& in, output_pointer& out
                 auto tar_id = tar_ilp.first;
                 if (tar_id == ref_id) continue;
                 auto& tar_proj = tar_ilp.second[layer];
+                counters["ncomp"] += 1;
                 int coverage = compare(ref_proj, tar_proj);
                 if (coverage == 1) {
+                    counters["n1"] += 1;
                     log->debug("ref: {{{},{}}} => {}", ref_id, layer, dump(ref_proj));
                     log->debug("tar: {{{},{}}} => {}", tar_id, layer, dump(tar_proj));
                 }
             }
         }
+    }
+    auto time_stop = std::chrono::high_resolution_clock::now();
+    auto time_duration = std::chrono::duration_cast<std::chrono::seconds>(time_stop - time_start);
+    log->debug("compare: {} sec", time_duration.count());
+    for (auto c : counters) {
+        log->debug("{} : {} ", c.first, c.second);
     }
 
     dump_cg(out_graph, log);
