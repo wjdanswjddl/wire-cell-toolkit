@@ -88,7 +88,7 @@ bool Gen::Misconfigure::operator()(const input_pointer& in, output_pointer& out)
 
         // auto wave = Waveform::replace_convolve(trace->charge(), m_to, m_from, m_truncate);
         const auto& charge = trace->charge();
-        auto wave = Aux::replace(m_dft, charge, m_to, m_from);
+        auto wave = Aux::DftTools::replace(m_dft, charge, m_to, m_from);
         wave.resize(charge.size());
         out_traces[ind] = std::make_shared<SimpleTrace>(trace->channel(), trace->tbin(), wave);
     }

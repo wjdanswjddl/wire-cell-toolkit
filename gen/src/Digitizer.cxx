@@ -91,7 +91,7 @@ double Gen::Digitizer::digitize(double voltage)
         return adcmaxval;
     }
     const double relvoltage = (voltage - m_fullscale[0]) / (m_fullscale[1] - m_fullscale[0]);
-    return relvoltage * adcmaxval;
+    return round(relvoltage * adcmaxval);
 }
 
 bool Gen::Digitizer::operator()(const input_pointer& vframe, output_pointer& adcframe)
@@ -129,6 +129,8 @@ bool Gen::Digitizer::operator()(const input_pointer& vframe, output_pointer& adc
 
     ITrace::vector adctraces(nrows);
 
+    double totadc = 0;
+
     for (size_t irow = 0; irow < nrows; ++irow) {
         int ch = channels[irow];
         WirePlaneId wpid = m_anode->resolve(ch);
@@ -143,6 +145,7 @@ bool Gen::Digitizer::operator()(const input_pointer& vframe, output_pointer& adc
             double voltage = m_gain * arr(irow, icol) + baseline;
             const float adcf = digitize(voltage);
             adcwave[icol] = adcf;
+            totadc += adcf;
         }
         adctraces[irow] = make_shared<SimpleTrace>(ch, tbinmm.first, adcwave);
     }
@@ -152,9 +155,9 @@ bool Gen::Digitizer::operator()(const input_pointer& vframe, output_pointer& adc
     }
     adcframe = sframe;
 
-    log->debug("call={} traces={} frame={} outtag=\"{}\"",
+    log->debug("call={} traces={} frame={} totadc={} outtag=\"{}\"",
                m_count,
-               adctraces.size(), vframe->ident(), m_frame_tag);
+               adctraces.size(), vframe->ident(), totadc, m_frame_tag);
     ++m_count;
     return true;
 }

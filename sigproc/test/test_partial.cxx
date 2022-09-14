@@ -24,7 +24,7 @@ int main(int argc, char* argv[])
     pm.add("WireCellAux");
     auto idft = Factory::lookup_tn<IDFT>("FftwDFT");
 
-    auto spectrum = Aux::fwd_r2c(idft, horig);
+    auto spectrum = Aux::DftTools::fwd_r2c(idft, horig);
     Diagnostics::Partial m_check_partial;
     bool is_partial = m_check_partial(spectrum);
     Assert(is_partial);

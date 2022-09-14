@@ -103,7 +103,7 @@ bool Gen::PerChannelVariation::operator()(const input_pointer& in, output_pointe
         // tch_resp.resize(m_nsamples, 0);
         // auto wave = Waveform::replace_convolve(trace->charge(), tch_resp, m_from, m_truncate);
         const auto& charge = trace->charge();
-        auto wave = Aux::replace(m_dft, charge, tch_resp, m_from);
+        auto wave = Aux::DftTools::replace(m_dft, charge, tch_resp, m_from);
         wave.resize(charge.size());
         out_traces[ind] = std::make_shared<SimpleTrace>(chid, trace->tbin(), wave);
     }

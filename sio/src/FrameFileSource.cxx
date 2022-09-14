@@ -46,8 +46,8 @@ void Sio::FrameFileSource::configure(const WireCell::Configuration& cfg)
 
     m_in.clear();
     input_filters(m_in, m_inname);
-    if (m_in.size() < 2) {     // must have at least get tar filter + file source.
-        THROW(ValueError() << errmsg{"FrameFielSource: unsupported inname: " + m_inname});
+    if (m_in.size() < 1) {
+        THROW(ValueError() << errmsg{"FrameFileSource: unsupported inname: " + m_inname});
     }
 
     m_tags.clear();
@@ -101,7 +101,7 @@ filemd_t read_pig(std::istream& si, pigenc::File& pig)
     return parse_filename(fname);
 }
 
-// Read one file set from tar stream and save to fraem if tag matches
+// Read one file set from tar stream and save to frame if tag matches
 IFrame::pointer Sio::FrameFileSource::next()
 {
     // Suffer full eager loading
@@ -187,7 +187,9 @@ IFrame::pointer Sio::FrameFileSource::next()
 
     auto sframe = new Aux::SimpleFrame(fmd.ident, time, all_traces, tick);
     if (! fmd.tag.empty()) {
-        sframe->tag_frame(fmd.tag);
+        std::vector<size_t> inds(all_traces.size());
+        std::iota(inds.begin(), inds.end(), 0);
+        sframe->tag_traces(fmd.tag, inds);
     }
 
     log->debug("call={}, load frame={} ntraces={} tag=\"{}\" file={}",

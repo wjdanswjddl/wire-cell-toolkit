@@ -20,6 +20,7 @@ using namespace std;
 using namespace WireCell;
 using namespace WireCell::Test;
 using namespace WireCell::Waveform;
+using namespace WireCell::Aux::DftTools;
 using WireCell::Aux::SimpleTrace;
 using WireCell::Aux::SimpleFrame;
 
@@ -148,9 +149,9 @@ int main(int argc, char* argv[])
     auto resp = ce.generate(Binning(200, 0, 200 * tick));
     auto resp2 = ce.generate(Binning(400, 0, 400 * tick));
     auto resp3 = ce.generate(Binning(50, 0, 50 * tick));
-    auto resp_spec = Aux::fwd_r2c(idft, resp);
-    auto resp_spec2 = Aux::fwd_r2c(idft, resp2);
-    auto resp_spec3 = Aux::fwd_r2c(idft, resp3);
+    auto resp_spec = fwd_r2c(idft, resp);
+    auto resp_spec2 = fwd_r2c(idft, resp2);
+    auto resp_spec3 = fwd_r2c(idft, resp3);
 
     ITrace::vector q_traces;
     ITrace::vector out_traces;
@@ -171,10 +172,10 @@ int main(int argc, char* argv[])
         q_traces.push_back(std::make_shared<SimpleTrace>(qchannel++, 0, q3));
         q_traces.push_back(std::make_shared<SimpleTrace>(qchannel++, 0, q4));
 
-        auto e1 = Aux::convolve(idft, q1, resp);
-        auto e2 = Aux::convolve(idft, q2, resp);
-        auto e3 = Aux::convolve(idft, q3, resp);
-        auto e4 = Aux::convolve(idft, q4, resp);
+        auto e1 = convolve(idft, q1, resp);
+        auto e2 = convolve(idft, q2, resp);
+        auto e3 = convolve(idft, q3, resp);
+        auto e4 = convolve(idft, q4, resp);
 
         out_traces.push_back(std::make_shared<SimpleTrace>(channel++, 0, e1));
         out_traces.push_back(std::make_shared<SimpleTrace>(channel++, 0, e2));

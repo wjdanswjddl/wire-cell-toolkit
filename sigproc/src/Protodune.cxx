@@ -30,6 +30,9 @@ WIRECELL_FACTORY(pdRelGainCalib, WireCell::SigProc::Protodune::RelGainCalib, Wir
                  WireCell::IConfigurable)
 
 using namespace WireCell::SigProc;
+using WireCell::Aux::DftTools::fwd_r2c;
+using WireCell::Aux::DftTools::inv_c2r;
+
 
 int LedgeIdentify1(WireCell::Waveform::realseq_t& signal, double baseline, int LedgeStart[3], int LedgeEnd[3])
 {
@@ -409,7 +412,7 @@ bool Protodune::FftInterpSticky(const IDFT::pointer& dft,
     }
 
     // dft resampling for "even", see example in test_zero_padding.cxx
-    auto tran_even = Aux::fwd_r2c(dft, signal_even);
+    auto tran_even = fwd_r2c(dft, signal_even);
     tran_even.resize(nsublen * 2);
     if (nsublen % 2 == 0) {
         std::rotate(tran_even.begin() + nsublen / 2, tran_even.begin() + nsublen, tran_even.end());
@@ -418,12 +421,12 @@ bool Protodune::FftInterpSticky(const IDFT::pointer& dft,
         std::rotate(tran_even.begin() + (nsublen + 1) / 2, tran_even.begin() + nsublen, tran_even.end());
     }
     // inverse FFT
-    auto signal_even_fc = Aux::inv_c2r(dft, tran_even);
+    auto signal_even_fc = inv_c2r(dft, tran_even);
     float scale = tran_even.size() / nsublen;
     WireCell::Waveform::scale(signal_even_fc, scale);
 
     // similar for "odd"
-    auto tran_odd = Aux::fwd_r2c(dft, signal_odd);
+    auto tran_odd = fwd_r2c(dft, signal_odd);
     tran_odd.resize(nsublen2 * 2);
     if (nsublen2 % 2 == 0) {
         std::rotate(tran_odd.begin() + nsublen2 / 2, tran_odd.begin() + nsublen2, tran_odd.end());
@@ -431,7 +434,7 @@ bool Protodune::FftInterpSticky(const IDFT::pointer& dft,
     else {
         std::rotate(tran_odd.begin() + (nsublen2 + 1) / 2, tran_odd.begin() + nsublen2, tran_odd.end());
     }
-    auto signal_odd_fc = Aux::inv_c2r(dft, tran_odd);
+    auto signal_odd_fc = inv_c2r(dft, tran_odd);
     float scale2 = tran_odd.size() / nsublen2;
     WireCell::Waveform::scale(signal_odd_fc, scale2);
 
@@ -472,7 +475,7 @@ bool Protodune::FftShiftSticky(const IDFT::pointer& dft,
     }
 
     // dft shift for "even"
-    auto tran_even = Aux::fwd_r2c(dft, signal_even);
+    auto tran_even = fwd_r2c(dft, signal_even);
     double f0 = 1. / nsublen;
     const double PI = std::atan(1.0) * 4;
     for (size_t i = 0; i < tran_even.size(); i++) {
@@ -484,10 +487,10 @@ bool Protodune::FftShiftSticky(const IDFT::pointer& dft,
         tran_even.at(i) = z * std::exp(z1);
     }
     // inverse FFT
-    auto signal_even_fc = Aux::inv_c2r(dft, tran_even);
+    auto signal_even_fc = inv_c2r(dft, tran_even);
 
     // similar to "odd"
-    auto tran_odd = Aux::fwd_r2c(dft, signal_odd);
+    auto tran_odd = fwd_r2c(dft, signal_odd);
     f0 = 1. / nsublen2;
     for (size_t i = 0; i < tran_odd.size(); i++) {
         double fi = i * f0;
@@ -498,7 +501,7 @@ bool Protodune::FftShiftSticky(const IDFT::pointer& dft,
         tran_odd.at(i) = z * std::exp(z1);
     }
     //
-    auto signal_odd_fc = Aux::inv_c2r(dft, tran_odd);
+    auto signal_odd_fc = inv_c2r(dft, tran_odd);
     
     // float scale = 1./tran_odd.size();
     // WireCell::Waveform::scale(signal_odd_fc, 1./nsublen2);
@@ -530,7 +533,7 @@ bool Protodune::FftScaling(const IDFT::pointer& dft,
                            WireCell::Waveform::realseq_t& signal, int nsamples)
 {
     const int nsiglen = signal.size();
-    auto tran = Aux::fwd_r2c(dft, signal);
+    auto tran = fwd_r2c(dft, signal);
     tran.resize(nsamples);
     if (nsiglen % 2 == 0) {  // ref test_zero_padding.cxx
         std::rotate(tran.begin() + nsiglen / 2, tran.begin() + nsiglen, tran.end());
@@ -539,7 +542,7 @@ bool Protodune::FftScaling(const IDFT::pointer& dft,
         std::rotate(tran.begin() + (nsiglen + 1) / 2, tran.begin() + nsiglen, tran.end());
     }
     // inverse FFT
-    auto signal_fc = Aux::inv_c2r(dft, tran);
+    auto signal_fc = inv_c2r(dft, tran);
 
     WireCell::Waveform::scale(signal_fc, nsamples / nsiglen);
     signal = signal_fc;
@@ -764,7 +767,7 @@ WireCell::Waveform::ChannelMaskMap Protodune::OneChannelNoise::apply(int ch, sig
     }
 
     // correct rc undershoot
-    auto spectrum = Aux::fwd_r2c(m_dft, signal);
+    auto spectrum = fwd_r2c(m_dft, signal);
     bool is_partial = m_check_partial(spectrum);  // Xin's "IS_RC()"
 
     if (!is_partial) {
@@ -851,7 +854,7 @@ WireCell::Waveform::ChannelMaskMap Protodune::OneChannelNoise::apply(int ch, sig
 
     // remove the DC component
     spectrum.front() = 0;
-    signal = Aux::inv_c2r(m_dft, spectrum);
+    signal = inv_c2r(m_dft, spectrum);
 
     // Now calculate the baseline ...
     std::pair<double, double> temp = WireCell::Waveform::mean_rms(signal);

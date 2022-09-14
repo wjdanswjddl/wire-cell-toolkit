@@ -141,6 +141,10 @@ local wc = import "wirecell.jsonnet";
         oports: if std.length(elements[nele-1].oports) == 0 then [] else [elements[nele-1].oports[0]],
     },
 
+    // Collect a number of closed component graphs into a single
+    // graph.  Each component is closed in the sense that it has no
+    // unattached ports.
+    components(subgraphs, name="") :: $.intern(centernodes=subgraphs),
 
     // Return a new pnode built by breaking an existing edge at given
     // index and patching the break with the given head and tail nodes
@@ -172,12 +176,13 @@ local wc = import "wirecell.jsonnet";
     // single source.  The joiner must be capable of handling and
     // N-join.  Each source is connected to joiner's input ports in
     // order.
-    join_sources(joiner, sources, n=2) :: $.intern(outnodes=[joiner],
-                                                   centernodes=sources,
-                                                   iports=[],
-                                                   edges=std.mapWithIndex(function(ind,s) $.edge(s,joiner,0,ind),
-                                                                          sources),
-                                                  ),
+    join_sources(joiner, sources, n=2) :: 
+        $.intern(outnodes=[joiner],
+                 centernodes=sources,
+                 iports=[],
+                 edges=std.mapWithIndex(function(ind,s) $.edge(s,joiner,0,ind),
+                                        sources),
+                ),
     
 
     // Call this to return the edges from a graph (a pnode).  It takes

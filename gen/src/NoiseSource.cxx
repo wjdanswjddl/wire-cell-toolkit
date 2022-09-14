@@ -1,6 +1,19 @@
+/*
+
+
+  Warning, this is crufty old code.  It should be rewritten to use
+  Noise.h bases and RandTools and Spectra in the manner that AddNoise
+  clases do.
+
+
+ */
+
+
+
 #include "WireCellGen/NoiseSource.h"
 
 #include "WireCellAux/DftTools.h"
+#include "WireCellIface/IRandom.h"
 
 #include "WireCellAux/SimpleTrace.h"
 #include "WireCellAux/SimpleFrame.h"
@@ -8,7 +21,6 @@
 #include "WireCellUtil/Persist.h"
 #include "WireCellUtil/NamedFactory.h"
 
-#include "Noise.h"
 
 #include <iostream>
 
@@ -16,8 +28,62 @@ WIRECELL_FACTORY(NoiseSource, WireCell::Gen::NoiseSource, WireCell::IFrameSource
 
 using namespace std;
 using namespace WireCell;
+using WireCell::Aux::DftTools::inv_c2r;
+
 using WireCell::Aux::SimpleTrace;
 using WireCell::Aux::SimpleFrame;
+
+using complex_vector_t = std::vector<std::complex<float>>;
+
+static complex_vector_t
+generate_spectrum(const std::vector<float>& spec, IRandom::pointer rng, double replace=0.02)
+{
+    // reuse randomes a bit to optimize speed.
+    static std::vector<double> random_real_part;
+    static std::vector<double> random_imag_part;
+
+    if (random_real_part.size() != spec.size()) {
+        random_real_part.resize(spec.size(), 0);
+        random_imag_part.resize(spec.size(), 0);
+        for (unsigned int i = 0; i < spec.size(); i++) {
+            random_real_part.at(i) = rng->normal(0, 1);
+            random_imag_part.at(i) = rng->normal(0, 1);
+        }
+    }
+    else {
+        const int shift1 = rng->uniform(0, random_real_part.size());
+        // replace certain percentage of the random number
+        const int step = 1. / replace;
+        for (int i = shift1; i < shift1 + int(spec.size()); i += step) {
+            if (i < int(spec.size())) {
+                random_real_part.at(i) = rng->normal(0, 1);
+                random_imag_part.at(i) = rng->normal(0, 1);
+            }
+            else {
+                random_real_part.at(i - spec.size()) = rng->normal(0, 1);
+                random_imag_part.at(i - spec.size()) = rng->normal(0, 1);
+            }
+        }
+    }
+
+    const int shift = rng->uniform(0, random_real_part.size());
+
+    complex_vector_t noise_freq(spec.size(), 0);
+
+    for (int i = shift; i < int(spec.size()); i++) {
+        const double amplitude = spec.at(i - shift) * sqrt(2. / 3.1415926);  // / units::mV;
+        noise_freq.at(i - shift).real(random_real_part.at(i) * amplitude);
+        noise_freq.at(i - shift).imag(random_imag_part.at(i) * amplitude);  //= complex_t(real_part,imag_part);
+    }
+    for (int i = 0; i < shift; i++) {
+        const double amplitude = spec.at(i + int(spec.size()) - shift) * sqrt(2. / 3.1415926);
+        noise_freq.at(i + int(spec.size()) - shift).real(random_real_part.at(i) * amplitude);
+        noise_freq.at(i + int(spec.size()) - shift).imag(random_imag_part.at(i) * amplitude);
+    }
+
+    return noise_freq;
+}
+
 
 Gen::NoiseSource::NoiseSource(const std::string& model, const std::string& anode, const std::string& rng)
   : m_time(0.0 * units::ns)
@@ -109,11 +175,11 @@ bool Gen::NoiseSource::operator()(IFrame::pointer& frame)
     const int tbin = 0;
     int nsamples = 0;
     for (auto chid : m_anode->channels()) {
-        const auto& spec = (*m_model)(chid);
+        const auto& spec = m_model->channel_spectrum(chid);
 
         //Waveform::realseq_t noise = Gen::Noise::generate_waveform(spec, m_rng, m_rep_percent);
-        auto cnoise = Gen::Noise::generate_spectrum(spec, m_rng, m_rep_percent);
-        auto noise = Aux::inv_c2r(m_dft, cnoise);
+        auto cnoise = generate_spectrum(spec, m_rng, m_rep_percent);
+        auto noise = inv_c2r(m_dft, cnoise);
 
         //	std::cout << noise.size() << " " << nsamples << std::endl;
         noise.resize(m_nsamples, 0);

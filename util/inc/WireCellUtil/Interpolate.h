@@ -45,6 +45,7 @@
 #include <map>
 #include <cmath>
 #include <vector>
+#include <algorithm>
 #include <stdexcept>
 	
 // c++20 has this defined in <cmath>.  For older language, here is the
@@ -233,6 +234,21 @@ namespace WireCell {
         std::vector<Y> m_dat;
         X m_le, m_re, m_step;
     };
+
+    // Simpler interface to one-shot linear interpolation 
+    template<typename InputIt, typename OutputIt>
+    void linterpolate(InputIt ibeg, InputIt iend, OutputIt obeg, OutputIt oend)
+    {
+        const double xmin = 0.0; // arbitrary but
+        const double xmax = 1.0; // same for both.
+        const size_t ilen = std::distance(ibeg, iend);
+        const double olddx = (xmax-xmin)/ilen;
+        linterp<double, typename InputIt::value_type> terp(ibeg, iend, xmin, olddx);
+        const size_t olen = std::distance(obeg, oend);
+        const double newdx = (xmax-xmin)/olen;
+        terp(obeg, olen, xmin, newdx);
+    }
+
 
     /** You may also want to use Boost for fancier interpolation.
      * They have similar calling interface:

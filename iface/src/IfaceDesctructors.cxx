@@ -11,6 +11,7 @@
 #include "WireCellIface/IAnodePlane.h"
 #include "WireCellIface/IApplication.h"
 #include "WireCellIface/IBlob.h"
+#include "WireCellIface/IBlobDepoFill.h"
 #include "WireCellIface/IBlobSet.h"
 #include "WireCellIface/IBlobSetFanin.h"
 #include "WireCellIface/IBlobSetFanout.h"
@@ -21,6 +22,7 @@
 #include "WireCellIface/IChannelSpectrum.h"
 #include "WireCellIface/IChannelStatus.h"
 #include "WireCellIface/IClusterFanin.h"
+#include "WireCellIface/IClusterFanout.h"
 #include "WireCellIface/IClusterFilter.h"
 #include "WireCellIface/IClusterFramer.h"
 #include "WireCellIface/IClusterSink.h"
@@ -61,6 +63,7 @@
 #include "WireCellIface/IFrameSource.h"
 #include "WireCellIface/IFrameSplitter.h"
 #include "WireCellIface/IFunctionNode.h"
+#include "WireCellIface/IGroupSpectrum.h"
 #include "WireCellIface/IHydraNode.h"
 #include "WireCellIface/IJoinNode.h"
 #include "WireCellIface/IMeasure.h"
@@ -92,6 +95,7 @@
 #include "WireCellIface/ITerminal.h"
 #include "WireCellIface/ITiling.h"
 #include "WireCellIface/ITrace.h"
+#include "WireCellIface/ITraceRanker.h"
 #include "WireCellIface/IWaveform.h"
 #include "WireCellIface/IWaveformMap.h"
 #include "WireCellIface/IWireGenerator.h"
@@ -107,6 +111,7 @@ IAnodeFace::~IAnodeFace() {}
 IAnodePlane::~IAnodePlane() {}
 IApplication::~IApplication() {}
 IBlob::~IBlob() {}
+IBlobDepoFill::~IBlobDepoFill() {}
 IBlobSet::~IBlobSet() {}
 IBlobSetFanin::~IBlobSetFanin() {}
 IBlobSetFanout::~IBlobSetFanout() {}
@@ -117,6 +122,7 @@ IChannelResponse::~IChannelResponse() {}
 IChannelSpectrum::~IChannelSpectrum() {}
 IChannelStatus::~IChannelStatus() {}
 IClusterFanin::~IClusterFanin() {}
+IClusterFanout::~IClusterFanout() {}
 IClusterFilter::~IClusterFilter() {}
 IClusterFramer::~IClusterFramer() {}
 IClusterSink::~IClusterSink() {}
@@ -157,6 +163,7 @@ IFrameSlices::~IFrameSlices() {}
 IFrameSource::~IFrameSource() {}
 IFrameSplitter::~IFrameSplitter() {}
 IFunctionNodeBase::~IFunctionNodeBase() {}
+IGroupSpectrum::~IGroupSpectrum() {}
 IHydraNodeBase::~IHydraNodeBase() {}
 IImpactResponse::~IImpactResponse() {}
 IJoinNodeBase::~IJoinNodeBase() {}
@@ -187,6 +194,7 @@ ITensorSetUnpacker::~ITensorSetUnpacker() {}
 ITerminal::~ITerminal() {}
 ITiling::~ITiling() {}
 ITrace::~ITrace() {}
+ITraceRanker::~ITraceRanker() {}
 IWaveform::~IWaveform() {}
 IWaveformMap::~IWaveformMap() {}
 IWireGenerator::~IWireGenerator() {}
