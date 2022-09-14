@@ -116,7 +116,14 @@ namespace WireCell {
         /// outside of any individual trace.
         IFrame::pointer sum(std::vector<IFrame::pointer> frames, int ident);
 
+
     }  // namespace Aux
 }  // namespace WireCell
 
 #endif
+
+
+
+
+
+

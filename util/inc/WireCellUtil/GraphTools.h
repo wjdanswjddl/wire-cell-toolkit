@@ -5,6 +5,7 @@
 #include <boost/graph/adjacency_list.hpp>
 #include <boost/graph/graph_traits.hpp>
 #include <boost/range.hpp>
+#include <boost/graph/graphviz.hpp>
 
 namespace WireCell::GraphTools {
 
@@ -40,6 +41,18 @@ namespace WireCell::GraphTools {
         return mir(boost::vertices(g));
     }
 
+    // Return graph as string holding GraphViz dot representation.
+    template<typename Gr>
+    std::string dotify(const Gr& gr)
+    {
+        using vertex_t = typename boost::graph_traits<Gr>::vertex_descriptor;
+        std::stringstream ss;
+        boost::write_graphviz(ss, gr, [&](std::ostream& out, vertex_t v) {
+            const auto& dat = gr[v];
+            out << "[label=\"" << dat.code << dat.id << "\"]";
+        });
+        return ss.str() + "\n";
+    }
 
 }
 

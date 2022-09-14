@@ -141,6 +141,10 @@ local wc = import "wirecell.jsonnet";
         oports: if std.length(elements[nele-1].oports) == 0 then [] else [elements[nele-1].oports[0]],
     },
 
+    // Collect a number of closed component graphs into a single
+    // graph.  Each component is closed in the sense that it has no
+    // unattached ports.
+    components(subgraphs, name="") :: $.intern(centernodes=subgraphs),
 
     // Return a new pnode built by breaking an existing edge at given
     // index and patching the break with the given head and tail nodes
