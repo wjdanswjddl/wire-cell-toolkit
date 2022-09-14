@@ -25,6 +25,7 @@ namespace WireCell {
 
             // For matrix representation of the graphs.
             using sparse_dmat_t = Eigen::SparseMatrix<double>;
+            using sparse_fmat_t = Eigen::SparseMatrix<float>;
 
             // chan_min, chan_max, tick_min, tick_max
             using projection_bound_t = std::tuple<int, int, int, int>;
@@ -36,7 +37,7 @@ namespace WireCell {
                     std::numeric_limits<int>::max(),
                     std::numeric_limits<int>::min()
                 };
-                sparse_dmat_t m_proj;
+                sparse_fmat_t m_proj;
             };
 
             using vdesc_t = boost::graph_traits<cluster_graph_t>::vertex_descriptor;
@@ -57,6 +58,7 @@ namespace WireCell {
             layer_projection_map_t get_2D_projection(const WireCell::cluster_graph_t& cg, std::vector<vdesc_t>);
 
             std::string dump(const Projection2D& proj2d, bool verbose=false);
+            bool write(const Projection2D& proj2d, const std::string& fname="proj2d.tar.gz");
 
             // 1: tar is part of ref
             int compare(const Projection2D& ref, const Projection2D& tar);

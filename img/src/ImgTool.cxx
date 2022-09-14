@@ -1,5 +1,10 @@
 #include "WireCellImg/ImgTool.h"
 #include "WireCellUtil/Exceptions.h"
+#include "WireCellUtil/Array.h"
+#include "WireCellUtil/Stream.h"
+#include "WireCellUtil/String.h"
+
+#include <fstream>
 
 using namespace WireCell;
 using namespace WireCell::Img::Tool;
@@ -51,6 +56,8 @@ std::unordered_map<int, std::vector<vdesc_t> > WireCell::Img::Tool::get_geom_clu
             new2old[newvtx] = vtx;
         }
     }
+    // debug
+    std::cout << "nblobs: " << nblobs << std::endl;
     
     if (!nblobs) {
         return groups;
@@ -75,6 +82,12 @@ std::unordered_map<int, std::vector<vdesc_t> > WireCell::Img::Tool::get_geom_clu
         }
     }
 
+    // for debugging, return as one group
+    // for (const auto& desc : mir(boost::vertices(cg_blob))) {
+    //     groups[0].push_back(new2old[desc]);
+    // }
+    // return groups;
+
     std::unordered_map<vdesc_t, int> desc2id;
     boost::connected_components(cg_blob, boost::make_assoc_property_map(desc2id));
     for (auto& [desc,id] : desc2id) {  // invert
@@ -82,16 +95,16 @@ std::unordered_map<int, std::vector<vdesc_t> > WireCell::Img::Tool::get_geom_clu
     }
 
     // debug
-    for (auto id2desc : groups) {
-        auto & descvec = id2desc.second;
-        if (descvec.size()>10) {
-            std::cout << id2desc.first << ": ";
-            for (auto &desc : descvec) {
-                std::cout << desc << " ";
-            }
-            std::cout << std::endl;
-        }
-    }
+    // for (auto id2desc : groups) {
+    //     auto & descvec = id2desc.second;
+    //     if (descvec.size()>10) {
+    //         std::cout << id2desc.first << ": ";
+    //         for (auto &desc : descvec) {
+    //             std::cout << desc << " ";
+    //         }
+    //         std::cout << std::endl;
+    //     }
+    // }
 
     return groups;
 }
@@ -124,7 +137,7 @@ layer_projection_map_t WireCell::Img::Tool::get_2D_projection(
                 for (const auto chan_desc : chan_descs) {
                     auto chan = std::get<channel_t>(cg[chan_desc].ptr);
                     WirePlaneLayer_t layer = chan->planeid().layer();
-                    int index = chan->index();
+                    int index = chan->ident();
                     auto charge = activity[chan].value();
                     // FIXME how to fill this?
                     lcoeff[layer].push_back({index, start, charge});
@@ -141,7 +154,7 @@ layer_projection_map_t WireCell::Img::Tool::get_2D_projection(
     for (auto lc : lcoeff) {
         auto l = lc.first;
         auto c = lc.second;
-        ret[l].m_proj = sparse_dmat_t(8256,9592);
+        ret[l].m_proj = sparse_fmat_t(8256,9592);
         ret[l].m_proj.setFromTriplets(c.begin(), c.end());
     }
     return ret;
@@ -159,7 +172,7 @@ std::string WireCell::Img::Tool::dump(const Projection2D& proj2d, bool verbose) 
     auto ctq = proj2d.m_proj;
     size_t counter = 0;
     for (int k=0; k<ctq.outerSize(); ++k) {
-        for (sparse_dmat_t::InnerIterator it(ctq,k); it; ++it)
+        for (sparse_fmat_t::InnerIterator it(ctq,k); it; ++it)
         {
             if (verbose) {
                 ss << " {" << it.row() << ", " << it.col() << "}->" << it.value();
@@ -172,11 +185,26 @@ std::string WireCell::Img::Tool::dump(const Projection2D& proj2d, bool verbose) 
     return ss.str();
 }
 
+bool WireCell::Img::Tool::write(const Projection2D& proj2d, const std::string& fname)
+{
+    using namespace WireCell::Stream;
+    boost::iostreams::filtering_ostream fout;
+    fout.clear();
+    output_filters(fout, fname);
+    Eigen::MatrixXf dense_m(proj2d.m_proj);
+    Array::array_xxf dense_a = dense_m.array();
+    const std::string aname = String::format("proj2d_%d.npy", 0);
+    WireCell::Stream::write(fout, aname, dense_a);
+    fout.flush();
+    fout.pop();
+    return 0;
+}
+
 int WireCell::Img::Tool::compare(const Projection2D& ref, const Projection2D& tar) {
-    sparse_dmat_t diff = ref.m_proj - tar.m_proj;
+    sparse_fmat_t diff = ref.m_proj - tar.m_proj;
     size_t nneg = 0;
     for (int k=0; k<diff.outerSize(); ++k) {
-        for (sparse_dmat_t::InnerIterator it(diff,k); it; ++it)
+        for (sparse_fmat_t::InnerIterator it(diff,k); it; ++it)
         {
             if (it.value() < 0) {
                 ++nneg;
