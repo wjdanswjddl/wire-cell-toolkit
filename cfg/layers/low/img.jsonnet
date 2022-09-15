@@ -122,7 +122,7 @@ function (anode) {
     }, nin=1, nout=1),
 
     // The recommended charge solving
-    charge_solving :: function(meas_val_thresh=10.0,
+    charge_solving :: function(meas_val_thresh=0.0,
                                meas_err_thresh=1.0e9,
                                blob_val_thresh=0,
                                whiten=true)
