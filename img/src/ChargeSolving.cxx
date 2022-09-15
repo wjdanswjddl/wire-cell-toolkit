@@ -204,7 +204,8 @@ bool Img::ChargeSolving::operator()(const input_pointer& in, output_pointer& out
     // }
 
     const size_t nstrats = m_weighting_strategies.size();
-    std::vector<float> blob_threshold(nstrats, 0); // fixme make configurable
+
+    std::vector<float> blob_threshold(nstrats, m_blob_thresh.value());
 
     SolveParams sparams{Ress::Params{Ress::lasso}, 1000, m_whiten};
     for (size_t ind = 0; ind < nstrats; ++ind) {
