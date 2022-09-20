@@ -93,10 +93,41 @@ void test_array()
 
 }
 
+void test_dataset()
+{
+    Dataset::store_t s = {
+        {"one", Array({1  ,2  ,3  })},
+        {"two", Array({1.1,2.2,3.3})},
+    };
+    Dataset d(s);
+    Assert(d.num_elements() == 3);
+    Assert(d.keys().size() == 2);
+
+    {
+        Dataset d1(d);
+        Assert(d.num_elements() == 3);
+        Assert(d1.num_elements() == 3);
+        Assert(d1.keys().size() == 2);
+        
+        Dataset d2 = d;
+        Assert(d.num_elements() == 3);
+        Assert(d2.num_elements() == 3);
+        Assert(d2.keys().size() == 2);
+    
+        Dataset d3 = std::move(d2);
+        Assert(d2.num_elements() == 0);
+        Assert(d3.num_elements() == 3);
+        Assert(d2.keys().size() == 0);
+        Assert(d3.keys().size() == 2);
+    }
+    Assert(d.num_elements() == 3);
+    
+}
 
 int main()
 {
     test_array();
+    test_dataset();
 
     return 0;
 }
