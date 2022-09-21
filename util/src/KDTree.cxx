@@ -40,8 +40,7 @@ class NanoflannAdaptor {
         if (m_pts.empty()) {
             return 0;
         }
-        const Array& first = m_pts[0];
-        return first.num_elements();
+        return m_pts[0].get().num_elements();
     }
 
     inline element_t kdtree_get_pt(size_t idx, size_t dim) const
@@ -109,19 +108,20 @@ struct QueryStatic : public Query<typename IndexType::ElementType>
     {
         std::vector<std::pair<size_t, element_t>> ids;
         nanoflann::RadiusResultSet<element_t> nf(rad, ids);
-        const size_t nfound = nf.size();
-        ids.resize(nfound);
+        index.findNeighbors(nf, query_point.data(),
+                            nanoflann::SearchParams());
+        const size_t nfound = ids.size();
         results_t ret(nfound);
-        size_t ifound=0;
-        for (const auto& [indx, dist] : ids) {
+        for (size_t ifound=0; ifound<nfound; ++ifound) {
+            const auto& [indx, dist] = ids[ifound];
             ret.index[ifound] = indx;
             ret.distance[ifound] = dist;
-            ++ifound;
         }
         return ret;
     }
 
 };
+
 template<typename IndexType>
 struct QueryDynamic : public QueryStatic<IndexType>
 {
@@ -134,7 +134,9 @@ struct QueryDynamic : public QueryStatic<IndexType>
         : QueryStatic<IndexType>(dataset, selection)
     {
         dataset.register_append([this](size_t beg, size_t end) {
-            this->index.addPoints(beg, end); });
+            // NOTE: we subtract one as nanoflann expects a closed
+            // range not the standard C++ right-open range.
+            this->index.addPoints(beg, end-1); });
     }
 };
 

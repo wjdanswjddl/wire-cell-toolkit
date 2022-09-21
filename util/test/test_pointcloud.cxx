@@ -2,6 +2,7 @@
 #include "WireCellUtil/Testing.h"
 
 #include <vector>
+#include <iostream>
 
 using namespace WireCell;
 using namespace WireCell::PointCloud;
@@ -102,6 +103,21 @@ void test_dataset()
     Dataset d(s);
     Assert(d.num_elements() == 3);
     Assert(d.keys().size() == 2);
+    Assert(d.store().size() == 2);
+
+    {
+        auto sel = d.selection({"one", "two"});
+        Assert(sel.size() == 2);
+        const Array& arr = sel[0];
+        Assert(arr.num_elements() == 3);
+        Assert(sel[1].get().num_elements() == 3);
+    }
+
+    {
+        Dataset empty;
+        auto mk = d.missing(empty);
+        Assert(mk.size() == 2);
+    }
 
     {
         Dataset d1(d);
@@ -122,6 +138,23 @@ void test_dataset()
     }
     Assert(d.num_elements() == 3);
     
+    {
+        size_t beg=0, end=0;
+        d.register_append([&](size_t b, size_t e) { beg=b; end=e; });
+
+        Dataset tail;
+        tail.add("one", Array({4  , 5}));
+        tail.add("two", Array({4.4, 5.4}));
+        d.append(tail);
+        Assert(d.keys().size() == 2);
+        Assert(d.num_elements() == 5);
+
+        Assert(beg == 3);
+        Assert(end == 5);
+    }        
+    Assert(d.keys().size() == 2);
+    Assert(d.num_elements() == 5);
+
 }
 
 int main()

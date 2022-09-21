@@ -287,9 +287,14 @@ namespace WireCell::PointCloud {
         /// Access the underlying store
         const store_t& store() const { return m_store; }
 
-        /** Return a vector of references to arrays matching names.
-            If any name is not provided by this then an empty
-            collection is returned.
+        /** Return a vector of "references wrappers" around the arrays
+            matching the names.  If any name is not provided by this
+            then an empty collection is returned.  References may be
+            unusual to some so here are two usage examples:
+
+            sel = ds.selection({"one","two"});
+            const Array& one = sel[0];
+            size_t num_in_two = sel[1].get().num_elements();
         */
         selection_t selection(const name_list_t& names) const;
 
@@ -320,6 +325,11 @@ namespace WireCell::PointCloud {
         /// Append arrays in map to this.
         void append(const std::map<std::string, Array>& tail);
 
+        /** Register a function to be called after an append to this
+            dataset.  Function is called with the right-open range.
+            Ie, "end" is one past.  NOTE: this is different than
+            nanoflan which expects a closed range.
+        */
         using append_callback_f = std::function<void(size_t beg, size_t end)>;
         void register_append(append_callback_f ac)
         {
