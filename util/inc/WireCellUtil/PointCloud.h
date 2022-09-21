@@ -56,7 +56,7 @@ namespace WireCell::PointCloud {
         template<typename Range>
         explicit Array(const Range& r, shape_t shape, bool share)
         {
-            assign(&*std::begin(r), r.size(), shape, share);
+            assign(&*std::begin(r), shape, share);
         }
 
         // special case, 1D constructor using vector-like
@@ -79,6 +79,7 @@ namespace WireCell::PointCloud {
         Array(std::initializer_list<ElementType> il) {
             assign(&*il.begin(), {il.size()}, false);
         }
+
 
         /** Discard any held data and assign new data.  See
             constructor for arguments.
@@ -144,6 +145,13 @@ namespace WireCell::PointCloud {
         template<typename ElementType, size_t NumDims>
         indexed_t<ElementType, NumDims> indexed() const
         {
+            if (sizeof(ElementType) != m_ele_size) {
+                THROW(ValueError() << errmsg{"element size mismatch in indexed"});
+            }
+            if (NumDims != m_shape.size()) {
+                THROW(ValueError() << errmsg{"ndims mismatch in indexed"});
+            }
+
             return indexed_t<ElementType, NumDims>(elements<const ElementType>().data(), m_shape);
         }
 
@@ -153,6 +161,10 @@ namespace WireCell::PointCloud {
         template<typename ElementType>
         span_t<const ElementType> elements() const
         {
+            if (sizeof(ElementType) != m_ele_size) {
+                THROW(ValueError() << errmsg{"element size mismatch in elements"});
+            }
+
             const ElementType* edata = 
                 reinterpret_cast<const ElementType*>(m_span.data());
             return span_t<const ElementType>(edata, m_span.size()/sizeof(ElementType));
@@ -173,17 +185,21 @@ namespace WireCell::PointCloud {
             return m_span;
         }
 
-        /// Append a flat array of bytes.
-        void append(const std::byte* data, size_t nbytes)
-        {
-            assure_mutable();
-            m_store.insert(m_store.end(), data, data+nbytes);
-            update_span();
-        }
+        /// Append a flat array of bytes.  The number of bytes must be
+        /// consistent with the element size and the existing shape.
+        void append(const std::byte* data, size_t nbytes);
 
+        /// Append a typed array of objects.  The type must be
+        /// consistent in size with current element size and the
+        /// number of elements must be consistent with the existing
+        /// shape.
         template<typename ElementType>
         void append(const ElementType* data, size_t nele) 
         {
+            if (sizeof(ElementType) != m_ele_size) {
+                THROW(ValueError() << errmsg{"element size mismatch in append"});
+            }
+
             append(reinterpret_cast<const std::byte*>(data),
                    nele * sizeof(ElementType));
         }
@@ -195,10 +211,7 @@ namespace WireCell::PointCloud {
             append(&*beg, size);
         }
         
-        void append(const Array& arr)
-        {
-            append(arr.bytes());
-        }
+        void append(const Array& arr);
 
         template<typename Range>
         void append(const Range& r)
@@ -206,12 +219,18 @@ namespace WireCell::PointCloud {
             append(std::begin(r), std::end(r));
         }
 
-        /// Return the number of elements assuming original datasize.
+        /// Return the number of elements assuming original datasize
+        /// and a flattened array.
         size_t num_elements() const {
             if (m_ele_size == 0) {
                 return 0;
             }
             return m_span.size() / m_ele_size;
+        }
+
+        shape_t shape() const
+        {
+            return m_shape;
         }
 
       private:
@@ -264,12 +283,15 @@ namespace WireCell::PointCloud {
             }
         }
 
-        /// Return the number of elements in the arrays of the dataset.
+        /// Return the number of elements in the arrays of the
+        /// dataset.  This returns the size of the first dimension or
+        /// zero if the dataset is empty.
         size_t num_elements() const {
             if (m_store.empty()) {
                 return 0;
             }
-            return m_store.begin()->second.num_elements();
+            const auto& shape = m_store.begin()->second.shape();
+            return shape[0];
         }
         
         /** Add the array to the dataset.  Return true if its name is
@@ -311,11 +333,6 @@ namespace WireCell::PointCloud {
             }
             return ret;
         }
-
-        /** Return the key names in this dataset which are missing
-            from the other dataset.
-        */
-        keys_t missing(const Dataset& other);
 
         /// Append arrays in tail to this.
         void append(const Dataset& tail) {

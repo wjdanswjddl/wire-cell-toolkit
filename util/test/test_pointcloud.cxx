@@ -18,6 +18,25 @@ void test_array()
     Array cs(w.data(), {w.size()}, true);
     Array cc(w.data(), {w.size()}, false);
 
+    {
+        Assert(ms.shape().size() == 1);
+        Assert(ms.shape()[0] == 3);
+    }
+
+    {
+        auto flat_span = ms.elements<int>();
+        Assert(flat_span.size() == v.size());
+        ms.elements<float>(); // same size okay (for now)
+        bool caught = true;
+        try {
+            ms.elements<double>();
+        }
+        catch (const ValueError& err) {
+            caught = true;
+        }
+        Assert(caught);
+    }
+
     Assert(ms.num_elements() == 3);
     Assert(mc.num_elements() == 3);
     Assert(cs.num_elements() == 3);
@@ -81,6 +100,10 @@ void test_array()
     std::vector<double> d2{4.,5.,6.};
     ms.append(d2);
     Assert(ms.element<double>(3) == 4);
+    {
+        Assert(ms.shape().size() == 1);
+        Assert(ms.shape()[0] == 7);
+    }
 
     ms.clear();
     mc.clear();
@@ -91,6 +114,63 @@ void test_array()
     Assert(mc.num_elements() == 0);
     Assert(cs.num_elements() == 0);
     Assert(cc.num_elements() == 0);
+
+}
+
+void test_array2d()
+{
+    Array::shape_t shape = {2,5};
+    std::vector<int> user(shape[0]*shape[1],0);
+    Array arr(user, shape, true);
+    Assert(arr.shape() == shape);
+    arr.append(user);
+    shape[0] += shape[0];
+    Assert(arr.shape() == shape);    
+
+    std::vector<double> fuser(10,0);
+    bool caught = false;
+    try {
+        arr.append(fuser);      // should throw
+        std::cerr << "failed to through on type size error\n";
+    }
+    catch (const ValueError& err) {
+        std::cerr << "error on type mismatch as expected\n";
+        caught=true;
+    }
+    Assert(caught);
+    
+    Assert(arr.shape() == shape);    
+
+    {
+        auto ma = arr.indexed<int, 2>();
+        Assert(ma.num_dimensions() == 2);
+        Assert(ma.num_elements() == 20);
+        Assert(ma.shape()[0] == 4);
+        Assert(ma.shape()[1] == 5);
+    }
+
+    {                           // wrong ndims
+        bool caught=false;
+        try {
+            auto ma = arr.indexed<int, 3>();
+        }
+        catch (const ValueError& err) {
+            caught = true;
+        }
+        Assert(caught);
+    }
+
+    {                           // wrong element size
+        bool caught=false;
+        try {
+            auto ma = arr.indexed<double, 2>();
+        }
+        catch (const ValueError& err) {
+            caught = true;
+        }
+        Assert(caught);
+    }
+
 
 }
 
@@ -106,17 +186,33 @@ void test_dataset()
     Assert(d.store().size() == 2);
 
     {
+        auto d2 = d;
+        Array::shape_t shape = {3,4};
+        std::vector<int> user(shape[0]*shape[1],0);
+        Array arr(user, shape, true);
+        d2.add("twod", arr);
+    }
+    {
+        auto d2 = d;
+        Array::shape_t shape = {2,5};
+        std::vector<int> user(shape[0]*shape[1],0);
+        Array arr(user, shape, true);
+        bool caught = false;
+        try {
+            d2.add("twod", arr);
+        }
+        catch (const ValueError& err) {
+            caught = true;
+        }
+        Assert(caught);
+    }
+
+    {
         auto sel = d.selection({"one", "two"});
         Assert(sel.size() == 2);
         const Array& arr = sel[0];
         Assert(arr.num_elements() == 3);
         Assert(sel[1].get().num_elements() == 3);
-    }
-
-    {
-        Dataset empty;
-        auto mk = d.missing(empty);
-        Assert(mk.size() == 2);
     }
 
     {
@@ -137,29 +233,53 @@ void test_dataset()
         Assert(d3.keys().size() == 2);
     }
     Assert(d.num_elements() == 3);
-    
+
     {
+        Dataset::store_t s = {
+            {"one", Array({1  ,2  ,3  })},
+            {"two", Array({1.1,2.2,3.3})},
+        };
+        Dataset d(s);
+        Assert(d.num_elements() == 3);
+        Assert(d.keys().size() == 2);
+
         size_t beg=0, end=0;
         d.register_append([&](size_t b, size_t e) { beg=b; end=e; });
 
         Dataset tail;
         tail.add("one", Array({4  , 5}));
+        Assert(tail.num_elements() == 2);
+
+        bool caught = false;
+        try {
+            tail.add("two", Array({4.4}));
+        }
+        catch (const ValueError& err) {
+            caught = true;
+        }
+        Assert(caught);
+
         tail.add("two", Array({4.4, 5.4}));
+        Assert(tail.keys().size() == 2);
+        Assert(tail.num_elements() == 2);
+
         d.append(tail);
-        Assert(d.keys().size() == 2);
-        Assert(d.num_elements() == 5);
+        std::cerr << "HAS " << d.num_elements() << "\n";
 
         Assert(beg == 3);
         Assert(end == 5);
+
+        Assert(d.keys().size() == 2);
+        Assert(d.num_elements() == 5);
+
     }        
-    Assert(d.keys().size() == 2);
-    Assert(d.num_elements() == 5);
 
 }
 
 int main()
 {
     test_array();
+    test_array2d();
     test_dataset();
 
     return 0;

@@ -4,6 +4,8 @@
 #include "WireCellIface/ITensor.h"
 #include "WireCellIface/IDFT.h"
 #include "WireCellUtil/Exceptions.h"
+#include "WireCellUtil/PointCloud.h"
+
 
 #include <Eigen/Core>
 #include <complex>
@@ -71,6 +73,13 @@ namespace WireCell::Aux {
         // column-major
         return Eigen::Map<COLM>(mdata, nrows, ncols);
     }
+
+    /// Return an ITensor holding an array compsed of a stack of named
+    /// arrays
+    ITensor::pointer as_itensor(const PointCloud::Dataset& dataset,
+                                const PointCloud::name_list_t& names = {});
+
+    PointCloud::Dataset as_dataset(const ITensor::pointer ten);
 
 }
 

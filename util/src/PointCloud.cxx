@@ -1,17 +1,70 @@
 #include "WireCellUtil/PointCloud.h"
-#include "WireCellUtil/Exceptions.h"
 
 using namespace WireCell::PointCloud;
 
+//// array
+
+static bool append_compatible(const Array::shape_t& s1, const Array::shape_t& s2)
+{
+    size_t size = s1.size();
+
+    if (size != s2.size()) return false; // same dimensions
+    if (size == 1) return true;          // all 1D append okay
+    for (size_t ind=1; ind<size; ++ind) {
+        if (s1[ind] != s2[ind]) return false;
+    }
+    return true;
+}
+
+void Array::append(const Array& tail)
+{
+    const auto tshape = tail.shape();
+    if (not append_compatible(m_shape, tshape)) {
+        THROW(ValueError() << errmsg{"array append with incompatible shape"});
+    }
+    append(tail.bytes());
+}
+
+void Array::append(const std::byte* data, size_t nbytes)
+{
+    if (nbytes % m_ele_size) {
+        THROW(ValueError() << errmsg{"byte append not compatible with existing type"});
+    }
+    const size_t nelem = nbytes / m_ele_size;
+
+    size_t rows = 0, notrows=1;
+    for (auto s : m_shape) {
+        if (!rows) {
+            rows = s;
+            continue;
+        }
+        notrows *= s;
+    }
+
+    if (nelem % notrows) {
+        THROW(ValueError() << errmsg{"byte append not compatible with existing shape"});
+    }
+    const size_t nrows = nelem/notrows;
+
+    assure_mutable();
+    m_store.insert(m_store.end(), data, data+nbytes);
+    m_shape[0] += nrows;
+    update_span();
+}
+
+
+
+//// dataset
+
 bool Dataset::add(const std::string& name, const Array& arr)
 {
-    size_t n = num_elements();
-    if (!n) {
+    size_t nele = num_elements();
+    if (!nele) {
         m_store.insert({name,arr});
         return true;
     }
-    if (n != arr.num_elements()) {
-        THROW(WireCell::ValueError() << WireCell::errmsg{"array size mismatch when adding to dataset"});
+    if (nele != arr.shape()[0]) {
+        THROW(WireCell::ValueError() << WireCell::errmsg{"row size mismatch when adding \""+name+"\" to dataset"});
     }
     auto it = m_store.find(name);
     if (it == m_store.end()) {
@@ -24,13 +77,13 @@ bool Dataset::add(const std::string& name, const Array& arr)
 
 bool Dataset::add(const std::string& name, Array&& arr)
 {
-    size_t n = num_elements();
-    if (!n) {
+    size_t nele = num_elements();
+    if (!nele) {
         m_store.insert({name,arr});
         return true;
     }
-    if (n != arr.num_elements()) {
-        THROW(WireCell::ValueError() << WireCell::errmsg{"array size mismatch when adding to dataset"});
+    if (nele != arr.shape()[0]) {
+        THROW(WireCell::ValueError() << WireCell::errmsg{"row size mismatch when moving \""+name+"\" to dataset"});
     }
     auto it = m_store.find(name);
     if (it == m_store.end()) {
@@ -52,66 +105,57 @@ selection_t Dataset::selection(const std::vector<std::string>& names) const
     }
     return ret;
 }
-Dataset::keys_t Dataset::missing(const Dataset& other)
+
+
+Dataset::keys_t store_keys(const Dataset::store_t& store)
 {
-    auto mine = keys();
-    auto your = other.keys();
-    keys_t diff;
-    std::set_difference(mine.begin(), mine.end(),
-                        your.begin(), your.end(),
+    Dataset::keys_t ret;
+    for (const auto& [k,v] : store) {
+        ret.insert(k);
+    }
+    return ret;
+}
+
+Dataset::keys_t difference(const Dataset::keys_t& a, const Dataset::keys_t& b)
+{
+    Dataset::keys_t diff;
+    std::set_difference(a.begin(), a.end(),
+                        b.begin(), b.end(),
                         std::inserter(diff, diff.end()));
     return diff;
 }
 
-
 void Dataset::append(const std::map<std::string, Array>& tail)
 {
-    size_t nele_pad=0, nbytes_pad = 0; // tail lengths
-    const size_t nprior = num_elements();
+    if (tail.empty()) return;
 
-    // Remember any missing keys or empty tail arrays.
-    std::vector<std::string> topad;
+    const size_t nele_before = num_elements();
+
+    auto diff = difference(keys(), store_keys(tail));
+    if (diff.size() > 0) {
+        THROW(ValueError() << errmsg{"missing keys in append"});
+    }
+
+    size_t nele = 0;            // check rectangular
+    for (auto& [key, arr] : tail) {
+        if (nele == 0) {        // first
+            nele = arr.shape()[0];
+            continue;
+        }
+        if (arr.shape()[0] != nele) {
+            THROW(ValueError() << errmsg{"non-rectangular array in append"});
+        }
+    }
 
     for (auto& [key, arr] : m_store) {
-        auto t = tail.find(key);
-        if (t == tail.end()) {
-            // no user array, will fully pad
-            topad.push_back(key);
-            continue;
-        }
-        auto bytes = t->second.bytes();
-        const size_t nbytes = bytes.size();
-        if (nbytes == 0) {
-            // empty user array, will fully pad
-            topad.push_back(key);
-            continue;
-        }
-        // exists and non-zero
-        if (nbytes_pad == 0) { // first non-zero
-            nbytes_pad = nbytes;
-            nele_pad = t->second.num_elements();
-        }
-        if (nbytes >= nbytes_pad) { // equal or truncate
-            arr.append(bytes.data(), nbytes_pad);
-            continue;
-        }
-        // The array is nonzero but short.
-        arr.append(bytes.data(), nbytes);
-        std::vector<std::byte> zeros(nbytes_pad - nbytes, std::byte{0});
-        arr.append(zeros.begin(), zeros.end());
-    }
-            
-    if (nbytes_pad == 0) {
-        return;         // no matching in tail or tail length zero
+        const auto& [ok, oa] = *tail.find(key);
+        arr.append(oa.bytes());
     }
 
-    std::vector<std::byte> zeros(nbytes_pad, std::byte{0});
-    for (const auto& tkey : topad) {
-        m_store[tkey].append(zeros);
-    }
+    const size_t nele_after = num_elements();
 
     for (auto cb : m_append_callbacks) {
-        cb(nprior, nprior+nele_pad);
+        cb(nele_before, nele_after);
     }
 }
 
