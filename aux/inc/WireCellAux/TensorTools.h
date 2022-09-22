@@ -1,7 +1,7 @@
 #ifndef WIRECELL_AUX_TENSORTOOLS
 #define WIRECELL_AUX_TENSORTOOLS
 
-#include "WireCellIface/ITensor.h"
+#include "WireCellIface/ITensorSet.h"
 #include "WireCellIface/IDFT.h"
 #include "WireCellUtil/Exceptions.h"
 #include "WireCellUtil/PointCloud.h"
@@ -74,12 +74,27 @@ namespace WireCell::Aux {
         return Eigen::Map<COLM>(mdata, nrows, ncols);
     }
 
-    /// Return an ITensor holding an array compsed of a stack of named
-    /// arrays
-    ITensor::pointer as_itensor(const PointCloud::Dataset& dataset,
-                                const PointCloud::name_list_t& names = {});
+    /// Convert Array to ITensor.  Additional md may be provided
+    ITensor::pointer as_itensor(const PointCloud::Array& array);
 
-    PointCloud::Dataset as_dataset(const ITensor::pointer ten);
+    /// Convert a Dataset to an ITensorSet.  The dataset metadata is
+    /// checked for an "ident" attribute to set on the ITensorSet and
+    /// if not found, 0 is used.
+    ITensorSet::pointer as_itensorset(const PointCloud::Dataset& dataset);
+
+    /// Convert an ITensor to an Array.  A default array is returned
+    /// if the element type of the tensor is not supported.
+    PointCloud::Array as_array(const ITensor::pointer& ten);
+
+    /// Convert an ITensorSet to a Dataset.  The "ident" of the
+    /// ITensorSet will be stored as the "ident" attribute of the
+    /// Dataset metadata.  If a "_dataset_arrays" key is found in the
+    /// ITensorSet metadata it shall provide an array of string giving
+    /// names matching order and size of the array of ITensors.
+    /// Otherwise, each ITensor metadata shall provide an "name"
+    /// attribute.  Otherwise, an array name if invented.
+    PointCloud::Dataset as_dataset(const ITensorSet::pointer& itsptr);
+
 
 }
 

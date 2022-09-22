@@ -2,6 +2,8 @@
 #define WIRECELL_POINTCLOUD
 
 #include "WireCellUtil/Exceptions.h"
+#include "WireCellUtil/Dtype.h"
+#include "WireCellUtil/Configuration.h"
 #include "boost/core/span.hpp"
 #include "boost/multi_array.hpp"
 #include <set>
@@ -13,12 +15,16 @@
 namespace WireCell::PointCloud {
 
 
+    /** The Array and Dataset passively carry metadata */
+    using metadata_t = Configuration;
+
     /** A dense array held in a typeless manner, synergistic with
         ITensor.
     */
     class Array {
         
       public:
+
         /** For scalar, per-point values shape must be (n,) where
             where n is number of points.  N-dimensional, per-point
             data has a shape of (n, d1, ...) where d1 is the size of
@@ -80,7 +86,6 @@ namespace WireCell::PointCloud {
             assign(&*il.begin(), {il.size()}, false);
         }
 
-
         /** Discard any held data and assign new data.  See
             constructor for arguments.
         */
@@ -88,6 +93,7 @@ namespace WireCell::PointCloud {
         void assign(ElementType* elements, shape_t shape, bool share)
         {
             clear();
+            m_dtype = WireCell::dtype<ElementType>();
             m_shape = shape;
             size_t nbytes = m_ele_size = sizeof(ElementType);
             for (const auto& s : m_shape) {
@@ -119,6 +125,7 @@ namespace WireCell::PointCloud {
         void clear()
         {
             m_store.clear();
+            m_dtype = "";
             m_span = span_t<std::byte>();
             m_shape.clear();
             m_ele_size = 0;
@@ -233,16 +240,37 @@ namespace WireCell::PointCloud {
             return m_shape;
         }
 
+        std::string dtype() const
+        {
+            return m_dtype;
+        }
+
+        template<typename ElementType>
+        bool is_type() const
+        {
+            if (m_dtype.empty()) {
+                return false;
+            }
+            return WireCell::dtype<ElementType>() == m_dtype;
+        }
+
+        metadata_t& metadata() { return m_metadata; }
+        const metadata_t& metadata() const { return m_metadata; }
+
       private:
 
         shape_t m_shape{};
         size_t m_ele_size{0};
+        std::string m_dtype{""};
 
         // if sharing user data, m_store is empty.
         std::vector<std::byte> m_store{};
         // view of either user's data or our store and through which
         // all access is done.
         span_t<std::byte> m_span{};
+
+        // Metadata is a passive carry.
+        metadata_t m_metadata;
 
         void update_span() {
             m_span = span_t<std::byte>(m_store.data(), m_store.data() + m_store.size());
@@ -353,11 +381,17 @@ namespace WireCell::PointCloud {
             m_append_callbacks.push_back(ac);
         }
 
+        metadata_t& metadata() { return m_metadata; }
+        const metadata_t& metadata() const { return m_metadata; }
+
       private:
 
         store_t m_store;
         std::vector<append_callback_f> m_append_callbacks;
         
+        // Metadata is a passive carry.
+        metadata_t m_metadata;
+
     };                          // Dataset
     
 
