@@ -74,10 +74,17 @@ namespace WireCell::PointCloud {
 
         // Want defaults for all the rest.
         Array() = default;
-        Array(const Array&) = default;
-        Array& operator=(const Array&) = default;
+
+        // Copy constructor
+        Array(const Array& rhs);
+
+        // Assignment 
+        Array& operator=(const Array& rhs);
+
+        //  Move
         Array(Array&&) = default;
         Array& operator=(Array&&) = default;
+
         ~Array() = default;
 
         /// Special constructor on initializer list
@@ -101,7 +108,7 @@ namespace WireCell::PointCloud {
             }
             std::byte* bytes = reinterpret_cast<std::byte*>(elements);
             if (share) {
-                m_span = span_t<std::byte>(bytes, nbytes);
+                m_bytes = span_t<std::byte>(bytes, nbytes);
             }
             else {
                 m_store.assign(bytes, bytes+nbytes);
@@ -126,7 +133,7 @@ namespace WireCell::PointCloud {
         {
             m_store.clear();
             m_dtype = "";
-            m_span = span_t<std::byte>();
+            m_bytes = span_t<std::byte>();
             m_shape.clear();
             m_ele_size = 0;
         }
@@ -137,7 +144,7 @@ namespace WireCell::PointCloud {
         void assure_mutable()
         {
             if (m_store.empty()) {
-                m_store.assign(m_span.begin(), m_span.end());
+                m_store.assign(m_bytes.begin(), m_bytes.end());
                 update_span();
             }
         }
@@ -173,8 +180,8 @@ namespace WireCell::PointCloud {
             }
 
             const ElementType* edata = 
-                reinterpret_cast<const ElementType*>(m_span.data());
-            return span_t<const ElementType>(edata, m_span.size()/sizeof(ElementType));
+                reinterpret_cast<const ElementType*>(m_bytes.data());
+            return span_t<const ElementType>(edata, m_bytes.size()/sizeof(ElementType));
         }
 
         /** Return element at index as type, no bounds checking is
@@ -183,13 +190,14 @@ namespace WireCell::PointCloud {
         template<typename ElementType>
         ElementType element(size_t index) const
         {
-            return *(reinterpret_cast<const ElementType*>(m_span.data()) + index);
+            const ElementType* edata = reinterpret_cast<const ElementType*>(m_bytes.data());
+            return *(edata + index);
         }
 
         /// Return constant span array as flattened array as bytes.
         span_t<const std::byte> bytes() const
         {
-            return m_span;
+            return m_bytes;
         }
 
         /// Append a flat array of bytes.  The number of bytes must be
@@ -232,7 +240,7 @@ namespace WireCell::PointCloud {
             if (m_ele_size == 0) {
                 return 0;
             }
-            return m_span.size() / m_ele_size;
+            return m_bytes.size() / m_ele_size;
         }
 
         shape_t shape() const
@@ -267,13 +275,13 @@ namespace WireCell::PointCloud {
         std::vector<std::byte> m_store{};
         // view of either user's data or our store and through which
         // all access is done.
-        span_t<std::byte> m_span{};
+        span_t<std::byte> m_bytes;
 
         // Metadata is a passive carry.
         metadata_t m_metadata;
 
         void update_span() {
-            m_span = span_t<std::byte>(m_store.data(), m_store.data() + m_store.size());
+            m_bytes = span_t<std::byte>(m_store.data(), m_store.data() + m_store.size());
         }
 
     };
@@ -332,7 +340,7 @@ namespace WireCell::PointCloud {
             new.  Throw if number of elments of array does not match
             others in the dataset.  This will move the array.
         */
-        bool add(const std::string& name, Array&& arr);
+        // bool add(const std::string& name, Array&& arr);
 
         /// Access the underlying store
         const store_t& store() const { return m_store; }
@@ -347,6 +355,16 @@ namespace WireCell::PointCloud {
             size_t num_in_two = sel[1].get().num_elements();
         */
         selection_t selection(const name_list_t& names) const;
+
+        /** Return named array or empty if not found */
+        const Array& get(const std::string& name) const {
+            auto it = m_store.find(name);
+            if (it == m_store.end()) {
+                static Array empty;
+                return empty;
+            }
+            return it->second;            
+        }
 
 
         // FIXME, add something that returns something that produces a

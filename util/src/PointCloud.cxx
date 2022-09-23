@@ -4,6 +4,31 @@ using namespace WireCell::PointCloud;
 
 //// array
 
+// Copy constructor
+Array::Array(const Array& rhs)
+{
+    (*this) = rhs;
+}
+
+// Assignment 
+Array& Array::operator=(const Array& rhs)
+{
+    clear();
+    m_shape = rhs.m_shape;
+    m_ele_size = rhs.m_ele_size;
+    m_dtype = rhs.m_dtype;
+    if (rhs.m_store.empty()) { // shared
+        m_bytes = span_t<std::byte>(rhs.m_bytes.data(), rhs.m_bytes.size());
+    }
+    else {
+        m_store = rhs.m_store;
+        update_span();
+    }
+    m_metadata = rhs.m_metadata;
+    return *this;
+}
+
+
 static bool append_compatible(const Array::shape_t& s1, const Array::shape_t& s2)
 {
     size_t size = s1.size();
@@ -75,24 +100,24 @@ bool Dataset::add(const std::string& name, const Array& arr)
     return false;
 }
 
-bool Dataset::add(const std::string& name, Array&& arr)
-{
-    size_t nele = num_elements();
-    if (!nele) {
-        m_store.insert({name,arr});
-        return true;
-    }
-    if (nele != arr.shape()[0]) {
-        THROW(WireCell::ValueError() << WireCell::errmsg{"row size mismatch when moving \""+name+"\" to dataset"});
-    }
-    auto it = m_store.find(name);
-    if (it == m_store.end()) {
-        m_store.insert({name,arr});
-        return true;
-    }
-    it->second = arr;
-    return false;
-}
+// bool Dataset::add(const std::string& name, Array&& arr)
+// {
+//     size_t nele = num_elements();
+//     if (!nele) {
+//         m_store.insert({name,arr});
+//         return true;
+//     }
+//     if (nele != arr.shape()[0]) {
+//         THROW(WireCell::ValueError() << WireCell::errmsg{"row size mismatch when moving \""+name+"\" to dataset"});
+//     }
+//     auto it = m_store.find(name);
+//     if (it == m_store.end()) {
+//         m_store.insert({name,arr});
+//         return true;
+//     }
+//     it->second = arr;
+//     return false;
+// }
 selection_t Dataset::selection(const std::vector<std::string>& names) const
 {
     selection_t ret;

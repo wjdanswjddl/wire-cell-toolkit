@@ -7,6 +7,83 @@
 using namespace WireCell;
 using namespace WireCell::PointCloud;
 
+template<typename ElementType>
+void assure_equal(const Array& a, const std::vector<ElementType>& v)
+{
+    std::cerr << " dtype=" << a.dtype() << " num_elements=" << a.num_elements() << " size=" << v.size() << "\n";
+    Assert(a.is_type<ElementType>());
+    Assert(v.size() == a.num_elements());
+
+    auto ele = a.elements<ElementType>();
+
+    for (size_t ind=0; ind<v.size(); ++ind) {
+        std::cerr << ind << ": " << v[ind] << " =?= " << ele[ind] << "\n";
+        Assert(v[ind] == ele[ind]);
+    }
+}
+
+template<typename ElementType>
+PointCloud::Array make_array(const ElementType* data, const Array::shape_t& shape, bool share)
+{
+    PointCloud::Array arr(data, shape, share);
+    return arr;
+}
+template<typename ElementType>
+PointCloud::Dataset::store_t make_arrays(const ElementType* data, const Array::shape_t& shape, bool share)
+{
+    PointCloud::Array arr(data, shape, share);
+    PointCloud::Dataset::store_t ret;
+    ret["a"] = arr;
+    return ret;
+}
+
+template<typename ElementType=int>
+void test_array_noshare()
+{
+    std::vector<ElementType> v{1,2,3};
+
+    {
+        Array a = make_array<ElementType>(v.data(), {v.size()}, true);
+        assure_equal(a, v);
+    }
+    {
+        Array a = make_array<ElementType>(v.data(), {v.size()}, false);
+        assure_equal(a, v);
+    }
+    {
+        auto d = make_arrays<ElementType>(v.data(), {v.size()}, true);
+        const Array& a = d["a"];
+        assure_equal(a, v);
+        Array aa = d["a"];
+        assure_equal(aa, v);
+    }
+    {
+        auto d = make_arrays<ElementType>(v.data(), {v.size()}, false);
+        const Array& a = d["a"];
+        assure_equal(a, v);
+        Array aa = d["a"];
+        assure_equal(aa, v);
+    }
+
+
+    // cross: (mutable, const) x (shared, copy)
+    Array sa(v.data(), {v.size()}, true);
+    Array ns(v.data(), {v.size()}, false);
+
+    assure_equal(sa, v);
+    assure_equal(ns, v);
+
+    std::vector<ElementType> w(v.begin(), v.end());
+
+    sa.assure_mutable();
+
+    v[0] = v[1] = v[2] = 0;
+    v.clear();
+
+    assure_equal(sa, w);
+    assure_equal(ns, w);
+}
+
 void test_array()
 {
     std::vector<int> v{1,2,3};
@@ -18,10 +95,10 @@ void test_array()
     Array cs(w.data(), {w.size()}, true);
     Array cc(w.data(), {w.size()}, false);
 
-    {
-        Assert(ms.shape().size() == 1);
-        Assert(ms.shape()[0] == 3);
-    }
+    assure_equal(ms, v);
+    assure_equal(mc, v);
+    assure_equal(cs, v);
+    assure_equal(cc, v);
 
     {
         auto flat_span = ms.elements<int>();
@@ -37,11 +114,6 @@ void test_array()
         Assert(caught);
     }
 
-    Assert(ms.num_elements() == 3);
-    Assert(mc.num_elements() == 3);
-    Assert(cs.num_elements() == 3);
-    Assert(cc.num_elements() == 3);
-
     v.push_back(4);
     ms.assign(v.data(), {v.size()}, true);
     mc.assign(v.data(), {v.size()}, false);
@@ -52,6 +124,11 @@ void test_array()
     Assert(mc.num_elements() == 4);
     Assert(cs.num_elements() == 4);
     Assert(cc.num_elements() == 4);
+
+    assure_equal(ms, v);
+    assure_equal(mc, v);
+    assure_equal(cs, v);
+    assure_equal(cc, v);
 
     v[0] = 42;
 
@@ -68,10 +145,10 @@ void test_array()
     cs.assign(p.data(), {p.size()}, true);
     cc.assign(p.data(), {p.size()}, false);
 
-    Assert(ms.num_elements() == 3);
-    Assert(mc.num_elements() == 3);
-    Assert(cs.num_elements() == 3);
-    Assert(cc.num_elements() == 3);
+    assure_equal(ms, d);
+    assure_equal(mc, d);
+    assure_equal(cs, d);
+    assure_equal(cc, d);
 
     d.push_back(4);
     ms.assign(d.data(), {d.size()}, true);
@@ -79,10 +156,10 @@ void test_array()
     cs.assign(p.data(), {p.size()}, true);
     cc.assign(p.data(), {p.size()}, false);
 
-    Assert(ms.num_elements() == 4);
-    Assert(mc.num_elements() == 4);
-    Assert(cs.num_elements() == 4);
-    Assert(cc.num_elements() == 4);
+    assure_equal(ms, d);
+    assure_equal(mc, d);
+    assure_equal(cs, d);
+    assure_equal(cc, d);
 
     d[0] = 42;
 
@@ -279,6 +356,7 @@ void test_dataset()
 int main()
 {
     test_array();
+    test_array_noshare();
     test_array2d();
     test_dataset();
 

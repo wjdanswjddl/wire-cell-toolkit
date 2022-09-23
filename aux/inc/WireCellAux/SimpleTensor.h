@@ -21,9 +21,10 @@ namespace WireCell::Aux {
         SimpleTensor(const shape_t& shape,
                      const element_t* data=nullptr,
                      const Configuration& md = Configuration())
+            : m_shape(shape)
+            , m_md(md)
         {
             size_t nbytes = element_size();
-            m_shape = shape;
             for (const auto& s : m_shape) {
                 nbytes *= s;
             }

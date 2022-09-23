@@ -1,9 +1,10 @@
 #include "WireCellAux/TensorTools.h"
 #include "WireCellAux/SimpleTensor.h"
-
+#include "WireCellUtil/Testing.h"
 
 #include <complex>
 #include <vector>
+#include <iostream>
 
 using real_t = float;
 using RV = std::vector<real_t>;
@@ -23,23 +24,23 @@ using namespace WireCell;
 void test_is_type()
 {
     auto rt = std::make_shared<RT>(shape, real_vector.data());
-    assert (Aux::is_type<real_t>(rt));
-    assert (!Aux::is_type<complex_t>(rt));
+    Assert (Aux::is_type<real_t>(rt));
+    Assert (!Aux::is_type<complex_t>(rt));
 }
 
 void test_is_row_major()
 {
     // ST actually does not let us do anything but C-order/row-major
     auto rm = std::make_shared<RT>(shape, real_vector.data());
-    assert(Aux::is_row_major(rm));
+    Assert(Aux::is_row_major(rm));
 }
 
 template<typename VectorType>
 void assert_equal(const VectorType& v1, const VectorType& v2)
 {
-    assert(v1.size() == v2.size());
+    Assert(v1.size() == v2.size());
     for (size_t ind=0; ind<v1.size(); ++ind) {
-        assert(v1[ind] == v2[ind]);
+        Assert(v1[ind] == v2[ind]);
     }
 }
 
@@ -73,7 +74,7 @@ void test_asarray()
     auto shape = rt->shape();
     for (size_t irow = 0; irow < shape[0]; ++irow) {
         for (size_t icol = 0; icol < shape[1]; ++icol) {        
-            assert(ra(irow, icol) == my_vec[irow*shape[1] + icol]);
+            Assert(ra(irow, icol) == my_vec[irow*shape[1] + icol]);
         }
     }
 
@@ -82,13 +83,195 @@ void test_asarray()
     auto rt1d = std::make_shared<RT>(shape1d, my_vec.data());
     auto ra1d = Aux::asarray<real_t>(rt1d);
     for (size_t ind = 0; ind < shape[0]; ++ind) {        
-        assert(ra1d(ind) == my_vec[ind]);
+        Assert(ra1d(ind) == my_vec[ind]);
     }
 
     // Assure the internal use of Eigen::Map leads to a copy on return
     my_vec[0] = 42;
-    assert(ra(0,0) == 0);
-    assert(ra1d(0) == 0);
+    Assert(ra(0,0) == 0);
+    Assert(ra1d(0) == 0);
+}
+
+template<typename ElementType>
+void test_array_roundtrip()
+{
+    using namespace WireCell::PointCloud;
+    using namespace WireCell::Aux;
+
+    std::vector<ElementType> v{1,2,3};
+    Array::shape_t shape = {3,};
+    Array arr(v, shape, true);
+    arr.metadata()["foo"] = "bar";
+
+    Assert(arr.num_elements() == 3);
+    Assert(arr.is_type<ElementType>());
+
+    Assert(arr.metadata()["foo"].asString() == "bar");
+    auto itp = as_itensor(arr);
+    Assert(arr.bytes().data() != itp->data());
+    Assert(arr.shape() == itp->shape());
+    for (size_t ind=0; ind<v.size(); ++ind) {
+        ElementType got = ((ElementType*)itp->data())[ind];
+
+        std::cerr << ind
+                  << ": orig = " << v[ind]
+                  << " copy = " << got
+                  << " type = " << arr.dtype() << "\n";
+
+        Assert(v[ind] == got);
+    }
+    Assert(! itp->metadata()["foo"].isNull());
+    Assert(itp->metadata()["foo"].isString());
+    Assert(itp->metadata()["foo"].asString() == "bar");
+
+    Array arr2 = as_array(itp, true);
+    Assert(arr2.shape() == arr.shape());
+    Assert(arr.num_elements() == 3);
+    Assert(arr.is_type<ElementType>());
+    Assert(arr2.element<ElementType>(0) == arr.element<ElementType>(0));
+    Assert(arr2.metadata()["foo"].asString() == "bar");
+    Assert(arr2.metadata()["name"].isNull());
+
+    for (size_t ind=0; ind<v.size(); ++ind) {
+        Assert(v[ind] == arr2.element<ElementType>(ind));
+    }
+
+    arr2.assure_mutable();      // comment out and see asserts fail.
+    itp = nullptr;              // trigger deletion
+
+    Assert(arr2.shape() == arr.shape());
+    Assert(arr.num_elements() == 3);
+    Assert(arr.is_type<ElementType>());
+    Assert(arr2.element<ElementType>(0) == arr.element<ElementType>(0));
+    Assert(arr2.metadata()["foo"].asString() == "bar");
+    Assert(arr2.metadata()["name"].isNull());
+
+    for (size_t ind=0; ind<v.size(); ++ind) {
+        Assert(v[ind] == arr2.element<ElementType>(ind));
+    }
+
+}
+
+void test_dataset_roundtrip()
+{
+    using namespace WireCell::PointCloud;
+    using namespace WireCell::Aux;
+
+    Array orig_one({1  ,2  ,3  });
+    Array orig_two({1.1,2.2,3.3});
+
+    Dataset::store_t s = {
+        {"one", orig_one},
+        {"two", orig_two},
+    };
+
+    Dataset d(s);
+    {
+        const auto& one = d.get("one");
+        Assert(one.num_elements() == 3);
+        Assert(one.is_type<int>());
+        const auto& two = d.get("two");
+        Assert(two.num_elements() == 3);
+        Assert(two.is_type<double>());
+
+        for (size_t ind = 0; ind<3; ++ind) {
+            std::cerr << ind
+                      << ": one: orig = " << orig_one.element<int>(ind)
+                      << " copy = " << one.element<int>(ind) << "\n";
+            Assert(one.element<int>(ind) == orig_one.element<int>(ind));
+            std::cerr << ind
+                      << ": two: orig = " << orig_two.element<double>(ind)
+                      << " copy = " << two.element<double>(ind) << "\n";        
+            Assert(two.element<double>(ind) == orig_two.element<double>(ind));
+        }
+    }
+
+
+    {
+        auto itsp = as_itensorset(d);
+        Assert(itsp->ident() == 0);
+    }
+    d.metadata()["ident"] = 1;
+
+
+    // to tensor
+
+    auto itsp = as_itensorset(d);
+    Assert(itsp->ident() == 1);
+    auto itsmd = itsp->metadata();
+
+    // note, this key is private in TensorTools.cxx
+    auto names = itsmd["_dataset_arrays"];
+    Assert(! names.isNull()); 
+    Assert(names.isArray());
+    Assert(names[0].asString() == "one");
+    Assert(names[1].asString() == "two");
+
+    auto itv = itsp->tensors();
+    {
+        Assert(itv->size() == 2);
+        for (size_t ind=0; ind<2; ++ind) {
+            auto it = itv->at(ind);
+            auto md = it->metadata();
+            Assert(md["name"].isNull());
+        }
+    }
+    {
+        auto one = itv->at(0);
+        auto two = itv->at(1);
+
+        for (size_t ind=0; ind<3; ++ind) {
+            Assert(orig_one.element<int>(ind) == ((int*)one->data())[ind]);
+            Assert(orig_two.element<double>(ind) == ((double*)two->data())[ind]);
+        }
+    }
+    
+
+    // back to dataset
+
+    bool share = false;
+    Dataset d2 = as_dataset(itsp, share);
+
+    Assert(d2.num_elements() == 3);
+
+    auto dmd = d2.metadata();
+    Assert(!dmd["ident"].isNull() and dmd["ident"].asInt() == 1);
+    Assert(dmd["_dataset_arrays"].isNull()); // should not leak from ITensorSet
+    auto keys = d2.keys();
+    Assert(keys.size() == 2);
+    Assert(keys.find("one") != keys.end());
+    Assert(keys.find("two") != keys.end());
+    
+    auto sel = d2.selection({"one", "two"});
+    const Array& one = sel[0];
+    const Array& two = sel[1];
+
+    // const auto& one = d2.get("one");
+    Assert(one.num_elements() == 3);
+    Assert(one.is_type<int>());
+    Assert(one.dtype() == "i4");
+    auto one_bytes = one.bytes();
+    Assert(one_bytes.size() == 3*sizeof(int));
+    // Assert(1 == ((int*)one_bytes.data())[0]);
+
+    // const auto& two = d2.get("two");
+    Assert(two.num_elements() == 3);
+    Assert(two.is_type<double>());
+
+    Assert(one.metadata()["name"].isNull());
+
+    for (size_t ind = 0; ind<3; ++ind) {
+        std::cerr << ind
+                  << ": one: orig = " << orig_one.element<int>(ind)
+                  << " copy = " << one.element<int>(ind) << "\n";
+        Assert(one.element<int>(ind) == orig_one.element<int>(ind));
+        std::cerr << ind
+                  << ": two: orig = " << orig_two.element<double>(ind)
+                  << " copy = " << two.element<double>(ind) << "\n";        
+        Assert(two.element<double>(ind) == orig_two.element<double>(ind));
+    }
+
+    return;
 }
 
 int main()
@@ -97,6 +280,21 @@ int main()
     test_is_row_major();
     test_asvec();
     test_asarray();
+
+    test_array_roundtrip<int8_t>();
+    test_array_roundtrip<int16_t>();
+    test_array_roundtrip<int32_t>();
+    test_array_roundtrip<int64_t>();
+    test_array_roundtrip<uint8_t>();
+    test_array_roundtrip<uint16_t>();
+    test_array_roundtrip<uint32_t>();
+    test_array_roundtrip<uint64_t>();
+    test_array_roundtrip<float>();
+    test_array_roundtrip<double>();
+    test_array_roundtrip<std::complex<float>>();
+    test_array_roundtrip<std::complex<double>>();
+
+    test_dataset_roundtrip();
 
     return 0;
 }

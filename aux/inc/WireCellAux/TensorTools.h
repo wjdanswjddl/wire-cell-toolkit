@@ -83,8 +83,14 @@ namespace WireCell::Aux {
     ITensorSet::pointer as_itensorset(const PointCloud::Dataset& dataset);
 
     /// Convert an ITensor to an Array.  A default array is returned
-    /// if the element type of the tensor is not supported.
-    PointCloud::Array as_array(const ITensor::pointer& ten);
+    /// if the element type of the tensor is not supported.  Setting
+    /// the share as true is a means of optimizing memory usage and
+    /// must be used with care.  It will allow the memory held by the
+    /// ITensor to be directly shared with the Array (no copy).  The
+    /// user must keep the ITensor alive or call
+    /// Array::assure_mutable() in order for this memory to remain
+    /// valid.
+    PointCloud::Array as_array(const ITensor::pointer& ten, bool share=false);
 
     /// Convert an ITensorSet to a Dataset.  The "ident" of the
     /// ITensorSet will be stored as the "ident" attribute of the
@@ -92,8 +98,9 @@ namespace WireCell::Aux {
     /// ITensorSet metadata it shall provide an array of string giving
     /// names matching order and size of the array of ITensors.
     /// Otherwise, each ITensor metadata shall provide an "name"
-    /// attribute.  Otherwise, an array name if invented.
-    PointCloud::Dataset as_dataset(const ITensorSet::pointer& itsptr);
+    /// attribute.  Otherwise, an array name if invented.  The share
+    /// argument is passed to as_array().
+    PointCloud::Dataset as_dataset(const ITensorSet::pointer& itsptr, bool share=false);
 
 
 }
