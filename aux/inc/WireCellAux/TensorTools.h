@@ -74,6 +74,8 @@ namespace WireCell::Aux {
         return Eigen::Map<COLM>(mdata, nrows, ncols);
     }
 
+    // PointCloud support
+
     /// Convert Array to ITensor.  Additional md may be provided
     ITensor::pointer as_itensor(const PointCloud::Array& array);
 
