@@ -40,14 +40,14 @@ class NanoflannAdaptor {
         if (m_pts.empty()) {
             return 0;
         }
-        return m_pts[0].get().num_elements();
+        return m_pts[0].get().size_major();
     }
 
     inline element_t kdtree_get_pt(size_t idx, size_t dim) const
     {
         if (dim < m_pts.size()) {
             const Array& arr = m_pts[dim];
-            if (idx < arr.num_elements()) {
+            if (idx < arr.size_major()) {
                 return arr.element<ElementType>(idx);
             }
         }

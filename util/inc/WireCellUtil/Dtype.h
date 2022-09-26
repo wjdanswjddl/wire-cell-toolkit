@@ -33,7 +33,8 @@ namespace WireCell {
     template <> inline std::string dtype<std::complex<float>>() { return "c8"; }
     template <> inline std::string dtype<std::complex<double>>() { return "c16"; }
 
-
+    // Return size of dtype in bytes
+    size_t dtype_size(const std::string& dt);
 }
 
 #endif

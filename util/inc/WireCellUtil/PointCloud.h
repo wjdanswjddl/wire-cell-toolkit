@@ -200,6 +200,10 @@ namespace WireCell::PointCloud {
             return m_bytes;
         }
 
+        /// Return an Array like this one but filled with zeros to
+        /// given number of elements along major axis.
+        Array zeros_like(size_t nmaj);
+
         /// Append a flat array of bytes.  The number of bytes must be
         /// consistent with the element size and the existing shape.
         void append(const std::byte* data, size_t nbytes);
@@ -234,14 +238,17 @@ namespace WireCell::PointCloud {
             append(std::begin(r), std::end(r));
         }
 
-        /// Return the number of elements assuming original datasize
-        /// and a flattened array.
-        size_t num_elements() const {
-            if (m_ele_size == 0) {
-                return 0;
-            }
-            return m_bytes.size() / m_ele_size;
+        /// Return the size of the major axis.
+        size_t size_major() const
+        {
+            if (m_shape.empty()) return 0;
+            return m_shape[0];
         }
+
+        /// Return the total number of elements in the typed array.
+        /// This is the product of the sizes of each dimension in the
+        /// shape.
+        size_t num_elements() const;
 
         shape_t shape() const
         {
@@ -319,15 +326,14 @@ namespace WireCell::PointCloud {
             }
         }
 
-        /// Return the number of elements in the arrays of the
-        /// dataset.  This returns the size of the first dimension or
-        /// zero if the dataset is empty.
-        size_t num_elements() const {
+        /// Return the common number of elements along the major axis
+        /// of the arrays.  This returns the size of the first
+        /// dimension or zero if the dataset is empty.
+        size_t size_major() const {
             if (m_store.empty()) {
                 return 0;
             }
-            const auto& shape = m_store.begin()->second.shape();
-            return shape[0];
+            return m_store.begin()->second.size_major();
         }
         
         /** Add the array to the dataset.  Return true if its name is
@@ -379,6 +385,10 @@ namespace WireCell::PointCloud {
             }
             return ret;
         }
+
+        /// Return a Dataset like this one but filled with zeros to
+        /// given number of elements along major axis.
+        Dataset zeros_like(size_t nmaj);
 
         /// Append arrays in tail to this.
         void append(const Dataset& tail) {

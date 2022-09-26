@@ -28,6 +28,44 @@ Array& Array::operator=(const Array& rhs)
     return *this;
 }
 
+Array Array::zeros_like(size_t nmaj)
+{
+    Array ret;
+    ret.m_metadata = m_metadata;
+    ret.m_dtype = m_dtype;
+    ret.m_ele_size = m_ele_size;
+    if (m_shape.empty()) {
+        ret.update_span();
+        return ret;
+    }
+    auto shape = m_shape;
+    shape[0] = nmaj;
+    size_t size=1;
+    for (auto s : shape) {
+        size *= s;
+    }
+    ret.m_store.resize(size, std::byte(0));
+    ret.m_shape = shape;
+    ret.update_span();
+    return ret;
+}
+
+/// Return the total number of elements.
+size_t Array::num_elements() const
+{
+    if (m_bytes.empty()) {
+        return 0;
+    }
+    if (m_shape.empty()) {
+        return 0;
+    }
+
+    size_t num = 1;
+    for (const auto& s : m_shape) {
+        num *= s;
+    }
+    return num;
+}            
 
 static bool append_compatible(const Array::shape_t& s1, const Array::shape_t& s2)
 {
@@ -83,13 +121,12 @@ void Array::append(const std::byte* data, size_t nbytes)
 
 bool Dataset::add(const std::string& name, const Array& arr)
 {
-    size_t nele = num_elements();
-    if (!nele) {
+    if (m_store.empty()) {
         m_store.insert({name,arr});
         return true;
     }
-    if (nele != arr.shape()[0]) {
-        THROW(WireCell::ValueError() << WireCell::errmsg{"row size mismatch when adding \""+name+"\" to dataset"});
+    if (size_major() != arr.size_major()) {
+        THROW(WireCell::ValueError() << WireCell::errmsg{"major axis size mismatch when adding \""+name+"\" to dataset"});
     }
     auto it = m_store.find(name);
     if (it == m_store.end()) {
@@ -100,24 +137,6 @@ bool Dataset::add(const std::string& name, const Array& arr)
     return false;
 }
 
-// bool Dataset::add(const std::string& name, Array&& arr)
-// {
-//     size_t nele = num_elements();
-//     if (!nele) {
-//         m_store.insert({name,arr});
-//         return true;
-//     }
-//     if (nele != arr.shape()[0]) {
-//         THROW(WireCell::ValueError() << WireCell::errmsg{"row size mismatch when moving \""+name+"\" to dataset"});
-//     }
-//     auto it = m_store.find(name);
-//     if (it == m_store.end()) {
-//         m_store.insert({name,arr});
-//         return true;
-//     }
-//     it->second = arr;
-//     return false;
-// }
 selection_t Dataset::selection(const std::vector<std::string>& names) const
 {
     selection_t ret;
@@ -150,25 +169,34 @@ Dataset::keys_t difference(const Dataset::keys_t& a, const Dataset::keys_t& b)
     return diff;
 }
 
+Dataset Dataset::zeros_like(size_t nmaj)
+{
+    Dataset ret;
+    for (auto& [key, arr] : m_store) {
+        ret.add(key, arr.zeros_like(nmaj));
+    }
+    return ret;
+}
+
 void Dataset::append(const std::map<std::string, Array>& tail)
 {
     if (tail.empty()) return;
 
-    const size_t nele_before = num_elements();
+    const size_t nmaj_before = size_major();
 
     auto diff = difference(keys(), store_keys(tail));
     if (diff.size() > 0) {
         THROW(ValueError() << errmsg{"missing keys in append"});
     }
 
-    size_t nele = 0;            // check rectangular
+    size_t nmaj = 0;            // check rectangular
     for (auto& [key, arr] : tail) {
-        if (nele == 0) {        // first
-            nele = arr.shape()[0];
+        if (nmaj == 0) {        // first
+            nmaj = arr.size_major();
             continue;
         }
-        if (arr.shape()[0] != nele) {
-            THROW(ValueError() << errmsg{"non-rectangular array in append"});
+        if (arr.size_major() != nmaj) {
+            THROW(ValueError() << errmsg{"variation in major axis size in append"});
         }
     }
 
@@ -177,10 +205,11 @@ void Dataset::append(const std::map<std::string, Array>& tail)
         arr.append(oa.bytes());
     }
 
-    const size_t nele_after = num_elements();
+    const size_t nmaj_after = size_major();
 
     for (auto cb : m_append_callbacks) {
-        cb(nele_before, nele_after);
+        cb(nmaj_before, nmaj_after);
     }
 }
+
 

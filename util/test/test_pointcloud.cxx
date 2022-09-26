@@ -12,7 +12,9 @@ void assure_equal(const Array& a, const std::vector<ElementType>& v)
 {
     std::cerr << " dtype=" << a.dtype() << " num_elements=" << a.num_elements() << " size=" << v.size() << "\n";
     Assert(a.is_type<ElementType>());
-    Assert(v.size() == a.num_elements());
+    Assert(v.size() == a.num_elements()); // these two are 
+    Assert(v.size() == a.size_major());   // degenerate for
+    Assert(a.shape().size() == 1);        // a 1D array.
 
     auto ele = a.elements<ElementType>();
 
@@ -120,10 +122,10 @@ void test_array()
     cs.assign(w.data(), {w.size()}, true);
     cc.assign(w.data(), {w.size()}, false);
 
-    Assert(ms.num_elements() == 4);
-    Assert(mc.num_elements() == 4);
-    Assert(cs.num_elements() == 4);
-    Assert(cc.num_elements() == 4);
+    Assert(ms.size_major() == 4);
+    Assert(mc.size_major() == 4);
+    Assert(cs.size_major() == 4);
+    Assert(cc.size_major() == 4);
 
     assure_equal(ms, v);
     assure_equal(mc, v);
@@ -187,6 +189,13 @@ void test_array()
     cs.clear();
     cc.clear();
 
+    std::cerr << "ms.size_major after clear: " << ms.size_major() << "\n";
+    Assert(ms.size_major() == 0);
+    Assert(mc.size_major() == 0);
+    Assert(cs.size_major() == 0);
+    Assert(cc.size_major() == 0);
+
+    std::cerr << "ms.num_elements after clear: " << ms.num_elements() << "\n";
     Assert(ms.num_elements() == 0);
     Assert(mc.num_elements() == 0);
     Assert(cs.num_elements() == 0);
@@ -217,6 +226,7 @@ void test_array2d()
     Assert(caught);
     
     Assert(arr.shape() == shape);    
+    Assert(arr.size_major() == 4);
 
     {
         auto ma = arr.indexed<int, 2>();
@@ -258,7 +268,7 @@ void test_dataset()
         {"two", Array({1.1,2.2,3.3})},
     };
     Dataset d(s);
-    Assert(d.num_elements() == 3);
+    Assert(d.size_major() == 3);
     Assert(d.keys().size() == 2);
     Assert(d.store().size() == 2);
 
@@ -288,28 +298,28 @@ void test_dataset()
         auto sel = d.selection({"one", "two"});
         Assert(sel.size() == 2);
         const Array& arr = sel[0];
-        Assert(arr.num_elements() == 3);
-        Assert(sel[1].get().num_elements() == 3);
+        Assert(arr.size_major() == 3);
+        Assert(sel[1].get().size_major() == 3);
     }
 
     {
         Dataset d1(d);
-        Assert(d.num_elements() == 3);
-        Assert(d1.num_elements() == 3);
+        Assert(d.size_major() == 3);
+        Assert(d1.size_major() == 3);
         Assert(d1.keys().size() == 2);
         
         Dataset d2 = d;
-        Assert(d.num_elements() == 3);
-        Assert(d2.num_elements() == 3);
+        Assert(d.size_major() == 3);
+        Assert(d2.size_major() == 3);
         Assert(d2.keys().size() == 2);
     
         Dataset d3 = std::move(d2);
-        Assert(d2.num_elements() == 0);
-        Assert(d3.num_elements() == 3);
+        Assert(d2.size_major() == 0);
+        Assert(d3.size_major() == 3);
         Assert(d2.keys().size() == 0);
         Assert(d3.keys().size() == 2);
     }
-    Assert(d.num_elements() == 3);
+    Assert(d.size_major() == 3);
 
     {
         Dataset::store_t s = {
@@ -317,7 +327,7 @@ void test_dataset()
             {"two", Array({1.1,2.2,3.3})},
         };
         Dataset d(s);
-        Assert(d.num_elements() == 3);
+        Assert(d.size_major() == 3);
         Assert(d.keys().size() == 2);
 
         size_t beg=0, end=0;
@@ -325,7 +335,7 @@ void test_dataset()
 
         Dataset tail;
         tail.add("one", Array({4  , 5}));
-        Assert(tail.num_elements() == 2);
+        Assert(tail.size_major() == 2);
 
         bool caught = false;
         try {
@@ -338,16 +348,16 @@ void test_dataset()
 
         tail.add("two", Array({4.4, 5.4}));
         Assert(tail.keys().size() == 2);
-        Assert(tail.num_elements() == 2);
+        Assert(tail.size_major() == 2);
 
         d.append(tail);
-        std::cerr << "HAS " << d.num_elements() << "\n";
+        std::cerr << "HAS " << d.size_major() << "\n";
 
         Assert(beg == 3);
         Assert(end == 5);
 
         Assert(d.keys().size() == 2);
-        Assert(d.num_elements() == 5);
+        Assert(d.size_major() == 5);
 
     }        
 

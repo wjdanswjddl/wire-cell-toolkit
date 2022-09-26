@@ -103,7 +103,7 @@ void test_array_roundtrip()
     Array arr(v, shape, true);
     arr.metadata()["foo"] = "bar";
 
-    Assert(arr.num_elements() == 3);
+    Assert(arr.size_major() == 3);
     Assert(arr.is_type<ElementType>());
 
     Assert(arr.metadata()["foo"].asString() == "bar");
@@ -126,7 +126,7 @@ void test_array_roundtrip()
 
     Array arr2 = as_array(itp, true);
     Assert(arr2.shape() == arr.shape());
-    Assert(arr.num_elements() == 3);
+    Assert(arr.size_major() == 3);
     Assert(arr.is_type<ElementType>());
     Assert(arr2.element<ElementType>(0) == arr.element<ElementType>(0));
     Assert(arr2.metadata()["foo"].asString() == "bar");
@@ -140,7 +140,7 @@ void test_array_roundtrip()
     itp = nullptr;              // trigger deletion
 
     Assert(arr2.shape() == arr.shape());
-    Assert(arr.num_elements() == 3);
+    Assert(arr.size_major() == 3);
     Assert(arr.is_type<ElementType>());
     Assert(arr2.element<ElementType>(0) == arr.element<ElementType>(0));
     Assert(arr2.metadata()["foo"].asString() == "bar");
@@ -168,10 +168,10 @@ void test_dataset_roundtrip()
     Dataset d(s);
     {
         const auto& one = d.get("one");
-        Assert(one.num_elements() == 3);
+        Assert(one.size_major() == 3);
         Assert(one.is_type<int>());
         const auto& two = d.get("two");
-        Assert(two.num_elements() == 3);
+        Assert(two.size_major() == 3);
         Assert(two.is_type<double>());
 
         for (size_t ind = 0; ind<3; ++ind) {
@@ -232,7 +232,7 @@ void test_dataset_roundtrip()
     bool share = false;
     Dataset d2 = as_dataset(itsp, share);
 
-    Assert(d2.num_elements() == 3);
+    Assert(d2.size_major() == 3);
 
     auto dmd = d2.metadata();
     Assert(!dmd["ident"].isNull() and dmd["ident"].asInt() == 1);
@@ -247,7 +247,7 @@ void test_dataset_roundtrip()
     const Array& two = sel[1];
 
     // const auto& one = d2.get("one");
-    Assert(one.num_elements() == 3);
+    Assert(one.size_major() == 3);
     Assert(one.is_type<int>());
     Assert(one.dtype() == "i4");
     auto one_bytes = one.bytes();
@@ -255,7 +255,7 @@ void test_dataset_roundtrip()
     // Assert(1 == ((int*)one_bytes.data())[0]);
 
     // const auto& two = d2.get("two");
-    Assert(two.num_elements() == 3);
+    Assert(two.size_major() == 3);
     Assert(two.is_type<double>());
 
     Assert(one.metadata()["name"].isNull());
