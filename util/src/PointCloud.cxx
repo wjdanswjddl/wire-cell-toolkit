@@ -40,7 +40,7 @@ Array Array::zeros_like(size_t nmaj)
     }
     auto shape = m_shape;
     shape[0] = nmaj;
-    size_t size=1;
+    size_t size = m_ele_size;
     for (auto s : shape) {
         size *= s;
     }

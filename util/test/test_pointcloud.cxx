@@ -359,6 +359,21 @@ void test_dataset()
         Assert(d.keys().size() == 2);
         Assert(d.size_major() == 5);
 
+        {
+            auto tail2 = d.zeros_like(7);
+            Assert(tail2.size_major() == 7);
+
+            auto& arr2 = tail2.get("one");
+            auto one2 = arr2.indexed<int, 1>();
+            one2[0] = 42;
+            Assert(arr2.element<int>(0) == 42);
+
+            d.append(tail2);
+            Assert(d.size_major() == 12);
+            auto& arr22 = d.get("one");
+            Assert(arr22.size_major() == 12);
+            Assert(arr22.element<int>(5) == 42);
+        }
     }        
 
 }

@@ -39,10 +39,18 @@ namespace WireCell::PointCloud {
         using span_t = boost::span<ElementType>;
 
         /** The underlying data may be accessed as a typed, Boost
-            multi array to allow indexing.
+            multi array to allow indexing.  This form allows change
+            value in the underlying array.
         */
         template<typename ElementType, size_t NumDims>
-        using indexed_t = boost::const_multi_array_ref<ElementType, NumDims>;
+        using indexed_t = boost::multi_array_ref<ElementType, NumDims>;
+
+        /** The underlying data may be accessed as a typed, Boost
+            multi array to allow indexing.  This form is const version
+            of above.
+        */
+        template<typename ElementType, size_t NumDims>
+        using const_indexed_t = boost::const_multi_array_ref<ElementType, NumDims>;
 
         /** Store a point array given in flattened, row-major aka
             C-order.  If share is true then no copy of elements is
@@ -157,7 +165,7 @@ namespace WireCell::PointCloud {
             template<typename ElementType, size_t NumDims>
         */
         template<typename ElementType, size_t NumDims>
-        indexed_t<ElementType, NumDims> indexed() const
+        indexed_t<ElementType, NumDims> indexed() 
         {
             if (sizeof(ElementType) != m_ele_size) {
                 THROW(ValueError() << errmsg{"element size mismatch in indexed"});
@@ -166,7 +174,19 @@ namespace WireCell::PointCloud {
                 THROW(ValueError() << errmsg{"ndims mismatch in indexed"});
             }
 
-            return indexed_t<ElementType, NumDims>(elements<const ElementType>().data(), m_shape);
+            return indexed_t<ElementType, NumDims>(elements<ElementType>().data(), m_shape);
+        }
+        template<typename ElementType, size_t NumDims>
+        const_indexed_t<ElementType, NumDims> indexed() const
+        {
+            if (sizeof(ElementType) != m_ele_size) {
+                THROW(ValueError() << errmsg{"element size mismatch in indexed"});
+            }
+            if (NumDims != m_shape.size()) {
+                THROW(ValueError() << errmsg{"ndims mismatch in indexed"});
+            }
+
+            return const_indexed_t<ElementType, NumDims>(elements<const ElementType>().data(), m_shape);
         }
 
         /** Return a constant span of flattened array data assuming
@@ -178,10 +198,19 @@ namespace WireCell::PointCloud {
             if (sizeof(ElementType) != m_ele_size) {
                 THROW(ValueError() << errmsg{"element size mismatch in elements"});
             }
-
             const ElementType* edata = 
                 reinterpret_cast<const ElementType*>(m_bytes.data());
             return span_t<const ElementType>(edata, m_bytes.size()/sizeof(ElementType));
+        }
+        template<typename ElementType>
+        span_t<ElementType> elements() 
+        {
+            if (sizeof(ElementType) != m_ele_size) {
+                THROW(ValueError() << errmsg{"element size mismatch in elements"});
+            }
+            ElementType* edata = 
+                reinterpret_cast<ElementType*>(m_bytes.data());
+            return span_t<ElementType>(edata, m_bytes.size()/sizeof(ElementType));
         }
 
         /** Return element at index as type, no bounds checking is
@@ -364,6 +393,14 @@ namespace WireCell::PointCloud {
 
         /** Return named array or empty if not found */
         const Array& get(const std::string& name) const {
+            auto it = m_store.find(name);
+            if (it == m_store.end()) {
+                static Array empty;
+                return empty;
+            }
+            return it->second;            
+        }
+        Array& get(const std::string& name) {
             auto it = m_store.find(name);
             if (it == m_store.end()) {
                 static Array empty;
