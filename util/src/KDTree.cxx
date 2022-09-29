@@ -71,18 +71,33 @@ struct QueryStatic : public Query<typename IndexType::ElementType>
     using results_t = typename Query<element_t>::results_t;
     using point_t = typename Query<element_t>::point_t;
 
-    dataset_adaptor_t dataset_adaptor;
-    name_list_t selection;
-    IndexType index;
+    dataset_adaptor_t m_dataset_adaptor;
+    name_list_t m_selection;
+    IndexType m_index;
+    Metric m_metric;
 
     QueryStatic() = delete;
     virtual ~QueryStatic() = default;
 
-    QueryStatic(Dataset& dataset, const name_list_t& selection)
-        : dataset_adaptor(dataset.selection(selection))
-        , selection(selection)
-        , index(selection.size(), dataset_adaptor)
+    QueryStatic(Dataset& dataset, const name_list_t& selection, Metric mtype)
+        : m_dataset_adaptor(dataset.selection(selection))
+        , m_selection(selection)
+        , m_index(selection.size(), m_dataset_adaptor)
+        , m_metric(mtype)
     {
+    }
+
+    virtual const name_list_t& selection() const
+    {
+        return m_selection;
+    }
+    virtual bool dynamic() const
+    {
+        return false;
+    }
+    virtual Metric metric() const
+    {
+        return m_metric;
     }
 
     // knn and radius have semingly caprcious differences in
@@ -94,7 +109,7 @@ struct QueryStatic : public Query<typename IndexType::ElementType>
         results_t ret(kay);
         nanoflann::KNNResultSet<element_t> nf(kay);
         nf.init(&ret.index[0], &ret.distance[0]);
-        index.findNeighbors(nf, query_point.data(),
+        m_index.findNeighbors(nf, query_point.data(),
                             nanoflann::SearchParams());
         const size_t nfound = nf.size();
         ret.index.resize(nfound, -1);
@@ -108,7 +123,7 @@ struct QueryStatic : public Query<typename IndexType::ElementType>
     {
         std::vector<std::pair<size_t, element_t>> ids;
         nanoflann::RadiusResultSet<element_t> nf(rad, ids);
-        index.findNeighbors(nf, query_point.data(),
+        m_index.findNeighbors(nf, query_point.data(),
                             nanoflann::SearchParams());
         const size_t nfound = ids.size();
         results_t ret(nfound);
@@ -130,13 +145,18 @@ struct QueryDynamic : public QueryStatic<IndexType>
     QueryDynamic() = delete;
     virtual ~QueryDynamic() = default;
 
-    QueryDynamic(Dataset& dataset, const name_list_t& selection)
-        : QueryStatic<IndexType>(dataset, selection)
+    QueryDynamic(Dataset& dataset, const name_list_t& selection, Metric mtype)
+        : QueryStatic<IndexType>(dataset, selection, mtype)
     {
         dataset.register_append([this](size_t beg, size_t end) {
             // NOTE: we subtract one as nanoflann expects a closed
             // range not the standard C++ right-open range.
-            this->index.addPoints(beg, end-1); });
+            this->m_index.addPoints(beg, end-1); });
+    }
+
+    virtual bool dynamic() const
+    {
+        return true;
     }
 };
 
@@ -145,7 +165,7 @@ template<typename DistanceType>
 std::unique_ptr<Query<typename DistanceType::ElementType>>
 make_query_with_distance(Dataset& dataset,
                          const name_list_t& selection,
-                         bool dynamic)
+                         bool dynamic, Metric mtype)
 {
     using element_t = typename DistanceType::ElementType;
     using dataset_adaptor_t = NanoflannAdaptor<element_t>;
@@ -153,34 +173,32 @@ make_query_with_distance(Dataset& dataset,
     if (dynamic) {
         using index_t = nanoflann::KDTreeSingleIndexDynamicAdaptor<DistanceType, dataset_adaptor_t>;
         using query_t = QueryDynamic<index_t>;
-        return std::make_unique<query_t>(dataset, selection);
+        return std::make_unique<query_t>(dataset, selection, mtype);
     }
     using index_t = nanoflann::KDTreeSingleIndexAdaptor<DistanceType, dataset_adaptor_t>;
     using query_t = QueryStatic<index_t>;
-    return std::make_unique<query_t>(dataset, selection);
+    return std::make_unique<query_t>(dataset, selection, mtype);
 }
 
 template<typename ElementType>
 std::unique_ptr<Query<ElementType>>
-make_query(Dataset& dataset,
-           const name_list_t& selection,
-           bool dynamic,
-           Metric mtype)
+make_query(Dataset& dataset, const name_list_t& selection,
+           bool dynamic, Metric mtype)
 {
     using element_t = ElementType;
     using dataset_adaptor_t = NanoflannAdaptor<element_t>;
 
     if (mtype == Metric::l2simple) {
         using distance_t = nanoflann::L2_Simple_Adaptor<element_t, dataset_adaptor_t>;
-        return make_query_with_distance<distance_t>(dataset, selection, dynamic);
+        return make_query_with_distance<distance_t>(dataset, selection, dynamic, mtype);
     }
     if (mtype == Metric::l1) {
         using distance_t = nanoflann::L1_Adaptor<element_t, dataset_adaptor_t>;
-        return make_query_with_distance<distance_t>(dataset, selection, dynamic);
+        return make_query_with_distance<distance_t>(dataset, selection, dynamic, mtype);
     }
     if (mtype == Metric::l2) {
         using distance_t = nanoflann::L2_Adaptor<element_t, dataset_adaptor_t>;
-        return make_query_with_distance<distance_t>(dataset, selection, dynamic);
+        return make_query_with_distance<distance_t>(dataset, selection, dynamic, mtype);
     }
     // if (mtype == Metric::so2) {
     //     using distance_t = nanoflann::SO2_Adaptor<element_t, dataset_adaptor_t>;
@@ -194,8 +212,9 @@ make_query(Dataset& dataset,
     return nullptr;
 }
 
+template<>
 std::unique_ptr<Query<int>>
-WireCell::KDTree::query_int(
+WireCell::KDTree::query<int>(
     Dataset& dataset, const name_list_t& selection,
     bool dynamic, Metric mtype)
 {
@@ -203,16 +222,18 @@ WireCell::KDTree::query_int(
 }
 
 
+template<>
 std::unique_ptr<Query<float>>
-WireCell::KDTree::query_float(
+WireCell::KDTree::query<float>(
     Dataset& dataset, const name_list_t& selection,
     bool dynamic, Metric mtype)
 {
     return make_query<float>(dataset, selection, dynamic, mtype);
 }
 
+template<>
 std::unique_ptr<Query<double>>
-WireCell::KDTree::query_double(
+WireCell::KDTree::query<double>(
     Dataset& dataset, const name_list_t& selection,
     bool dynamic, Metric mtype)
 {

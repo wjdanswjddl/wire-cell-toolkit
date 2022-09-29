@@ -72,6 +72,9 @@ namespace WireCell {
             // Return the crossing point of two rays.
             Vector ray_crossing(const coordinate_t& one, const coordinate_t& two) const;
 
+            // Return points of corners sorted by their angle about their center point.
+            vector_array1d_t ring_points(const crossings_t& corners) const;
+
             // Return the pitch location measured in an other layer give of the crossing point of two rays
             double pitch_location(const coordinate_t& one, const coordinate_t& two, layer_index_t other) const;
 

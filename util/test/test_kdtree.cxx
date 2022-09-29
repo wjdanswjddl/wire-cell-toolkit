@@ -1,5 +1,6 @@
 #include "WireCellUtil/KDTree.h"
 #include "WireCellUtil/Testing.h"
+#include "WireCellUtil/TimeKeeper.h"
 
 #include <vector>
 #include <string>
@@ -8,6 +9,7 @@
 
 using namespace WireCell::PointCloud;
 using namespace WireCell::KDTree;
+using WireCell::TimeKeeper;
 
 void test_static()
 {
@@ -20,7 +22,7 @@ void test_static()
     auto one = s["one"].elements<double>();
     auto two = s["two"].elements<double>();
 
-    auto kdq = query_double(d, {"one", "two"});
+    auto kdq = query<double>(d, {"one", "two"});
     {
         auto a = kdq->knn(2, {2.0, 2.0});
         const size_t nfound = a.index.size();
@@ -76,7 +78,7 @@ void test_dynamic()
     Dataset d(s);
 
     // This must have registered update callback.
-    auto kdq = query_double(d, {"one", "two"}, true);
+    auto kdq = query<double>(d, {"one", "two"}, true);
 
     auto arrs = d.selection({"one", "two"});
 
@@ -112,8 +114,93 @@ void test_dynamic()
 
 }
 
+void test_multi()
+{
+    Dataset::store_t s = {
+        {"one", Array({1.0,1.0,3.0})},
+        {"two", Array({1.1,2.2,3.3})},
+    };
+    Dataset d(s);
+
+    const bool dynamic = true;
+    MultiQuery mq(d, dynamic);
+
+    // This must have registered update callback.
+    name_list_t onetwo = {"one", "two"};
+
+    auto kdq = mq.get<double>(onetwo);
+    assert(kdq);
+    Assert(kdq->dynamic() == dynamic);
+    Assert(kdq->metric() == Metric::l2simple);
+
+    auto kdq2 = mq.get<double>(onetwo);
+    Assert(kdq2 == kdq);
+    Assert(kdq2);
+    Assert(kdq2->dynamic() == dynamic);
+    Assert(kdq2->metric() == Metric::l2simple);
+}
+
+#include <random>
+void test_speed(size_t num=1000, size_t nlu = 1000, size_t kay=10,
+                bool shared=true, bool dynamic=true);
+void test_speed(size_t num, size_t nlu, size_t kay,
+                bool shared, bool dynamic)
+{
+    std::stringstream label;
+    label << "test KDTree: num=" << num
+          << " nlu=" << nlu
+          << " kay=" << kay
+          << " shared=" << shared
+          << " dynamic=" << dynamic
+          << "\n";
+    TimeKeeper tk(label.str());
+
+    const double xmax=1000;
+    const double xmin=-xmax;
+    std::random_device rd;
+    std::default_random_engine re(rd());
+    std::uniform_real_distribution<double> dist(xmin, xmax);
+
+    std::vector<double> v1(num, 0), v2(num, 0), v3(num, 0);
+    for (size_t ind=0; ind<num; ++ind) {
+        v1[num] = dist(re);
+        v2[num] = dist(re);
+        v3[num] = dist(re);
+    }
+
+    tk("randoms made");
+
+    Dataset::store_t s = {
+        {"x", Array(v1.data(), {num}, shared)},
+        {"y", Array(v2.data(), {num}, shared)},
+        {"z", Array(v3.data(), {num}, shared)},
+    };
+    tk("arrays made");
+
+    Dataset d(s);
+    tk("dataset made");
+
+    auto kdq = query<double>(d, {"x", "y", "z"}, dynamic);
+    tk("kdtree made");
+    
+    for (size_t ind=0; ind<nlu; ++ind) {
+        std::vector<double> qp = {dist(re), dist(re), dist(re)};
+        auto res = kdq->knn(kay, qp);
+        if (!ind) { tk("first query"); }            
+    }
+    tk("queries made");
+
+    std::cerr << tk.summary() << "\n";
+    
+}
+
 int main() {
-    test_static();
-    test_dynamic();
+    // test_static();
+    // test_dynamic();
+    // test_multi();
+    // test_speed(100);
+    // test_speed(1000);
+    // test_speed(10000);
+    test_speed(100000);
     return 0;
 }

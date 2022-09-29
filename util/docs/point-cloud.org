@@ -323,6 +323,49 @@ Assuming ~knn~ and the context from the above example, here are some ways to do 
 
 
 
+* Appendix: appending
+
+As described above, two common additive operations are supported in
+~Dataset~:
+
+- ~add()~ adds a new point array data to existing points
+- ~append()~ add new points to existing point arrays
+
+These are mutually orthogonal in that they each extend one of the two
+conceptual axes of a ~Dataset~: "columns" that span the arrays and
+"rows" that span the points.  Each method enforces a completeness
+constraint.
+
+In adding a new array, data for all existing points must be provided.
+The major axis size of the new array must match that of existing
+arrays.  In appending data for new points, the user must provide a
+"tail" ~Dataset~ which contains arrays matching all existing arrays, and
+these "tail" arrays must all be the same size.
+
+This assures the updated ~Dataset~ shape is held consistent.  However,
+it does not address how to assure all new values are meaningful.  This
+poses a problem in providing a measn to "back fill" array elements
+with meaningful values.
+
+In particular, ~append()~ requires new values for all arrays.  However,
+well-factored code may be concerned with appending to only a subset of
+the arrays in a ~Dataset~ and lack the global understanding of how to
+provide meaningful values for an arbitrarily large remainder.
+
+In order to allow for a well factored system of independent code units
+to append to a ~Dataset~, the "append callback" feature may be used.
+The developer may register any number of functions to be called on the
+~Dataset~ and with knowledge of which indices have just been appended.
+The user can then be assured that proper "back filing" has occurred.
+This callback feature also allows unrelated data structures to reflect
+the append.  Indeed, ~KDTree~ utilizes it. 
+
+In the case of an ~add()~, the caller must of course calcualte
+meaningful values of the new array.  This calculation can be developed
+into a form that may also be registered to be called from the update
+hook.
+
+
 * Appendix: nanoflann
 
 This appendix provides some developer documentation for ~nanoflann~ as what it provides is rather slim.  What info is available is at the [[https://github.com/jlblancoc/nanoflann][repo readme]] and in the [[https://jlblancoc.github.io/nanoflann/][doxygen docs]].  This information is not required to use WCT PCs.

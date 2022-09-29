@@ -6,6 +6,7 @@
 #define WIRECELL_UTIL_KDTREE
 
 #include "WireCellUtil/PointCloud.h"
+#include <boost/algorithm/string/join.hpp>
 
 namespace WireCell::KDTree {
 
@@ -38,6 +39,16 @@ namespace WireCell::KDTree {
         std::vector<ElementType> distance;
     };
 
+    struct QueryBase {
+
+        virtual ~QueryBase() {};
+        virtual const PointCloud::name_list_t& selection() const = 0;
+        virtual bool dynamic() const = 0;
+        virtual Metric metric() const = 0;
+
+    };
+
+
     /** Query a dataset via k-d tree.
 
         This is based on but does not expose nanoflann.  It restricts
@@ -53,11 +64,12 @@ namespace WireCell::KDTree {
         updated.
      */
     template<typename ElementType>
-    class Query {
+    class Query : public QueryBase {
       public:
 
         virtual ~Query() {}
 
+        using element_t = ElementType;
         using point_t = std::vector<ElementType>;
         using distance_t = ElementType;
         using results_t = Results<ElementType>;
@@ -82,24 +94,87 @@ namespace WireCell::KDTree {
 
     };
 
-    std::unique_ptr<Query<int>>
-    query_int(PointCloud::Dataset& dataset,
-              const PointCloud::name_list_t& selection,
-              bool dynamic = false,
-              Metric mtype = Metric::l2simple);
 
-    std::unique_ptr<Query<float>>
-    query_float(PointCloud::Dataset& dataset,
-                const PointCloud::name_list_t& selection,
-                bool dynamic = false,
-                Metric mtype = Metric::l2simple);
-
-    std::unique_ptr<Query<double>>
-    query_double(PointCloud::Dataset& dataset,
+    // In order to hide details of nanoflann templates in an
+    // implementation file we must explicitly pick which element types
+    // to support.
+    template<typename ElementType>
+    std::unique_ptr<Query<ElementType>>
+    query(PointCloud::Dataset& dataset,
                  const PointCloud::name_list_t& selection,
                  bool dynamic = false,
                  Metric mtype = Metric::l2simple);
+    template<>
+    std::unique_ptr<Query<int>>
+    query<int>(PointCloud::Dataset& dataset,
+               const PointCloud::name_list_t& selection,
+               bool dynamic, Metric mtype);
+    template<>
+    std::unique_ptr<Query<float>>
+    query<float>(PointCloud::Dataset& dataset,
+                 const PointCloud::name_list_t& selection,
+                 bool dynamic, Metric mtype);
+    template<>
+    std::unique_ptr<Query<double>>
+    query<double>(PointCloud::Dataset& dataset,
+                  const PointCloud::name_list_t& selection,
+                  bool dynamic, Metric mtype);
 
+
+    /** Cache multiple queries.
+     */
+    class MultiQuery {
+        PointCloud::Dataset& m_dataset;
+        std::map<std::string, std::shared_ptr<QueryBase>> m_indices;
+        bool m_dynamic;
+        Metric m_metric;
+
+      public:
+
+        template<typename ElementType>
+        using query_ptr_t = std::shared_ptr<Query<ElementType>>;
+
+        MultiQuery(PointCloud::Dataset& dataset,
+                   bool dynamic = false,
+                   Metric mtype = Metric::l2simple)
+            : m_dataset(dataset)
+            , m_dynamic(dynamic)
+            , m_metric(mtype)
+        {}
+
+        const PointCloud::Dataset& dataset() const
+        {
+            return m_dataset;
+        }
+
+        PointCloud::Dataset& dataset()
+        {
+            return m_dataset;
+        }
+
+        // Return a new or existing query matching parameters.
+        template<typename ElementType>
+        query_ptr_t<ElementType>
+        get(const PointCloud::name_list_t& selection)
+        {
+            PointCloud::name_list_t keys(selection.begin(),
+                                         selection.end());
+            auto key = boost::algorithm::join(keys, ",");
+            auto it = m_indices.find(key);
+
+            if (it == m_indices.end()) { // create
+                auto unique = query<ElementType>(m_dataset, selection,
+                                                 m_dynamic, m_metric);
+                query_ptr_t<ElementType> ret = std::move(unique);
+                m_indices[key] = ret;
+                return ret;
+            }
+            
+            std::shared_ptr<QueryBase> base = it->second;
+            return std::dynamic_pointer_cast<Query<ElementType>>(base);
+        }
+
+    };
 
 } // WireCell::KDTree
 

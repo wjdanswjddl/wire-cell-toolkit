@@ -77,7 +77,7 @@ namespace WireCell::PointCloud {
         template<typename Range>
         explicit Array(const Range& r)
         {
-            assign(r, {r.size()}, false);
+            assign(&*std::begin(r), {r.size()}, false);
         }
 
         // Want defaults for all the rest.
@@ -435,10 +435,17 @@ namespace WireCell::PointCloud {
         /// Append arrays in map to this.
         void append(const std::map<std::string, Array>& tail);
 
-        /** Register a function to be called after an append to this
-            dataset.  Function is called with the right-open range.
-            Ie, "end" is one past.  NOTE: this is different than
-            nanoflan which expects a closed range.
+        /** Append zeros to all existing arrays adding nmaj elements
+            to the major axis.  This is essentially calling append()
+            with the result of zeros_like(nmaj) and thus it triggers
+            the update hook.
+        */
+        void extend(size_t nmaj);
+
+        /** Register a function to be called after a successful append
+            is performed on this dataset.  Function is called with the
+            right-open range.  Ie, "end" is one past.  NOTE: this is
+            different than nanoflan which expects a closed range. 
         */
         using append_callback_f = std::function<void(size_t beg, size_t end)>;
         void register_append(append_callback_f ac)
