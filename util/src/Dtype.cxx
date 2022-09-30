@@ -14,3 +14,24 @@ size_t WireCell::dtype_size(const std::string& dt)
     if (dt == "c16") return sizeof(std::complex<double>);
     return 0;
 }
+std::string WireCell::dtype(const std::type_info& ti)
+{
+    if (ti == typeid(char)) return "c";
+    if (ti == typeid(std::byte)) return "B";
+
+    if (ti == typeid(int8_t))  return "i1";
+    if (ti == typeid(int16_t)) return "i2";
+    if (ti == typeid(int32_t)) return "i4";
+    if (ti == typeid(int64_t)) return "i8";
+
+    if (ti == typeid(uint8_t))  return "u1";
+    if (ti == typeid(uint16_t)) return "u2";
+    if (ti == typeid(uint32_t)) return "u4";
+    if (ti == typeid(uint64_t)) return "u8";
+
+    if (ti == typeid(float)) return "f4";
+    if (ti == typeid(double)) return "f8";
+    if (ti == typeid(std::complex<float>)) return "c8";
+    if (ti == typeid(std::complex<double>)) return "c16";
+    return "";
+}

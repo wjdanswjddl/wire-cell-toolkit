@@ -8,6 +8,7 @@
 #define WIRECELL_UTIL_DTYPE
 
 #include <complex>
+#include <typeinfo>
 
 namespace WireCell {
 
@@ -35,6 +36,11 @@ namespace WireCell {
 
     // Return size of dtype in bytes
     size_t dtype_size(const std::string& dt);
+
+    // Return the dtype string for the numerical type info or empty
+    // string if an unsupported type info is given.
+    std::string dtype(const std::type_info& ti);
+
 }
 
 #endif
