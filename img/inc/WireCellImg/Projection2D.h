@@ -15,7 +15,7 @@
 
 namespace WireCell {
     namespace Img {
-        namespace Tool {
+        namespace Projection2D {
             // Here, "node" implies a cluster graph vertex payload object.
             using channel_t = cluster_node_t::channel_t;
             using wire_t = cluster_node_t::wire_t;
@@ -63,6 +63,6 @@ namespace WireCell {
             // 1: tar is part of ref
             int compare(const Projection2D& ref, const Projection2D& tar);
 
-        }  // namespace Tool
+        }  // namespace Projection2D
     }  // namespace Img
 }  // namespace WireCell

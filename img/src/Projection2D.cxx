@@ -1,4 +1,4 @@
-#include "WireCellImg/ImgTool.h"
+#include "WireCellImg/Projection2D.h"
 #include "WireCellUtil/Exceptions.h"
 #include "WireCellUtil/Array.h"
 #include "WireCellUtil/Stream.h"
@@ -7,7 +7,7 @@
 #include <fstream>
 
 using namespace WireCell;
-using namespace WireCell::Img::Tool;
+using namespace WireCell::Img::Projection2D;
 
 
 template <typename It> boost::iterator_range<It> mir(std::pair<It, It> const& p) {
@@ -17,7 +17,7 @@ template <typename It> boost::iterator_range<It> mir(It b, It e) {
     return boost::make_iterator_range(b, e);
 }
 
-std::vector<vdesc_t> WireCell::Img::Tool::neighbors(const WireCell::cluster_graph_t& cg, const vdesc_t& vd)
+std::vector<vdesc_t> WireCell::Img::Projection2D::neighbors(const WireCell::cluster_graph_t& cg, const vdesc_t& vd)
 {
     std::vector<vdesc_t> ret;
     for (auto edge : boost::make_iterator_range(boost::out_edges(vd, cg))) {
@@ -28,7 +28,7 @@ std::vector<vdesc_t> WireCell::Img::Tool::neighbors(const WireCell::cluster_grap
 }
 
 template <typename Type>
-std::vector<vdesc_t> WireCell::Img::Tool::neighbors_oftype(const WireCell::cluster_graph_t& cg, const vdesc_t& vd)
+std::vector<vdesc_t> WireCell::Img::Projection2D::neighbors_oftype(const WireCell::cluster_graph_t& cg, const vdesc_t& vd)
 {
     std::vector<vdesc_t> ret;
     for (const auto& vp : neighbors(cg, vd)) {
@@ -39,7 +39,7 @@ std::vector<vdesc_t> WireCell::Img::Tool::neighbors_oftype(const WireCell::clust
     return ret;
 }
 
-std::unordered_map<int, std::vector<vdesc_t> > WireCell::Img::Tool::get_geom_clusters(const WireCell::cluster_graph_t& cg)
+std::unordered_map<int, std::vector<vdesc_t> > WireCell::Img::Projection2D::get_geom_clusters(const WireCell::cluster_graph_t& cg)
 {
     std::unordered_map<int, std::vector<vdesc_t> > groups;
     cluster_graph_t cg_blob;
@@ -109,7 +109,7 @@ std::unordered_map<int, std::vector<vdesc_t> > WireCell::Img::Tool::get_geom_clu
     return groups;
 }
 
-layer_projection_map_t WireCell::Img::Tool::get_2D_projection(
+layer_projection_map_t WireCell::Img::Projection2D::get_2D_projection(
     const WireCell::cluster_graph_t& cg, std::vector<vdesc_t> group)
 {
     using triplet_t = Eigen::Triplet<double>;
@@ -160,7 +160,7 @@ layer_projection_map_t WireCell::Img::Tool::get_2D_projection(
     return ret;
 }
 
-std::string WireCell::Img::Tool::dump(const Projection2D& proj2d, bool verbose) {
+std::string WireCell::Img::Projection2D::dump(const Projection2D& proj2d, bool verbose) {
     std::stringstream ss;
     ss << "Projection2D:"
     << " {" << std::get<0>(proj2d.m_bound)
@@ -185,7 +185,7 @@ std::string WireCell::Img::Tool::dump(const Projection2D& proj2d, bool verbose) 
     return ss.str();
 }
 
-bool WireCell::Img::Tool::write(const Projection2D& proj2d, const std::string& fname)
+bool WireCell::Img::Projection2D::write(const Projection2D& proj2d, const std::string& fname)
 {
     using namespace WireCell::Stream;
     boost::iostreams::filtering_ostream fout;
@@ -200,7 +200,7 @@ bool WireCell::Img::Tool::write(const Projection2D& proj2d, const std::string& f
     return 0;
 }
 
-int WireCell::Img::Tool::compare(const Projection2D& ref, const Projection2D& tar) {
+int WireCell::Img::Projection2D::compare(const Projection2D& ref, const Projection2D& tar) {
     sparse_fmat_t diff = ref.m_proj - tar.m_proj;
     size_t nneg = 0;
     for (int k=0; k<diff.outerSize(); ++k) {
