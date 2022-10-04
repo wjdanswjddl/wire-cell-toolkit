@@ -5,6 +5,7 @@
 #define WIRECELL_FRAMETOOLS
 
 #include "WireCellIface/IFrame.h"
+#include "WireCellIface/ITensorSet.h"
 #include "WireCellUtil/Array.h"
 #include "WireCellUtil/Logging.h"
 
@@ -116,6 +117,45 @@ namespace WireCell {
         /// outside of any individual trace.
         IFrame::pointer sum(std::vector<IFrame::pointer> frames, int ident);
 
+
+        /** Convert from frame to tensor set representation.
+
+            The "md" may pass additional ITensorSet-level metadata.
+            If it contains any attributes which are reserved by the
+            conversion process they will be silently overwritten.
+
+            The "mode" governs how the traces are mapped to trace type
+            ITensor.  It may be one of:
+
+            - sparse :: one trace per ITensor.
+
+            - monolithic :: a single ITensor holds a padded, dense 2D
+            array spanning all traces.
+
+            - tagged :: one padded, dense 2D ITensor represents each
+            set of tagged traces.  A trace in more than one tagged set
+            is duplicated and any trace no tagged is omitted.
+
+            If "truncate" is true, the interned sample values are
+            truncated to 16 bit integer representation else a 32 float
+            is used.
+
+            The "transform" function is applied to padding and to
+            sample values prior to internment.
+        */
+        enum struct FrameTensorMode { unified, tagged, sparse };
+        ITensorSet::pointer to_itensorset(IFrame::pointer frame,
+                                          FrameTensorMode mode = FrameTensorMode::unified,
+                                          Configuration md = {},
+                                          bool truncate=false,
+                                          std::function<float(float)> transform=[](float q){return q;});
+
+        /** Convert from ITensorSet to IFrame representation.
+
+            The ITensorSet is assuemd to be prepared in the same
+            manner as to_itensorset().
+         */
+        IFrame::pointer to_iframe(ITensorSet::pointer tens);
 
     }  // namespace Aux
 }  // namespace WireCell
