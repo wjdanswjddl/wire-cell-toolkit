@@ -32,17 +32,12 @@ Img::TestProjection2D::~TestProjection2D() {}
 WireCell::Configuration Img::TestProjection2D::default_configuration() const
 {
     WireCell::Configuration cfg;
-    cfg["blob_value_threshold"] = m_blob_thresh.value();
-    cfg["blob_error_threshold"] = m_blob_thresh.uncertainty();
 
     return cfg;
 }
 
 void Img::TestProjection2D::configure(const WireCell::Configuration& cfg)
 {
-    float bt_val = get(cfg,"blob_value_threshold", m_blob_thresh.value());
-    float bt_err = get(cfg,"blob_error_threshold", m_blob_thresh.uncertainty());
-    m_blob_thresh = value_t(bt_val, bt_err);
 }
 
 static void dump_cg(const cluster_graph_t& cg, Log::logptr_t& log)
