@@ -73,8 +73,7 @@ IFrame::pointer Aux::to_iframe(ITensorSet::pointer itens)
                 }
             }
             else {
-                // ignore weird shape
-                continue;
+                return nullptr;
             }
 
             // check for implicit tag
@@ -87,7 +86,6 @@ IFrame::pointer Aux::to_iframe(ITensorSet::pointer itens)
             std::vector<size_t> inds(nind);
             std::iota(inds.begin(), inds.end(), first_index);
             indices[tag] = inds;
-
             continue;
         }   // trace
 
@@ -255,6 +253,9 @@ ITensor::pointer to_itensor_index(const IFrame::trace_list_t& indices,
     Configuration tmd;
     tmd["type"] = "index";
     tmd["name"] = name;
+    if (tag.size() > 0) {
+        tmd["tag"] = tag;
+    }
     const ITensor::shape_t shape = {indices.size()};
     return std::make_shared<SimpleTensor<size_t>>(shape, indices.data(), tmd);
 }
@@ -296,14 +297,12 @@ Aux::to_itensorset(IFrame::pointer frame,
             tenv->push_back(iten);
         }
     }
-
-    if (mode == FrameTensorMode::unified) {
+    else if (mode == FrameTensorMode::unified) {
         auto traces = frame->traces();
         auto iten = to_itensor_trace2d(*(traces.get()), "", "", truncate, transform);
         tenv->push_back(iten);
     }
-
-    if (mode == FrameTensorMode::sparse) {
+    else if (mode == FrameTensorMode::sparse) {
         int count=0;
         auto traces = frame->traces();
         for (const auto& trace : *(traces.get())) {
@@ -312,9 +311,11 @@ Aux::to_itensorset(IFrame::pointer frame,
             tenv->push_back(iten);
         }
     }
+    else {
+        return nullptr;
+    }
 
     for (const auto& tag : frame->trace_tags()) {
-
         IFrame::trace_list_t indices = frame->tagged_traces(tag);
         if (indices.empty()) { continue; }
         auto iten = to_itensor_index(indices, tag, tag);

@@ -86,27 +86,42 @@ A second format called /frame tensor files/ improves on the above by
 mapping the frame data model to the one supported by
 ~ITensorSet/ITensor~.  This data model is also adopted by ~Dataset/Array~
 classes in WCT point-cloud support and it closely mimics the model
-implemented by HDF5.  When applied to frames, this model provides for
-info-lossless persistence and potentially with no redundancy.  It
-further provides flexibility to the user by mapping the frame to the
-data model in one of three modes:
+implemented by HDF5.  It further provides flexibility to
+the user by mapping the frame to the data model in one of three modes:
 
 - sparse :: traces are saved to individual array files, potentially of
   heterogeneous sizes.
 
-- monolithic :: all traces are saved in a single, zero-padded array
+- unified :: all traces are saved in a single, zero-padded array
   file.
 
 - tagged :: multiple zero-padded arrays associated with a tag are saved.
 
-The *sparse* mode allows files to be small as possible, even without (or
-especially without) file compression.  The *monolithic* mode maximally
-inflates the array but compression tends to work very will with
-common-value padding.  Finally, the *tagged* mode provides similar
-functionality as the original /frame file/ format but avoids frame/trace
-tag ambiguity and may not lead to redundant traces being saved (this
-is user application dependent).  The remainder of this section
-describes how a frame is decomposed into the tensor data model.
+The *sparse* mode is info-lossless and allows files to be small as
+possible, even without (or especially without) file compression.  
+However, it stores each trace as an individual array and so processing
+is required to assemble the traces into a dense, padded 2D array.
+
+The *unified* mode provides a single, dense, padded 2D array spanning
+the channels and ticks of all traces and with trace samples added onto
+the array.  The padding and summing is info-lossless for details such
+as the original time span of a trace and the distinction of
+overlapping traces.  On the channel axis the array may represent a
+conglomeration of multiple tagged sets of traces.  If file compression
+is employed, the size is competitive with compressed files from sparse
+mode.
+
+Finally, the *tagged* mode provides a similar representation to that of
+the original /frame file/ format but it avoids the frame/trace tag
+ambiguity.  Like /frame files/, traces in more than one tagged set are
+duplicated and like "unified" mode, padding and summing occur.
+Unlike both "sparse" and "unified" mode, any traces which are not
+in a tagged set are not persisted.
+
+The remainder of this section describes how a frame is decomposed into
+the tensor data model.  When applied to frames, this model provides
+for info-lossless persistence and potentially with no redundancy
+(strictly, only in "sparse" mode).
 
 The WCT /frame tensor files/ share some similarity with WCT /frame files/.
 They are also provided as streams or archive files in format of Zip or

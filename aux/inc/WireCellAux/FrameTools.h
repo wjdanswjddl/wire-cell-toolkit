@@ -129,7 +129,7 @@ namespace WireCell {
 
             - sparse :: one trace per ITensor.
 
-            - monolithic :: a single ITensor holds a padded, dense 2D
+            - unified :: a single ITensor holds a padded, dense 2D
             array spanning all traces.
 
             - tagged :: one padded, dense 2D ITensor represents each
@@ -145,7 +145,7 @@ namespace WireCell {
         */
         enum struct FrameTensorMode { unified, tagged, sparse };
         ITensorSet::pointer to_itensorset(IFrame::pointer frame,
-                                          FrameTensorMode mode = FrameTensorMode::unified,
+                                          FrameTensorMode mode = FrameTensorMode::sparse,
                                           Configuration md = {},
                                           bool truncate=false,
                                           std::function<float(float)> transform=[](float q){return q;});
