@@ -41,6 +41,7 @@ namespace WireCell {
     // string if an unsupported type info is given.
     std::string dtype(const std::type_info& ti);
 
+    const std::type_info& dtype_info(const std::string& dt);
 }
 
 #endif

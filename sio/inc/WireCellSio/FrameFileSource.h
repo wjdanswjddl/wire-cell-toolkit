@@ -22,32 +22,40 @@ namespace WireCell::Sio {
         virtual WireCell::Configuration default_configuration() const;
         
         virtual bool operator()(IFrame::pointer& frame);
-
-    private:
-
+        
+      private:
+        
         /// Configuration:
-        /// 
-        /// Input stream name should be a file name with .tar .tar,
-        /// .tar.bz2 or .tar.gz.
-        ///
-        /// From it, individual files named following a fixed scheme
-        /// will be streamed.
-        ///
-        /// Frames are read from the tar stream as Numpy .npy files.
-        std::string m_inname;
 
-        /// Config: "tags".  A set of tags to match against the tag
-        /// portion of the .npy file names to determine the array
-        /// should be input.  If the set is empty or a tag "*" is
-        /// given then all arrays with the current frame ident are
-        /// accepted.  All matched arrays of types {frame, channel,
-        /// tickinfo} are interpreted as providing tagged traces and
-        /// the frame and channel arrays are appended to the IFrame
-        /// traces and channels collections.
+        /** Config: "inname"
+      
+            Input stream name should be a file name with .tar .tar,
+            .tar.bz2 or .tar.gz.
+        
+            From it, individual files named following a fixed scheme
+            will be streamed.
+        
+            Frames are read from the tar stream as Numpy .npy files.
+        */
+        std::string m_inname{""};
+
+        /** Config: "tags".
+
+            A set of tags to match against the tag portion of the .npy
+            file names to determine the array should be input.  If the
+            set is empty or a tag "*" is given then all arrays with
+            the current frame ident are accepted.  All matched arrays
+            of types {frame, channel, tickinfo} are interpreted as
+            providing tagged traces and the frame and channel arrays
+            are appended to the IFrame traces and channels
+            collections.
+        */
         std::vector<std::string> m_tags;
 
-        /// Config: "frame_tags".  Apply these tags to the produced
-        /// frame.
+        /** Config: "frame_tags".
+
+            Apply these tags to the produced frame.
+        */
         std::vector<std::string> m_frame_tags;        
 
         // The output stream

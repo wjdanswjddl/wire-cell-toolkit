@@ -35,3 +35,17 @@ std::string WireCell::dtype(const std::type_info& ti)
     if (ti == typeid(std::complex<double>)) return "c16";
     return "";
 }
+const std::type_info& WireCell::dtype_info(const std::string& dt)
+{
+    if (dt == "c") return typeid(char);
+    if (dt == "B") return typeid(std::byte);
+    if (dt == "i1" or dt == "u1") return typeid(int8_t);
+    if (dt == "i2" or dt == "u2") return typeid(int16_t);
+    if (dt == "i4" or dt == "u4") return typeid(int32_t);
+    if (dt == "i8" or dt == "u8") return typeid(int64_t);
+    if (dt == "f4") return typeid(float);
+    if (dt == "f8") return typeid(double);
+    if (dt == "c8") return typeid(std::complex<float>);
+    if (dt == "c16") return typeid(std::complex<double>);
+    return typeid(nullptr);
+}
