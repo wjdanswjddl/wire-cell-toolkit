@@ -1,5 +1,6 @@
 /**
-   Some common tools
+ * Projection2D
+ * Project a group of blobs (cluster) to a certain view
 */
 
 #include "WireCellIface/IFrame.h"
