@@ -60,9 +60,10 @@ ClusterShadow::graph_t ClusterShadow::shadow(const cluster_graph_t& cgraph,
     for (const auto& bs_edge : mir(boost::edges(bs_graph))) {
         auto bs_tail = boost::source(bs_edge, bs_graph);
         auto bs_head = boost::target(bs_edge, bs_graph);
-
-        auto cs_tail = clusters[bs_tail];
-        auto cs_head = clusters[bs_head];
+        auto c_head = bs_graph[bs_head].desc;
+        auto c_tail = bs_graph[bs_tail].desc;
+        auto cs_tail = clusters[c_head];
+        auto cs_head = clusters[c_tail];
 
         auto [cs_edge, added] = boost::add_edge(cs_tail, cs_head, cs_graph);
         if (added) {
