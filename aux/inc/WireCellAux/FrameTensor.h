@@ -20,9 +20,9 @@ namespace WireCell::Aux {
         // of "sparse", "monolithic" or "tagged".
         FrameTensorMode m_mode;
 
-        // Config: "truncate".  If true, store trace as short ints,
+        // Config: "digitize".  If true, store trace as short ints,
         // otherwise as floats.
-        bool m_truncate{false};
+        bool m_digitize{false};
 
 
     };

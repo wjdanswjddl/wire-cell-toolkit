@@ -41,18 +41,20 @@ void TensorFileSource::configure(const WireCell::Configuration& cfg)
 {
     m_inname = get(cfg, "inname", m_inname);
     m_prefix = get(cfg, "prefix", m_prefix);
+
+    m_in.clear();
+    input_filters(m_in, m_inname);
+    if (m_in.empty()) {
+        THROW(ValueError() << errmsg{"TensorFileSource: unsupported inname: " + m_inname});
+    }
+
+    log->debug("reading file={} with prefix={}", m_inname, m_prefix);
 }
 
 void TensorFileSource::finalize()
 {
 }
 
-bool TensorFileSource::read_head()
-{
-    clear();
-    custard::read(m_in, m_cur.fname, m_cur.fsize);
-    return true;                // fixme: be more skeptical!
-}
 /*
   <prefix>tensorset_<ident>_metadata.json 
   <prefix>tensor_<ident>_<index>_metadata.npy
@@ -130,41 +132,60 @@ Configuration load_json(std::istream& in, size_t fsize)
 }
 
 struct TFSTensor : public WireCell::ITensor {
-    pigenc::File pig;
-    Configuration cfg;
+    // pigenc::File pig;
     TFSTensor() {}
     virtual ~TFSTensor() {}
-    explicit TFSTensor(pigenc::File&& pig)
-        : pig(pig)
+    // explicit TFSTensor(pigenc::File&& pig)
+    //     : pig(std::move(pig))
+    // {
+    // }
+    size_t m_element_size;
+    std::vector<std::byte> m_store;
+    std::string m_dtype;
+    shape_t m_shape;
+    Configuration m_cfg;
+    explicit TFSTensor(const pigenc::File& pig, Configuration cfg=Json::objectValue)
+        : m_element_size(pig.header().type_size())
+        , m_dtype(pig.header().dtype())
+        , m_shape(pig.header().shape())
+        , m_cfg(cfg)
     {
+        const std::byte* data = reinterpret_cast<const std::byte*>(pig.data().data());
+        m_store.insert(m_store.end(), data, data + pig.data().size());
     }
     virtual const std::type_info& element_type() const
     {
-        return dtype_info(dtype());
+        // return dtype_info(dtype());
+        return dtype_info(m_dtype);
     }
     virtual size_t element_size() const
     {
-        return pig.header().type_size();
+        // return pig.header().type_size();
+        return m_element_size;
     }
     virtual std::string dtype() const
     {
-        return pig.header().dtype();
+        // return pig.header().dtype();
+        return m_dtype;
     }
     virtual shape_t shape() const
     {
-        return pig.header().shape();
+        // return pig.header().shape();
+        return m_shape;
     }
     virtual const std::byte* data() const
     {
-        return pig.as_type<std::byte>();
+        // return (const std::byte*)pig.data().data();
+        return m_store.data();
     }
     virtual size_t size() const
     {
-        return pig.header().data_size();
+        // return pig.header().data_size();
+        return m_store.size();
     }
     virtual Configuration metadata() const
     {
-        return cfg; 
+        return m_cfg; 
     }
 };
 
@@ -183,9 +204,30 @@ ITensorSet::pointer TensorFileSource::load()
     while (true) {
 
         if (m_cur.fsize == 0) {
-            read_head();
+            clear();
+            custard::read(m_in, m_cur.fname, m_cur.fsize);
+            if (m_in.eof()) {
+                // log->debug("call={}, read stream EOF from file={}",
+                //            m_count, m_inname);
+                break;
+            }
+            if (!m_in) {
+                log->critical("call={}, read stream error with file={}",
+                              m_count, m_inname);
+                return nullptr;
+            }
+            if (!m_cur.fsize) {
+                log->critical("call={}, short read from file={}",
+                              m_count, m_inname);
+                return nullptr;
+            }
         }
+
         auto pf = parse_fname(m_cur.fname, m_prefix);
+
+        // log->debug("read file={} size={} type={} form={} ident={} index={}",
+        //            m_cur.fname, m_cur.fsize,
+        //            pf.type, pf.form, pf.ident, pf.index);
 
         if (pf.type == ParsedFilename::bad or pf.form == ParsedFilename::unknown) {
             m_in.seekg(m_cur.fsize, m_in.cur);
@@ -221,9 +263,13 @@ ITensorSet::pointer TensorFileSource::load()
             continue;
         }
     }
+    if (ident < 0) {
+        return nullptr;
+    }
+
     auto sv = std::make_shared<ITensor::vector>();
     for (const auto& [ind, ti] : teninfo) {
-        ti.ten->cfg = ti.md;
+        ti.ten->m_cfg = ti.md;
         sv->push_back(ti.ten);
     }
     return std::make_shared<SimpleTensorSet>(ident, setmd, sv);
@@ -238,11 +284,18 @@ bool TensorFileSource::operator()(ITensorSet::pointer &out)
 {
     out = nullptr;
     if (m_eos_sent) {
+        log->debug("past EOS at call={}", m_count++);
         return false;
     }
     out = load();
     if (!out) {
         m_eos_sent = true;
+    }
+    if (!out) {
+        log->debug("sending EOS at call={}", m_count++);
+    }
+    else {
+        log->debug("read done at call={}", m_count++);
     }
     return true;
     

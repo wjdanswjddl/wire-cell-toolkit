@@ -26,7 +26,7 @@ bool FrameTensor::operator()(const input_pointer& frame, output_pointer& tens)
         return true;
     }
 
-    tens = to_itensorset(frame, m_mode, {}, m_truncate);
+    tens = to_itensorset(frame, m_mode, {}, m_digitize);
     return true;
 }
         
@@ -40,7 +40,7 @@ WireCell::Configuration FrameTensor::default_configuration() const
         {FrameTensorMode::sparse, "sparse" }};
     Configuration cfg;
     cfg["mode"] = modes[m_mode];
-    cfg["truncate"] = m_truncate;
+    cfg["digitize"] = m_digitize;
     return cfg;
 }
 void FrameTensor::configure(const WireCell::Configuration& cfg)
@@ -51,7 +51,7 @@ void FrameTensor::configure(const WireCell::Configuration& cfg)
         {"sparse", FrameTensorMode::sparse }};
     auto mode = get<std::string>(cfg, "mode", "tagged");
     m_mode = modes[mode];
-    m_truncate = get(cfg, "truncate", m_truncate);
+    m_digitize = get(cfg, "digitize", m_digitize);
 }
 
         

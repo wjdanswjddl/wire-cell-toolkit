@@ -15,8 +15,6 @@ using namespace WireCell::Sio;
 TensorFileSink::TensorFileSink()
     : Aux::Logger("TensorFileSink", "sio")
 {
-    log->debug("closing {} after {} calls", m_outname, m_count);
-    m_out.pop();
 }
 
 TensorFileSink::~TensorFileSink()
@@ -37,9 +35,13 @@ void TensorFileSink::configure(const WireCell::Configuration& cfg)
     m_out.clear();
     custard::output_filters(m_out, m_outname);
     if (m_out.empty()) {
-        THROW(ValueError() << errmsg{"ClusterFileSink: unsupported outname: " + m_outname});
+        const std::string msg = "ClusterFileSink: unsupported outname: " + m_outname;
+        log->critical(msg);
+        THROW(ValueError() << errmsg{msg});
     }
     m_prefix = get<std::string>(cfg, "prefix", m_prefix);
+    log->debug("sink through {} filters to {} with prefix \"{}\"",
+               m_out.size(), m_outname, m_prefix);
 }
 
 void TensorFileSink::finalize()
@@ -86,7 +88,7 @@ bool TensorFileSink::operator()(const ITensorSet::pointer &in)
     for (size_t ind=0; ind<ntens; ++ind) {
         auto ten = tens->at(ind);
         const std::string ppre = pre + "_" + sident + "_" + std::to_string(ind);
-        jsonify(ten->metadata(), ppre + "_metadata.py");
+        jsonify(ten->metadata(), ppre + "_metadata.json");
         numpyify(ten, ppre + "_array.npy");
     }
 

@@ -136,7 +136,10 @@ IFrame::pointer Aux::to_iframe(ITensorSet::pointer itens)
 
                 const auto& jchid = jcms_it.key();
                 const auto& jbrl = *jcms_it;
-                auto& brl = cms[jchid.asInt()];
+
+                // We need string type keys but they really hold ints.
+                const int ichid = atoi(jchid.asString().c_str());
+                auto& brl = cms[ichid];
 
                 for (const auto& jpair : jbrl) {
                     brl.push_back(std::make_pair(jpair[0].asInt(),
@@ -178,7 +181,11 @@ Configuration toconfig(const Waveform::ChannelMasks& cms)
             pair.append(second);
             each.append(pair);
         }
-        ret[chid] = each;
+        // The integer valued chids must be stringified to serve as
+        // object keys else JsonCPP tries to interpret ret as an
+        // array.
+        const std::string chid_str = std::to_string(chid);
+        ret[chid_str] = each;
     }
     return ret;
 }
