@@ -9,11 +9,13 @@
 #include "WireCellIface/IFrame.h"
 #include "WireCellIface/ISlice.h"
 #include "WireCellIface/ICluster.h"
+#include "WireCellIface/IAnodePlane.h"
 
 #include <boost/graph/graphviz.hpp>
 #include <sstream>
 #include <functional>
 #include <unordered_set>
+#include <unordered_map>
 
 #include <string>
 
@@ -21,6 +23,33 @@ namespace WireCell::Aux {
 
     /// Return JSON representation of the cluster.
     Json::Value jsonify(const cluster_graph_t& cgraph);
+
+    /// A loader of cluster JSON files.
+    ///
+    class ClusterLoader {
+    public:
+
+        // A context consisting of anode planes is needed to resolve
+        // some JSON to references to objects.  / ValueError is thrown
+        // if faces are not uniquely identified.
+        using anodes_t = std::vector<IAnodePlane::pointer>;
+        ClusterLoader(const anodes_t& anodes);
+        
+        // Return cluster graph corresponding to data in jgraph.  If
+        // any frames are loaded, provide them.  Otherwise a
+        // referenced frame ID is resolved into an IFrame is
+        // constructed which only holds ident.  ValueError is thrown
+        // jgraph is bad.
+        cluster_graph_t load(const Json::Value& jgraph,
+                             const IFrame::vector& known_frames = {}) const;
+
+        // Return known anode face by id or nullptr if id not found;
+        IAnodeFace::pointer face(int faceid) const;
+
+    private:
+        using faces_t = std::unordered_map<int, IAnodeFace::pointer>;
+        faces_t m_faces;
+    };
 
     /// Return GraphViz dot representation of a cluster graph like
     /// graph.

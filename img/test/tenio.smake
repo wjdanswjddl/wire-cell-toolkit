@@ -18,7 +18,8 @@ stages = dict(
     adc = dict(cfg="tenio-depo-adc", deps=()),
     acp = dict(cfg="tenio-adc-acp", deps=("adc",)),
     sig = dict(cfg="tenio-adc-sig", deps=("adc",)),
-    img = dict(cfg="tenio-sig-img", deps=("sig",))
+    img = dict(cfg="tenio-sig-img", deps=("sig",)),
+    ptc = dict(cfg="tenio-img-ptc", deps=("img",))
 )
 aids = [0,1,2,3,4,5]
 

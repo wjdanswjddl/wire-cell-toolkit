@@ -36,6 +36,25 @@ local wc = import "wirecell.jsonnet";
         tbbeg: first_tick, tbend: first_tick+nticks
     },
 
+    tensor_file_sink(filename, prefix="") ::
+        pg.pnode({
+            type: "TensorFileSink",
+            name: filename,
+            data: {
+                outname: filename,
+                prefix: prefix,
+            },
+        }, nin=1, nout=0),
+    tensor_file_source(filename, prefix="") ::
+        pg.pnode({
+            type: "TensorFileSource",
+            name: filename,
+            data: {
+                inname: filename,
+                prefix: prefix,
+            },
+        }, nin=0, nout=1),
+
     /// Sink a stream of frames to a file in WCT "frame tensor file
     /// format".  See aux/docs/frame-files.org for valid filename
     /// types and what the other options mean.  Prefer "frame tensor
