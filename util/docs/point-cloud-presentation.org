@@ -239,16 +239,20 @@ Associate multiple /point-data arrays/ to a point cloud.
 
 * ~PointCloud::Array~
 
+\includegraphics[width=0.5\textwidth]{pc-data-array.pdf}
+
 - Provide /type-erased/ array data wrapper.
   - Required to form a heterotypic collection.
-- Read-only, zero-copy sharing or read-write copy of user array.
-- Read-only, zero-copy and typed array data access wrappers:
+- Read-only, zero-copy shared or read-write copy of user array.
+- Supports \textbf{minimal} but efficient set of array operations.
+  - Essentially only: ~append(Array)~ which assures type/shape constraints.
+- Read-only, zero-copy and typed, full featured wrappers:
   - ~span<T>~ a flat ~vector<T>~ like view of underlying array
   - ~boost::multi_array<T,NDim>~ full featured multi-dimensional array operations
-- \textbf{Minimal} but efficient set of array operations.
-  - Essentially only: ~append(Array)~ which assures type/shape constraints.
 
 * ~PointCloud::Dataset~
+
+\includegraphics[width=0.5\textwidth]{pc-dataset.pdf}
 
 - Access an ~Array~ by its associated name.
 - Assure array length constraints.
@@ -302,14 +306,15 @@ const metadata_t& metadata() const;
 
 We may interpret certain arrays in a dataset as holding coordinate point data.
 - Each array represents a location in a given Cartesian dimension.
-- Must be scalar valued but may be homotypic integer or floating point.
+  - eg ~"x"~ array of X-coordinates.
+- Any set of scalar and common numeric type arrays may provide coordinates.
 
 Position queries
 
 - /knn/ :: the $k$'th nearest neighbors to query position.
 - /radius/ :: all point positions within some /metric distance/ to a query position.
 
-Results in:
+Results in two arrays:
 
 - index :: an array of point indices into the original dataset.
 - distance :: the /metric distance/ between point and query positions.
@@ -328,10 +333,10 @@ The query /radius/ and returned /distances/ are expressed in this metric.
 
 * ~WireCell::KDTree~ for position queries
 
-- Utilizes a ~Dataset~
+- Uses a ~Dataset~
 - Provides a thin wrapper around ~nanoflann~
   - Simplifies and regularizes ~nanoflann~ API.
-  - Converts complex ~nanoflann~ templated types to simple variable values.
+  - Converts complex ~nanoflann~ templated types to option variables.
 - Common result set type for both ~knn~ and ~radius~ searches.
 
 
@@ -345,7 +350,7 @@ The query /radius/ and returned /distances/ are expressed in this metric.
       Dataset d = ...;
       std::vector<double> query_pos = {1,2,3};
   
-      auto qptr = query_double(d, {"x","y","z"});
+      auto qptr = query<double>(d, {"x","y","z"});
   
       size_t k = 3;
       auto knn = qptr->knn(k, query_pos);
@@ -359,19 +364,20 @@ The query /radius/ and returned /distances/ are expressed in this metric.
       // use radn just like knn....
 #+end_src
 
-* ~WireCell::KDTree::query_TYPE()~
+* ~WireCell::KDTree::query<TYPE>()~
 
 For ~TYPE~ $\in$ ~{int,float,double}~
 
 #+begin_src C++
+  template<typename Type>
   std::unique_ptr<Query<TYPE>>
-  query_TYPE(PointCloud::Dataset& dataset,
-             const PointCloud::name_list_t& selection,
-             bool dynamic = false,
-             Metric mtype = Metric::l2simple);
+  query(PointCloud::Dataset& dataset,
+        const PointCloud::name_list_t& selection,
+        bool dynamic = false,
+        Metric mtype = Metric::l2simple);
 #+end_src
 
-- The ~TYPE~ in the function name needed to hide ~nanoflann~ templates.
+- The ~TYPE~ is coordinate numeric type.
 - The ~selection~ names the arrays in ~dataset~ to use as coordinates.
 - The ~dynamic~ enables ~Dataset::append()~ callback to update k-d tree.
 - A ~unique_ptr~ needed, wrapped ~nanoflann~ objects are not copyable.
@@ -403,20 +409,36 @@ PointCloud::Dataset as_dataset(const ITensorSet::pointer&, bool);
 
 - ~ITensorSet::metadata()["_dataset_arrays"]~ holds list of ~Array~ names known in the ~Dataset~.
 
+* Related ongoing I/O work
+
+Get round trip I/O working for:
+- Frame $\longleftrightarrow$ "Frame file"
+- Cluster $\longleftrightarrow$ "Cluster file"
+
+Wish to deprecate these "direct I/O" patterns and instead standardized
+on intermediate Tensor representation.
+
+- Dataset $\longleftrightarrow$ Tensor Set $\longleftrightarrow$ "Tensor file"
+- Frame $\longleftrightarrow$ Tensor Set $\longleftrightarrow$ "Tensor file"
+- Cluster $\longleftrightarrow$ Tensor Set $\longleftrightarrow$ "Tensor file"
+
+A WCT "tensor file" is JSON+Numpy files in Zip/Tar streams.
+Essentially follows HDF5 schema.  So, expect it easy to add:
+
+- Tensor Set $\longleftrightarrow$ HDF5
+
+
 * WIP: extending point-cloud to point-graph
 
-Extend ~Dataset~ to ~boost::graph~:
+Essential idea: use a "node" and an "edge" ~Dataset~.
 
-Graph vertex:
-- Simple node type, perhaps holding only an array /index/.
-- May then rely on ~Dataset~ to hold rich node data.
-Graph edge:
-- Extend ~Dataset~ to store edges as $2 \times N_{edge}$ array
-  - requires ~Dataset::add()~ to relax check on $N$.
-  - requires ~Dataset::append()~ to relax check on array completeness.
-  - "edge data arrays" may be accommodated.
-- Or, new ~WireCell::Graph~ with vertex and edge ~Dataset~'s?
-- ~Dataset~ $\longleftrightarrow$ ~boost::graph~ converters.  /ibid/ ~TensorTools~.
+- node :: Exactly a point-cloud ~Dataset~.
+- edge :: A second ~Dataset~ with ~"tail"~ and ~"head"~ arrays holding point indices in to the \textbf{node} dataset.  May have additional arrays to hold /edge features/.
+
+Benefits:
+
+- Leverage existing converters to Tensor Set representations and file I/O.
+- Easy to use alongside ~boost::graph~ representations.
 
 
 

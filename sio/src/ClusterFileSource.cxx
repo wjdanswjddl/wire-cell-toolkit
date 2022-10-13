@@ -214,9 +214,14 @@ ICluster::pointer ClusterFileSource::load()
 
 bool ClusterFileSource::operator()(ICluster::pointer& cluster)
 {
+    cluster = nullptr;
+    if (m_eos_sent) {
+        return false;
+    }
     cluster = load();
     if (! cluster) {
         log->debug("see EOS at call={}", m_count);
+        m_eos_sent = true;
     }
     else {
         log->debug("load cluster at call={}", m_count);

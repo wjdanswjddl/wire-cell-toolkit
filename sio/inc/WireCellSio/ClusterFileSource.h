@@ -73,6 +73,7 @@ namespace WireCell::Sio {
         std::unique_ptr<Aux::ClusterLoader> m_json_loader;
 
         size_t m_count{0};
+        bool m_eos_sent{false};
     };
 
 }  // namespace WireCell

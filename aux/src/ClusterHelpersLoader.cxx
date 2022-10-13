@@ -86,7 +86,7 @@ struct Slice : public ISlice {
     Slice(IFrame::pointer frame, int ident, double start, double span, const ISlice::map_t& activity)
         : m_frame(frame), m_ident(ident), m_start(start), m_span(span), m_activity(activity) { }
 
-    virtual ~Slice();
+    virtual ~Slice() {}
 
     // ISlice interface
     IFrame::pointer frame() const { return m_frame; }
@@ -177,13 +177,20 @@ ClusterLoader::ClusterLoader(const anodes_t& anodes)
 {
     for (const auto& anode : anodes) {
         for (const auto& face : anode->faces()) {
-            auto it = m_faces.find(face->ident());
-            if (it != m_faces.end()) {
-                THROW(ValueError() << errmsg{"duplicate face idents"});
+            for (const auto& wp : face->planes()) {
+                m_faces[wp->planeid().ident()] = face;
             }
-            m_faces[face->ident()] = face;
         }
     }
+}
+
+IAnodeFace::pointer ClusterLoader::face(int wpid) const
+{
+    auto it = m_faces.find(wpid);
+    if (it == m_faces.end()) {
+        return nullptr;
+    }
+    return it->second;
 }
 
 cluster_graph_t ClusterLoader::load(const Json::Value& jgraph,
@@ -207,8 +214,8 @@ cluster_graph_t ClusterLoader::load(const Json::Value& jgraph,
         }
 
         if (code == 'b') {
-            int faceid = jobj["faceid"].asInt();
-            if (! face(faceid)) {
+            int wpid = jobj["wpids"][0].asInt();
+            if (! face(wpid)) {
                 THROW(ValueError() << errmsg{"unknown face ident"});
             }
         }
@@ -311,13 +318,4 @@ cluster_graph_t ClusterLoader::load(const Json::Value& jgraph,
 
 
     return cgraph;
-}
-
-IAnodeFace::pointer ClusterLoader::face(int faceid) const
-{
-    auto it = m_faces.find(faceid);
-    if (it == m_faces.end()) {
-        return nullptr;
-    }
-    return it->second;
 }

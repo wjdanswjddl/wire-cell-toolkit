@@ -11,7 +11,7 @@
 
 namespace WireCell {
 
-  class IBlobSampling : public IFunctionNode<IBlobSet, ITensorSet> {
+    class IBlobSampling : public IFunctionNode<IBlobSet, ITensorSet> {
 
     public:
         typedef std::shared_ptr<IBlobSampling> pointer;

@@ -45,6 +45,7 @@ local wc = import "wirecell.jsonnet";
                 prefix: prefix,
             },
         }, nin=1, nout=0),
+
     tensor_file_source(filename, prefix="") ::
         pg.pnode({
             type: "TensorFileSource",
@@ -128,15 +129,26 @@ local wc = import "wirecell.jsonnet";
 
     // A cluster file is a tar stream, with optional compression,
     // holding json, dot or numpy format files.
-    cluster_file_sink :: function(filename, format="json", prefix="cluster") pg.pnode({
-        type: 'ClusterFileSink',
-        name: filename,
-        data: {
-            outname: filename,
-            format: format,
-            prefix: prefix,
-        },
-    }, nin=1, nout=0),
+    cluster_file_sink :: function(filename, format="json", prefix="cluster")
+        pg.pnode({
+            type: 'ClusterFileSink',
+            name: filename,
+            data: {
+                outname: filename,
+                format: format,
+                prefix: prefix,
+            },
+        }, nin=1, nout=0),
+    cluster_file_source :: function(filename, anodes, prefix="cluster")
+        pg.pnode({
+            type: 'ClusterFileSource',
+            name: filename,
+            data: {
+                inname: filename,
+                prefix: prefix,
+                anodes: [wc.tn(a) for a in anodes],
+            },
+        }, nin=0, nout=1, uses=anodes),
 
     // A somewhat slippery format.
     celltree_file_source :: function(filename, recid, 

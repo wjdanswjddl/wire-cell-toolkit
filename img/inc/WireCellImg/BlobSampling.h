@@ -27,7 +27,12 @@ namespace WireCell::Img {
 
       private:
         
+        /*** Configuration: "sampler"
+
+             Set the blob samper.
+        */
         IBlobSampler::pointer m_sampler;
+
         size_t m_count{0};
     };
 }
