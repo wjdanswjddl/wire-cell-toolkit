@@ -15,6 +15,8 @@ local wc = import "wirecell.jsonnet";
 
     // Make an edge between two pnodes by passing those pnodes as objects
     edge(tail, head, tp=0, hp=0):: {
+        assert tp >= 0 && tp < std.length(tail.oports) : "Illegal tail port number %d\ntail:\n%s\nhead:\n%s" %[tp,tail,head],
+        assert hp >= 0 && hp < std.length(head.iports) : "Illegal head port number %d\ntail:\n%s\nhead:\n%s" %[tp,tail,head],
         tail: tail.oports[tp],
         head: head.iports[hp],
     },
