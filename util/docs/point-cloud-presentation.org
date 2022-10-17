@@ -382,8 +382,33 @@ For ~TYPE~ $\in$ ~{int,float,double}~
 - The ~dynamic~ enables ~Dataset::append()~ callback to update k-d tree.
 - A ~unique_ptr~ needed, wrapped ~nanoflann~ objects are not copyable.
 
-* ~Dataset~ I/O with ~TensorTools.h~ API
+* ~KDTree::MultiQuery~
 
+Bundle multiple k-d tree queries on a common ~Dataset~.
+
+#+begin_src C++
+  void func(MultiQuery& mq) {
+    auto qptr = mq.get<double>({"x","y","z"});
+    std::vector<double> p = {1,2,3};
+    auto knn = qptr->knn(3,p);
+    // ... use knn result in some way
+  
+    auto& d = mq.dataset();
+    Dataset tail = ...;
+    d.append(d);
+  }
+  
+  Dataset dorig = ...;
+  MultiQuery mq(dorig);
+  func(mq);
+#+end_src
+
+- The orginal ~Dataset~ is only borrowed by the ~MultiQuery~.
+- That ~Dataset~ can be retrieved back from ~MultiQuery~ later.
+- A ~MultiQuery::get<T>(name_list)~ will return existing or a new k-d ~Query<T>~ object matching the listed array names.
+
+
+* ~Dataset~ I/O with ~TensorTools.h~ API
 
 #+begin_center
 ~PointCloud::Array~ $\longleftrightarrow$ ~ITensor~
@@ -393,7 +418,7 @@ For ~TYPE~ $\in$ ~{int,float,double}~
 
 \tiny
 #+begin_src C++
-#include "WireCellUtil/TensorTools.h"  
+#include "WireCellAux/TensorTools.h"  
 
 ITensor::pointer as_itensor(const PointCloud::Array&);
 PointCloud::Array as_array(const ITensor::pointer&, bool);
@@ -427,6 +452,15 @@ Essentially follows HDF5 schema.  So, expect it easy to add:
 
 - Tensor Set $\longleftrightarrow$ HDF5
 
+* WIP: pipelines of heuristic functions
+
+Essential idea: support a pipeline of functions operating on a point-cloud.
+
+- The point cloud must be mutable.
+- Avoid re-creating identical k-d trees.
+- Variety of possible pipelines as defined by configuration.
+- Each implement a "point cloud visitor" interface.
+- Defines a method accepting a non-const ~KDTree::MultiQuery~.
 
 * WIP: extending point-cloud to point-graph
 
