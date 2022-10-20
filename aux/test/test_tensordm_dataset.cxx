@@ -1,3 +1,4 @@
+#include "WireCellAux/TensorDM.h"
 #include "WireCellAux/TensorTools.h"
 #include "WireCellAux/SimpleTensor.h"
 #include "WireCellUtil/Testing.h"
@@ -10,8 +11,6 @@ using real_t = float;
 using RV = std::vector<real_t>;
 using complex_t = std::complex<real_t>;
 using CV = std::vector<complex_t>;
-using RT = WireCell::Aux::SimpleTensor<real_t>;
-using CT = WireCell::Aux::SimpleTensor<complex_t>;
 
 // test fodder
 const RV real_vector{0,1,2,3,4,5};
@@ -20,10 +19,12 @@ const CV complex_vector{{0,0},{1,1},{2,2},{3,3},{4,4},{5,5}};
 const WireCell::ITensor::shape_t shape{2,3};
 
 using namespace WireCell;
+using namespace WireCell::Aux;
+
 
 void test_is_type()
 {
-    auto rt = std::make_shared<RT>(shape, real_vector.data());
+    auto rt = std::make_shared<SimpleTensor>(shape, real_vector.data());
     Assert (Aux::is_type<real_t>(rt));
     Assert (!Aux::is_type<complex_t>(rt));
 }
@@ -31,7 +32,7 @@ void test_is_type()
 void test_is_row_major()
 {
     // ST actually does not let us do anything but C-order/row-major
-    auto rm = std::make_shared<RT>(shape, real_vector.data());
+    auto rm = std::make_shared<SimpleTensor>(shape, real_vector.data());
     Assert(Aux::is_row_major(rm));
 }
 
@@ -47,8 +48,8 @@ void assert_equal(const VectorType& v1, const VectorType& v2)
 // asvec 1) match type, 2) type mismatch
 void test_asvec()
 {
-    auto rt = std::make_shared<RT>(shape, real_vector.data());
-    auto ct = std::make_shared<CT>(shape, complex_vector.data());
+    auto rt = std::make_shared<SimpleTensor>(shape, real_vector.data());
+    auto ct = std::make_shared<SimpleTensor>(shape, complex_vector.data());
     auto got_rt = Aux::asvec<real_t>(rt);
     auto got_ct = Aux::asvec<complex_t>(ct);
     assert_equal(real_vector, got_rt);
@@ -69,7 +70,7 @@ void test_asarray()
     RV my_vec(real_vector.begin(), real_vector.end());
 
     // test 2d
-    auto rt = std::make_shared<RT>(shape, my_vec.data());
+    auto rt = std::make_shared<SimpleTensor>(shape, my_vec.data());
     auto ra = Aux::asarray<real_t>(rt);
     auto shape = rt->shape();
     for (size_t irow = 0; irow < shape[0]; ++irow) {
@@ -80,7 +81,7 @@ void test_asarray()
 
     // test 1d
     const WireCell::ITensor::shape_t shape1d{6,};
-    auto rt1d = std::make_shared<RT>(shape1d, my_vec.data());
+    auto rt1d = std::make_shared<SimpleTensor>(shape1d, my_vec.data());
     auto ra1d = Aux::asarray<real_t>(rt1d);
     for (size_t ind = 0; ind < shape[0]; ++ind) {        
         Assert(ra1d(ind) == my_vec[ind]);
@@ -107,7 +108,7 @@ void test_array_roundtrip()
     Assert(arr.is_type<ElementType>());
 
     Assert(arr.metadata()["foo"].asString() == "bar");
-    auto itp = as_itensor(arr);
+    auto itp = TensorDM::as_tensor(arr, "test");
     Assert(arr.bytes().data() != itp->data());
     Assert(arr.shape() == itp->shape());
     for (size_t ind=0; ind<v.size(); ++ind) {
@@ -124,7 +125,7 @@ void test_array_roundtrip()
     Assert(itp->metadata()["foo"].isString());
     Assert(itp->metadata()["foo"].asString() == "bar");
 
-    Array arr2 = as_array(itp, true);
+    Array arr2 = TensorDM::as_array(itp, true);
     Assert(arr2.shape() == arr.shape());
     Assert(arr.size_major() == 3);
     Assert(arr.is_type<ElementType>());
@@ -186,39 +187,37 @@ void test_dataset_roundtrip()
         }
     }
 
+    const std::string datapath = "test";
 
-    {
-        auto itsp = as_itensorset(d);
-        Assert(itsp->ident() == 0);
-    }
-    d.metadata()["ident"] = 1;
-
+    // We do not expect the round trip to step on our dataset metadata.
+    const std::string not_an_ident_number = "this isn't an ident";
+    d.metadata()["ident"] = not_an_ident_number;
 
     // to tensor
 
-    auto itsp = as_itensorset(d);
-    Assert(itsp->ident() == 1);
-    auto itsmd = itsp->metadata();
-
-    // note, this key is private in TensorTools.cxx
-    auto names = itsmd["_dataset_arrays"];
-    Assert(! names.isNull()); 
-    Assert(names.isArray());
-    Assert(names[0].asString() == "one");
-    Assert(names[1].asString() == "two");
+    auto itenvec = TensorDM::as_tensors(d, datapath);
+    Assert(itenvec.size() > 0);
+    auto itsp = TensorDM::as_tensorset(itenvec, 42);
+    Assert(itsp->ident() == 42);
+    auto itsmd = itenvec[0]->metadata();
 
     auto itv = itsp->tensors();
     {
-        Assert(itv->size() == 2);
-        for (size_t ind=0; ind<2; ++ind) {
+        Assert(itv->size() == 2+1);
+        for (size_t ind=0; ind<3; ++ind) {
             auto it = itv->at(ind);
             auto md = it->metadata();
-            Assert(md["name"].isNull());
+            if (!ind) {         // the aggregator
+                Assert(md["datatype"].asString() == "pcdataset");
+            }
+            else {              // an array
+                Assert(md["datatype"].asString() == "pcarray");
+            }
         }
     }
     {
-        auto one = itv->at(0);
-        auto two = itv->at(1);
+        auto one = itv->at(1);
+        auto two = itv->at(2);
 
         for (size_t ind=0; ind<3; ++ind) {
             Assert(orig_one.element<int>(ind) == ((int*)one->data())[ind]);
@@ -230,13 +229,13 @@ void test_dataset_roundtrip()
     // back to dataset
 
     bool share = false;
-    Dataset d2 = as_dataset(itsp, share);
+    Dataset d2 = TensorDM::as_dataset(itsp, datapath, share);
 
     Assert(d2.size_major() == 3);
 
     auto dmd = d2.metadata();
-    Assert(!dmd["ident"].isNull() and dmd["ident"].asInt() == 1);
-    Assert(dmd["_dataset_arrays"].isNull()); // should not leak from ITensorSet
+    Assert(dmd["ident"].asString() == not_an_ident_number);
+
     auto keys = d2.keys();
     Assert(keys.size() == 2);
     Assert(keys.find("one") != keys.end());

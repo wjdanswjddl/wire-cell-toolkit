@@ -27,11 +27,19 @@ namespace WireCell::Img {
 
       private:
         
-        /*** Configuration: "sampler"
+        /** Configuration: "sampler"
 
-             Set the blob samper.
+            Set the blob samper.
         */
         IBlobSampler::pointer m_sampler;
+
+        /** Config: "datapath"
+
+            Set the datapath for the tensor representing the frame.
+            The string may provide a %d format code which will be
+            interpolated with the frame's ident number.
+         */
+        std::string m_datapath = "frames/%d";
 
         size_t m_count{0};
     };

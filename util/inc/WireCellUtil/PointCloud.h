@@ -422,6 +422,12 @@ namespace WireCell::PointCloud {
             }
             return ret;
         }
+        bool has(const std::string& key) const {
+            for (const auto& [k,v] : m_store) {
+                if (k == key) return true;
+            }
+            return false;
+        }
 
         /// Return a Dataset like this one but filled with zeros to
         /// given number of elements along major axis.
