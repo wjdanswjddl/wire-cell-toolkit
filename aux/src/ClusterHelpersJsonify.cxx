@@ -80,10 +80,9 @@ Json::Value blob_jsoner(const cluster_node_t& n)
     ret["ident"] = iblob->ident();
     ret["value"] = iblob->value();
     ret["error"] = iblob->uncertainty();
-    ret["faceid"] = iface->ident();
-    // Because we have failed to make faceid unique we must also add:
-    for (const auto& wp : iface->planes()) {
-        ret["wpids"].append(wp->planeid().ident());
+    {
+        WirePlaneId afid(kUnknownLayer, iface->which(), iface->anode());
+        ret["faceid"] = afid.ident();
     }
     ret["sliceid"] = iblob->slice()->ident();
     Json::Value jcorners = Json::arrayValue;

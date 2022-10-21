@@ -177,16 +177,17 @@ ClusterLoader::ClusterLoader(const anodes_t& anodes)
 {
     for (const auto& anode : anodes) {
         for (const auto& face : anode->faces()) {
-            for (const auto& wp : face->planes()) {
-                m_faces[wp->planeid().ident()] = face;
-            }
+            const WirePlaneId afid(kUnknownLayer, face->which(), face->anode());
+            m_faces[afid.ident()] = face;
         }
     }
 }
 
-IAnodeFace::pointer ClusterLoader::face(int wpid) const
+IAnodeFace::pointer ClusterLoader::face(WirePlaneId wpid) const
 {
-    auto it = m_faces.find(wpid);
+    WirePlaneId afid(kUnknownLayer, wpid.face(), wpid.apa());
+
+    auto it = m_faces.find(afid.ident());
     if (it == m_faces.end()) {
         return nullptr;
     }
@@ -214,8 +215,8 @@ cluster_graph_t ClusterLoader::load(const Json::Value& jgraph,
         }
 
         if (code == 'b') {
-            int wpid = jobj["wpids"][0].asInt();
-            if (! face(wpid)) {
+            WirePlaneId afid(jobj["faceid"].asInt());
+            if (! face(afid)) {
                 THROW(ValueError() << errmsg{"unknown face ident"});
             }
         }
@@ -310,7 +311,7 @@ cluster_graph_t ClusterLoader::load(const Json::Value& jgraph,
             }
             const int sliceid = jobj["sliceid"].asInt();
             auto islice = slices[sliceid];
-            int faceid = jobj["faceid"].asInt();
+            WirePlaneId faceid(jobj["faceid"].asInt());
             cgraph[vtx] = to_blob(jobj, islice, face(faceid), wires);
             continue;
         }

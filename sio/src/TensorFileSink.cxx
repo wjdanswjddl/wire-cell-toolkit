@@ -53,6 +53,9 @@ void TensorFileSink::finalize()
 void TensorFileSink::numpyify(ITensor::pointer ten, const std::string& fname)
 {
     const auto shape = ten->shape();
+    if (shape.empty()) {
+        return;
+    }
     Stream::write(m_out, fname, ten->data(), shape, ten->dtype());
     m_out.flush();
 }

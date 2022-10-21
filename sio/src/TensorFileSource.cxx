@@ -139,9 +139,9 @@ struct TFSTensor : public WireCell::ITensor {
     //     : pig(std::move(pig))
     // {
     // }
-    size_t m_element_size;
+    size_t m_element_size{0};
     std::vector<std::byte> m_store;
-    std::string m_dtype;
+    std::string m_dtype{""};
     shape_t m_shape;
     Configuration m_cfg;
     explicit TFSTensor(const pigenc::File& pig, Configuration cfg=Json::objectValue)
@@ -152,6 +152,12 @@ struct TFSTensor : public WireCell::ITensor {
     {
         const std::byte* data = reinterpret_cast<const std::byte*>(pig.data().data());
         m_store.insert(m_store.end(), data, data + pig.data().size());
+    }
+
+    // An ITensor may not have an array part.
+    explicit TFSTensor(Configuration cfg)
+        : m_cfg(cfg)
+    {
     }
     virtual const std::type_info& element_type() const
     {
@@ -268,8 +274,13 @@ ITensorSet::pointer TensorFileSource::load()
     }
 
     auto sv = std::make_shared<ITensor::vector>();
-    for (const auto& [ind, ti] : teninfo) {
-        ti.ten->m_cfg = ti.md;
+    for (auto& [ind, ti] : teninfo) {
+        if (!ti.ten) {          // an array-less tensor
+            ti.ten = std::make_shared<TFSTensor>(ti.md);
+        }
+        else {
+            ti.ten->m_cfg = ti.md;
+        }
         sv->push_back(ti.ten);
     }
     return std::make_shared<SimpleTensorSet>(ident, setmd, sv);

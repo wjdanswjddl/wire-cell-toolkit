@@ -75,7 +75,7 @@ signal contained by this region.
 1. /ident/, (int) the application determined ID number.
 2. /value/, the central value of the signal
 3. /uncertainty/, the uncertainty in the value
-4. /faceid/, (int) the face ident 
+4. /faceid/, (int) the face ident from ~WirePlaneId(kUnkownLayer,face,apa)~
 5. /sliceid/, (int) the slice ident
 6. /start/, the start time of the blob
 7. /span/, the time span of the blob

@@ -75,9 +75,6 @@ struct BlobSampler::Sampler
     // The identity of the sampler
     size_t ident;
 
-    // For transform between 3D and 2D wire projections
-    std::vector<const Pimpos*> pimpos;
-    
     explicit Sampler(const Configuration& cfg, size_t ident)
         : cc(cfg2cpp(cfg)), ident(ident)
     {
@@ -86,32 +83,37 @@ struct BlobSampler::Sampler
 
     virtual ~Sampler() {}
 
+    // Context manager around sample()
+    IAnodeFace::pointer anodeface;
+    void begin_sample(IBlob::pointer iblob)
+    {
+        anodeface = iblob->face();
+    }
+    void end_sample()
+    {
+        anodeface = nullptr;
+    }
+
     // Entry point to subclasses
     virtual void sample(Dataset& ds, IBlob::pointer iblob) = 0;
 
     // subclass may want to config self.
     virtual void configure(const Configuration& cfg) { }
 
-    // Must call prior to visiting any IBlob with a new anode face
-    // (optimization to avoid repeating code on each sampling).
-    IAnodeFace::pointer anodeface;
-    void set_anodeface(IAnodeFace::pointer af)
+    // Return pimpos for a given plane index
+    const Pimpos* pimpos(int plane_index=2) const
     {
-        anodeface = af;
-        pimpos.clear();
-        for (auto wp : af->planes()) {
-            pimpos.push_back(wp->pimpos());
-        }
+        return anodeface->planes()[plane_index]->pimpos();
     }
 
     // Convert a signal time to its location along global drift
     // coordinates.
     double time2drift(double time) const
     {
+        const Pimpos* colpimpos = pimpos(2);
         const double drift = (time + cc.time_offset)/cc.drift_speed;
-        const auto* collection = pimpos[2];
-        double xorig = collection->origin()[0];
-        double xsign = collection->axis(0)[0];
+        double xorig = colpimpos->origin()[0];
+        double xsign = colpimpos->axis(0)[0];
         return xorig + xsign*drift;
     }
 
@@ -210,7 +212,9 @@ PointCloud::Dataset BlobSampler::sample_blobs(const IBlob::vector& iblobs)
     PointCloud::Dataset ret;
     for (const auto& iblob : iblobs) {
         for (auto& sampler : m_samplers) {
+            sampler->begin_sample(iblob);
             sampler->sample(ret, iblob);
+            sampler->end_sample();
         }
     }
     return ret;
@@ -358,7 +362,7 @@ struct Grid : public BlobSampler::Sampler
         const layer_index_t l2 = 2 + planes[1];
         const layer_index_t l3 = 2 + planes[2];
 
-        const auto* pimpos3 = pimpos[planes[2]];
+        const auto* pimpos3 = pimpos(planes[2]);
 
         const auto& coords = anodeface->raygrid();
 

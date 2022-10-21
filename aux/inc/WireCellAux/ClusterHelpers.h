@@ -44,7 +44,7 @@ namespace WireCell::Aux {
                              const IFrame::vector& known_frames = {}) const;
 
         // Return known anode face by id or nullptr if id not found;
-        IAnodeFace::pointer face(int faceid) const;
+        IAnodeFace::pointer face(WirePlaneId faceid) const;
 
     private:
         using faces_t = std::unordered_map<int, IAnodeFace::pointer>;

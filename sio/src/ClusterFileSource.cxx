@@ -176,6 +176,9 @@ void ClusterFileSource::configure(const WireCell::Configuration& cfg)
         auto ianode = Factory::find_tn<IAnodePlane>(tn.asString());
         anodes.push_back(ianode);
     }
+    if (anodes.empty()) {
+        THROW(ValueError() << errmsg{"ClusterFileSource: no anodes given"});
+    }
     m_json_loader = std::make_unique<ClusterLoader>(anodes);
 }
 
