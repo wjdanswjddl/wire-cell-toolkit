@@ -78,14 +78,35 @@ bool Img::TestClusterShadow::operator()(const input_pointer& in, output_pointer&
     BlobShadow::graph_t bsgraph = BlobShadow::shadow(out_graph, 'w'); // or 'c'
     ClusterShadow::blob_cluster_map_t clusters;
     auto cs_graph = ClusterShadow::shadow(out_graph, bsgraph, clusters);
+    log->debug("clusters.size(): {} ", clusters.size());
 
     // Count edges
     std::map<std::string, int> counters = {
         {"cs_edges", 0},
         {"cs_vertices", 0},
         {"nblobs", 0},
+        {"nblobs_filter", 0},
+        {"nblobs_clusters_tmp", 0},
         {"nblobs_clusters", 0}
     };
+
+    {
+        using cvertex_t = typename boost::graph_traits<cluster_graph_t>::vertex_descriptor;
+        using Filtered = typename boost::filtered_graph<cluster_graph_t, boost::keep_all,
+                                                        std::function<bool(cvertex_t)> >;
+        Filtered bcg(out_graph, {}, [&](auto vtx) { return out_graph[vtx].code() == 'b'; });
+        for (const auto& bcg_vertex : GraphTools::mir(boost::vertices(bcg))) {
+            if (out_graph[bcg_vertex].code() != 'b') {
+                log->debug("{} is not 'b'",bcg_vertex);
+            }
+            counters["nblobs_filter"] += 1;
+        }
+        ClusterShadow::blob_cluster_map_t clusters_tmp;
+        auto nclust = boost::connected_components(bcg, boost::make_assoc_property_map(clusters_tmp));
+        for (const auto& b : clusters_tmp) {
+            counters["nblobs_clusters_tmp"] += 1;
+        }
+    }
     for (const auto& bs_vertex : GraphTools::mir(boost::vertices(bsgraph))) {
         counters["nblobs"] += 1;
     }

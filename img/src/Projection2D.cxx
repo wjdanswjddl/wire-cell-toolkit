@@ -154,7 +154,7 @@ layer_projection_map_t WireCell::Img::Projection2D::get_2D_projection(
     for (auto lc : lcoeff) {
         auto l = lc.first;
         auto c = lc.second;
-        ret[l].m_proj = sparse_fmat_t(8256,9592);
+        ret[l].m_proj = sparse_mat_t(8256,9592);
         ret[l].m_proj.setFromTriplets(c.begin(), c.end());
     }
     return ret;
@@ -172,7 +172,7 @@ std::string WireCell::Img::Projection2D::dump(const Projection2D& proj2d, bool v
     auto ctq = proj2d.m_proj;
     size_t counter = 0;
     for (int k=0; k<ctq.outerSize(); ++k) {
-        for (sparse_fmat_t::InnerIterator it(ctq,k); it; ++it)
+        for (sparse_mat_t::InnerIterator it(ctq,k); it; ++it)
         {
             if (verbose) {
                 ss << " {" << it.row() << ", " << it.col() << "}->" << it.value();
@@ -200,18 +200,49 @@ bool WireCell::Img::Projection2D::write(const Projection2D& proj2d, const std::s
     return 0;
 }
 
-int WireCell::Img::Projection2D::compare(const Projection2D& ref, const Projection2D& tar) {
-    sparse_fmat_t diff = ref.m_proj - tar.m_proj;
-    size_t nneg = 0;
-    for (int k=0; k<diff.outerSize(); ++k) {
-        for (sparse_fmat_t::InnerIterator it(diff,k); it; ++it)
+// return a sparse matrix mask for elements that are larger than th(reshold)
+sparse_mat_t mask (const sparse_mat_t& sm, const float th = 0) {
+    sparse_mat_t smm = sm;
+    for (int k=0; k<smm.outerSize(); ++k) {
+        for (sparse_mat_t::InnerIterator it(smm,k); it; ++it)
         {
-            if (it.value() < 0) {
-                ++nneg;
+            if (it.value() > th) {
+                it.valueRef() = 1;
             }
         }
     }
-    if (nneg==0) return 1;
+    return smm;
+}
 
-    return 0;
+bool loop_exist (const sparse_mat_t& sm, std::function<bool(scaler_t)> f) {
+    for (int k=0; k<sm.outerSize(); ++k) {
+        for (sparse_mat_t::InnerIterator it(sm,k); it; ++it)
+        {
+            if (f(it.value())) {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+// 1: tar is part of ref; 2: tar is equal to ref; -1: ref is part of tar; ref and tar do not overlap
+int WireCell::Img::Projection2D::judge_coverage(const Projection2D& ref, const Projection2D& tar) {
+    sparse_mat_t ref_t_tar = ref.m_proj.cwiseProduct(tar.m_proj);
+    bool all_zero = !loop_exist(ref_t_tar, [](scaler_t x){return x!=0;});
+    if (all_zero) return 0;
+
+    sparse_mat_t ref_tar = ref.m_proj - tar.m_proj;
+    bool ref_tar_neg = loop_exist(ref_tar, [](scaler_t x){return x<0;});
+    bool ref_tar_pos = loop_exist(ref_tar, [](scaler_t x){return x>0;});
+
+    // ref contains/equal tar
+    if (!ref_tar_neg) {
+        if (!ref_tar_pos) {
+            return 2;
+        }
+        return 1;
+    } else {
+        return -1;
+    }
 }

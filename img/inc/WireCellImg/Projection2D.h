@@ -25,8 +25,8 @@ namespace WireCell {
             using meas_t = cluster_node_t::meas_t;
 
             // For matrix representation of the graphs.
-            using sparse_dmat_t = Eigen::SparseMatrix<double>;
-            using sparse_fmat_t = Eigen::SparseMatrix<float>;
+            using scaler_t = float;
+            using sparse_mat_t = Eigen::SparseMatrix<scaler_t>;
 
             // chan_min, chan_max, tick_min, tick_max
             using projection_bound_t = std::tuple<int, int, int, int>;
@@ -38,7 +38,7 @@ namespace WireCell {
                     std::numeric_limits<int>::max(),
                     std::numeric_limits<int>::min()
                 };
-                sparse_fmat_t m_proj;
+                sparse_mat_t m_proj;
             };
 
             using vdesc_t = boost::graph_traits<cluster_graph_t>::vertex_descriptor;
@@ -61,8 +61,12 @@ namespace WireCell {
             std::string dump(const Projection2D& proj2d, bool verbose=false);
             bool write(const Projection2D& proj2d, const std::string& fname="proj2d.tar.gz");
 
-            // 1: tar is part of ref
-            int compare(const Projection2D& ref, const Projection2D& tar);
+            //
+            // std::vector<int> calc_coverage(const Projection2D& ref, const Projection2D& tar);
+
+            // 1: tar is part of ref; 2: tar is equal to ref; -1: ref is part of tar; ref and tar do not overlap
+            int judge_coverage(const Projection2D& ref, const Projection2D& tar);
+            // int judge_coverage_alt(const Projection2D& ref, const Projection2D& tar);
 
         }  // namespace Projection2D
     }  // namespace Img
