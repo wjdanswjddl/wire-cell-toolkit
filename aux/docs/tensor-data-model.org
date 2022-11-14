@@ -4,106 +4,93 @@
 * Introduction
 
 This document defines the Wire-Cell Toolkit (WCT) /tensor data model/.
-The model is described in two levels: "basic" or "general" and
-"specific".
+It factors into two layers: "generic" and "specific".
 
-The basic tensor data model is described in terms of two simple
-conceptual types: a generic "tensor" type and a set of such tensors.
-In WCT code these concepts are directly implemented in the WCT data
-interface classes ~ITensor~ and ~ITensorSet~, respectively.
+The /generic tensor data model/ defines a tensor as a numeric array with
+an associated metadata object and an ordered collection (set) of such
+tensor objects.  The WCT data interface classes ~ITensor~ and ~ITensorSet~
+embody these two aspects. 
 
-The specific tensor data model contains specifications for how to map
-select other data types to the basic tensor data model.  In practice,
-this means specifying methods of conversion between the other data
-type and ~ITensor~ instances.  I/O methods may then be defined in a
-manner that only depends on the basic tensor data model and thus
-avoids a proliferation of I/O methods.  The specific tensor data model
-defines how the following WCT data types are mapped to the basic
-tensor data model.
-- ~IFrame~ :: raw or signal processed waveforms.
-- ~ICluster~ :: "cluster graph" of a heterogeneous set of vertices for 3D "blob" level imaging.
-- ~Dataset~ :: concrete set of named arrays of common length, specifically for point-cloud.
-As new types are supported by the model, this list shall grow to include them.
+The /specific tensor data model/ defines conventions on the generic
+tensor data model in order to map certain other data types to the
+generic tensor data model. 
 
-The next section defines the basic tensor data model followed.
-Following it is a section defining the specific tensor data model.
-These sections are written in rfc2119 language.
+The next two sections define the generic and specific tensor data
+models and are written in rfc2119 language.
 
-* Basic tensor data model
+* Generic tensor data model
 
 ** Tensor
 
-The basic tensor data model "tensor" shall be composed of two
-conceptual parts: an array part and a metadata (MD) part.
+A *tensor* shall be composed of two conceptual parts: an *array* part and
+a *metadata* (MD) part.
 
-The array part is composed of an array of elements that shall be
-stored contiguously and associated with the array *shape*, layout *order*
-and element *type* and *size*.
+The *array* part consists of a sequence of elements that shall be stored
+contiguously and associated with a *shape*, layout *order* and element
+*type* and *size*.
 
-The array *shape* shall be represented as a vector of integer type with each
-element corresponding to the number of elements spanned in the
-associated dimension.
-
+The array *shape* shall be represented as a vector of integer type with
+each element corresponding to the number of elements spanned by the
+corresponding dimension.
 The array layout *order* shall be represented as a vector which stores
 the majority of the dimensions or it shall be empty indicating "C"
 layout.  A "C" layout should be used.
-
 The array element *type* shall be represented as a string with values
 following Numpy [[https://numpy.org/doc/stable/reference/arrays.interface.html#arrays-interface][array interface]] ~typestr~ specification.  This typically
 means a letter followed by a number giving the size in bytes of the
 type.
-
 The array element *size* shall be represented as an integer providing
 the size of one element measured in bytes.
 
-A tensor *MD* shall follow the JSON data model and be of type object.
-If the MD is used to hold the array metadata as just described it
-shall use an object with attribute keywords identical to the terms
-given above in *bold* face and this object shall be held in an MD
-attribute named ~"array"~.  Array metadata may be stored outside the MD
-object.  Additional MD attributes are required by the specific tensor
-data model.  User application may add attributes not reserved here.
-The MD must be faithfully passed through any tensor converter round
-trip.
+A tensor *metadata* (MD) part shall follow the JSON data model and be of
+JSON type /object/.  The model reserves the following attributes names.
 
-The basic tensor data model "tensor set" shall be composed of two
-conceptual parts: a sequence of tensors and a metadata part.  A tensor
-set shall not contain other tensor sets.
+- array :: optional and when existing it is an object providing array
+  specifications using keyword names given in bold above (*shape*, etc).
+Additional MD attributes are required by the specific tensor data
+model.  User application may define attributes not otherwise reserved
+here.  The MD must be faithfully passed through any tensor converter
+round trip.
 
-The tensor set sequence of tensors shall have a stable ordering.  The
-sequence may be empty.  A tensor may be contained in more than one
-tensor set sequence.
-
+A *tensor set* shall be composed of two conceptual parts: an ordered
+sequence of tensors and a metadata part.  A tensor set shall not
+contain other tensor sets.
+The ordering of a tensor set sequence shall be stable and may be
+empty.  A tensor may be contained in multiple tensor sets.
 The tensor set MD object shall follow the JSON data model and be of
-type object.  The specific tensor data model must make no requirements
-on its contents.  The tensor data model places no restriction on user
-application attributes.  The MD must be faithfully passed through any
-tensor set converter round trip.
+JSON type object but otherwise this tensor data model places no
+requirements on its contents.  The tensor set MD must be faithfully
+passed through any tensor set converter round trip.
 
 * Specific tensor data model
 
-A tensor MD shall have an attribute *datapath* which is intended to
-identify and locate the tensor in a hierarchical structure of multiple
-tensors.  The datapath value shall be unique among all tensors in a
-set.  The value type of a datapath shall be string.  The string value
-shall be intereted as a sequence of identifiers separated by a ~"/"~
-(slash) character.  Each identifier must consist of the set of
-characters which are valid for use as names of C++ or Python variables
-or functions.  A datapath value may be used to refer to a tensor in
-the context of its contiaining tensor set.
+The specific tensor data model defines a number of complex specific
+data types in terms of the generic tensor data model.  
 
-A tensor MD shall have an attribute *datatype* which is intended to
-identify the specific data type it represents.  The datatype value is
-a string and takes a value from a limited set as described below.
-Additional requirements on MD attributes are specified based on the
-value of the datatype.
+** Common metadata conventions
 
-A single tensor is not sufficient to represent most complex specific
-data types.  A tensor may represent an *aggragate* of other tensors.
-Aggregation is achieved by a specific datatype defining a required MD
-attribute set which reference other tensors by their datapath.
+A tensor MD shall have an attribute named *datapath* of type string that
+identifies the tensor in a logical hierarchical structure of multiple
+tensors.  The *datapath* value shall be unique among all tensors held in
+a tensor set.  The value shall be interpreted as a sequence of atomic
+identifiers separated by a ~"/"~ (slash) character.  An atomic
+identifier must be valid for use as a name of C++ or Python variables
+or functions.  A *datapath* value may be stored in a tensor MD attribute
+and refer to another tensor when both tensors are held in the same
+tensor set.
 
-** Overview of types
+A tensor MD shall have an attribute *datatype* which is identifies a
+data type in the specific tensor data model that it represents.  The
+*datatype* value shall be one from the set of specific types described
+below.  Additional requirements on MD attributes may be defined that
+are specific to a *datatype* as described in the corresponding section
+below.
+
+Complex data types may be represented as an *aggregation* of multiple
+tensors.  These shall be defined on a per data type basis below as a
+set of MD attributes providing *datapath* values.
+
+** Overview of specific types
 
 The following specific types are mapped to the basic tensor data
 model.  Each item in the list gives the *datatype* MD attribute value
@@ -111,7 +98,7 @@ and describes the WCT data type to which it associates.
 
 - pcarray :: a ~PointCloud::Array~
 - pcdataset :: a ~PointCloud::Dataset~
-- pcgraph :: (C++ class tbd) a vertex dataset representing point cloud and edge dataset representing their connections
+- pcgraph :: a ~PointGraph~
 
 - trace :: one ~ITrace~ as 1D array or multiple ~ITrace~ as 2D array.
 - tracedata :: tagged trace indices and summary data
@@ -126,51 +113,39 @@ some cases in terms of other types defined previously.
 
 The *datatype* of *pcarray* indicates a tensor representing one
 ~PointCloud::Array~.
-
 The tensor array information shall map directly to that of ~Array~.
-
 A *pcarray* places no additional requirements on its tensor MD.
 
 ** pcdataset
 
 The *datatype* of *pcdataset* indicates a tensor representing on
 ~PointCloud::Dataset~.
-
 The tensor array shall be empty.
-
 The tensor MD shall have the following attributes:
 
-- arrays :: an object representing the named arrays.  Each attribute name provides the array name and each attribute value provides a *datapath* to a tensor of type *pcarray* holding the named array.
-
+- arrays :: an object representing the named arrays.  Each attribute
+  name provides the array name and each attribute value provides a
+  *datapath* to a tensor of type *pcarray* holding the named array.
 Additional user application ~Dataset~ metadata may reside in the tensor
 MD.
 
 ** pcgraph
 
-The *datatype* of *pcgraph* indicates a tensor representing a point cloud
-graph (C++ type TBD).  
+The *datatype* of *pcgraph* indicates a tensor representing a "point cloud
+graph".  This extends a point cloud to include relationships between
+pairs of points.  The array part of a *pcgraph* tensor shall be empty.
+The MD part of a *pcgraph* tensor shall provide reference to two
+*pcdataset* instances with the following MD attributes:
 
-The tensor array shall be empty.
+- nodes :: a *datapath* refering to a *pcdataset* representing graph vertex features.
 
-The tensor MD shall aggregates parts comprising the graph via datapath
-references to other tensors.
+- edges :: a *datapath* refering to a *pcdataset* representing graph edges and their features.
 
-The *nodes* attribute with string value shall provide reference to
-another tensor representing a *pcdataset*.  Each point shall be
-interpreted as a graph vertex and each *pcarray* as a feature spanning
-the vertices.
-
-The *edges* attribute value shall be an type object with three
-attributes.  The *path* attribute shall be of type string and provide
-the *datapath* of a tensor in the common set of datatype *pcdataset*.
-This tensor shall be considered to provide two integer arrays
-providing edge tail and head indices of vertices into the *nodes*
-dataset.  The attribute *tails* and *heads* shall be of type string and
-provide names of the arrays in the edges data set that provide the
-corresponding index arrays.
-
-Multiple *pcgraph* tensors may be defined which share either *nodes* or
-*edges* datasets.
+In addition, the *pcdataset* referred to by the *edges* attribute shall
+provide two arrays of integer type with names *tails* and *heads*.  Each
+shall provide indices into the *nodes* point cloud representing the tail
+and head endpoint of graph edges.  A node or edge dataset may be
+shared between different *pcgraph* instances.
 
 ** trace
 

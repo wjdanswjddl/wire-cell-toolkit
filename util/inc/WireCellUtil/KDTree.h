@@ -91,7 +91,6 @@ namespace WireCell::KDTree {
             See knn() for return value and arguments
         */
         virtual results_t radius(distance_t d, const point_t& query_point)= 0;
-
     };
 
 
@@ -124,23 +123,27 @@ namespace WireCell::KDTree {
     /** Cache multiple queries.
      */
     class MultiQuery {
-        PointCloud::Dataset& m_dataset;
+        std::reference_wrapper<PointCloud::Dataset> m_dataset;
         std::map<std::string, std::shared_ptr<QueryBase>> m_indices;
-        bool m_dynamic;
-        Metric m_metric;
 
       public:
 
         template<typename ElementType>
         using query_ptr_t = std::shared_ptr<Query<ElementType>>;
 
-        MultiQuery(PointCloud::Dataset& dataset,
-                   bool dynamic = false,
-                   Metric mtype = Metric::l2simple)
+        MultiQuery(PointCloud::Dataset& dataset)
             : m_dataset(dataset)
-            , m_dynamic(dynamic)
-            , m_metric(mtype)
         {}
+
+        MultiQuery(const MultiQuery& rhs)
+            : m_dataset(rhs.m_dataset)
+        {}
+
+        MultiQuery& operator=(const MultiQuery& rhs)
+        {
+            m_dataset = rhs.m_dataset;
+            return *this;
+        }
 
         const PointCloud::Dataset& dataset() const
         {
@@ -152,19 +155,27 @@ namespace WireCell::KDTree {
             return m_dataset;
         }
 
-        // Return a new or existing query matching parameters.
-        template<typename ElementType>
-        query_ptr_t<ElementType>
-        get(const PointCloud::name_list_t& selection)
+        std::string make_key(const PointCloud::name_list_t& selection,
+                             bool dynamic, Metric mtype)
         {
             PointCloud::name_list_t keys(selection.begin(),
                                          selection.end());
-            auto key = boost::algorithm::join(keys, ",");
+            keys.push_back(std::to_string((int) dynamic));
+            keys.push_back(std::to_string(static_cast<std::underlying_type_t<Metric>>(mtype)));
+            return boost::algorithm::join(keys, ",");
+        }
+
+        // Return a new or existing query matching parameters.
+        template<typename ElementType>
+        query_ptr_t<ElementType>
+        get(const PointCloud::name_list_t& selection, bool dynamic=false, Metric mtype = Metric::l2simple)
+        {
+            auto key = make_key(selection, dynamic, mtype);
             auto it = m_indices.find(key);
 
             if (it == m_indices.end()) { // create
                 auto unique = query<ElementType>(m_dataset, selection,
-                                                 m_dynamic, m_metric);
+                                                 dynamic, mtype);
                 query_ptr_t<ElementType> ret = std::move(unique);
                 m_indices[key] = ret;
                 return ret;

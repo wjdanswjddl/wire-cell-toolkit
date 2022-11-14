@@ -8,6 +8,7 @@
 #include "WireCellIface/IFrame.h"
 #include "WireCellIface/ITrace.h"
 #include "WireCellUtil/PointCloud.h"
+#include "WireCellUtil/PointGraph.h"
 #include "WireCellUtil/Waveform.h"
 
 namespace WireCell::Aux::TensorDM {
@@ -30,6 +31,10 @@ namespace WireCell::Aux::TensorDM {
     /// Return first of type
     ITensor::pointer first_of(const ITensor::vector& tens,
                               const std::string& datatype);
+
+    /// Return all tensors with a datapath matching regex pattern.
+    ITensor::vector match_at(const ITensor::vector& tens,
+                             const std::string& datapath);
 
     /// PointCloud support
 
@@ -72,6 +77,28 @@ namespace WireCell::Aux::TensorDM {
     PointCloud::Dataset as_dataset(const ITensorSet::pointer& its,
                                    const std::string datapath="",
                                    bool share=false);
+
+
+    /// PointGraph support
+
+    /**
+       Convert tensors representing point cloud graph to PointGraph.
+
+       The tensor found at datapath is converted.  If datapath is
+       empty the first pcgraph found is used.
+     */
+    PointGraph as_pointgraph(const ITensor::vector& tens,
+                             const std::string& datapath="");
+
+    /** Convert a point graph to tensors.
+
+        The vector first contains the conversion of the "nodes"
+        dataset with datapaths <datapath>/nodes/ followed by the
+        conversion of the "edges" dataset with datapaths
+        <datapath>/edges/.
+    */
+    ITensor::vector as_tensors(const PointGraph& pcgraph,
+                               const std::string datapath);
 
 
     /// Frame support

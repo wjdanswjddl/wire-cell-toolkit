@@ -100,7 +100,7 @@ struct QueryStatic : public Query<typename IndexType::ElementType>
         return m_metric;
     }
 
-    // knn and radius have semingly caprcious differences in
+    // knn and radius have semingly capricious differences in
     // interface!  Why 2 arrays for knn and vec<pair> for rad?
 
     virtual results_t knn(size_t kay,

@@ -122,18 +122,18 @@ void test_multi()
     };
     Dataset d(s);
 
-    const bool dynamic = true;
-    MultiQuery mq(d, dynamic);
+    MultiQuery mq(d);
 
     // This must have registered update callback.
     name_list_t onetwo = {"one", "two"};
 
-    auto kdq = mq.get<double>(onetwo);
+    const bool dynamic = true;
+    auto kdq = mq.get<double>(onetwo, dynamic);
     assert(kdq);
     Assert(kdq->dynamic() == dynamic);
     Assert(kdq->metric() == Metric::l2simple);
 
-    auto kdq2 = mq.get<double>(onetwo);
+    auto kdq2 = mq.get<double>(onetwo, dynamic);
     Assert(kdq2 == kdq);
     Assert(kdq2);
     Assert(kdq2->dynamic() == dynamic);
@@ -151,8 +151,8 @@ void test_speed(size_t num, size_t nlu, size_t kay,
           << " nlu=" << nlu
           << " kay=" << kay
           << " shared=" << shared
-          << " dynamic=" << dynamic
-          << "\n";
+          << " dynamic=" << dynamic;
+
     TimeKeeper tk(label.str());
 
     const double xmax=1000;
@@ -195,9 +195,9 @@ void test_speed(size_t num, size_t nlu, size_t kay,
 }
 
 int main() {
-    // test_static();
-    // test_dynamic();
-    // test_multi();
+    test_static();
+    test_dynamic();
+    test_multi();
     // test_speed(100);
     // test_speed(1000);
     // test_speed(10000);

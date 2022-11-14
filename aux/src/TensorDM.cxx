@@ -1,5 +1,6 @@
 #include "WireCellAux/TensorDM.h"
 #include "WireCellAux/SimpleTensorSet.h"
+#include <regex>
 
 using namespace WireCell;
 
@@ -46,3 +47,22 @@ WireCell::Aux::TensorDM::first_of(const ITensor::vector& tens,
     }
     return nullptr;
 }
+ITensor::vector
+WireCell::Aux::TensorDM::match_at(const ITensor::vector& tens,
+                                  const std::string& datapath)
+{
+    std::regex re(datapath);
+    ITensor::vector ret;
+    for (const auto& iten : tens) {
+        auto md = iten->metadata();
+        auto jdp = md["datapath"];
+        if (!jdp.isString()) {
+            continue;
+        }
+        auto dp = jdp.asString();
+        if (! std::regex_match(dp, re)) continue;
+        ret.push_back(iten);
+    }
+    return ret;
+}
+

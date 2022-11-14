@@ -101,7 +101,6 @@ WireCell::Aux::TensorDM::as_tensors(IFrame::pointer frame,
                                     bool truncate,
                                     std::function<float(float)> transform)
 {
-
     Configuration fmd;
     fmd["datatype"] = "frame";
     fmd["datapath"] = datapath;
