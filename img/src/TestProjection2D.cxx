@@ -177,7 +177,8 @@ bool Img::TestProjection2D::operator()(const input_pointer& in, output_pointer& 
 
 
     // for debugging
-    std::unordered_set<cluster_vertex_t> bs_keep{758, 634};
+    // std::unordered_set<cluster_vertex_t> bs_keep{758, 634};
+    std::unordered_set<cluster_vertex_t> bs_keep;
 
     if (m_compare_rectangle) {
         time_start = std::chrono::high_resolution_clock::now();
@@ -213,16 +214,19 @@ bool Img::TestProjection2D::operator()(const input_pointer& in, output_pointer& 
                         counters["ncomp"] += 1;
                         auto& tar_proj = id2lproj[tar_id][layer];
                         int coverage = judge_coverage(ref_proj, tar_proj);
+                        log->debug("coverage: {}", coverage);
                         if (coverage != 0) {
                             counters["n1"] += 1;
                             if (m_verbose) {
                                 if (id2cluster[ref_id].size() > 1) {
+                                    write(ref_proj, String::format("ref_%d.tar.gz",ref_id));
+                                    write(tar_proj, String::format("tar_%d.tar.gz",tar_id));
                                     log->debug("ref: {{{},{}}} => {}", ref_id, layer, dump(ref_proj,true));
                                     log->debug("tar: {{{},{}}} => {}", tar_id, layer, dump(tar_proj,true));
                                     std::cout << ref_id << " {";
                                     for (auto& b : id2cluster[ref_id]) {
                                         std::cout << b << " ";
-                                        bs_keep.insert(b);
+                                        // bs_keep.insert(b);
                                     }
                                     std::cout << "} -> ";
                                     std::cout << tar_id << " {";
