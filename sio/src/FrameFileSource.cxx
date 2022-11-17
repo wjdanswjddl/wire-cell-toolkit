@@ -78,6 +78,7 @@ bool FrameFileSource::matches(const std::string& tag)
         if (maybe == tag) {
             return true;
         }
+        log->debug("read unmatched tag: {} != ", tag, maybe);
     }
     return false;    
 }
@@ -89,9 +90,17 @@ bool FrameFileSource::read()
     custard::read(m_in, m_cur.fname, m_cur.fsize);
     m_cur.pig.read(m_in);
 
-    if (m_cur.fname.empty()) { return false; }
+    // log->debug("read file \"{}\" from stream with {} bytes", m_cur.fname, m_cur.fsize);
+
+    if (m_cur.fname.empty()) {
+        // log->warn("read empty file name from stream");
+        return false;
+    }
     auto parts = split(m_cur.fname, "_");
-    if (parts.size() != 3) { return false; }
+    if (parts.size() != 3) {
+        // log->warn("read parse file name failed got {} parts from {}", parts.size(), m_cur.fname);
+        return false;
+    }
     auto rparts = split(parts[2], ".");
     m_cur.ident = std::atoi(rparts[0].c_str());
     m_cur.okay = true;
@@ -136,6 +145,11 @@ IFrame::pointer FrameFileSource::load()
         // Read next element if current cursor is empty
         if (m_cur.fsize == 0) {
             this->read();
+
+            if (m_cur.fsize == 0) {
+                // zero read means EOF
+                break;
+            }
 
             if (!m_in) {
                 log->error("call={}, bad pig read with file={}", m_count, m_inname);
@@ -310,8 +324,13 @@ bool FrameFileSource::operator()(IFrame::pointer& frame)
         return false;
     }
     frame = load();
-    if (!frame) {
+    if (frame) {
+        log->debug("load frame call={}", m_count ++);
+    }
+    else {
+        log->debug("EOS at call={}", m_count ++);
         m_eos_sent = true;
     }
+    
     return true;
 }
