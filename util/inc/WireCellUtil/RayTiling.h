@@ -104,6 +104,7 @@ namespace WireCell {
 
         class Blob {
            public:
+            // Add a strip to this blob, updating corners.
             void add(const Coordinates& coords, const Strip& strip);
 
             const strips_t& strips() const { return m_strips; }

@@ -72,10 +72,18 @@ namespace WireCell {
             // Return the crossing point of two rays.
             Vector ray_crossing(const coordinate_t& one, const coordinate_t& two) const;
 
-            // Return the pitch location measured in an other layer give of the crossing point of two rays
+            // Return the pitch location of the crossing point of two coordinate rays as measured in an other layer.
             double pitch_location(const coordinate_t& one, const coordinate_t& two, layer_index_t other) const;
 
-            int pitch_index(double pitch, layer_index_t layer) const { return std::floor(pitch / m_pitch_mag[layer]); }
+            // Return relative number of pitch steps from ray 0 to the pitch location.
+            double pitch_relative(double pitch, layer_index_t layer) const {
+                return pitch / m_pitch_mag[layer];
+            }
+            // Return the index of the ray bin covering the pitch location.
+            int pitch_index(double pitch, layer_index_t layer) const 
+            {
+                return std::floor(pitch_relative(pitch, layer));
+            }
 
             int nlayers() const { return m_nlayers; }
             const std::vector<double>& pitch_mags() const { return m_pitch_mag; }

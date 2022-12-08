@@ -120,52 +120,106 @@ static crossings_t find_corners(const Strip& one, const Strip& two)
     return ret;
 }
 
+// Return non-negative pitch index if the crossing is in the strip,
+// else return -1.
+//
+// The nominal pitch index of the crossing, while still in floating
+// point form, is moved by the amount "nudge" toward the "center" 
+// pitch location prior to truncating to an integer index and testing
+// for strip inclusion.  This nudge is intended to combat floating
+// point imprecision in the case that crossing points would fall
+// exactly on a a strip ray given infinite precision.  MicroBooNE and
+// Vertical Drift are two such detectors where this nudge may be
+// required to achieve consistent results.
+static
+int in_strip(const Coordinates& coords,
+             const crossing_t& c, const Strip& strip,
+             double center, double nudge=1e-6)
+{
+    const double pitch = coords.pitch_location(c.first, c.second, strip.layer);
+    double find = coords.pitch_relative(pitch, strip.layer);
+    if (pitch < center) {
+        find += nudge;
+    }
+    else {
+        find -= nudge;
+    }
+    const int pind = std::floor(find);
+    if (strip.in(pind)) {
+        return pind;
+    }
+    return -1;
+}
+
 void Blob::add(const Coordinates& coords, const Strip& strip)
 {
     const size_t nstrips = m_strips.size();
 
-    if (nstrips == 0) {  // special case
+    // special case, first strip, no corners
+    if (nstrips == 0) {
         m_strips.push_back(strip);
         return;
     }
 
-    if (nstrips == 1) {  // special case
+    // special case, second strip, all corners are good corners
+    if (nstrips == 1) { 
         m_strips.push_back(strip);
         m_corners = find_corners(m_strips.front(), m_strips.back());
         return;
     }
+    
+    // effectively enlarge strips for the purpose of the inclusion
+    // tests by this fraction of one pitch.
+    const double nudge = 1e-6;
 
-    crossings_t surviving;
-
-    // See what old corners are inside the new strip
+    // Find center of existing blob in the pitch of new strip.
+    double center_in_new = 0;
     for (const auto& c : m_corners) {
-        const double pitch = coords.pitch_location(c.first, c.second, strip.layer);
-        const int pind = coords.pitch_index(pitch, strip.layer);
+        center_in_new += coords.pitch_location(c.first, c.second, strip.layer);
+    }
+    center_in_new /= m_corners.size();
 
-        if (strip.in(pind)) {
-            surviving.push_back(c);
+    // Old corners in new strip
+    crossings_t surviving;
+    for (const auto& c : m_corners) {
+        const int pind = in_strip(coords, c, strip, center_in_new, nudge);
+        if (pind < 0) {
+            continue;
         }
+        surviving.push_back(c);
+    }
+
+    // Precalc centers of old corners in old strips for use below
+    std::unordered_map<layer_index_t, double> center_in_old;
+    for (auto& old_strip : m_strips) {
+        double center = 0;
+        for (const auto& c : m_corners) {
+            center += coords.pitch_location(c.first, c.second, old_strip.layer);
+        }
+        center_in_old[old_strip.layer] = center / m_corners.size();
     }
 
     // see what new corners are inside all old strips;
     for (size_t si1 = 0; si1 < nstrips; ++si1) {
         auto corners = find_corners(m_strips[si1], strip);
         for (const auto& c : corners) {
-            // check each corner if inside all other strips
+            // check if old+new corner inside other old strips
             bool miss = false;
             for (size_t si2 = 0; si2 < nstrips; ++si2) {
                 if (si1 == si2) {
                     continue;
                 }
                 const auto& s2 = m_strips[si2];
-                double pitch = coords.pitch_location(c.first, c.second, s2.layer);
-                const int pind = coords.pitch_index(pitch, s2.layer);
-                if (s2.in(pind)) {
-                    continue;
+                // double pitch = coords.pitch_location(c.first, c.second, s2.layer);
+                // const int pind = coords.pitch_index(pitch, s2.layer);
+                // if (s2.in(pind)) {
+                //     continue;
+                // }
+                const int pind = in_strip(coords, c, s2, center_in_old[s2.layer], nudge);
+                if (pind < 0) {
+                    miss = true;
+                    break;
                 }
-
-                miss = true;
-                break;
             }
             if (!miss) {
                 surviving.push_back(c);
