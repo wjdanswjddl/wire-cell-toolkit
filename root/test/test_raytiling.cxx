@@ -137,7 +137,7 @@ int main(int argc, char* argv[])
         else {
             blobs = tiling(blobs, activity);
             if (blobs.empty()) {
-                warn("lost m'blobs!");
+                warn("lost m'blobs at layer index {} of {}!", ilayer, nlayers);
                 return -1;
             }
         }
