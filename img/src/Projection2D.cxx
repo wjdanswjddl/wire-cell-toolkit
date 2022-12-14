@@ -39,9 +39,9 @@ std::vector<vdesc_t> WireCell::Img::Projection2D::neighbors_oftype(const WireCel
     return ret;
 }
 
-std::unordered_map<int, std::vector<vdesc_t> > WireCell::Img::Projection2D::get_geom_clusters(const WireCell::cluster_graph_t& cg)
+std::unordered_map<int, std::set<vdesc_t> > WireCell::Img::Projection2D::get_geom_clusters(const WireCell::cluster_graph_t& cg)
 {
-    std::unordered_map<int, std::vector<vdesc_t> > groups;
+    std::unordered_map<int, std::set<vdesc_t> > groups;
     cluster_graph_t cg_blob;
     
     size_t nblobs = 0;
@@ -84,14 +84,14 @@ std::unordered_map<int, std::vector<vdesc_t> > WireCell::Img::Projection2D::get_
 
     // for debugging, return as one group
     // for (const auto& desc : mir(boost::vertices(cg_blob))) {
-    //     groups[0].push_back(new2old[desc]);
+    //     groups[0].insert(new2old[desc]);
     // }
     // return groups;
 
     std::unordered_map<vdesc_t, int> desc2id;
     boost::connected_components(cg_blob, boost::make_assoc_property_map(desc2id));
     for (auto& [desc,id] : desc2id) {  // invert
-        groups[id].push_back(new2old[desc]);
+        groups[id].insert(new2old[desc]);
     }
 
     // debug
@@ -110,7 +110,7 @@ std::unordered_map<int, std::vector<vdesc_t> > WireCell::Img::Projection2D::get_
 }
 
 layer_projection_map_t WireCell::Img::Projection2D::get_2D_projection(
-    const WireCell::cluster_graph_t& cg, std::vector<vdesc_t> group)
+    const WireCell::cluster_graph_t& cg, std::set<vdesc_t> group)
 {
     using triplet_t = Eigen::Triplet<double>;
     using triplet_vec_t = std::vector<triplet_t>;
@@ -141,6 +141,19 @@ layer_projection_map_t WireCell::Img::Projection2D::get_2D_projection(
                     auto charge = activity[chan].value();
                     // FIXME how to fill this?
                     lcoeff[layer].push_back({index, start, charge});
+                    // DEBUG
+                    if(index == 6486 && start == 8066) {
+                        IBlob::pointer blob = std::get<blob_t>(node.ptr);
+                        std::cout
+                        << " blob_desc: " << blob_desc
+                        << " blob->ident(): " << blob->ident()
+                        << " blob->shape(): " << blob->shape().as_string()
+                        << " slice->ident(): " << slice->ident()
+                        << " index: " << index
+                        << " start: " << start
+                        << " charge: " << charge
+                        << std::endl;
+                    }
                     if (index < std::get<0>(ret[layer].m_bound)) std::get<0>(ret[layer].m_bound) = index;
                     if (index > std::get<1>(ret[layer].m_bound)) std::get<1>(ret[layer].m_bound) = index;
                     if (start < std::get<2>(ret[layer].m_bound)) std::get<2>(ret[layer].m_bound) = start;

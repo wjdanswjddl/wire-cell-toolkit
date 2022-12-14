@@ -14,6 +14,7 @@
 
 #include <iterator>
 #include <chrono>
+#include <fstream>
 
 WIRECELL_FACTORY(TestClusterShadow, WireCell::Img::TestClusterShadow,
                  WireCell::INamed,
@@ -80,6 +81,12 @@ bool Img::TestClusterShadow::operator()(const input_pointer& in, output_pointer&
     auto cs_graph = ClusterShadow::shadow(out_graph, bsgraph, clusters);
     log->debug("clusters.size(): {} ", clusters.size());
 
+    // make a cluster -> blob map
+    std::unordered_map<ClusterShadow::vdesc_t, std::set<cluster_vertex_t> > c2b;
+    for(auto p : clusters) {
+        c2b[p.second].insert(p.first);
+    }
+
     // Count edges
     std::map<std::string, int> counters = {
         {"cs_edges", 0},
@@ -116,9 +123,39 @@ bool Img::TestClusterShadow::operator()(const input_pointer& in, output_pointer&
     for (const auto& cs_vertex : GraphTools::mir(boost::vertices(cs_graph))) {
         counters["cs_vertices"] += 1;
     }
+    std::ofstream fout("TestClusterShadow.log");
     for (const auto& cs_edge : GraphTools::mir(boost::edges(cs_graph))) {
         counters["cs_edges"] += 1;
+        auto tail = boost::source(cs_edge, cs_graph);
+        auto head = boost::target(cs_edge, cs_graph);
+        auto b_tail = c2b[tail];
+        auto b_head = c2b[head];
+        std::stringstream ss;
+        ss << tail << " {";
+        for (auto& b : c2b[tail]) {
+            ss << b << " ";
+        }
+        ss << "} " << cs_graph[cs_edge].wpid.layer() << "-> ";
+        ss << head << " {";
+        for (auto& b : c2b[head]) {
+            ss << b << " ";
+        }
+        ss << "} \n";
+        fout << ss.str();
+        // repeat for comp
+        ss << head << " {";
+        for (auto& b : c2b[head]) {
+            ss << b << " ";
+        }
+        ss << "} " << cs_graph[cs_edge].wpid.layer() << "-> ";
+        ss << tail << " {";
+        for (auto& b : c2b[tail]) {
+            ss << b << " ";
+        }
+        ss << "} \n";
+        fout << ss.str();
     }
+    fout.close();
     for (auto c : counters) {
         log->debug("{} : {} ", c.first, c.second);
     }

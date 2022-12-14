@@ -12,6 +12,7 @@
 
 #include <iterator>
 #include <chrono>
+#include <fstream>
 
 WIRECELL_FACTORY(TestProjection2D, WireCell::Img::TestProjection2D,
                  WireCell::INamed,
@@ -172,13 +173,14 @@ bool Img::TestProjection2D::operator()(const input_pointer& in, output_pointer& 
 
     std::map<std::string, int> counters = {
         {"ncomp", 0},
-        {"n1", 0}
+        {"noverlap", 0}
     };
 
 
     // for debugging
     // std::unordered_set<cluster_vertex_t> bs_keep{758, 634};
     std::unordered_set<cluster_vertex_t> bs_keep;
+    std::ofstream fout("TestProjection2D.log");
 
     if (m_compare_rectangle) {
         time_start = std::chrono::high_resolution_clock::now();
@@ -188,7 +190,7 @@ bool Img::TestProjection2D::operator()(const input_pointer& in, output_pointer& 
         using layer_checked_pairs_t = std::unordered_map< WirePlaneLayer_t, checked_pairs_t>;
         layer_checked_pairs_t layer_checked_pairs;
         [&] {
-        for (auto layer : layers) {
+        for (WirePlaneLayer_t layer : layers) {
             for (auto ref_ilp : id2lproj) {
                 auto ref_id = ref_ilp.first;
                 auto& ref_proj = ref_ilp.second[layer];
@@ -214,29 +216,36 @@ bool Img::TestProjection2D::operator()(const input_pointer& in, output_pointer& 
                         counters["ncomp"] += 1;
                         auto& tar_proj = id2lproj[tar_id][layer];
                         int coverage = judge_coverage(ref_proj, tar_proj);
-                        log->debug("coverage: {}", coverage);
+                        // log->debug("coverage: {}", coverage);
                         if (coverage != 0) {
-                            counters["n1"] += 1;
+                            counters["noverlap"] += 1;
                             if (m_verbose) {
                                 if (id2cluster[ref_id].size() > 1) {
-                                    write(ref_proj, String::format("ref_%d.tar.gz",ref_id));
-                                    write(tar_proj, String::format("tar_%d.tar.gz",tar_id));
                                     log->debug("ref: {{{},{}}} => {}", ref_id, layer, dump(ref_proj,true));
                                     log->debug("tar: {{{},{}}} => {}", tar_id, layer, dump(tar_proj,true));
-                                    std::cout << ref_id << " {";
-                                    for (auto& b : id2cluster[ref_id]) {
-                                        std::cout << b << " ";
-                                        // bs_keep.insert(b);
-                                    }
-                                    std::cout << "} -> ";
-                                    std::cout << tar_id << " {";
-                                    for (auto& b : id2cluster[tar_id]) {
-                                        std::cout << b << " ";
-                                        bs_keep.insert(b);
-                                    }
-                                    std::cout << "} \n";
-                                    return;
                                 }
+                            }
+                            if (true) {
+                                if (ref_id == 1 && tar_id == 3 && layer == kVlayer) {
+                                    write(ref_proj, String::format("ref_%d.tar.gz",ref_id));
+                                    write(tar_proj, String::format("tar_%d.tar.gz",tar_id));
+                                }
+                            }
+                            if (true) {
+                                std::stringstream ss;
+                                ss << ref_id << " {";
+                                for (auto& b : id2cluster[ref_id]) {
+                                    ss << b << " ";
+                                    // bs_keep.insert(b);
+                                }
+                                ss << "} " << layer << "-> ";
+                                ss << tar_id << " {";
+                                for (auto& b : id2cluster[tar_id]) {
+                                    ss << b << " ";
+                                    bs_keep.insert(b);
+                                }
+                                ss << "} \n";
+                                fout << ss.str();
                             }
                         }
                         layer_checked_pairs[layer].insert({ref_id, tar_id});
@@ -245,9 +254,10 @@ bool Img::TestProjection2D::operator()(const input_pointer& in, output_pointer& 
             }
         }
         }();
+        fout.close();
         time_stop = std::chrono::high_resolution_clock::now();
         time_duration = std::chrono::duration_cast<std::chrono::seconds>(time_stop - time_start);
-        log->debug("judge_coverage: {} sec", time_duration.count());
+        log->debug("judge_coverage rectangle: {} sec", time_duration.count());
         for (auto c : counters) {
             log->debug("{} : {} ", c.first, c.second);
         }
@@ -255,7 +265,7 @@ bool Img::TestProjection2D::operator()(const input_pointer& in, output_pointer& 
 
     if (m_compare_brute_force) {
         counters["ncomp"] = 0;
-        counters["n1"] = 0;
+        counters["noverlap"] = 0;
         // layer_checked_pairs.clear();
         time_start = std::chrono::high_resolution_clock::now();
         for (auto layer : layers) {
@@ -270,7 +280,7 @@ bool Img::TestProjection2D::operator()(const input_pointer& in, output_pointer& 
                     counters["ncomp"] += 1;
                     int coverage = judge_coverage(ref_proj, tar_proj);
                     if (coverage != 0) {
-                        counters["n1"] += 1;
+                        counters["noverlap"] += 1;
                         if (m_verbose) {
                             log->debug("ref: {{{},{}}} => {}", ref_id, layer, dump(ref_proj));
                             log->debug("tar: {{{},{}}} => {}", tar_id, layer, dump(tar_proj));
@@ -282,7 +292,7 @@ bool Img::TestProjection2D::operator()(const input_pointer& in, output_pointer& 
         }
         time_stop = std::chrono::high_resolution_clock::now();
         time_duration = std::chrono::duration_cast<std::chrono::seconds>(time_stop - time_start);
-        log->debug("judge_coverage: {} sec", time_duration.count());
+        log->debug("judge_coverage brute_force: {} sec", time_duration.count());
         for (auto c : counters) {
             log->debug("{} : {} ", c.first, c.second);
         }

@@ -52,11 +52,11 @@ namespace WireCell {
             std::vector<vdesc_t> neighbors_oftype(const WireCell::cluster_graph_t& cg, const vdesc_t& vd);
 
             // returns group id -> vdesc_t in each group
-            std::unordered_map<int, std::vector<vdesc_t> > get_geom_clusters(const WireCell::cluster_graph_t& cg);
+            std::unordered_map<int, std::set<vdesc_t> > get_geom_clusters(const WireCell::cluster_graph_t& cg);
 
             // returns layer ID -> channel-tick-charge matrix
             using layer_projection_map_t = std::unordered_map<WirePlaneLayer_t, Projection2D>;
-            layer_projection_map_t get_2D_projection(const WireCell::cluster_graph_t& cg, std::vector<vdesc_t>);
+            layer_projection_map_t get_2D_projection(const WireCell::cluster_graph_t& cg, std::set<vdesc_t>);
 
             std::string dump(const Projection2D& proj2d, bool verbose=false);
             bool write(const Projection2D& proj2d, const std::string& fname="proj2d.tar.gz");
