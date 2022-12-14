@@ -113,7 +113,7 @@ void Img::MaskSliceBase::slice(const IFrame::pointer& in, slice_map_t& svcmap)
     const double tick = in->tick();
     const double span = tick * m_tick_span;
 
-    // active slices
+    // get charge traces
     auto charge_traces = Aux::tagged_traces(in, m_tag);
     const size_t ntraces = charge_traces.size();
 
@@ -122,6 +122,7 @@ void Img::MaskSliceBase::slice(const IFrame::pointer& in, slice_map_t& svcmap)
         return;
     }
 
+    // min_max tbin from charge trace
     int min_tbin = m_min_tbin;
     int max_tbin = m_max_tbin;
     if (min_tbin == 0 and max_tbin == 0) {
@@ -135,12 +136,22 @@ void Img::MaskSliceBase::slice(const IFrame::pointer& in, slice_map_t& svcmap)
         max_tbin = *std::max_element(tends.begin(), tends.end());
     }
 
+    // get charge error traces
     auto charge_err_traces = Aux::tagged_traces(in, m_error_tag);
     if(charge_traces.size()!=charge_err_traces.size()) {
         log->error("trace size mismatch: {}: {} and {}: {}",
                    m_tag, charge_traces.size(), m_error_tag, charge_err_traces.size());
         THROW(RuntimeError() << errmsg{"charge_traces.size()!=charge_err_traces.size()"});
     }
+
+    // get RMS for traces
+    auto const& summary = in->trace_summary(m_tag);
+    if (summary.size()!=charge_traces.size()) {
+        log->error("size un-matched for tag \"{}\", trace: {}, summary: {}. needed for threshold calc.", m_tag, charge_traces.size(), summary.size());
+        THROW(RuntimeError() << errmsg{"size un-matched"});
+    }
+
+    // process active planes 
     for (size_t idx=0; idx < charge_traces.size(); ++idx) {
         auto trace = charge_traces[idx];
         auto err_trace = charge_err_traces[idx];
@@ -165,10 +176,23 @@ void Img::MaskSliceBase::slice(const IFrame::pointer& in, slice_map_t& svcmap)
             }
             const auto q = charge[qind];
             const auto e = error[qind];
-            // TODO: do we want this?
-            if (q == 0.0) {
-                continue;
+            // threshold
+            double threshold = m_nthreshold[planeid.index()] * summary[idx];
+            if (threshold == 0) {
+                threshold = m_default_threshold[planeid.index()];
             }
+            bool is_active = false;
+            if (q > threshold) {
+                is_active = true;
+            } else if (nq>1) { // nq >1 means a charge bin has at least one neighbor
+                const auto q_next = qind == nq ? charge[qind-1] : charge[qind+1];
+                const auto q_prev = qind == 0 ? charge[qind+1] : charge[qind-1];
+                if ((q > q_next / 3. && q_next > threshold) ||
+                    (q > q_prev / 3. && q_prev > threshold)) {
+                    is_active = true;
+                }
+            }
+            if (is_active != true) continue;
             size_t slicebin = (tbin + qind) / m_tick_span;
             auto s = svcmap[slicebin];
             if (!s) {
@@ -178,10 +202,10 @@ void Img::MaskSliceBase::slice(const IFrame::pointer& in, slice_map_t& svcmap)
             }
             // TODO: how to handle error?
             s->sum(ich, {q, e});
-            if (chid == 0) {
-                log->trace("chid: {} slicebin: {} charge: {} error {}", chid, slicebin, s->activity()[ich].value(),
-                           s->activity()[ich].uncertainty());
-            }
+            // if (chid == 6486) {
+            //     log->debug("chid: {} slicebin: {} charge: {} error {}", chid, slicebin, s->activity()[ich].value(),
+            //                s->activity()[ich].uncertainty());
+            // }
         }
     }
 

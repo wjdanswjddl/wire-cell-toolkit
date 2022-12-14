@@ -68,6 +68,9 @@ namespace WireCell {
             float m_dummy_error{1e8};
             float m_masked_charge{0.2};
             float m_masked_error{1e8};
+            std::vector<float> m_nthreshold{3.6, 3.6, 3.6};
+            // from uboone u, v, w settings
+            std::vector<float> m_default_threshold{5.87819e+02 * 4.0, 8.36644e+02 * 4.0, 5.67974e+02 * 4.0};
             // If both are zero then determine the tbin range from
             // input frame.
             int m_min_tbin{0};
