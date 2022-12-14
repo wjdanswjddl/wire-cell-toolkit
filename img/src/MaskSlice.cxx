@@ -59,6 +59,14 @@ WireCell::Configuration Img::MaskSliceBase::default_configuration() const
     cfg["dummy_error"] = m_dummy_error;
     cfg["masked_charge"] = m_masked_charge;
     cfg["masked_error"] = m_masked_error;
+
+    cfg["nthreshold"][0] = m_nthreshold[0];
+    cfg["nthreshold"][1] = m_nthreshold[1];
+    cfg["nthreshold"][2] = m_nthreshold[2];
+    cfg["default_threshold"][0] = m_default_threshold[0];
+    cfg["default_threshold"][1] = m_default_threshold[1];
+    cfg["default_threshold"][2] = m_default_threshold[2];
+
     // if both are zero, (default) determine tbin range from input
     // frame.
     cfg["min_tbin"] = m_min_tbin;
@@ -105,6 +113,18 @@ void Img::MaskSliceBase::configure(const WireCell::Configuration& cfg)
     }
     for (auto id : m_masked_planes) {
         log->debug("masked planes: {}", id);
+    }
+    if (cfg.isMember("nthreshold")) {
+        m_nthreshold.clear();
+        for (auto var : cfg["nthreshold"]) {
+            m_nthreshold.push_back(var.asFloat());
+        }
+    }
+    if (cfg.isMember("default_threshold")) {
+        m_default_threshold.clear();
+        for (auto var : cfg["default_threshold"]) {
+            m_default_threshold.push_back(var.asFloat());
+        }
     }
 }
 
@@ -192,6 +212,9 @@ void Img::MaskSliceBase::slice(const IFrame::pointer& in, slice_map_t& svcmap)
                     is_active = true;
                 }
             }
+            if (tbin+qind == 0 && q > 0) {
+                log->debug("tbin+qind: {} chid: {} charge: {} error: {} threshold: {} active: {}", tbin+qind, chid, q, e, threshold, is_active);
+            }
             if (is_active != true) continue;
             size_t slicebin = (tbin + qind) / m_tick_span;
             auto s = svcmap[slicebin];
@@ -202,7 +225,7 @@ void Img::MaskSliceBase::slice(const IFrame::pointer& in, slice_map_t& svcmap)
             }
             // TODO: how to handle error?
             s->sum(ich, {q, e});
-            // if (chid == 6486) {
+            // if (tbin+qind == 0 && chid > 1517 && chid < 1523) {
             //     log->debug("chid: {} slicebin: {} charge: {} error {}", chid, slicebin, s->activity()[ich].value(),
             //                s->activity()[ich].uncertainty());
             // }
