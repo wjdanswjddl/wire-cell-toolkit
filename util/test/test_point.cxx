@@ -2,6 +2,7 @@
 #include "WireCellUtil/BoundingBox.h"
 #include "WireCellUtil/Testing.h"
 #include "WireCellUtil/Units.h"
+#include "WireCellUtil/Math.h"
 
 #include <iomanip>
 #include <iostream>
@@ -94,4 +95,22 @@ int main()
         Assert(p);
         cerr << "revalid: " << p << endl;
     }
+    {
+        Ray rprev(Point(6.33552e-13, -1155.1, 10358.5), Point(6.34915e-13, -1148.67, 10369.6));
+        Ray rnext(Point(6.34287e-13, -1155.1, 10364.5), Point(6.34915e-13, -1152.13, 10369.6));
+        // Ray rprev(Point(0, -1155.1, 10358.5), Point(0, -1148.67, 10369.6));
+        // Ray rnext(Point(0, -1155.1, 10364.5), Point(0, -1152.13, 10369.6));
+        const auto pray = ray_pitch(rprev, rnext);
+        const auto pvec = ray_vector(pray);
+        const double pmag = pvec.magnitude();
+        const double ang = 180/pi*acos(ray_unit(rprev).dot(ray_unit(rnext)));
+        std::cerr << "prev: " << rprev << " " << ray_length(rprev) << " " << ray_unit(rprev) << "\n"
+                  << "next: " << rnext << " " << ray_length(rnext) << " " << ray_unit(rnext) << "\n"
+                  << "pray: " << pray << " " << ray_length(pray) << "\n"
+                  << "pvec: " << pvec << "\n"
+                  << "pmag: " << pmag << "\n"
+                  << "ang:  " << ang << " deg\n";
+        
+    }
+
 }

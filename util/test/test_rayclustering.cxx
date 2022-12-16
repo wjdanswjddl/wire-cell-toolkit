@@ -26,6 +26,7 @@ const double border = 10;
 const double width = 100;
 const double height = 100;
 
+
 // local helper codes
 #include "raygrid.h"
 

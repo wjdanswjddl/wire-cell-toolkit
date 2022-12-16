@@ -1,8 +1,14 @@
 /**
-   Code here helps read in data which follows the Wire Cell Toolkit
-   wire data schema.  See python module wirecell.util.wires.schema and
-   sister submodules.
+   WireSchema describe "wire geometry" data structures.
 
+   It provides a loader of WCT "wires file" following the "wire data
+   schema" (typically as compressed JSON).
+
+   The content must adhere to a number of required conventions
+   described in util/docs/wire-schema.org.
+
+   See also the Python module wirecell.util.wires.schema and family of
+   CLI commands: "wirecell-util convert-*".
  */
 #ifndef WIRECELLUTIL_WIREPLANES
 #define WIRECELLUTIL_WIREPLANES
@@ -60,11 +66,14 @@ namespace WireCell {
         class Store {
             StoreDBPtr m_db;
 
-           public:
+          public:
             Store();  // underlying store will be null!
             Store(StoreDBPtr db);
             Store(const Store& other);  // copy ctro
             Store& operator=(const Store& other);
+
+            // Throw ValueError if store violates required conventions.
+            void validate() const;
 
             // Access underlying data store as shared pointer.
             StoreDBPtr db() const;
@@ -80,18 +89,96 @@ namespace WireCell {
             std::vector<Anode> anodes(const Detector& detector) const;
             std::vector<Face> faces(const Anode& anode) const;
             std::vector<Plane> planes(const Face& face) const;
+
+            // Return ordered wires.
             std::vector<Wire> wires(const Plane& plane) const;
 
             BoundingBox bounding_box(const Anode& anode) const;
             BoundingBox bounding_box(const Face& face) const;
             BoundingBox bounding_box(const Plane& plane) const;
 
+            // Return wire and pitch direction unit vectors.  This
+            // tries to be robust in the face of imprecise wire data.
             Ray wire_pitch(const Plane& plane) const;
+
+            // If data can be trusted (has been corrected) this will
+            // return wire/pitch direction vectors more quickly by
+            // using only wire0/1 info.
+            Ray wire_pitch_fast(const Plane& plane) const;
+
+            // Return pitch distance vector averaged over wires in plane.
+            Vector mean_pitch(const Plane& plane) const;
+
+            // Return wire distance vector averaged over wires in plane.
+            Vector mean_wire(const Plane& plane) const;
+
+            /**
+               Return vector of ray pairs that categorize each layer
+               of a face as suitable for use in constructing a
+               RayGrid::Coordinates.
+            
+               First two elements are horizontal and vertical bounds
+               and subsequent elements bound wire0 region for each
+               wire plane in the face.
+            */
+            ray_pair_vector_t ray_pairs(const Face& face) const;
+
+            /**
+               Return ray pairs bounding horiz/vert active area.
+            */
+            ray_pair_vector_t ray_pairs_active(const Face& face) const;
 
             std::vector<int> channels(const Plane& plane) const;
         };
 
-        Store load(const char* filename);
+        /**
+           Load WCT "wires file".
+
+           A number of cumulative corrections can be applied.
+
+           - none :: The store represents data as-is from the file.
+
+           - order :: Correct order of wire-in-plane (WIP) and wire
+             endpoints.
+
+             Normally, this orders by ascending wire center Z value
+             but in the case wires are nearly parallel with the Z axis
+             this orders by ascending wire center Y value.
+
+             Normally, this orders (tail,head) endpoints by ascending
+             Y value but in the case of Z-parallel wires (tail,head)
+             is ordered by DEscending Z.
+
+             These ordering rules assure that the diretion of
+             increasing WIP is same as increasing pitch vector and
+             that X x W = P.
+
+           - direction :: Rotate wires about their centers so that
+             they are all parallel.  The common wire direction is
+             taken as the average over the original wires, rotated
+             into the Y-Z plane.  Wire length and centers are held
+             fixed.
+
+           - pitch :: Translate wires along a common pitch direction
+             so that they become uniformly distributed.  The common
+             pitch is taken as the average over all wires rotated into
+             the Y-Z plane.  The center Y/Z of the central wire at WIP
+             = nwires/2 is kept fixed and X is set to the average of
+             all center X.
+           
+        */
+        enum struct Correction { empty, load, order, direction, pitch, ncorrections };
+        inline Correction& operator++(Correction& c) {
+            const int in = static_cast<int>(c) + 1;
+            return c = static_cast<Correction>( in );
+        }
+        inline Correction& operator--(Correction& c) {
+            const int in = static_cast<int>(c) - 1;
+            return c = static_cast<Correction>( in );
+        }
+
+        Store load(const char* filename, Correction correction = Correction::pitch);
+
         // void dump(const char* filename, const Store& store);
 
     }  // namespace WireSchema
