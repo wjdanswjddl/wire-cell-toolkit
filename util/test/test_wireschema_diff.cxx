@@ -42,6 +42,8 @@ void dump(const Store& store)
                     Stats X{true}, P{true}, DX{true}, DY{true}, DZ{true};
                     Ray rprev;
                     Wire wprev;
+                    Ray rprev2;
+                    Wire wprev2;
                     int pnum=0;
 
                     const auto wires = store.wires(plane);
@@ -57,26 +59,44 @@ void dump(const Store& store)
                             const auto pray = ray_pitch(rprev, rnext);
                             const auto pvec = ray_vector(pray);
                             const double pmag = pvec.magnitude()/units::mm;
+
+                            P(pmag);
+                            const auto pdir = pvec.norm();
+                            const double dx = 180/pi*acos(pdir.x());
+                            const double dy = 180/pi*acos(pdir.y());
+                            const double dz = 180/pi*acos(pdir.z());
+                            DX(dx);
+                            DY(dy);
+                            DZ(dz);
+                            bool do_dump=false;
                             if (pmag < 1e-4) {
-                                std::cerr << "TINY PITCH:"
-                                          << " aid=" << anode.ident
+                                std::cerr << "TINY PITCH:\n";
+                                do_dump=true;
+                            }
+                            if (std::abs(dy-52.542) < 2 or std::abs(dy-1.739) < 2) {
+                                std::cerr << "WEIRD ANGLE:\n";
+                                do_dump=true;
+                            }
+                            if (do_dump) {
+                                std::cerr << " aid=" << anode.ident
                                           << " fid=" << face.ident
                                           << " pid=" << plane.ident 
                                           << " wid=" << wire.ident
                                           << " chn=" << wire.channel
-                                          << " -- > "
+                                          << " <-- "
                                           << " wid=" << wprev.ident
                                           << " chn=" << wprev.channel
+                                          << " <-- "
+                                          << " wi2=" << wprev2.ident
+                                          << " ch2=" << wprev2.channel
                                           << "\n";
-                                std::cerr << "\tprev: " << rprev << "\n";
                                 std::cerr << "\tnext: " << rnext << "\n";
+                                std::cerr << "\tprev: " << rprev << "\n";
+                                std::cerr << "\tpre2: " << rprev2 << "\n";
                             }
-                            P(pmag);
-                            const auto pdir = pvec.norm();
-                            DX(180/pi*acos(pdir.x()));
-                            DY(180/pi*acos(pdir.y()));
-                            DZ(180/pi*acos(pdir.z()));
                         }
+                        rprev2 = rprev;
+                        wprev2 = wprev;
                         rprev = rnext;
                         wprev = wire;
                         ++pnum;

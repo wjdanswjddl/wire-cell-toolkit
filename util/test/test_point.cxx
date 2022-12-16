@@ -100,8 +100,11 @@ int main()
         Ray rnext(Point(6.34287e-13, -1155.1, 10364.5), Point(6.34915e-13, -1152.13, 10369.6));
         // Ray rprev(Point(0, -1155.1, 10358.5), Point(0, -1148.67, 10369.6));
         // Ray rnext(Point(0, -1155.1, 10364.5), Point(0, -1152.13, 10369.6));
+        const auto wpdir = (rprev.second - rprev.first).norm();
+        const auto wndir = (rnext.second - rnext.first).norm();
         const auto pray = ray_pitch(rprev, rnext);
         const auto pvec = ray_vector(pray);
+
         const double pmag = pvec.magnitude();
         const double ang = 180/pi*acos(ray_unit(rprev).dot(ray_unit(rnext)));
         std::cerr << "prev: " << rprev << " " << ray_length(rprev) << " " << ray_unit(rprev) << "\n"
@@ -109,8 +112,10 @@ int main()
                   << "pray: " << pray << " " << ray_length(pray) << "\n"
                   << "pvec: " << pvec << "\n"
                   << "pmag: " << pmag << "\n"
-                  << "ang:  " << ang << " deg\n";
-        
+                  << "ang:  " << ang << " deg\n"
+                  << "dYp ang: " << 180/pi*acos(wpdir.y()) << "\n"
+                  << "dYn ang: " << 180/pi*acos(wndir.y()) << "\n"
+            ;
     }
 
 }
