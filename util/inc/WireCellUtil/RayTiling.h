@@ -105,7 +105,10 @@ namespace WireCell {
         class Blob {
            public:
             // Add a strip to this blob, updating corners.
-            void add(const Coordinates& coords, const Strip& strip);
+            // A nudge will effectively enlarge strips for the purpose of the inclusion
+            // tests by this fraction of the pitch.
+            void add(const Coordinates& coords, const Strip& strip,
+                     double nudge = 0);
 
             const strips_t& strips() const { return m_strips; }
             strips_t& strips() { return m_strips; }
@@ -138,7 +141,8 @@ namespace WireCell {
 
         class Tiling {
            public:
-            Tiling(const Coordinates& coords);
+            // Create a tiling with coordintes.
+            Tiling(const Coordinates& coords, double nudge=0);
 
             // Return a new activity which is shrunk to fall into the shadow of the blob.
             Activity projection(const Blob& blob, const Activity& activity);
@@ -149,8 +153,9 @@ namespace WireCell {
             // Refine existing blobs with the activity in a new layer.
             blobs_t operator()(const blobs_t& prior, const Activity& activity);
 
-           private:
+          private:
             const Coordinates& m_coords;
+            const double m_nudge;
         };
 
         /// free functions

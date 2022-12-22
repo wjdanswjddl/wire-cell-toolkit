@@ -134,7 +134,7 @@ static crossings_t find_corners(const Strip& one, const Strip& two)
 static
 int in_strip(const Coordinates& coords,
              const crossing_t& c, const Strip& strip,
-             double center, double nudge=1e-6)
+             double center, double nudge)
 {
     const double pitch = coords.pitch_location(c.first, c.second, strip.layer);
     double find = coords.pitch_relative(pitch, strip.layer);
@@ -151,7 +151,7 @@ int in_strip(const Coordinates& coords,
     return -1;
 }
 
-void Blob::add(const Coordinates& coords, const Strip& strip)
+void Blob::add(const Coordinates& coords, const Strip& strip, double nudge)
 {
     const size_t nstrips = m_strips.size();
 
@@ -168,10 +168,6 @@ void Blob::add(const Coordinates& coords, const Strip& strip)
         return;
     }
     
-    // effectively enlarge strips for the purpose of the inclusion
-    // tests by this fraction of one pitch.
-    const double nudge = 1e-6;
-
     // Find center of existing blob in the pitch of new strip.
     double center_in_new = 0;
     for (const auto& c : m_corners) {
@@ -232,8 +228,9 @@ void Blob::add(const Coordinates& coords, const Strip& strip)
 
 const crossings_t& Blob::corners() const { return m_corners; }
 
-Tiling::Tiling(const Coordinates& coords)
+Tiling::Tiling(const Coordinates& coords, double nudge)
   : m_coords(coords)
+  , m_nudge(nudge)
 {
 }
 
@@ -243,7 +240,7 @@ blobs_t Tiling::operator()(const Activity& activity)
     const size_t nstrips = strips.size();
     blobs_t ret(nstrips);
     for (size_t ind = 0; ind < nstrips; ++ind) {
-        ret[ind].add(m_coords, strips[ind]);
+        ret[ind].add(m_coords, strips[ind], m_nudge);
     }
     return ret;
 }
@@ -333,7 +330,7 @@ blobs_t Tiling::operator()(const blobs_t& prior_blobs, const Activity& activity)
         auto strips = proj.make_strips();
         for (auto strip : strips) {
             Blob newblob = blob;  // copy
-            newblob.add(m_coords, strip);
+            newblob.add(m_coords, strip, m_nudge);
             if (newblob.corners().empty()) {
                 continue;
             }

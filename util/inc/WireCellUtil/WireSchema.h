@@ -93,18 +93,17 @@ namespace WireCell {
             // Return ordered wires.
             std::vector<Wire> wires(const Plane& plane) const;
 
-            BoundingBox bounding_box(const Anode& anode) const;
-            BoundingBox bounding_box(const Face& face) const;
-            BoundingBox bounding_box(const Plane& plane) const;
+            // Return the smallest axis-aligned box bounding the
+            // object.  If region is true, the box bounds the wire
+            // regions and not just the wire centers.  Wire-center
+            // bounds are returned by default.
+            BoundingBox bounding_box(const Anode& anode, bool region=false) const;
+            BoundingBox bounding_box(const Face& face, bool region=false) const;
+            BoundingBox bounding_box(const Plane& plane, bool region=false) const;
 
             // Return wire and pitch direction unit vectors.  This
             // tries to be robust in the face of imprecise wire data.
             Ray wire_pitch(const Plane& plane) const;
-
-            // If data can be trusted (has been corrected) this will
-            // return wire/pitch direction vectors more quickly by
-            // using only wire0/1 info.
-            Ray wire_pitch_fast(const Plane& plane) const;
 
             // Return pitch distance vector averaged over wires in plane.
             Vector mean_pitch(const Plane& plane) const;
@@ -177,9 +176,11 @@ namespace WireCell {
             return c = static_cast<Correction>( in );
         }
 
+        // Load file into store performing correction
         Store load(const char* filename, Correction correction = Correction::pitch);
 
-        // void dump(const char* filename, const Store& store);
+        // Dump store to file
+        void dump(const char* filename, const Store& store);
 
     }  // namespace WireSchema
 

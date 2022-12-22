@@ -176,6 +176,114 @@ void single(Printer& print, const Store& store, const std::string& cname)
     }
 }
 
+
+Vector wires_ray_pitch(const Wire& wa, const Wire& wb)
+{
+    const Ray ra(wa.tail, wa.head);
+    const Ray rb(wb.tail, wb.head);
+    return ray_vector(ray_pitch(ra, rb));
+}
+double wires_ray_angle(const Wire& wa, const Wire& wb)
+{
+    const Ray ra(wa.tail, wa.head);
+    const Ray rb(wb.tail, wb.head);
+    return acos(ray_unit(ra).dot(ray_unit(rb)));
+}
+
+
+void couple(Printer& print,
+            const Store& a, const Store& b, 
+            const std::string& cname)
+{
+    const auto& detectors = a.detectors();
+    for (const auto& detector : detectors) {
+        const auto anodes = a.anodes(detector);
+        for (const auto& anode : anodes) {
+            const auto faces = a.faces(anode);
+            for (const auto& face : faces) {
+                for (int iplane : face.planes) {
+                    const auto aplane = a.planes()[iplane];
+                    const auto bplane = b.planes()[iplane];
+                    assert(aplane.ident == bplane.ident);
+                    const auto plane = aplane;
+
+                    const auto was = a.wires(aplane);
+                    const auto wbs = b.wires(bplane);
+                    assert(was.size() == wbs.size());
+
+                    std::string name = format("d:%d a:%d f:%d p:%d nw:%d",
+                                              detector.ident, anode.ident,
+                                              face.ident, plane.ident,
+                                              was.size());
+                    std::cerr << name << "\n";
+                    MG mg{print, name, cname};
+
+                    auto TX = mg("wire tail X change (mm)");
+                    auto TY = mg("wire tail Y change (mm)");
+                    auto TZ = mg("wire tail Z change (mm)");
+
+                    auto HX = mg("wire head X change (mm)");
+                    auto HY = mg("wire head Y change (mm)");
+                    auto HZ = mg("wire head Z change (mm)");
+
+                    auto CD = mg("center distance btw old/new (mm)");
+                    auto DP = mg("center distance along pitch btw old/new (mm)");
+                    auto PD = mg("pitch distance btw old/new (mm)");
+                    auto WD = mg("anglular distance btw old/new (deg)");
+                    
+                    const size_t nwires = was.size();
+                    const size_t nhalf = nwires/2;
+                    
+                    const Vector pmean = wires_ray_pitch(wbs[nhalf], wbs[nhalf+1]).norm();
+
+                    for (size_t wind=0; wind<nwires; ++wind) {
+                        const auto& wa = was[wind];
+                        const auto& wb = wbs[wind];
+
+                        const auto dtail = wb.tail - wa.tail;
+                        const auto dhead = wb.head - wa.head;
+                        
+                        TX->SetPoint(wind, wind, dtail.x()/units::mm);
+                        TY->SetPoint(wind, wind, dtail.y()/units::mm);
+                        TZ->SetPoint(wind, wind, dtail.z()/units::mm);
+                        HX->SetPoint(wind, wind, dhead.x()/units::mm);
+                        HY->SetPoint(wind, wind, dhead.y()/units::mm);
+                        HZ->SetPoint(wind, wind, dhead.z()/units::mm);
+
+                        const auto pvec = wires_ray_pitch(wa, wb);
+                        const double pmag = pvec.magnitude();
+                        const double ang = wires_ray_angle(wa, wb);
+                        
+                        const auto cenvec = 0.5*((wb.tail+wb.head) - (wa.tail+wa.head));
+                        const double dcen = cenvec.magnitude();
+                        CD->SetPoint(wind, wind, dcen/units::mm);
+                        PD->SetPoint(wind, wind, pmag/units::mm);
+                        WD->SetPoint(wind, wind, ang*180/pi);
+
+                        const double dpitch = pmean.dot(cenvec);
+                        DP->SetPoint(wind, wind, dpitch/units::mm);
+
+
+                    } // wires
+
+                    mg(TX);
+                    mg(TY);
+                    mg(TZ);
+
+                    mg(HX);
+                    mg(HY);
+                    mg(HZ);
+
+                    mg(CD);
+                    mg(DP);
+                    mg(PD);
+                    mg(WD);
+                }
+            }
+        }
+    }
+}
+
 int main(int argc, char* argv[])
 {
     std::string fname = "microboone-celltree-wires-v2.1.json.bz2";
@@ -202,13 +310,24 @@ int main(int argc, char* argv[])
 
     for (size_t ind=0; ind<stores.size(); ++ind) {
         // if (ind !=3) continue;  // debug
-        std::string cname = oname + "-" + std::to_string(ind);
+        std::string cname = oname + "-single" + std::to_string(ind);
         std::string fname = argv[0];
         fname += "-" + cname;
         Printer print(fname);
         print.canvas.SetLeftMargin(0.3);
         single(print, stores[ind], cname);
     }
+
+    const size_t ordered=1;
+    for (size_t ind=ordered+1; ind<stores.size(); ++ind) {
+        std::string cname = oname + "-couple" + std::to_string(ordered) + std::to_string(ind);
+        std::string fname = argv[0];
+        fname += "-" + cname;
+        Printer print(fname);
+        print.canvas.SetLeftMargin(0.3);
+        couple(print, stores[ordered], stores[ind], oname);
+    }        
+
     return 0;
 
 }

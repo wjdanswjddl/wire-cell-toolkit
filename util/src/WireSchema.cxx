@@ -327,8 +327,6 @@ Store WireCell::WireSchema::load(const char* filename, Correction correction)
     const cache_key_t ckey(realpath, correction);
     cache[ckey] = store;
 
-    std::cerr << "WireSchema: levels: have=" << (int)have_level << " want=" << (int)correction <<"\n";
-
     // always load if we start empty
     if (have_level == Correction::empty) {
         load_file(realpath, *store);
@@ -352,10 +350,99 @@ Store WireCell::WireSchema::load(const char* filename, Correction correction)
     return Store(store);
 }
 
-// void WireCell::WireSchema::dump(const char* filename, const Store& store)
-// {
+static Json::Value to_json(const std::vector<int>& arr)
+{
+    Json::Value ret = Json::arrayValue;
+    size_t siz = arr.size();
+    ret.resize(siz);
+    for (size_t ind=0; ind<siz; ++ind) {
+        ret[(int)ind] = arr[ind];
+    }
+    return ret;    
+}
 
-// }
+static Json::Value jo_wrap(const char* name, Json::Value& j)
+{
+    Json::Value ret = Json::objectValue;
+    ret[name] = j;
+    return ret;
+}
+
+void WireCell::WireSchema::dump(const char* filename, const Store& store)
+{
+    Json::Value jstore = Json::objectValue;
+
+    Json::Value jpoints = Json::arrayValue; // we don't bother deduplicating
+    Json::Value jwires = Json::arrayValue;
+    for (const auto& wire : store.wires()) {
+        Json::Value jwire = Json::objectValue;
+        jwire["ident"] = wire.ident;
+        jwire["channel"] = wire.channel;
+        jwire["segment"] = wire.segment;
+
+        jwire["tail"] = jpoints.size();
+        Json::Value tpoint = Json::objectValue;
+        tpoint["x"] = wire.tail.x();
+        tpoint["y"] = wire.tail.y();
+        tpoint["z"] = wire.tail.z();
+        jpoints.append(jo_wrap("Point", tpoint));
+
+        jwire["head"] = jpoints.size();
+        Json::Value hpoint = Json::objectValue;
+        hpoint["x"] = wire.head.x();
+        hpoint["y"] = wire.head.y();
+        hpoint["z"] = wire.head.z();
+        jpoints.append(jo_wrap("Point", hpoint));
+
+        jwires.append(jo_wrap("Wire", jwire));
+    }
+    jstore["points"] = jpoints;
+    jstore["wires"] = jwires;
+
+    Json::Value jplanes = Json::arrayValue;
+    for (const auto& plane : store.planes()) {
+        Json::Value jplane = Json::objectValue;
+        jplane["ident"] = plane.ident;
+        jplane["wires"] = to_json(plane.wires);
+        jplanes.append(jo_wrap("Plane", jplane));
+    }
+    jstore["planes"] = jplanes;
+
+    Json::Value jfaces = Json::arrayValue;
+    for (const auto& face : store.faces()) {
+        Json::Value jface = Json::objectValue;
+        jface["ident"] = face.ident;
+        jface["planes"] = to_json(face.planes);
+        jfaces.append(jo_wrap("Face",jface));
+    }
+    jstore["faces"] = jfaces;
+
+    Json::Value janodes = Json::arrayValue;
+    for (const auto& anode : store.anodes()) {
+        Json::Value janode = Json::objectValue;
+        janode["ident"] = anode.ident;
+        janode["faces"] = to_json(anode.faces);
+        janodes.append(jo_wrap("Anode", janode));
+    }
+    jstore["anodes"] = janodes;
+
+    const auto& detectors = store.detectors();
+    if (! detectors.empty()) {
+        Json::Value jdetectors = Json::arrayValue;
+        for (const auto& det: detectors) {
+            Json::Value jdet = Json::objectValue;
+            jdet["ident"] = det.ident;
+            jdet["anodes"] = to_json(det.anodes);
+            jdetectors.append(jo_wrap("Detector", jdet));
+        }
+        jstore["detectors"] = jdetectors;
+    }
+
+    Json::Value jtop = Json::objectValue;
+    jtop["Store"] = jstore;
+    Persist::dump(filename, jtop, true);
+}
+
 
 Store::Store()
   : m_db(nullptr)
@@ -432,49 +519,56 @@ std::vector<Wire> Store::wires(const Plane& plane) const
     return ret;
 }
 
-BoundingBox Store::bounding_box(const Anode& anode) const
+BoundingBox Store::bounding_box(const Anode& anode, bool region) const
 {
     BoundingBox bb;
     for (const auto& face : faces(anode)) {
-        bb(bounding_box(face).bounds());
+        bb(bounding_box(face, region).bounds());
     }
     return bb;
 }
-BoundingBox Store::bounding_box(const Face& face) const
+BoundingBox Store::bounding_box(const Face& face, bool region) const
 {
     BoundingBox bb;
     for (const auto& plane : planes(face)) {
-        bb(bounding_box(plane).bounds());
+        bb(bounding_box(plane, region).bounds());
     }
     return bb;
 }
-BoundingBox Store::bounding_box(const Plane& plane) const
+BoundingBox Store::bounding_box(const Plane& plane, bool region) const
 {
     BoundingBox bb;
-    for (const auto& wire : wires(plane)) {
-        Ray ray(wire.tail, wire.head);
-        bb(ray);
+    
+    Vector phalf;
+    if (region) phalf = 0.5*mean_pitch(plane);
+
+    const auto ws = wires(plane);
+    for (const auto& wire : ws) {
+        bb(Ray(wire.tail+phalf, wire.head+phalf));
+    }
+    if (region) {
+        bb(Ray(ws[0].tail-phalf, ws[0].head-phalf));
     }
     return bb;
 }
 
-Ray Store::wire_pitch_fast(const Plane& plane) const
-{
-    // Use likely longer wires from center of plane to attenuate any
-    // endpoint imprecision.
-    const size_t nhalf = plane.wires.size()/2;
+// Ray Store::wire_pitch_fast(const Plane& plane) const
+// {
+//     // Use likely longer wires from center of plane to attenuate any
+//     // endpoint imprecision.
+//     const size_t nhalf = plane.wires.size()/2;
 
-    const Wire& w1 = m_db->wires[plane.wires[nhalf]];
-    const Wire& w2 = m_db->wires[plane.wires[nhalf+1]];
+//     const Wire& w1 = m_db->wires[plane.wires[nhalf]];
+//     const Wire& w2 = m_db->wires[plane.wires[nhalf+1]];
 
-    Ray r1(w1.tail, w1.head);
-    Ray r2(w2.tail, w2.head);
+//     Ray r1(w1.tail, w1.head);
+//     Ray r2(w2.tail, w2.head);
 
-    const Vector W = ray_unit(r1);
-    const Vector P = ray_unit(ray_pitch(r1, r2));
+//     const Vector W = ray_unit(r1);
+//     const Vector P = ray_unit(ray_pitch(r1, r2));
 
-    return Ray(W, P);
-}
+//     return Ray(W, P);
+// }
 
 Vector Store::mean_pitch(const Plane& plane) const
 {
@@ -542,7 +636,7 @@ ray_pair_vector_t Store::ray_pairs_active(const Face& face) const
 {
     ray_pair_vector_t raypairs;
 
-    const auto bb = bounding_box(face).bounds();
+    const auto bb = bounding_box(face, true).bounds();
     double bbyl=bb.first.y(),  bbzl=bb.first.z();
     double bbyh=bb.second.y(), bbzh=bb.second.z();
     if (bbyl > bbyh) std::swap(bbyl, bbyh);

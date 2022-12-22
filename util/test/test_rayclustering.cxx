@@ -106,6 +106,12 @@ static activities_t make_activities(Coordinates& coords, std::vector<measure_t>&
     for (int ilayer = 0; ilayer < nlayers; ++ilayer) {
         auto& m = measures[ilayer];
         info("Make activity for layer: {}: {}", ilayer, m.size());
+        std::stringstream ss;
+        for (const auto& v : m) {
+            ss << v << " ";
+        }
+        info("\t{}", ss.str());
+
         Activity activity(ilayer, {m.begin(), m.end()});
         Assert(!activity.empty());
         activities.push_back(activity);
@@ -228,6 +234,9 @@ static void test_blobs(const blobs_t& blobs)
 {
     for (const auto& blob : blobs) {
         const auto& strips = blob.strips();
+        std::cerr << "blob: " << blob << "\n"
+            << "bb[0]: " << strips[0].bounds << "\n"
+            << "bb[1]: " << strips[1].bounds << "\n";
         Assert(strips[0].bounds.first == 0);
         Assert(strips[0].bounds.second == 1);
         Assert(strips[1].bounds.first == 0);
@@ -235,13 +244,14 @@ static void test_blobs(const blobs_t& blobs)
     }
 }
 
+
 int main(int argc, char* argv[])
 {
     auto raypairs = make_raypairs(width, height, pitch_magnitude);
 
     Coordinates coords(raypairs);
 
-    Tiling tiling(coords);
+    Tiling tiling(coords, 1e-6);
 
     std::default_random_engine generator;
     std::vector<Point> pts1 = make_points(generator, 10.0);
