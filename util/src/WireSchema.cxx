@@ -1,9 +1,25 @@
 #include "WireCellUtil/WireSchema.h"
 #include "WireCellUtil/Persist.h"
 #include "WireCellUtil/Configuration.h"
+#include "WireCellUtil/Logging.h"
 
 using namespace WireCell;
 using namespace WireCell::WireSchema;
+
+static // for now
+Ray ray_pitch_approx(const Ray& r1, const Ray& r2)
+{
+    const auto c1 = 0.5*(r1.first + r1.second);
+    const auto c2 = 0.5*(r2.first + r2.second);
+    const auto d21 = c2 - c1;
+
+    const auto v1 = ray_vector(r1);
+    const auto ecks = v1.cross(d21).norm();
+    const auto pdir = ecks.cross(v1).norm();
+    const double pitch = d21.dot(pdir);
+    return Ray(c1, c1+pitch*pdir);
+}
+
 
 static
 void load_file(const std::string& path, StoreDB& store)
@@ -186,7 +202,7 @@ static void plane_fixer_direction(StoreDB& store, Plane& plane)
 {
     Vector wdir;
     const size_t nwires = plane.wires.size();
-    std::vector<double> half(nwires);
+    std::vector<double> half(nwires); // retain wire lengths
 
     for (size_t wind=0; wind<nwires; ++wind) {
         const Wire wire = store.wires[plane.wires[wind]];
@@ -209,7 +225,7 @@ static void plane_fixer_direction(StoreDB& store, Plane& plane)
     }        
 }
 
-// uniform pitch, coplanar wires.  Assumes direction is correcterd
+// uniform pitch, coplanar wires.  Assumes directions are parallel.
 static void plane_fixer_pitch(StoreDB& store, Plane& plane)
 {
     // Find the mean X position of wire centers
@@ -241,24 +257,32 @@ static void plane_fixer_pitch(StoreDB& store, Plane& plane)
             midway = next;
         }
         if (wind) {            // wait until 2nd to calculate diff
-            ptot += ray_vector(ray_pitch(prev, next));
+            // ptot += ray_vector(ray_pitch(prev, next));
+            ptot += ray_vector(ray_pitch_approx(prev, next));
         }
         prev = next;
     }
     const Vector pmean = ptot / (nwires-1);
+    const double pmag = pmean.magnitude();
+    const Vector pdir = ptot.norm();
+
+    // Center point of midway wire
+    const Vector origin = 0.5*(midway.first + midway.second);
 
     for (size_t wind=0; wind<nwires; ++wind) {
         if (wind == nhalf) {
-            // dont' correct midway
+            // dont' correct fixed midway wire
             continue;
         }
         auto& wire = store.wires[plane.wires[wind]];
-        // have this pitch from midway to this wire.
-        const auto have = ray_vector(ray_pitch(midway, Ray(wire.tail, wire.head)));
-        // want this pitch from N steps from midway
-        const auto want = ((int)wind - (int)nhalf) * pmean;
-        // difference
-        const auto diff = want - have;
+
+        // Center of wire relative to origin
+        const auto wcen = 0.5*(wire.tail + wire.head) - origin;
+
+        const double have_pitch = pdir.dot(wcen);
+        const double want_pitch = ((int)wind - (int)nhalf)*pmag;
+
+        const auto diff = (want_pitch - have_pitch)*pdir;
 
         wire.tail += diff;
         wire.head += diff;
@@ -580,7 +604,8 @@ Vector Store::mean_pitch(const Plane& plane) const
         const Wire& wire = ws[wind];
         Ray next(wire.tail, wire.head);
         if (wind) {             // wait until 2nd to calculate diff
-            ptot = ptot + ray_vector(ray_pitch(prev, next));
+            //ptot = ptot + ray_vector(ray_pitch(prev, next));
+            ptot = ptot + ray_vector(ray_pitch_approx(prev, next));
         }
         prev = next;
     }
@@ -701,32 +726,166 @@ std::vector<int> Store::channels(const Plane& plane) const
 
 //// Validation ////
 
-static
-void validate_plane(const StoreDB& store, const Plane& plane)
+using spdlog::error;
+using fmt::format;
+struct ValidationContext {
+
+    bool fail_fast{false};
+    size_t nerrors{0};
+    std::string context{"top level"};
+
+    void operator()(const std::string& ctx) {
+        context = ctx;
+    }
+
+    void bail(const std::string& tested, const std::string& reason)
+    {
+        ++nerrors;
+        const std::string full = format("{}: {} failed: {}", context, tested, reason);
+        error(full);
+        if (fail_fast) {
+            THROW(ValueError() << errmsg{full});
+        }
+    }
+    template<typename T>
+    void positive(T val, const std::string& tested)
+    {
+        if (val > 0) return;
+        bail(tested, format("non positive ({})", val));
+    }
+    void nonneg(int ind, const std::string& tested)
+    {
+        if (ind >= 0) return;
+        bail(tested, format("negative ({})", ind));
+    }
+    void ubound(int ind, int end, const std::string& tested)
+    {
+        if (ind < end) return;
+        bail(tested, format("{} not less than {}", ind, end));
+    }
+    void near(double val, double targ, double err, const std::string& tested)
+    {
+        const double diff = val-targ;
+        if (std::abs(diff) < err) return;
+        double per = (diff)/err;
+        bail(tested, format("{} is {} from {} by more than {} ({} * allowed error)", val, diff, targ, err, per));
+    }
+    template<typename T>
+    void equal(const T& a, const T& b, const std::string& tested)
+    {
+        if (a == b) return;
+        bail(tested, format("{} and {} are not equal", a, b));
+    }
+
+    template<typename T>
+    const T& element(const std::vector<T>& arr, int ind, const std::string& tested)
+    {
+        nonneg(ind, tested);
+        ubound(ind, arr.size(), tested);
+        return arr[ind];
+    }
+};
+
+void WireCell::WireSchema::validate(const Store& store, double repsilon, bool fail_fast)
 {
+    ValidationContext v{fail_fast};
+    v.positive(store.detectors().size(), "detector count");
 
-}
+    for (const auto& detector : store.detectors()) {
+        v.nonneg(detector.ident, "detector ident");
+        const std::string dctx = format("detID={}: ", detector.ident);
+        v(dctx);
 
-void Store::validate() const
-{
-    const StoreDB& store = *m_db;
-
-    for (auto& detector : store.detectors) {
+        v.positive(detector.anodes.size(), "anode count");
         for (int ianode : detector.anodes) {
-            const auto& anode = store.anodes[ianode];
+            const auto& anode = v.element(store.anodes(), ianode, "anodes array access");
+            v.nonneg(anode.ident, "anode ident");
+            const std::string actx = dctx + format("anodeID={}: ", anode.ident);
+            v(actx);
+
+            v.positive(anode.faces.size(), "face count");
             for (int iface : anode.faces) {
-                const auto& face = store.faces[iface];
+                const auto& face = v.element(store.faces(), iface, "faces array access");
+                v.nonneg(face.ident, "face ident");
+                const std::string fctx = actx + format("faceID={}: ", face.ident);
+                v(fctx);
+
+                v.positive(face.planes.size(), "plane count");
                 std::set<int> face_plane_idents;
                 for (int iplane : face.planes) {
-                    const auto& plane = store.planes[iplane];
+                    const auto& plane = v.element(store.planes(), iplane, "planes array access");
+                    v.nonneg(plane.ident, "plane ident");
+                    const std::string pctx = fctx + format("planeID={}: ", plane.ident);
+                    v(pctx);
+
                     face_plane_idents.insert(plane.ident);
-                    validate_plane(store, plane);
-                }
-                if (face_plane_idents.size() != face.planes.size()) {
-                    THROW(ValueError() << errmsg{"plane idents not unique in face"});
-                }
-            }
-        }
+
+                    const auto pmean = store.mean_pitch(plane);
+                    const auto pmmag = pmean.magnitude();
+                    const auto pmdir = pmean.norm();
+                    const auto wmean = store.mean_wire(plane);
+                    const auto wmdir = wmean.norm();
+                    v.near(wmdir.dot(pmdir), 0, repsilon, "wire-pitch orthogonality");
+
+                    v.positive(plane.wires.size(), "wire count");
+                    Wire wlast;
+                    bool seen=false;
+                    for (int iwire : plane.wires) {
+                        const auto& wire = v.element(store.wires(), iwire, "wires array access");
+                        v.nonneg(wire.ident, "wire ident");
+                        const std::string wctx = pctx + format("wireID={}: ", wire.ident);
+                        v(wctx);
+
+                        // Check wire direction convention
+                        Ray wray(wire.tail, wire.head);
+                        const auto wvec = ray_vector(wray);
+                        const auto wdir = wvec.norm();
+                        // const double wlen = wvec.magnitude();
+
+                        if (std::abs(wdir.z()) > 0.9999) {
+                            v.near(wdir.y(), -1, repsilon, "wire direction Y component");
+                        }
+                        else {
+                            v.positive(wdir.y(), "wire direction Y component");
+                        }
+
+                        v.near(wdir.dot(wmdir), 1, repsilon, "local-mean wire parallelism");
+
+                        if (seen) { // validate wire neighbors
+                            const auto lray = Ray(wlast.tail, wlast.head);
+                            //const auto pray = ray_pitch(lray, wray);
+                            const auto pray = ray_pitch_approx(lray, wray);
+                            const auto pvec = ray_vector(pray);
+                            const auto pdir = pvec.norm();
+                            const double pmag = pvec.magnitude();
+                            auto ldir = ray_unit(lray);
+
+                            v.near(pmag, pmmag, repsilon*pmmag, "local pitch magnitude");
+                            v.near(ldir.dot(pdir), 0, repsilon, "local wire-pitch orthogonality");
+                            
+                            if (std::abs(wdir.z()) > 0.9999) {
+                                v.near(pdir.z(), 1, repsilon, "wire pitch Z component");
+                            }
+                            else {
+                                v.positive(pdir.z(), "wire pitch Z component");
+                            }
+                        }
+                        wlast = wire;
+                        seen = true;
+                    } // wires
+                } // planes
+                v(fctx);
+                v.equal(face_plane_idents.size(), face.planes.size(), "unique plane ident counts");
+
+            } // faces
+            
+        } // anodes
+
+    } // detectors
+
+    // can't throw in v's destructor
+    if (v.nerrors) {
+        THROW(ValueError() << errmsg{format("{} wire validation errors", v.nerrors)});
     }
 
 }

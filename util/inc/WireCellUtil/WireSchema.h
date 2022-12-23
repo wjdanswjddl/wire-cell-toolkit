@@ -72,9 +72,6 @@ namespace WireCell {
             Store(const Store& other);  // copy ctro
             Store& operator=(const Store& other);
 
-            // Throw ValueError if store violates required conventions.
-            void validate() const;
-
             // Access underlying data store as shared pointer.
             StoreDBPtr db() const;
 
@@ -181,6 +178,15 @@ namespace WireCell {
 
         // Dump store to file
         void dump(const char* filename, const Store& store);
+
+
+        // Return only if store is considered valid else throw ValueError.
+        //
+        // Logging will print out descriptions of invalid state at "error" level.
+        //
+        // The "repsilon" sets a unitless relative threshold used to
+        // identify imprecision.
+        void validate(const Store& store, double repsilon = 1e-6, bool fail_fast=false);
 
     }  // namespace WireSchema
 

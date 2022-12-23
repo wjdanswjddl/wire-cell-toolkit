@@ -4,23 +4,15 @@
 
 * Introduction
 
-Wire-Cell Toolkit requires detailed description of sensitive
-electrodes (wires or strips) that comprise "wire planes" in one or two
-"anode faces" each that are part of a number of "anode planes" in oen
-or more "detectors".
+Wire-Cell Toolkit requires a description of the sensitive electrodes be they of wire or strip shape.  Parallel planes of wires are stacked to fill one "face".  One or more "faces" are collected into an "anode".  A "detector" is comprised of one or more anode.
 
-This information is represented in C++, Python and JSON according to a
-common data structure schema.  In addition, for the data to be
-considered valid it must adhere to certain required conventions that
-are not expressed in the data structure schema.
+This information is represented as a nested object hierarchy in WCT C++, Python and JSON.  These objects follow a common data structure schema.  In addition, for the objects to be considered valid they must adhere to certain required conventions that are not expressed in the data structure schema.  Persisted JSON objects are said to be stored in "wires files".
+
+This document makes use of [[https://www.ietf.org/rfc/rfc2119.txt][RFC 2119]] language.
 
 * Compliance
 
-Historically, most "wires files" have not been 100% compliant.  In
-part, this is because they were produced prior to this document.
-Strictly, such data results in undefined behavior.  In some cases
-results will not suffer.  In others gross, or subtle problems may
-arise.
+Prior to being formalized in this document, all existing wires files are not in compliance in some way.  Where possible, WCT will attempt to correct invalid wires.  Novel wires files must be compliant as determined by the validation mechanism now provided by WCT.
 
 * Schema
 
@@ -30,43 +22,23 @@ The wire data structure schema is represented formally:
 - Python :: [[https://github.com/WireCell/wire-cell-python/blob/master/wirecell/util/wires/schema.py][~wirecell.util.wires.schema~]] classes
 - JSON :: a JSON Schema is still to-be-developed
 
-The schema defines these types of data structure types: ~Store~,
-~Detector~, ~Anode~, ~Face~, ~Plane~, ~Wire~, and ~Point~
-Instances of these types form a layered hierarchy.  Each layer
-represents instances of one type and the layers are ordered according
-to the type list above.
+The schema defines these types of data structure types: ~Store~, ~Detector~, ~Anode~, ~Face~, ~Plane~, ~Wire~, and ~Point~ Instances of these types form a layered hierarchy.  Each layer represents instances of one type and the layers are ordered according to the type list above.
 
-The hierarchy is represented by a parent of one type referring to a
-number of children of the next lower type.  A ~Store~ holds reference to
-all ~Detector~ instances by aggregating them directly into an array.  A
-~Store~ likewise holds arrays of all other types listed with the
-possible exception of ~Ponit~ (explained below).  Instances of all other
-non-leaf types refer to their children with an integer array holding
-indices into the corresponding ~Store~ array.  The C++ schema has ~Wire~
-as a leaf type while JSON and Python schema have ~Point~ leaves.  A C++
-~Wire~ directly holds its two endpoints as ~Point~ instances while the
-others refer to a ~Point~ through its index in the ~Store~ point array.
+The hierarchy is represented by a parent of one type referring to a number of children of the next lower type.  A ~Store~ holds reference to all ~Detector~ instances by aggregating them directly into an array.  A ~Store~ likewise holds arrays of all other types listed with the possible exception of ~Ponit~ (explained below).  Instances of all other non-leaf types refer to their children with an integer array holding indices into the corresponding ~Store~ array.  The C++ schema has ~Wire~ as a leaf type while JSON and Python schema have ~Point~ leaves.  A C++ ~Wire~ directly holds its two endpoints as ~Point~ instances while the others refer to a ~Point~ through its index in the ~Store~ point array.
 
-All structures except for ~Store~ and ~Point~ have an integer attribute
-~ident~ which is generally intended to be an opaque, unique identifier
-of the instance.  
+All structures except for ~Store~ and ~Point~ have an integer attribute ~ident~ which is generally intended to be an opaque, unique identifier of the instance.
 
 * Conventions
 
-A number of features of the wire data can not be expressed in a formal
-schema and are subject to a number of required conventions.  They are
-given in this section, directed at a provider of wire data and make
-use of [[https://www.ietf.org/rfc/rfc2119.txt][RFC 2119]] language.  
+A number of features of the wire data can not be expressed in a formal schema and are subject to a number of required conventions.  They are given in this section and written as to be directed to a provider of wire data.
 
 ** Identity
 
-Instances of schema types may be identified by their ~ident~ attribute. 
+Instances of all schema types except ~Store~ must provide an ~ident~ attribute. 
 
-- Value :: An ~ident~ value shall be non-negative and represented by a
-  signed 32 bit integer.  A zero value may be excluded.
+- Value :: An ~ident~ value shall be represented by a non-negative but signed 32 bit integer type.  A zero value may be used.
 
-- Uniqueness :: The ~ident~ of children shall be unique in the context
-  of their parent.  An ~ident~ value may be unique over a broader scope.
+- Uniqueness :: The ~ident~ of children shall be unique in the context of their parent.  An ~ident~ value may be unique over a broader scope.
 
 ** Coordinate systems
 
@@ -84,9 +56,9 @@ The coordinate systems relevant to the wires are described in this section.  Ext
 
 - Global origin :: The origin of the global coordinates should be chosen to lay within the detector volume.
 
-- Plane P :: The wire plane pitch axis P shall be defined for each wire plane.  It shall point in the direction $\hat{p}$ that is perpendicular to $\hat{w}$ (see below) and in the direction across wires ordered by a coordinate of their wire centers.  For planes with $\hat{w} \cdot \hat{z}$ is near unity the ordering coordinate shall be the global Y value of the center point. Otherwise the global Z value of the center point shall be used.
+- Plane P :: The wire plane pitch axis P shall be defined for each wire plane.  It shall point in the direction $\hat{p}$ that is perpendicular to $\hat{w}$ (see below) and in the direction of ascending order.  Wire order is determined by one coordinate of the wire center points.  For planes with $|\hat{w} \cdot \hat{z}|$ near unity, the ordering coordinate shall be the global Y value of the center point. Otherwise, the global Z value of the center point shall be used.
 
-- Plane W :: The wire plane direction axis W shall be defined for each wire plane.  It shall point in the direction $\hat{w}$ according to $\hat{w} = \hat{p} \times \hat{x}$.
+- Plane W :: The wire plane direction axis W shall be defined for each wire plane.  It shall point in the direction $\hat{w}$ according to $\hat{w} = \hat{p} \times \hat{x}$.  As a consequence, when $|\hat{w}\cdot\hat{z}|$ is near unity, $\hat{w}$ points in the $-\hat{z}$ direction and otherwise points generally in the $+\hat{y}$ direction.
 
 - Plane origin :: The origin of P and X shall be the wire center point with the minimum pitch position.
 
