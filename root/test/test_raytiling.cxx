@@ -60,7 +60,11 @@ int main(int argc, char* argv[])
     const auto& centers = coords.centers();
     const auto& pitch_mags = coords.pitch_mags();
 
-    Tiling tiling(coords);
+    double nudge=0;
+    if (argc > 1) {
+        nudge = atof(argv[1]);
+    }
+    Tiling tiling(coords, nudge);
 
     std::vector<std::vector<Activity::value_t> > measures(nlayers);
 

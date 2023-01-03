@@ -42,6 +42,11 @@ namespace WireCell {
             this->set(o.x(), o.y(), o.z());
         }
 
+        // Move constructor.
+        D3Vector(D3Vector&& o)
+            : m_v(std::move(o.m_v))
+        { }
+
         D3Vector(const T d[3])
           : m_v(3)
         {
@@ -156,25 +161,31 @@ namespace WireCell {
     }
 
     template <class T>
-    D3Vector<T> operator-(const D3Vector<T> a, const D3Vector<T> b)
+    D3Vector<T> operator-(const D3Vector<T>& a, const D3Vector<T>& b)
     {
         return D3Vector<T>(a.x() - b.x(), a.y() - b.y(), a.z() - b.z());
     }
 
     template <class T>
-    D3Vector<T> operator+(const D3Vector<T> a, const D3Vector<T> b)
+    D3Vector<T> operator+(const D3Vector<T>& a, const D3Vector<T>& b)
     {
         return D3Vector<T>(a.x() + b.x(), a.y() + b.y(), a.z() + b.z());
     }
 
-    template <class T>
-    D3Vector<T> operator*(const D3Vector<T> a, T s)
+    template <class T, typename N>
+    D3Vector<T> operator*(const D3Vector<T>& a, const N& s)
     {
         return D3Vector<T>(a.x() * s, a.y() * s, a.z() * s);
     }
 
-    template <class T>
-    D3Vector<T> operator/(const D3Vector<T> a, T s)
+    template <class T, typename N>
+    D3Vector<T> operator*(const N& s, const D3Vector<T>& a)
+    {
+        return D3Vector<T>(a.x() * s, a.y() * s, a.z() * s);
+    }
+
+    template <class T, typename N>
+    D3Vector<T> operator/(const D3Vector<T>& a, const N& s)
     {
         return D3Vector<T>(a.x() / s, a.y() / s, a.z() / s);
     }
@@ -190,17 +201,6 @@ namespace WireCell {
     {
         return !(a == b);
     }
-
-    template <class T>
-    D3Vector<T> operator*(T s, const D3Vector<T> a)
-    {
-        return a * s;
-    }
-
-    //    template< class T >
-    //    std::pair< float, float >
-    //    box_interesect(const D3Vector<T>& minbound, const D3Vector<T>& maxbound,
-    //		   const D3Vector<T>& point, const D3Vector<T>& ray)
 
 }  // namespace WireCell
 
