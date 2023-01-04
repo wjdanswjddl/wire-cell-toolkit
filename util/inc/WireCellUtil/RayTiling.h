@@ -169,8 +169,16 @@ namespace WireCell {
         // strip in question.
         void prune(const Coordinates& coords, blobs_t& blobs);
 
-        // One stop shopping to generate blobs from activity
-        blobs_t make_blobs(const Coordinates& coords, const activities_t& activities);
+        // One stop shopping to generate blobs from activity.  A
+        // substantial nudge can be required to counteract
+        // floating-point imprecision in wire geometry.  A 2-layer
+        // crossing point is moved by this fraction of a pitch in a
+        // 3rd layer prior to testing of inclusion in that 3rd layer's
+        // strip.  The nudge is in the direction of the current blob
+        // center prior to adding the new layer.
+        blobs_t make_blobs(const Coordinates& coords,
+                           const activities_t& activities,
+                           double nudge = 0);
 
         inline std::ostream& operator<<(std::ostream& os, const WireCell::RayGrid::Strip& s)
         {

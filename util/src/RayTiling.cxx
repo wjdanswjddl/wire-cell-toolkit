@@ -385,9 +385,11 @@ void WireCell::RayGrid::prune(const Coordinates& coords, blobs_t& blobs)
     }
 }
 
-blobs_t WireCell::RayGrid::make_blobs(const Coordinates& coords, const activities_t& activities)
+blobs_t WireCell::RayGrid::make_blobs(const Coordinates& coords,
+                                      const activities_t& activities, 
+                                      double nudge)
 {
-    Tiling rc(coords);
+    Tiling rc(coords, nudge);
     blobs_t blobs;
 
     for (const auto& activity : activities) {
