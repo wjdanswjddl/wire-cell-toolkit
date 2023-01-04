@@ -2,6 +2,7 @@
 #include "WireCellUtil/Persist.h"
 #include "WireCellUtil/Configuration.h"
 #include "WireCellUtil/Logging.h"
+#include "WireCellUtil/Intersection.h"
 
 using namespace WireCell;
 using namespace WireCell::WireSchema;
@@ -150,8 +151,9 @@ static int wire_order_axis(const StoreDB& store, const Plane& plane)
 {
     const auto& w = store.wires[plane.wires[0]];
     Vector wdir = ray_unit(Ray(w.tail, w.head));
-    if (std::abs(wdir.z()) > 0.9999) { // less than ~1 deg from Z
-        return 1;                      // then sort by Y
+    const double near_unity = 0.9999;
+    if (std::abs(wdir.z()) > near_unity) { 
+        return 1;             // less than ~1 deg from Zthen sort by Y
     }
     return 2;                   // sort by Z
 }
@@ -791,6 +793,8 @@ void WireCell::WireSchema::validate(const Store& store, double repsilon, bool fa
     ValidationContext v{fail_fast};
     v.positive(store.detectors().size(), "detector count");
 
+    const double near_unity = 0.9999;
+
     for (const auto& detector : store.detectors()) {
         v.nonneg(detector.ident, "detector ident");
         const std::string dctx = format("detID={}: ", detector.ident);
@@ -842,7 +846,7 @@ void WireCell::WireSchema::validate(const Store& store, double repsilon, bool fa
                         const auto wdir = wvec.norm();
                         // const double wlen = wvec.magnitude();
 
-                        if (std::abs(wdir.z()) > 0.9999) {
+                        if (std::abs(wdir.z()) > near_unity) {
                             v.near(wdir.y(), -1, repsilon, "wire direction Y component");
                         }
                         else {
@@ -863,7 +867,7 @@ void WireCell::WireSchema::validate(const Store& store, double repsilon, bool fa
                             v.near(pmag, pmmag, repsilon*pmmag, "local pitch magnitude");
                             v.near(ldir.dot(pdir), 0, repsilon, "local wire-pitch orthogonality");
                             
-                            if (std::abs(wdir.z()) > 0.9999) {
+                            if (std::abs(wdir.z()) > near_unity) {
                                 v.near(pdir.z(), 1, repsilon, "wire pitch Z component");
                             }
                             else {
@@ -888,4 +892,50 @@ void WireCell::WireSchema::validate(const Store& store, double repsilon, bool fa
         THROW(ValueError() << errmsg{format("{} wire validation errors", v.nerrors)});
     }
 
+}
+
+
+WireSchema::Plane& WireSchema::get_append(StoreDB& store, int pid, int fid, int aid, int did)
+{
+    auto& dobj = get_append<Detector>(store.detectors, did);
+    auto& aobj = get_append<Anode>(store.anodes, dobj.anodes, aid);
+    auto& fobj = get_append<Face>(store.faces, aobj.faces, fid);
+    auto& pobj = get_append<Plane>(store.planes, fobj.planes, pid);
+    return pobj;
+}
+
+
+int WireSchema::generate(StoreDB& store, Plane& plane,
+                         const Ray& pitch, const Ray& bounds, int wid0)
+{
+    if (std::abs(pitch.first.x() - pitch.second.x()) > 1e-6) {
+        THROW(ValueError() << errmsg{"pitch not orthogonal to drift"});
+    }
+
+    const Vector pvec = ray_vector(pitch);
+    const Vector pdir = pvec.norm();
+
+    // WCT convention
+    const Vector wdir = pdir.cross(Vector(1,0,0));
+
+    BoundingBox bb(bounds);
+    Vector cen = pitch.first;
+    int wip = 0;
+    while (bb.inside(cen)) {
+
+        Ray wray(cen, cen+wdir), hits;
+        int hitmask = box_intersection(bounds, cen, wdir, hits);
+        if (hitmask != 3) {
+            break;
+        }
+
+        plane.wires.push_back(store.wires.size());
+        store.wires.emplace_back(Wire{wip+wid0,0,0,hits.first, hits.second});
+
+        // next
+        ++wip;
+        cen = pitch.first + wip * pvec;
+    }
+        
+    return wip;
 }
