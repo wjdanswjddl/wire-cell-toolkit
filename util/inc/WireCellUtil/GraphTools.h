@@ -29,6 +29,8 @@ namespace WireCell::GraphTools {
            for (const auto& vtx : vertex_range(g)) { ... };
 
      */
+
+    // fixme: these are more generic than just to graphs...
     template <typename It> boost::iterator_range<It> mir(std::pair<It, It> const& p) {
         return boost::make_iterator_range(p.first, p.second);
     }

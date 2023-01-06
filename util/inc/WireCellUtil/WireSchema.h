@@ -155,22 +155,6 @@ namespace WireCell {
             // Return wire distance vector averaged over wires in plane.
             Vector mean_wire(const Plane& plane) const;
 
-            /**
-               Return vector of ray pairs that categorize each layer
-               of a face as suitable for use in constructing a
-               RayGrid::Coordinates.
-            
-               First two elements are horizontal and vertical bounds
-               and subsequent elements bound wire0 region for each
-               wire plane in the face.
-            */
-            ray_pair_vector_t ray_pairs(const Face& face) const;
-
-            /**
-               Return ray pairs bounding horiz/vert active area.
-            */
-            ray_pair_vector_t ray_pairs_active(const Face& face) const;
-
             std::vector<int> channels(const Plane& plane) const;
         };
 
@@ -265,6 +249,23 @@ namespace WireCell {
         /// The "repsilon" sets a unitless relative threshold used to
         /// identify imprecision.
         void validate(const Store& store, double repsilon = 1e-6, bool fail_fast=false);
+
+        /**
+           Return vector of ray pairs that categorize each layer
+           of a face as suitable for use in constructing a
+           RayGrid::Coordinates.
+            
+           First two elements are horizontal and vertical bounds
+           and subsequent elements bound wire0 region for each
+           wire plane in the face.
+        */
+        ray_pair_vector_t ray_pairs(const Store& store, const Face& face, bool region=true);
+
+        /**
+           Return ray pairs bounding horiz/vert active area.
+        */
+        ray_pair_vector_t ray_pairs_active(const Store& store, const Face& face, bool region=true);
+
 
     }  // namespace WireSchema
 

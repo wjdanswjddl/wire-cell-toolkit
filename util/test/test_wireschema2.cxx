@@ -108,8 +108,8 @@ int main(int argc, char* argv[])
                               svg::Fill(), svg::Stroke(nominal_pitch, svg::Color::Yellow));
 
         size_t layer_index=0;
-        const auto ray_pairs = store.ray_pairs(face);
-        for (const auto& [r1,r2] : ray_pairs) {
+        const auto raypairs = ray_pairs(store, face);
+        for (const auto& [r1,r2] : raypairs) {
             const auto color = layer_colors[layer_index];
             doc << line(r1, svg::Stroke(0.5*nominal_pitch, color));
             doc << line(r2, svg::Stroke(0.5*nominal_pitch, color));

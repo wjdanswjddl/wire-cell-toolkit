@@ -632,90 +632,6 @@ Ray Store::wire_pitch(const Plane& plane) const
     return Ray(wmean.norm(), pmean.norm());
 }
 
-/*
-  When considering the "ray pairs" code, think of looking in
-  the direction of postive X-axis with
-
-  Y
-  ^
-  |
-  |
- (X)----> Z
- 
-  WCT required conventions:
-
-  Wire direction W: unit vector pointing from wire tail to wire head
-  end points and is uniform across all wires in a plane.
-
-  Pitch direction P: unit vector perpendicular to W, coplanar with and
-  uniform across all wires in a plane.
-
-  Pitch magnitude "pitch": perpendicular separation between any two
-  neighboring wires in a plane.
-
-  Cross product rule: X x W = P
-
-  Pitch vector sign: if P||Z then dot(P,Y) > 0 else dot(P,Z) > 0. 
-
-*/
-
-ray_pair_vector_t Store::ray_pairs_active(const Face& face) const
-{
-    ray_pair_vector_t raypairs;
-
-    const auto bb = bounding_box(face, true).bounds();
-    double bbyl=bb.first.y(),  bbzl=bb.first.z();
-    double bbyh=bb.second.y(), bbzh=bb.second.z();
-    if (bbyl > bbyh) std::swap(bbyl, bbyh);
-    if (bbzl > bbzh) std::swap(bbzl, bbzh);
-
-    // Corners of a box in X=0 plane, pretend Y points up, Z to right
-    Point ll(0.0, bbyl, bbzl);
-    Point lr(0.0, bbyl, bbzh);
-    Point ul(0.0, bbyh, bbzl);
-    Point ur(0.0, bbyh, bbzh);
-
-    // Horizontal bounds layer. Rays point in +Y, pitch in +Z)
-    //
-    // h1  h2
-    // ^   ^
-    // |   |
-    // |   |
-    // +--->  pitch = X x h1
-    Ray h1(ll, ul);
-    Ray h2(lr, ur);
-    raypairs.push_back(ray_pair_t(h1, h2));
-
-    // Vertical bounds layer. Rays point in -Z, pitch in +Y)
-    //
-    // <--^- v2
-    //    |
-    //    | pitch = X x v1
-    //    |
-    // <--+- v1
-    Ray v1(lr, ll);
-    Ray v2(ur, ul);
-    raypairs.push_back(ray_pair_t(v1, v2));
-    return raypairs;
-}
-
-ray_pair_vector_t Store::ray_pairs(const Face& face) const
-{
-    auto raypairs = ray_pairs_active(face);
-
-    // Each wire plane.
-    for (const auto& plane : this->planes(face)) {
-        const auto phalf = 0.5*mean_pitch(plane);
-        const Wire& w = m_db->wires[plane.wires.front()];
-        const Ray r1(w.tail - phalf, w.head - phalf);
-        const Ray r2(w.tail + phalf, w.head + phalf);
-        raypairs.push_back(ray_pair_t(r1, r2));
-    }
-
-    return raypairs;
-}
-
-
 std::vector<int> Store::channels(const Plane& plane) const
 {
     std::vector<int> ret;
@@ -915,13 +831,12 @@ int WireSchema::generate(StoreDB& store, Plane& plane,
     const Vector pvec = ray_vector(pitch);
     const Vector pdir = pvec.norm();
 
-    // WCT convention
+    // Obey WCT convention: W = P x X
     const Vector wdir = pdir.cross(Vector(1,0,0));
 
-    BoundingBox bb(bounds);
     Vector cen = pitch.first;
     int wip = 0;
-    while (bb.inside(cen)) {
+    while (true) {
 
         Ray wray(cen, cen+wdir), hits;
         int hitmask = box_intersection(bounds, cen, wdir, hits);
@@ -932,10 +847,102 @@ int WireSchema::generate(StoreDB& store, Plane& plane,
         plane.wires.push_back(store.wires.size());
         store.wires.emplace_back(Wire{wip+wid0,0,0,hits.first, hits.second});
 
-        // next
         ++wip;
+
+        // Choose point on next wire.
+        // cen = 0.5 * (hits.first + hits.second) + pvec;
+        // cen = cen + pvec;
         cen = pitch.first + wip * pvec;
     }
         
     return wip;
 }
+
+/*
+  When considering the "ray pairs" code, think of looking in
+  the direction of postive X-axis with
+
+  Y
+  ^
+  |
+  |
+ (X)----> Z
+ 
+  WCT required conventions:
+
+  Wire direction W: unit vector pointing from wire tail to wire head
+  end points and is uniform across all wires in a plane.
+
+  Pitch direction P: unit vector perpendicular to W, coplanar with and
+  uniform across all wires in a plane.
+
+  Pitch magnitude "pitch": perpendicular separation between any two
+  neighboring wires in a plane.
+
+  Cross product rule: X x W = P
+
+  Pitch vector sign: if P||Z then dot(P,Y) > 0 else dot(P,Z) > 0. 
+
+*/
+
+ray_pair_vector_t WireSchema::ray_pairs_active(const Store& store,
+                                               const Face& face,
+                                               bool region) 
+{
+    ray_pair_vector_t raypairs;
+
+    const auto bb = store.bounding_box(face, region).bounds();
+    double bbyl=bb.first.y(),  bbzl=bb.first.z();
+    double bbyh=bb.second.y(), bbzh=bb.second.z();
+
+    // Corners of a box in X=0 plane, pretend Y points up, Z to right
+    Point ll(0.0, bbyl, bbzl);
+    Point lr(0.0, bbyl, bbzh);
+    Point ul(0.0, bbyh, bbzl);
+    Point ur(0.0, bbyh, bbzh);
+
+    // Horizontal bounds layer. Rays point in +Y, pitch in +Z)
+    //
+    //   h1  h2
+    // ul^   ^ur
+    //   |   |
+    //   |   |
+    // ll+--->lr  pitch = X x h1
+    Ray h1(ll, ul);
+    Ray h2(lr, ur);
+    raypairs.push_back(ray_pair_t(h1, h2));
+
+    // Vertical bounds layer. Rays point in -Z, pitch in +Y)
+    //
+    // ul<--^--ur  v2
+    //      |
+    //      | pitch = X x v1
+    //      |
+    // ll<--+--lr  v1
+    Ray v1(lr, ll);
+    Ray v2(ur, ul);
+    raypairs.push_back(ray_pair_t(v1, v2));
+    return raypairs;
+}
+
+ray_pair_vector_t WireSchema::ray_pairs(const Store& store, 
+                                        const Face& face, 
+                                        bool region)
+{
+    auto raypairs = ray_pairs_active(store, face, region);
+
+    // Each wire plane.
+    for (const auto& plane : store.planes(face)) {
+        Vector phalf;
+        if (region) {
+            phalf = 0.5*store.mean_pitch(plane);
+        }
+        const Wire& w = store.wires()[plane.wires.front()];
+        const Ray r1(w.tail - phalf, w.head - phalf);
+        const Ray r2(w.tail + phalf, w.head + phalf);
+        raypairs.push_back(ray_pair_t(r1, r2));
+    }
+
+    return raypairs;
+}
+

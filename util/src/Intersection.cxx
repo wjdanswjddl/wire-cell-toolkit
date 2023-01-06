@@ -8,7 +8,7 @@ int WireCell::box_intersection(int axis0, const Ray& bounds, const Point& point,
 
     int hitmask = 0;
     if (0.0 == dir[axis0]) {
-        return hitmask;         // parallel to square
+        return hitmask;         // parallel to side
     }
 
     Point bmin = bounds.first;
