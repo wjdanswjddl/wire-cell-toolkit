@@ -354,7 +354,12 @@ void WireCell::RayGrid::prune(const Coordinates& coords, blobs_t& blobs, double 
     for (auto& blob : blobs) {
         auto& strips = blob.strips();
         const int nlayers = strips.size();
-        std::vector<std::vector<grid_index_t> > mms(nlayers);
+
+        // Collect corners projected into each layer.  Represent this
+        // projection as the absolute pitch in units of pitch bin
+        // index.
+        std::vector<std::vector<double> > mms(nlayers);
+
         for (const auto& corner : blob.corners()) {
 
             mms[corner.first.layer].push_back(corner.first.grid);
@@ -366,43 +371,35 @@ void WireCell::RayGrid::prune(const Coordinates& coords, blobs_t& blobs, double 
                     continue;
                 }
 
-                // Here we try to handle inaccurate wires. A corner
-                // just below an edge is moved to that edge.  A corner
-                // just above an edge is moved to the next lower edge.
-                // Then both low and high edges add to the bounds.
                 // See Issue #196.
-
                 const double ploc = coords.pitch_location(corner.first, corner.second, layer);
                 const double prel = coords.pitch_relative(ploc, layer);
-                const double prel_edge = std::round(prel);
-                const double prel_diff = prel - prel_edge;
-
-                int pindl, pindh;
-
-                // just below nearest edge
-                if (-nudge < prel_diff and prel_diff < 0) {
-                    pindl = prel_edge;
-                    pindh = pindl+1;
-                }
-                // just above nearest edge
-                else if (nudge > prel_diff and prel_diff >= 0) {
-                    pindh = prel_edge;
-                    pindl = pindh-1;
-                }
-                else {
-                    pindl = std::floor(prel);
-                    pindh = pindl+1;
-                }
-
-                mms[layer].push_back(pindl);
-                mms[layer].push_back(pindh);
+                mms[layer].push_back(prel);
             }
         }
 
         for (int layer = 0; layer < nlayers; ++layer) {
             auto mm = std::minmax_element(mms[layer].begin(), mms[layer].end());
-            strips[layer].bounds.first = *mm.first;
-            strips[layer].bounds.second = *mm.second;
+
+            double pmin = *mm.first;
+            double pmax = *mm.second;
+
+            int imin, imax;
+            if (std::abs(pmin-std::round(pmin)) < nudge) {
+                imin = std::round(pmin);
+            }
+            else {
+                imin = std::floor(pmin);
+            }
+            if (std::abs(pmax-std::round(pmax)) < nudge) {
+                imax = std::round(pmax);
+            }
+            else {
+                imax = std::ceil(pmax);
+            }
+            
+            strips[layer].bounds.first = imin;
+            strips[layer].bounds.second = imax;
         }
     }
 }

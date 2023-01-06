@@ -110,12 +110,18 @@ int main(int argc, char* argv[])
     }
 
     // single-corner blob
+
     {
         auto blobs = doit(1, 1727);
         if (blobs.size()) {
             THROW(ValueError() << errmsg{"No blobs expected with single-corner blob"});
         }
-
+    }
+    {
+        auto blobs = doit(3, 1725);
+        if (blobs.size()) {
+            THROW(ValueError() << errmsg{"No blobs expected with single-corner blob"});
+        }
     }
 
     return 0;
