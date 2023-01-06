@@ -349,18 +349,13 @@ size_t WireCell::RayGrid::drop_invalid(blobs_t& blobs)
     return dropped;
 }
 
-void WireCell::RayGrid::prune(const Coordinates& coords, blobs_t& blobs)
+void WireCell::RayGrid::prune(const Coordinates& coords, blobs_t& blobs, double nudge)
 {
     for (auto& blob : blobs) {
         auto& strips = blob.strips();
         const int nlayers = strips.size();
         std::vector<std::vector<grid_index_t> > mms(nlayers);
         for (const auto& corner : blob.corners()) {
-            // fixme off by one bugs here?  Adding the two rays making
-            // up a corner adds a pitch-bin-edge.  Adding the ray
-            // crossing point measured in the 3rd layer pitch adds a
-            // bin pitch-bin-content which should be either floor()'ed
-            // or ceil()'ed (or both?)
 
             mms[corner.first.layer].push_back(corner.first.grid);
             mms[corner.second.layer].push_back(corner.second.grid);
@@ -370,10 +365,37 @@ void WireCell::RayGrid::prune(const Coordinates& coords, blobs_t& blobs)
                 if (corner.first.layer == layer or corner.second.layer == layer) {
                     continue;
                 }
+
+                // Here we try to handle inaccurate wires. A corner
+                // just below an edge is moved to that edge.  A corner
+                // just above an edge is moved to the next lower edge.
+                // Then both low and high edges add to the bounds.
+                // See Issue #196.
+
                 const double ploc = coords.pitch_location(corner.first, corner.second, layer);
-                const int pind = coords.pitch_index(ploc, layer);
-                mms[layer].push_back(pind);
-                mms[layer].push_back(pind + 1);
+                const double prel = coords.pitch_relative(ploc, layer);
+                const double prel_edge = std::round(prel);
+                const double prel_diff = prel - prel_edge;
+
+                int pindl, pindh;
+
+                // just below nearest edge
+                if (-nudge < prel_diff and prel_diff < 0) {
+                    pindl = prel_edge;
+                    pindh = pindl+1;
+                }
+                // just above nearest edge
+                else if (nudge > prel_diff and prel_diff >= 0) {
+                    pindh = prel_edge;
+                    pindl = pindh-1;
+                }
+                else {
+                    pindl = std::floor(prel);
+                    pindh = pindl+1;
+                }
+
+                mms[layer].push_back(pindl);
+                mms[layer].push_back(pindh);
             }
         }
 
@@ -405,6 +427,6 @@ blobs_t WireCell::RayGrid::make_blobs(const Coordinates& coords,
         }
         drop_invalid(blobs);
     }
-    prune(coords, blobs);
+    prune(coords, blobs, nudge);
     return blobs;
 }

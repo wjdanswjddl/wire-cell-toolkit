@@ -81,7 +81,6 @@ int main(int argc, char* argv[])
     // const int nlayers = raypairs.size();
 
     RayGrid::Coordinates coords(raypairs);
-    const double nudge = 0.0;
 
     const double hit=1.0;
     for (size_t span=1; span<10; span +=2 ) 
@@ -96,7 +95,7 @@ int main(int argc, char* argv[])
 
         for (size_t iwire=0; iwire<nwires[2]-span; ++iwire) {
             activities[4] = RayGrid::Activity(4, span, hit, iwire);
-            auto blobs = RayGrid::make_blobs(coords, activities, nudge);
+            auto blobs = RayGrid::make_blobs(coords, activities);
 
             if (blobs.empty()) {
                 continue;
