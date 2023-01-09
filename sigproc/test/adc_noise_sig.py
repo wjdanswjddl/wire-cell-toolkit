@@ -29,11 +29,21 @@ def transform_array(orig, copy, trans=numpy.round, dtype='f2'):
 adcmm=10
 voltmm=adcmm*voltageperadc
 
-def plot_params(source, tier, domain):
+def plot_params(generator, source, tier, domain):
     'Return dictionary of plotting parameters based wildcards'
 
     ## gleen pedestal via:
     # wcsonnet cfg/test/pdsp-adc.jsonnet | jq '.adcpeds[0]'
+
+    # Someone decided to be creative with array names...
+    array_name = dict(
+        UVCGAN="arr_0",
+        ACLGAN="data",
+        UGATIT="data",
+        CycleGAN="x",
+    )[generator];
+    if source == "real":
+        array_name = "arr_0"
 
     pp = dict(
         source=source, tier=tier, domain=domain,
@@ -41,7 +51,7 @@ def plot_params(source, tier, domain):
         #cmap='seismic',
         cmap='tab20',
         tickslice=slice(0, 256),
-        aname = dict(raw='arr_0', rnd='arr_0', vlt='frame_raw_0',
+        aname = dict(raw=array_name, rnd=array_name, vlt='frame_raw_0',
                      src='frame_*_0', ref='frame_*_0', noi='frame_*_0', dig='frame_*_0',
                      sig='frame_gauss0_0')[tier],
         tier_title = dict(raw='Raw',
@@ -63,7 +73,8 @@ def plot_params(source, tier, domain):
         source_title = dict(real="Sim",
                             fake="GAN",
                             diff="%-diff",
-                            xddp="%-diff"
+                            xddp="%-diff",
+                            pimp="Paired metric"
                             )[source],
         domain_title = dict(a="q1d", b="2d",
                             ab="q1d / 2d", ba="2d / q1d")[domain],
@@ -100,11 +111,15 @@ def plot_params(source, tier, domain):
         pp['vmin'] = -50.0      # percent
         pp['vmax'] = 50.0
         pp['cmap']='jet'
+    if source == "pimp":        # paired image metric plot
+        pp['vmin'] = -50.0      # percent
+        pp['vmax'] = 50.0
+        pp['cmap']='jet'
     return pp
     
 
 def render_params(w):
-    pp = plot_params(w.source, w.tier, w.domain)
+    pp = plot_params(w.generator, w.source, w.tier, w.domain)
     args = "-c {cmap} -a '{aname}' --vmin {vmin} --vmax {vmax} -z '{zoomrange}' -b {pedestal}"
     return args.format(**pp)
 
@@ -125,15 +140,6 @@ def make_diffarr(wc, arrs, pars):
         nz = den > 0.0001*numpy.max(den)
         da[~nz] = masked_value
     return da
-
-# def diffarr(wc, fake, real, diff):
-#     pars = [plot_params("fake", wc.tier, wc.domain),
-#             plot_params("real", wc.tier, wc.domain)]
-#     ra,rname = load_array(real, with_name=True)
-#     fa,fname = load_array(fake, with_name=True)
-#     arrs = [fa, ra]
-#     da = make_diffarr(wc, arrs, parrs)
-#     numpy.savez_compressed(diff, **{rname:da})
 
 def plot_diff(wc, files, params):
     apar,bpar,dpar = params
@@ -174,15 +180,44 @@ def plot_diff(wc, files, params):
 
 
 def plot_frdp(wc, fake, real, plot):
-    fp = plot_params("fake", wc.tier, wc.domain)
-    rp = plot_params("real", wc.tier, wc.domain)
-    dp = plot_params("diff", wc.tier, wc.domain)
+    fp = plot_params(wc.generator, "fake", wc.tier, wc.domain)
+    rp = plot_params(wc.generator, "real", wc.tier, wc.domain)
+    dp = plot_params(wc.generator, "diff", wc.tier, wc.domain)
     plot_diff(wc, [fake,real,plot], [fp, rp, dp])
 
 def plot_xddp(wc, afile, bfile, pfile):
-    ap = plot_params(wc.source, wc.tier, "a")
-    bp = plot_params(wc.source, wc.tier, "b")
-    dp = plot_params("xddp", wc.tier, "ab")
+    ap = plot_params(wc.generator, wc.source, wc.tier, "a")
+    bp = plot_params(wc.generator, wc.source, wc.tier, "b")
+    dp = plot_params(wc.generator, "xddp", wc.tier, "ab")
     plot_diff(wc, [afile, bfile, pfile], [ap, bp, dp])
 
 
+def pimp(wc, fakefs, realfs, pfile):
+    fp = plot_params(wc.generator, 'fake', wc.tier, wc.domain)
+    rp = plot_params(wc.generator, 'real', wc.tier, wc.domain)
+    # dp = plot_params(wc.generator, "pimp", wc.tier, wc.domain)
+    fss = list()
+    rss = list()
+    l1s = list()
+    l2s = list()
+    for ff,rf in zip(fakefs, realfs):
+        print(ff)
+        fa = numpy.load(ff)[fp['aname']]
+        print(rf)
+        ra = numpy.load(rf)[rp['aname']]
+        
+        fss.append(numpy.sum(fa))
+        rss.append(numpy.sum(ra))
+        l1s.append(numpy.sum(numpy.abs(fa-ra)))
+        l2s.append(numpy.sum((fa-ra)**2))
+
+    numpy.savez_compressed(pfile[0],
+                           l1=numpy.array(l1s),
+                           l2=numpy.array(l2s),
+                           fsum=numpy.array(fss),
+                           rsum=numpy.array(rss))
+    
+    
+    
+
+    

@@ -1,13 +1,28 @@
 #!/usr/bin/env snakemake
 
+# Render the full DAG:
+# snakemake -p -jall -s sigproc/test/adc-noise-sig.smake all --dag > adc-noise-sig.dot
+#
+# Or, for one generator:
+# snakemake -p -jall -s sigproc/test/adc-noise-sig.smake all_UVCGAN --dag > adc-noise-sig-UVCGAN.dot
+#
+# Drop "--dag" to run.  Replace "all" with a target file name for focused run.
+
 import os
 from pathlib import Path
 from adc_noise_sig import *
 from snakemake.remote.HTTP import RemoteProvider as HTTPRemoteProvider
 HTTP = HTTPRemoteProvider()
 
+# The input files.
+# Note, we reuse UVCGAN's "real" samples by doing this in all non-UVCGAN dirs:
+# cd ../selected_translations_UGATIT/
+# ln -s ../selected_translations_UVCGAN/real_{a,b} .
+sample_urlbase = 'https://www.phy.bnl.gov/~bviren/tmp/ls4gan/data/samples_sigproc'
+sample_file = sample_urlbase+'/selected_translations_{generator}/{source}_{domain}/sample_{event}.npz'
+
 # set this to where {fake,real}_{a,b}/sample_*.npz live
-datadir = Path(os.path.expanduser("~/selected_translations"))
+# datadir = Path(os.path.expanduser("~/selected_translations"))
 
 # the WCT response file providing 2D model
 wcdata_url = "https://github.com/WireCell/wire-cell-data/raw/master"
@@ -18,20 +33,26 @@ tstdir = Path(workflow.basedir).absolute()
 imgdir = tstdir.parent
 topdir = imgdir.parent
 blddir = topdir / "build"
-outdir = blddir / "sigproc/test/adc-noise-sig"
+outdir = blddir / "sigproc/test/adc-noise-sig/{generator}"
 
-sources = ["real",              # directly simulated
-           "fake",              # UVCGAN-translated
-           ]
-domains = ["a",                  # q1d
-           "b",                  # 2d
-           ]
+generators = [                  # match stub in sample subdir name
+    "UVCGAN", "UGATIT", "CycleGAN", "ACLGAN", 
+]
+sources = [
+    "real",              # directly simulated
+    "fake",              # UVCGAN-translated
+]
+domains = [
+    "a",                  # q1d
+    "b",                  # 2d
+]
 all_events = [ 2, 4, 19, 22, 29, 41, 42, 44, 66, 77, 104, 107, 116, 121,
                122, 164, 173, 174, 190, 213, 214, 215, 227, 231, 255, 257,
                258, 266, 269, 274, 303, 614 ] 
 # events shown in the presentation
 sel_events = [2, 19, 66]
-events = sel_events
+# events = sel_events
+events = all_events
 
 ## things we want to plot
 # tiers = ['raw', 'rnd', 'vlt', 'src', 'ref', 'noi', 'dig', 'sig']
@@ -44,14 +65,35 @@ filenames = npzs + pngs + pdfs
 eventdir = f'{outdir}/{{source}}/{{domain}}/{{event}}'
 rule all:
     input:
-        f'{outdir}/dfp.pdf',
+        expand(f'{outdir}/dfp.pdf',
+               generator=generators),
         expand(eventdir + '/{filename}',
+               generator=generators,
                source=sources, domain=domains, event=events,
                filename=filenames),
         expand(eventdir + '/{filename}',
+               generator=generators,
                source=["frdp"], domain=domains, event=events,
                filename=pngs+pdfs),
         expand(eventdir + '/{filename}',
+               generator=generators,
+               source=["xddp"], domain=sources, event=events,
+               filename=pngs+pdfs),
+        
+rule all_UVCGAN:
+    input:
+        expand(f'{outdir}/dfp.pdf',
+               generator=generators[:1]),
+        expand(eventdir + '/{filename}',
+               generator=generators[:1],
+               source=sources, domain=domains, event=events,
+               filename=filenames),
+        expand(eventdir + '/{filename}',
+               generator=generators[:1],
+               source=["frdp"], domain=domains, event=events,
+               filename=pngs+pdfs),
+        expand(eventdir + '/{filename}',
+               generator=generators[:1],
                source=["xddp"], domain=sources, event=events,
                filename=pngs+pdfs),
         
@@ -74,9 +116,10 @@ rule gen_resp_a:
     wirecell-sigproc frzero -n 0 -o {output} {input}
     '''
                   
+# input: f'{datadir}/{{source}}_{{domain}}/sample_{{event}}.npz'
 rule import_raw:
     input:
-        f'{datadir}/{{source}}_{{domain}}/sample_{{event}}.npz'
+        HTTP.remote(sample_file, keep_local=True)
     output:
         eventdir + '/raw.npz'
     wildcard_constraints:
@@ -202,4 +245,28 @@ rule xddplot:
         plot_xddp(params.wc, input.a, input.b, output.plot)
 
 
+# Paired image metric for comparing real/fake
+rule pimp:
+    input:
+        r = expand('{outdir}/real/{{domain}}/{event}/{{tier}}.npz',
+                   outdir=[outdir], event=events),
+        f = expand('{outdir}/fake/{{domain}}/{event}/{{tier}}.npz',
+                   outdir=[outdir], event=events)
+    output:
+        expand('{outdir}/pimp/{{domain}}/{{tier}}.npz',
+               outdir=[outdir], event=events)
+    wildcard_constraints:
+        ext = "png|pdf"
+    params:
+        wc = lambda wc: wc
+    run:
+        pimp(params.wc, input.f, input.r, output)
         
+
+rule pimp_all:
+    input:
+        expand(rules.pimp.output,
+               generator=generators,
+               domain=['a','b'],
+               tier=['raw','sig'])
+

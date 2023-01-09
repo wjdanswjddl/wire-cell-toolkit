@@ -46,12 +46,12 @@ In toyzero, the FR in $R_{sim}$ is "q1d", $R_{det}$ is "2d", $R_{gan} \approx R_
 * Example: ground-truth domain differences
 
 #+ATTR_LATEX: :height 0.9\textheight 
-[[../../build/sigproc/test/adc-noise-sig/xddp/real/66/raw.pdf]]
+[[../../build/sigproc/test/adc-noise-sig/UVCGAN/xddp/real/66/raw.pdf]]
 
 * Example: signal processing with matched/mismatched domains
 
 #+ATTR_LATEX: :height 0.9\textheight 
-[[../../build/sigproc/test/adc-noise-sig/xddp/real/66/sig.pdf]]
+[[../../build/sigproc/test/adc-noise-sig/UVCGAN/xddp/real/66/sig.pdf]]
 
 * Data sample
 
@@ -109,27 +109,27 @@ Two crossing tracks in 2D domain
 * 
 
 #+ATTR_LATEX: :height \textheight 
-[[../../build/sigproc/test/adc-noise-sig/frdp/b/66/raw.pdf]]
+[[../../build/sigproc/test/adc-noise-sig/UVCGAN/frdp/b/66/raw.pdf]]
 
 * 
 
 #+ATTR_LATEX: :height \textheight 
-[[../../build/sigproc/test/adc-noise-sig/frdp/b/66/rnd.pdf]]
+[[../../build/sigproc/test/adc-noise-sig/UVCGAN/frdp/b/66/rnd.pdf]]
 
 * 
 
 #+ATTR_LATEX: :height \textheight 
-[[../../build/sigproc/test/adc-noise-sig/frdp/b/66/noi.pdf]]
+[[../../build/sigproc/test/adc-noise-sig/UVCGAN/frdp/b/66/noi.pdf]]
 
 * 
 
 #+ATTR_LATEX: :height \textheight 
-[[../../build/sigproc/test/adc-noise-sig/frdp/b/66/dig.pdf]]
+[[../../build/sigproc/test/adc-noise-sig/UVCGAN/frdp/b/66/dig.pdf]]
 
 * 
 
 #+ATTR_LATEX: :height \textheight 
-[[../../build/sigproc/test/adc-noise-sig/frdp/b/66/sig.pdf]]
+[[../../build/sigproc/test/adc-noise-sig/UVCGAN/frdp/b/66/sig.pdf]]
 
 
 * 
@@ -141,27 +141,27 @@ Two crossing tracks in q1d domain
 * 
 
 #+ATTR_LATEX: :height \textheight 
-[[../../build/sigproc/test/adc-noise-sig/frdp/a/66/raw.pdf]]
+[[../../build/sigproc/test/adc-noise-sig/UVCGAN/frdp/a/66/raw.pdf]]
 
 * 
 
 #+ATTR_LATEX: :height \textheight 
-[[../../build/sigproc/test/adc-noise-sig/frdp/a/66/rnd.pdf]]
+[[../../build/sigproc/test/adc-noise-sig/UVCGAN/frdp/a/66/rnd.pdf]]
 
 * 
 
 #+ATTR_LATEX: :height \textheight 
-[[../../build/sigproc/test/adc-noise-sig/frdp/a/66/noi.pdf]]
+[[../../build/sigproc/test/adc-noise-sig/UVCGAN/frdp/a/66/noi.pdf]]
 
 * 
 
 #+ATTR_LATEX: :height \textheight 
-[[../../build/sigproc/test/adc-noise-sig/frdp/a/66/dig.pdf]]
+[[../../build/sigproc/test/adc-noise-sig/UVCGAN/frdp/a/66/dig.pdf]]
 
 * 
 
 #+ATTR_LATEX: :height \textheight 
-[[../../build/sigproc/test/adc-noise-sig/frdp/a/66/sig.pdf]]
+[[../../build/sigproc/test/adc-noise-sig/UVCGAN/frdp/a/66/sig.pdf]]
 
 
 * 
@@ -173,27 +173,27 @@ A somewhat /elongated/ track in 2d domain.
 * 
 
 #+ATTR_LATEX: :height \textheight 
-[[../../build/sigproc/test/adc-noise-sig/frdp/b/2/raw.pdf]]
+[[../../build/sigproc/test/adc-noise-sig/UVCGAN/frdp/b/2/raw.pdf]]
 
 * 
 
 #+ATTR_LATEX: :height \textheight 
-[[../../build/sigproc/test/adc-noise-sig/frdp/b/2/rnd.pdf]]
+[[../../build/sigproc/test/adc-noise-sig/UVCGAN/frdp/b/2/rnd.pdf]]
 
 * 
 
 #+ATTR_LATEX: :height \textheight 
-[[../../build/sigproc/test/adc-noise-sig/frdp/b/2/noi.pdf]]
+[[../../build/sigproc/test/adc-noise-sig/UVCGAN/frdp/b/2/noi.pdf]]
 
 * 
 
 #+ATTR_LATEX: :height \textheight 
-[[../../build/sigproc/test/adc-noise-sig/frdp/b/2/dig.pdf]]
+[[../../build/sigproc/test/adc-noise-sig/UVCGAN/frdp/b/2/dig.pdf]]
 
 * 
 
 #+ATTR_LATEX: :height \textheight 
-[[../../build/sigproc/test/adc-noise-sig/frdp/b/2/sig.pdf]]
+[[../../build/sigproc/test/adc-noise-sig/UVCGAN/frdp/b/2/sig.pdf]]
 
 * 
 
@@ -204,27 +204,27 @@ A somewhat /elongated/ track in q1d domain.
 * 
 
 #+ATTR_LATEX: :height \textheight 
-[[../../build/sigproc/test/adc-noise-sig/frdp/a/2/raw.pdf]]
+[[../../build/sigproc/test/adc-noise-sig/UVCGAN/frdp/a/2/raw.pdf]]
 
 * 
 
 #+ATTR_LATEX: :height \textheight 
-[[../../build/sigproc/test/adc-noise-sig/frdp/a/2/rnd.pdf]]
+[[../../build/sigproc/test/adc-noise-sig/UVCGAN/frdp/a/2/rnd.pdf]]
 
 * 
 
 #+ATTR_LATEX: :height \textheight 
-[[../../build/sigproc/test/adc-noise-sig/frdp/a/2/noi.pdf]]
+[[../../build/sigproc/test/adc-noise-sig/UVCGAN/frdp/a/2/noi.pdf]]
 
 * 
 
 #+ATTR_LATEX: :height \textheight 
-[[../../build/sigproc/test/adc-noise-sig/frdp/a/2/dig.pdf]]
+[[../../build/sigproc/test/adc-noise-sig/UVCGAN/frdp/a/2/dig.pdf]]
 
 * 
 
 #+ATTR_LATEX: :height \textheight 
-[[../../build/sigproc/test/adc-noise-sig/frdp/a/2/sig.pdf]]
+[[../../build/sigproc/test/adc-noise-sig/UVCGAN/frdp/a/2/sig.pdf]]
 
 
 * 
@@ -236,27 +236,27 @@ A somewhat /isochronous/ track in 2d domain.
 * 
 
 #+ATTR_LATEX: :height \textheight 
-[[../../build/sigproc/test/adc-noise-sig/frdp/b/19/raw.pdf]]
+[[../../build/sigproc/test/adc-noise-sig/UVCGAN/frdp/b/19/raw.pdf]]
 
 * 
 
 #+ATTR_LATEX: :height \textheight 
-[[../../build/sigproc/test/adc-noise-sig/frdp/b/19/rnd.pdf]]
+[[../../build/sigproc/test/adc-noise-sig/UVCGAN/frdp/b/19/rnd.pdf]]
 
 * 
 
 #+ATTR_LATEX: :height \textheight 
-[[../../build/sigproc/test/adc-noise-sig/frdp/b/19/noi.pdf]]
+[[../../build/sigproc/test/adc-noise-sig/UVCGAN/frdp/b/19/noi.pdf]]
 
 * 
 
 #+ATTR_LATEX: :height \textheight 
-[[../../build/sigproc/test/adc-noise-sig/frdp/b/19/dig.pdf]]
+[[../../build/sigproc/test/adc-noise-sig/UVCGAN/frdp/b/19/dig.pdf]]
 
 * 
 
 #+ATTR_LATEX: :height \textheight 
-[[../../build/sigproc/test/adc-noise-sig/frdp/b/19/sig.pdf]]
+[[../../build/sigproc/test/adc-noise-sig/UVCGAN/frdp/b/19/sig.pdf]]
 
 * 
 
@@ -267,27 +267,27 @@ A somewhat /isochronous/ track in q1d domain.
 * 
 
 #+ATTR_LATEX: :height \textheight 
-[[../../build/sigproc/test/adc-noise-sig/frdp/a/19/raw.pdf]]
+[[../../build/sigproc/test/adc-noise-sig/UVCGAN/frdp/a/19/raw.pdf]]
 
 * 
 
 #+ATTR_LATEX: :height \textheight 
-[[../../build/sigproc/test/adc-noise-sig/frdp/a/19/rnd.pdf]]
+[[../../build/sigproc/test/adc-noise-sig/UVCGAN/frdp/a/19/rnd.pdf]]
 
 * 
 
 #+ATTR_LATEX: :height \textheight 
-[[../../build/sigproc/test/adc-noise-sig/frdp/a/19/noi.pdf]]
+[[../../build/sigproc/test/adc-noise-sig/UVCGAN/frdp/a/19/noi.pdf]]
 
 * 
 
 #+ATTR_LATEX: :height \textheight 
-[[../../build/sigproc/test/adc-noise-sig/frdp/a/19/dig.pdf]]
+[[../../build/sigproc/test/adc-noise-sig/UVCGAN/frdp/a/19/dig.pdf]]
 
 * 
 
 #+ATTR_LATEX: :height \textheight 
-[[../../build/sigproc/test/adc-noise-sig/frdp/a/19/sig.pdf]]
+[[../../build/sigproc/test/adc-noise-sig/UVCGAN/frdp/a/19/sig.pdf]]
 
 
 
@@ -331,8 +331,316 @@ snakemake -p -jall -s sigproc/test/adc-noise-sig.smake
 * Add noise + SP job
 
 #+ATTR_LATEX: :width \textwidth
-[[../../build/sigproc/test/adc-noise-sig/dfp.pdf]]
+[[../../build/sigproc/test/adc-noise-sig/UVCGAN/dfp.pdf]]
 
+* Other generators
+
+The "two crossing tracks" sample with these generators:
+
+- UVCGAN
+- ACLGAN
+- CycleGAN
+- UGATIT
+
+* 
+
+#+begin_center
+Two crossing tracks in 2D domain
+#+end_center
+
+* UVCGAN
+
+\vspace{-1mm}
+
+#+ATTR_LATEX: :height \textheight 
+[[../../build/sigproc/test/adc-noise-sig/UVCGAN/frdp/b/66/raw.pdf]]
+
+* ACLGAN
+
+\vspace{-1mm}
+
+#+ATTR_LATEX: :height \textheight 
+[[../../build/sigproc/test/adc-noise-sig/ACLGAN/frdp/b/66/raw.pdf]]
+
+* CycleGAN
+
+\vspace{-1mm}
+
+#+ATTR_LATEX: :height \textheight 
+[[../../build/sigproc/test/adc-noise-sig/CycleGAN/frdp/b/66/raw.pdf]]
+
+* UGATIT
+
+\vspace{-1mm}
+
+#+ATTR_LATEX: :height \textheight 
+[[../../build/sigproc/test/adc-noise-sig/UGATIT/frdp/b/66/raw.pdf]]
+
+
+* UVCGAN
+
+\vspace{-1mm}
+
+#+ATTR_LATEX: :height \textheight 
+[[../../build/sigproc/test/adc-noise-sig/UVCGAN/frdp/b/66/rnd.pdf]]
+
+* ACLGAN
+
+\vspace{-1mm}
+
+#+ATTR_LATEX: :height \textheight 
+[[../../build/sigproc/test/adc-noise-sig/ACLGAN/frdp/b/66/rnd.pdf]]
+
+* CycleGAN
+
+\vspace{-1mm}
+
+#+ATTR_LATEX: :height \textheight 
+[[../../build/sigproc/test/adc-noise-sig/CycleGAN/frdp/b/66/rnd.pdf]]
+
+* UGATIT
+
+\vspace{-1mm}
+
+#+ATTR_LATEX: :height \textheight 
+[[../../build/sigproc/test/adc-noise-sig/UGATIT/frdp/b/66/rnd.pdf]]
+
+
+* UVCGAN
+
+\vspace{-1mm}
+
+#+ATTR_LATEX: :height \textheight 
+[[../../build/sigproc/test/adc-noise-sig/UVCGAN/frdp/b/66/noi.pdf]]
+
+* ACLGAN
+
+\vspace{-1mm}
+
+#+ATTR_LATEX: :height \textheight 
+[[../../build/sigproc/test/adc-noise-sig/ACLGAN/frdp/b/66/noi.pdf]]
+
+* CycleGAN
+
+\vspace{-1mm}
+
+#+ATTR_LATEX: :height \textheight 
+[[../../build/sigproc/test/adc-noise-sig/CycleGAN/frdp/b/66/noi.pdf]]
+
+* UGATIT
+
+\vspace{-1mm}
+
+#+ATTR_LATEX: :height \textheight 
+[[../../build/sigproc/test/adc-noise-sig/UGATIT/frdp/b/66/noi.pdf]]
+
+
+* UVCGAN
+
+\vspace{-1mm}
+
+#+ATTR_LATEX: :height \textheight 
+[[../../build/sigproc/test/adc-noise-sig/UVCGAN/frdp/b/66/dig.pdf]]
+
+* ACLGAN
+
+\vspace{-1mm}
+
+#+ATTR_LATEX: :height \textheight 
+[[../../build/sigproc/test/adc-noise-sig/ACLGAN/frdp/b/66/dig.pdf]]
+
+* CycleGAN
+
+\vspace{-1mm}
+
+#+ATTR_LATEX: :height \textheight 
+[[../../build/sigproc/test/adc-noise-sig/CycleGAN/frdp/b/66/dig.pdf]]
+
+* UGATIT
+
+\vspace{-1mm}
+
+#+ATTR_LATEX: :height \textheight 
+[[../../build/sigproc/test/adc-noise-sig/UGATIT/frdp/b/66/dig.pdf]]
+
+
+* UVCGAN
+
+\vspace{-1mm}
+
+#+ATTR_LATEX: :height \textheight 
+[[../../build/sigproc/test/adc-noise-sig/UVCGAN/frdp/b/66/sig.pdf]]
+
+* ACLGAN
+
+\vspace{-1mm}
+
+#+ATTR_LATEX: :height \textheight 
+[[../../build/sigproc/test/adc-noise-sig/ACLGAN/frdp/b/66/sig.pdf]]
+
+* CycleGAN
+
+\vspace{-1mm}
+
+#+ATTR_LATEX: :height \textheight 
+[[../../build/sigproc/test/adc-noise-sig/CycleGAN/frdp/b/66/sig.pdf]]
+
+* UGATIT
+
+\vspace{-1mm}
+
+#+ATTR_LATEX: :height \textheight 
+[[../../build/sigproc/test/adc-noise-sig/UGATIT/frdp/b/66/sig.pdf]]
+
+* 
+
+#+begin_center
+Two crossing tracks in q1d domain
+#+end_center
+
+* UVCGAN
+
+\vspace{-1mm}
+
+#+ATTR_LATEX: :height \textheight 
+[[../../build/sigproc/test/adc-noise-sig/UVCGAN/frdp/a/66/raw.pdf]]
+
+* ACLGAN
+
+\vspace{-1mm}
+
+#+ATTR_LATEX: :height \textheight 
+[[../../build/sigproc/test/adc-noise-sig/ACLGAN/frdp/a/66/raw.pdf]]
+
+* CycleGAN
+
+\vspace{-1mm}
+
+#+ATTR_LATEX: :height \textheight 
+[[../../build/sigproc/test/adc-noise-sig/CycleGAN/frdp/a/66/raw.pdf]]
+
+* UGATIT
+
+\vspace{-1mm}
+
+#+ATTR_LATEX: :height \textheight 
+[[../../build/sigproc/test/adc-noise-sig/UGATIT/frdp/a/66/raw.pdf]]
+
+
+* UVCGAN
+
+\vspace{-1mm}
+
+#+ATTR_LATEX: :height \textheight 
+[[../../build/sigproc/test/adc-noise-sig/UVCGAN/frdp/a/66/rnd.pdf]]
+
+* ACLGAN
+
+\vspace{-1mm}
+
+#+ATTR_LATEX: :height \textheight 
+[[../../build/sigproc/test/adc-noise-sig/ACLGAN/frdp/a/66/rnd.pdf]]
+
+* CycleGAN
+
+\vspace{-1mm}
+
+#+ATTR_LATEX: :height \textheight 
+[[../../build/sigproc/test/adc-noise-sig/CycleGAN/frdp/a/66/rnd.pdf]]
+
+* UGATIT
+
+\vspace{-1mm}
+
+#+ATTR_LATEX: :height \textheight 
+[[../../build/sigproc/test/adc-noise-sig/UGATIT/frdp/a/66/rnd.pdf]]
+
+
+* UVCGAN
+
+\vspace{-1mm}
+
+#+ATTR_LATEX: :height \textheight 
+[[../../build/sigproc/test/adc-noise-sig/UVCGAN/frdp/a/66/noi.pdf]]
+
+* ACLGAN
+
+\vspace{-1mm}
+
+#+ATTR_LATEX: :height \textheight 
+[[../../build/sigproc/test/adc-noise-sig/ACLGAN/frdp/a/66/noi.pdf]]
+
+* CycleGAN
+
+\vspace{-1mm}
+
+#+ATTR_LATEX: :height \textheight 
+[[../../build/sigproc/test/adc-noise-sig/CycleGAN/frdp/a/66/noi.pdf]]
+
+* UGATIT
+
+\vspace{-1mm}
+
+#+ATTR_LATEX: :height \textheight 
+[[../../build/sigproc/test/adc-noise-sig/UGATIT/frdp/a/66/noi.pdf]]
+
+
+* UVCGAN
+
+\vspace{-1mm}
+
+#+ATTR_LATEX: :height \textheight 
+[[../../build/sigproc/test/adc-noise-sig/UVCGAN/frdp/a/66/dig.pdf]]
+
+* ACLGAN
+
+\vspace{-1mm}
+
+#+ATTR_LATEX: :height \textheight 
+[[../../build/sigproc/test/adc-noise-sig/ACLGAN/frdp/a/66/dig.pdf]]
+
+* CycleGAN
+
+\vspace{-1mm}
+
+#+ATTR_LATEX: :height \textheight 
+[[../../build/sigproc/test/adc-noise-sig/CycleGAN/frdp/a/66/dig.pdf]]
+
+* UGATIT
+
+\vspace{-1mm}
+
+#+ATTR_LATEX: :height \textheight 
+[[../../build/sigproc/test/adc-noise-sig/UGATIT/frdp/a/66/dig.pdf]]
+
+
+* UVCGAN
+
+\vspace{-1mm}
+
+#+ATTR_LATEX: :height \textheight 
+[[../../build/sigproc/test/adc-noise-sig/UVCGAN/frdp/a/66/sig.pdf]]
+
+* ACLGAN
+
+\vspace{-1mm}
+
+#+ATTR_LATEX: :height \textheight 
+[[../../build/sigproc/test/adc-noise-sig/ACLGAN/frdp/a/66/sig.pdf]]
+
+* CycleGAN
+
+\vspace{-1mm}
+
+#+ATTR_LATEX: :height \textheight 
+[[../../build/sigproc/test/adc-noise-sig/CycleGAN/frdp/a/66/sig.pdf]]
+
+* UGATIT
+
+\vspace{-1mm}
+
+#+ATTR_LATEX: :height \textheight 
+[[../../build/sigproc/test/adc-noise-sig/UGATIT/frdp/a/66/sig.pdf]]
 
 # Local Variables:
 # eval: (fix-latex-previews)
