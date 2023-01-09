@@ -477,6 +477,7 @@ namespace svg
                 points[i].y += offset.y;
             }
         }
+
     private:
         std::vector<Point> points;
     };

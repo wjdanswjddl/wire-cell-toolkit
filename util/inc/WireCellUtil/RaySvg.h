@@ -17,8 +17,12 @@ namespace WireCell::RaySvg {
     inline
     double y(const Point& pt) { return pt.y(); }
 
-    // Create a document spanning Y vs Z plane
-    svg::Document document(const std::string& svgname, const Ray& bounds, double scale=1.0);
+    // Create a document spanning Y vs Z plane.  Note, scale is
+    // applied during serializing transient svg:: objects and is not
+    // related to use of SVG viewBox attribute nor tranformation
+    // functions.  Given zero, the scale is auto computed based on
+    // bounds and wpx/wpy.
+    svg::Document document(const std::string& svgname, const Ray& bounds, int wpx=512, int hpx=512, double scale=0);
 
     inline
     svg::Point point(const Point& p)
@@ -80,7 +84,8 @@ namespace WireCell::RaySvg {
         svg::Color m_corner_color{ svg::Color::Purple };
         double m_corner_radius{ 1.0*units::mm };
         double m_thin_line{ 0.15*units::mm };
-        double m_scale{25.0};
+        int m_wpx{512}, m_hpx{512};
+        double m_scale{0};      // pix/mm, 0=auto
 
       public:
         Scene(const RayGrid::Coordinates& coords, const WireSchema::Store& wires);
