@@ -234,9 +234,11 @@ static void test_blobs(const blobs_t& blobs)
 {
     for (const auto& blob : blobs) {
         const auto& strips = blob.strips();
-        std::cerr << "blob: " << blob << "\n"
-            << "bb[0]: " << strips[0].bounds << "\n"
-            << "bb[1]: " << strips[1].bounds << "\n";
+        std::cerr << "blob: " << blob << "\n";
+        for (size_t ind=0; ind<5; ++ind) {
+            std::cerr << "\tbb["<<ind<<"]: " << strips[ind].bounds << "\n";
+        }
+
         Assert(strips[0].bounds.first == 0);
         Assert(strips[0].bounds.second == 1);
         Assert(strips[1].bounds.first == 0);

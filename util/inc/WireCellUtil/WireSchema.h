@@ -1,11 +1,23 @@
 /**
-   WireSchema describe "wire geometry" data structures.
+   WireSchema holds "wire geometry" data structures and functions.
 
-   It provides a loader of WCT "wires file" following the "wire data
-   schema" (typically as compressed JSON).
+   The top-most structure is a "store" holding a hierarchy of
+   detectors of anodes of faces of planes of wires of points.
 
-   The content must adhere to a number of required conventions
-   described in util/docs/wire-schema.org.
+   The functions:
+
+   - generate() :: parameterized wire store generator
+
+   - load() :: loader of WCT "wires file" following the "wire data
+   schema" (typically as compressed JSON) producing a "store" object.
+
+   - dump() :: save a store to file.
+
+   - validate() :: validate a "store" object against WCT conventions. 
+
+   Content validity conventions are described in
+
+       util/docs/wire-schema.org.
 
    See also the Python module wirecell.util.wires.schema and family of
    CLI commands: "wirecell-util convert-*".
@@ -59,6 +71,41 @@ namespace WireCell {
             std::vector<Wire> wires;
         };
 
+        /// Return reference to the plane reached by the hierarchy
+        /// path of idents.  Any missing objects are created in the
+        /// store.
+        Plane& get_append(StoreDB& store, int pid, int fid, int aid, int did);
+
+        /// Return reference to the object in the array "arr" with the
+        /// ident, appending a new one if needed.
+        template<typename Type>
+        Type& get_append(std::vector<Type>& arr, int ident) {
+            auto it = std::find_if(arr.begin(), arr.end(),
+                                   [&](const Type& obj) { return obj.ident == ident; });
+            if (it == arr.end()) {
+                arr.emplace_back(Type{ident});
+                return arr.back();
+            }
+            return *it;
+        }
+
+        /// Return reference to the object in the array "arr" at one
+        /// of the given indices in "inds" with the given "ident",
+        /// appending a new object and its index if needed.
+        template<typename Type>
+        Type& get_append(std::vector<Type>& arr, std::vector<int>& inds, int ident)
+        {
+            auto it = std::find_if(inds.begin(), inds.end(),
+                                   [&](int ind) { return arr[ind].ident == ident; });
+            if (it == inds.end()) {
+                inds.push_back(arr.size());
+                arr.emplace_back(Type{ident});
+                return arr.back();
+            }
+            return arr[*it];
+        }
+
+
         // Access store via shared pointer to allow for caching of underlying data.
         typedef std::shared_ptr<const StoreDB> StoreDBPtr;
 
@@ -107,22 +154,6 @@ namespace WireCell {
 
             // Return wire distance vector averaged over wires in plane.
             Vector mean_wire(const Plane& plane) const;
-
-            /**
-               Return vector of ray pairs that categorize each layer
-               of a face as suitable for use in constructing a
-               RayGrid::Coordinates.
-            
-               First two elements are horizontal and vertical bounds
-               and subsequent elements bound wire0 region for each
-               wire plane in the face.
-            */
-            ray_pair_vector_t ray_pairs(const Face& face) const;
-
-            /**
-               Return ray pairs bounding horiz/vert active area.
-            */
-            ray_pair_vector_t ray_pairs_active(const Face& face) const;
 
             std::vector<int> channels(const Plane& plane) const;
         };
@@ -173,20 +204,68 @@ namespace WireCell {
             return c = static_cast<Correction>( in );
         }
 
-        // Load file into store performing correction
+        /// Generate a plane of wires adding them to the store and plane.
+        ///
+        /// - store :: A Store to fill
+        ///
+        /// - plane :: A Plane to fill, see get_append() for an easy
+        ///   way to provide a Plane.
+        ///
+        /// - pitch :: A ray parallel to the Y-Z plane with tail point
+        ///   at the center of wire zero, head on the neighboring wire
+        ///   and direction perpendicular to both wire directions.
+        ///
+        /// - bounds :: A ray from opposite corners of a rectangular
+        ///   box on which wire endpoints terminate.
+        ///
+        /// - wid :: The ident number of wire zero.  Subsequent
+        ///   wire.ident are counted from this number in order of
+        ///   wire-in-plane.
+        ///
+        /// Return the number of wires generated and appended to the
+        /// store.wires array and their indices appended to the
+        /// plane.wires attribute of the Plane.  Order of both appends
+        /// are identical and in order of increasing wire-in-plane.
+        ///
+        /// The wire.channel and wire.segment attributes of new wires
+        /// are zero.  The user is free to modify the store contents
+        /// after calling.
+        ///
+        /// ValueError is thrown when input requirements are not met.
+        int generate(StoreDB& store, Plane& plane,
+                     const Ray& pitch, const Ray& bounds, int wid=0);
+
+        /// Load file into store performing correction
         Store load(const char* filename, Correction correction = Correction::pitch);
 
-        // Dump store to file
+        /// Dump store to file
         void dump(const char* filename, const Store& store);
 
 
-        // Return only if store is considered valid else throw ValueError.
-        //
-        // Logging will print out descriptions of invalid state at "error" level.
-        //
-        // The "repsilon" sets a unitless relative threshold used to
-        // identify imprecision.
+        /// Return only if store is considered valid else throw ValueError.
+        ///
+        /// Logging will print out descriptions of invalid state at "error" level.
+        ///
+        /// The "repsilon" sets a unitless relative threshold used to
+        /// identify imprecision.
         void validate(const Store& store, double repsilon = 1e-6, bool fail_fast=false);
+
+        /**
+           Return vector of ray pairs that categorize each layer
+           of a face as suitable for use in constructing a
+           RayGrid::Coordinates.
+            
+           First two elements are horizontal and vertical bounds
+           and subsequent elements bound wire0 region for each
+           wire plane in the face.
+        */
+        ray_pair_vector_t ray_pairs(const Store& store, const Face& face, bool region=true);
+
+        /**
+           Return ray pairs bounding horiz/vert active area.
+        */
+        ray_pair_vector_t ray_pairs_active(const Store& store, const Face& face, bool region=true);
+
 
     }  // namespace WireSchema
 

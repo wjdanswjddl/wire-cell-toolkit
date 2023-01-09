@@ -62,6 +62,8 @@ The coordinate systems relevant to the wires are described in this section.  Ext
 
 - Plane origin :: The origin of P and X shall be the wire center point with the minimum pitch position.
 
+Note, "near unity" is taken to be within $1.0 \pm 10^{-4}$ or about less than $1^{\circ}$.
+
 ** Ordering 
 
 The requirements on the order of children arrays held by parents are given in this section.

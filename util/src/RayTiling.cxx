@@ -349,18 +349,18 @@ size_t WireCell::RayGrid::drop_invalid(blobs_t& blobs)
     return dropped;
 }
 
-void WireCell::RayGrid::prune(const Coordinates& coords, blobs_t& blobs)
+void WireCell::RayGrid::prune(const Coordinates& coords, blobs_t& blobs, double nudge)
 {
     for (auto& blob : blobs) {
         auto& strips = blob.strips();
         const int nlayers = strips.size();
-        std::vector<std::vector<grid_index_t> > mms(nlayers);
+
+        // Collect corners projected into each layer.  Represent this
+        // projection as the absolute pitch in units of pitch bin
+        // index.
+        std::vector<std::vector<double> > mms(nlayers);
+
         for (const auto& corner : blob.corners()) {
-            // fixme off by one bugs here?  Adding the two rays making
-            // up a corner adds a pitch-bin-edge.  Adding the ray
-            // crossing point measured in the 3rd layer pitch adds a
-            // bin pitch-bin-content which should be either floor()'ed
-            // or ceil()'ed (or both?)
 
             mms[corner.first.layer].push_back(corner.first.grid);
             mms[corner.second.layer].push_back(corner.second.grid);
@@ -370,24 +370,45 @@ void WireCell::RayGrid::prune(const Coordinates& coords, blobs_t& blobs)
                 if (corner.first.layer == layer or corner.second.layer == layer) {
                     continue;
                 }
+
+                // See Issue #196.
                 const double ploc = coords.pitch_location(corner.first, corner.second, layer);
-                const int pind = coords.pitch_index(ploc, layer);
-                mms[layer].push_back(pind);
-                mms[layer].push_back(pind + 1);
+                const double prel = coords.pitch_relative(ploc, layer);
+                mms[layer].push_back(prel);
             }
         }
 
         for (int layer = 0; layer < nlayers; ++layer) {
             auto mm = std::minmax_element(mms[layer].begin(), mms[layer].end());
-            strips[layer].bounds.first = *mm.first;
-            strips[layer].bounds.second = *mm.second;
+
+            double pmin = *mm.first;
+            double pmax = *mm.second;
+
+            int imin, imax;
+            if (std::abs(pmin-std::round(pmin)) < nudge) {
+                imin = std::round(pmin);
+            }
+            else {
+                imin = std::floor(pmin);
+            }
+            if (std::abs(pmax-std::round(pmax)) < nudge) {
+                imax = std::round(pmax);
+            }
+            else {
+                imax = std::ceil(pmax);
+            }
+            
+            strips[layer].bounds.first = imin;
+            strips[layer].bounds.second = imax;
         }
     }
 }
 
-blobs_t WireCell::RayGrid::make_blobs(const Coordinates& coords, const activities_t& activities)
+blobs_t WireCell::RayGrid::make_blobs(const Coordinates& coords,
+                                      const activities_t& activities, 
+                                      double nudge)
 {
-    Tiling rc(coords);
+    Tiling rc(coords, nudge);
     blobs_t blobs;
 
     for (const auto& activity : activities) {
@@ -403,6 +424,6 @@ blobs_t WireCell::RayGrid::make_blobs(const Coordinates& coords, const activitie
         }
         drop_invalid(blobs);
     }
-    prune(coords, blobs);
+    prune(coords, blobs, nudge);
     return blobs;
 }

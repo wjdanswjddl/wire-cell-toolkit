@@ -166,11 +166,27 @@ namespace WireCell {
         // Visit each blob and prune away any portions of strips which
         // are outside the corners.  These vestigle strip portions can
         // result when another layer provides a corner inside the
-        // strip in question.
-        void prune(const Coordinates& coords, blobs_t& blobs);
+        // strip in question.  If a 2-layer corner is within
+        // edge_nudge fraction of a pitch bin to an edge in the 3rd
+        // layer, it will be considered moved to that near edge for
+        // the purposes of determining how the strip in that 3rd layer
+        // shall be pruned.
+        void prune(const Coordinates& coords, blobs_t& blobs, double nudge=1e-3);
 
-        // One stop shopping to generate blobs from activity
-        blobs_t make_blobs(const Coordinates& coords, const activities_t& activities);
+        // One stop shopping to generate blobs from activity.
+        //
+        // A nudge gives a distance as a fraction of one pitch.
+        //
+        // It important for wire crossing patterns that ideally have
+        // 3-ray crossing points but due to FP round-off error and/or
+        // imprecise wires in fact do not have 3-ray crossing points.
+        // The size of the nudge should be larger than this 3-ray
+        // crossing point breakage.  Note, if the ideal crossing
+        // pattern actually has crossing points w/in this distance,
+        // they will be effectively coalesced.
+        blobs_t make_blobs(const Coordinates& coords,
+                           const activities_t& activities,
+                           double nudge = 1e-3);
 
         inline std::ostream& operator<<(std::ostream& os, const WireCell::RayGrid::Strip& s)
         {
