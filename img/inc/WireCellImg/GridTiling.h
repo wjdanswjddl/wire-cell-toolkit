@@ -48,7 +48,7 @@ namespace WireCell {
                 point is inside the strip of that 3rd layer.  This
                 fights floating-point imprecision in wire geometry.
             */
-            double m_nudge{0.0};
+            double m_nudge{1e-3};
 
             // Count blobs in each contiguous stream to assign blob
             // ident numbers.

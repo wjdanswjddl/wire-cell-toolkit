@@ -1,4 +1,5 @@
 #include "WireCellUtil/RaySvg.h"
+#include "WireCellUtil/Exceptions.h"
 
 #include <boost/range/irange.hpp>
 
@@ -10,21 +11,30 @@ using namespace WireCell;
 using namespace WireCell::RaySvg;
 
 
-svg::Document RaySvg::document(const std::string& svgname, const Ray& bounds, double scale)
+svg::Document RaySvg::document(const std::string& svgname, const Ray& bounds, int wpx, int hpx, double scale)
 {
-    const auto rel = ray_vector(bounds);
-
-    double real_width = x(rel);
-    double real_height = y(rel);
-
-    double width = real_width*scale;
-    double height = real_height*scale;
-
+    if (scale == 0) {
+        const auto rel = ray_vector(bounds);
+        const double real_width = x(rel);
+        scale = wpx/real_width;
+    }
+    
 
     // const svg::Dimensions dims(x(rel), y(rel));
-    const svg::Dimensions dims(width, height);
-    const svg::Point origin_offset(-x(bounds.first), -y(bounds.first));
-    svg::Layout layout(dims, svg::Layout::TopLeft, scale, origin_offset);
+    const svg::Dimensions dims(wpx, hpx);
+
+    // Offset is ADDED to a user point prior to being MULTIPLIED by
+    // scale in order to get pixel coordinates.  If origin is Bottom
+    // (Right) then Y (X) pixel coordinate is found by subtracting
+    // from height (width).  Because offset are ADDED we must 
+    // take negative so origin is equivalent to min bounds.
+    double off_x = -x(bounds.first), off_y = -y(bounds.first);
+
+    const svg::Point origin_offset(off_x, off_y);
+    // std::cerr << "RaySvg: ["<<wpx<<","<<hpx<<"] scale="<<scale<< "pix/[length] "
+    //           << " offset=(" << off_x << "," << off_y << ") "
+    //           << svgname << "\n";
+    svg::Layout layout(dims, svg::Layout::BottomLeft, scale, origin_offset);
     return svg::Document(svgname, layout);
 }
 
@@ -48,7 +58,11 @@ void Scene::operator()(const RayGrid::activities_t& acts)
             for (auto grid : irange(strip.bounds)) {
                 int pind = strip.layer-2;
                 if (pind < 0) continue;
-                const auto& w = m_wireobjs[pind][grid];
+                if (grid < 0) continue;
+                const auto& wobjs = m_wireobjs[pind];
+                if (grid >= (int)wobjs.size()) continue;
+                const auto& w = wobjs[pind];
+
                 Ray r(w.tail, w.head);
                 m_astrips_bb(r);     // fixme, use region
             }
@@ -68,7 +82,11 @@ void Scene::operator()(const RayGrid::blobs_t& blobs)
             for (auto grid : irange(strip.bounds)) {
                 int pind = strip.layer-2;
                 if (pind < 0) continue;
-                const auto& w = m_wireobjs[pind][grid];
+                if (grid < 0) continue;
+                const auto& wobjs = m_wireobjs[pind];
+                if (grid >= (int)wobjs.size()) continue;
+                const auto& w = wobjs[pind];
+
                 Ray r(w.tail, w.head);
                 m_bstrips_bb(r);     // fixme, use region
             }
@@ -76,12 +94,17 @@ void Scene::operator()(const RayGrid::blobs_t& blobs)
     }
 }
 
-Scene::shape_p Scene::strip_shape(int layer, int grid, bool inblob)
+Scene::shape_p
+Scene::strip_shape(int layer, int grid, bool inblob)
 {
-    int pind = layer-2;
-    if (pind < 0) return nullptr;
+    const int pind = layer-2;
+    if (pind < 0) THROW(ValueError() << errmsg{"strip layer out of bounds"});
+
     const auto& phalf = 0.4*m_pvecs[pind];
-    const auto& w = m_wireobjs[pind][grid];
+    if (grid < 0) THROW(ValueError() << errmsg{"strip grid below bounds"});
+    const auto& wobjs = m_wireobjs[pind];
+    if (grid >= (int)wobjs.size()) THROW(ValueError() << errmsg{"strip grid above bounds"});
+    const auto& w = wobjs[grid];
 
     svg::Fill fill;
     if (inblob) {
@@ -96,14 +119,19 @@ Scene::shape_p Scene::strip_shape(int layer, int grid, bool inblob)
     (*pg) << RaySvg::point(w.tail+phalf);
     (*pg) << RaySvg::point(w.head+phalf);
     (*pg) << RaySvg::point(w.head-phalf);
-    (*pg) << RaySvg::point(w.tail-phalf);
+    // std::cerr << "stip_shape layer=" << layer << " grid=" << grid << " inblob="<<inblob<<"\n";
+    // std::cerr << "\tw=" << Ray(w.tail, w.head) << " phalf=" << phalf << "\n";
     return pg;
 };
-Scene::shape_p Scene::corner_shape(const RayGrid::crossing_t& c)
+
+Scene::shape_p
+Scene::corner_shape(const RayGrid::crossing_t& c)
 {
     const auto [a,b] = c;
     const auto cvec = m_coords.ray_crossing(a,b);
 
+    // std::cerr << "corner_shape crossing=" << c << "\n";
+     
     return std::make_unique<svg::Circle>(
         RaySvg::point(cvec), m_corner_radius,
         svg::Fill(m_corner_color),
@@ -117,7 +145,7 @@ void RaySvg::Scene::blob_view(const std::string& svgname)
     const Vector vpad(pad,pad,pad);
     bb(bb.bounds().first - vpad);
     bb(bb.bounds().second + vpad);
-    auto doc = RaySvg::document(svgname, bb.bounds(), m_scale);
+    auto doc = RaySvg::document(svgname, bb.bounds(), m_wpx, m_hpx, m_scale);
 
     bool coalesce_strips = false; // fixme: make config
     bool inblob=false;
@@ -130,7 +158,6 @@ void RaySvg::Scene::blob_view(const std::string& svgname)
             for (auto grid : irange(strip.bounds)) {
                 if (strip.layer<=1) continue;
                 auto s = strip_shape(strip.layer, grid, inblob);
-                if (!s) continue;
                 doc << *s;
             }
         }
@@ -145,7 +172,6 @@ void RaySvg::Scene::blob_view(const std::string& svgname)
             for (auto grid : irange(strip.bounds)) {
                 if (strip.layer<=1) continue;
                 auto s = strip_shape(strip.layer, grid, inblob);
-                if (!s) continue;
                 doc << *s;
             }
         }
@@ -153,7 +179,6 @@ void RaySvg::Scene::blob_view(const std::string& svgname)
     for (const auto& blob : m_blobs) {
         for (const auto& c : blob.corners()) {
             auto s = corner_shape(c);
-            if (!s) continue;
             doc << *s;
         }
     }

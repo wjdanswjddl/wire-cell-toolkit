@@ -14,6 +14,8 @@ using namespace WireCell;
 
 int main(int argc, char* argv[])
 {
+    const double nudge=1e-3;
+
     WireSchema::StoreDB storedb;
     std::vector<size_t> nwires = {2400, 2400, 3456};
     std::vector<size_t> wire_offset = {0, 2400, 4800};
@@ -51,11 +53,32 @@ int main(int argc, char* argv[])
 
     auto span_size = [](const auto& s) -> int {
         int siz = s.bounds.second-s.bounds.first;
-        std::cerr << "size="<<siz<<" [" << s.bounds.first << "," << s.bounds.second << "]\n";
+        std::cerr << "span_size="<<siz<<" [" << s.bounds.first << "," << s.bounds.second << "]\n";
         return siz;
     };
 
-    auto doit = [&](int span, int iwire) -> RayGrid::blobs_t {
+    auto do_blobs = [&](const RayGrid::activities_t& activities, const std::string& fname) -> RayGrid::blobs_t {
+        auto blobs = RayGrid::make_blobs(coords, activities, nudge);
+
+        std::cerr << fname << "\n";
+        std::cerr << "do_blobs: nblobs=" << blobs.size() << " nactivites=" << activities.size() << "\n";
+
+        RaySvg::Scene scene(coords, store);
+        scene(blobs);
+        scene(activities);
+
+        scene.blob_view(fname);
+
+        for (const auto& blob : blobs) {
+            for (const auto& strip : blob.strips()) {
+                int size = span_size(strip);
+                std::cerr << "do_blobs: layer=" << strip.layer << " size=" << size << "\n";
+            }
+        }
+        return blobs;
+    };        
+
+    auto do_one = [&](int span, int iwire) -> RayGrid::blobs_t {
         RayGrid::activities_t activities;
         activities.emplace_back(0, 1, hit);
         activities.emplace_back(1, 1, hit);
@@ -63,28 +86,82 @@ int main(int argc, char* argv[])
         activities.emplace_back(3, span+2, hit, nwires[1]/2);
         activities.emplace_back(4, span, hit, iwire);
 
-        auto blobs = RayGrid::make_blobs(coords, activities);
-
-        RaySvg::Scene scene(coords, store);
-        scene(blobs);
-        scene(activities);
         std::stringstream ss;
-        ss << argv[0] << "-s" << span << "-w" << iwire << ".svg";
-        scene.blob_view(ss.str());
-        std::cerr << ss.str() << "\n";
+        ss << argv[0] << "-one_s" << span << "-w" << iwire << ".svg";
+        auto blobs = do_blobs(activities, ss.str());
+        std::cerr << "do_one: nblobs=" << blobs.size() << " nactivites=" << activities.size() << "\n";
+        return blobs;
+    };
 
-        for (const auto& blob : blobs) {
-            for (const auto& strip : blob.strips()) {
-                int size = span_size(strip);
-                std::cerr << strip.layer << " " << size << "\n";
+    auto do_three = [&](const std::vector<int> spans, const std::vector<int>& iwires) -> RayGrid::blobs_t {
+        RayGrid::activities_t activities;
+        activities.emplace_back(0, 1, hit);
+        activities.emplace_back(1, 1, hit);
+        std::stringstream ss;
+        ss << argv[0] << "-three";
+        for (int iplane=0; iplane<3; ++iplane) {
+            int span = spans[iplane];
+            int iwire = iwires[iplane];
+            activities.emplace_back(iplane+2, span, hit, iwire);
+            ss << "_p" << iplane << "-s" << span << "-w" << iwire;
+        }
+        ss << ".svg";
+        auto blobs = do_blobs(activities, ss.str());
+        std::cerr << "do_three: nblobs=" << blobs.size() << " nactivites=" << activities.size() << "\n";
+        return blobs;
+    };
+
+    auto do_shot = [&](const std::vector<Point>& points, const std::string& name) -> RayGrid::blobs_t {
+        std::cerr << "do_shot: npoints="<<points.size() << " " << name << "\n";
+
+        RayGrid::activities_t activities;
+        activities.emplace_back(0, 1, 1);
+        activities.emplace_back(1, 1, 1);
+        
+        for (size_t ilayer=2; ilayer<5; ++ilayer) {
+            const auto& pdir = coords.pitch_dirs()[ilayer];
+            const auto& cen = coords.centers()[ilayer];
+
+            std::vector<RayGrid::Activity::value_t> measure;
+
+            for (const auto& point : points) {
+                const auto vrel = point - cen;
+                double pit = vrel.dot(pdir);
+                size_t pind = coords.pitch_index(pit, ilayer);
+                if (measure.size() <= pind) {
+                    measure.resize(pind+1, 0);
+                }
+                measure[pind] += 1;
+            }
+            activities.push_back(RayGrid::Activity(ilayer, {measure.begin(), measure.end()}));
+        }
+        std::stringstream ss;
+        ss << argv[0] << "-shot-" << name << ".svg";
+        auto blobs = do_blobs(activities, ss.str());
+        AssertMsg(blobs.size() > 0, "No shot blobs");
+        return blobs;
+    };
+
+    // this is a dorky function
+    auto spread = [](const Point& point, double size, int num=10) -> std::vector<Point> {
+        const double spacing = size/num;
+
+        std::vector<Point> ret;
+        for (int ix=0; ix<num; ++ix) {
+            for (int iy=0; iy<num; ++iy) {
+                for (int iz=0; iz<num; ++iz) {
+                    ret.emplace_back(point.x() + (num/2.0 - ix)*spacing,
+                                     point.y() + (num/2.0 - iy)*spacing,
+                                     point.z() + (num/2.0 - iz)*spacing);
+                }
             }
         }
-        return blobs;
+        return ret;
     };
 
     // vestigial wires should produce 3 corners and 2 strips per plane
     {                          
-        auto blobs = doit(3, 1727);
+        auto blobs = do_one(3, 1727);
 
         if (blobs.size() != 1) {
             THROW(ValueError() << errmsg{"Unexpected number of blobs"});
@@ -99,7 +176,7 @@ int main(int argc, char* argv[])
         }
         for (const auto& strip : strips) {
             int size = span_size(strip);
-            std::cerr << strip.layer << " " << size << "\n";
+            std::cerr << "test one: " << strip.layer << " " << size << "\n";
             if (strip.layer <=1 ) {
                 AssertMsg(size == 1, "Active area strip wrong size");
             }
@@ -109,20 +186,55 @@ int main(int argc, char* argv[])
         }
     }
 
+    { // should be same
+        auto blobs = do_three({2,2,2}, {1200, 1200, 1728});
+        AssertMsg(blobs.size(), "No blobs found for do_three same as ab ove");
+    }
+
     // single-corner blob
 
     {
-        auto blobs = doit(1, 1727);
+        auto blobs = do_one(1, 1727);
         if (blobs.size()) {
             THROW(ValueError() << errmsg{"No blobs expected with single-corner blob"});
         }
     }
     {
-        auto blobs = doit(3, 1725);
+        auto blobs = do_one(3, 1725);
         if (blobs.size()) {
             THROW(ValueError() << errmsg{"No blobs expected with single-corner blob"});
         }
     }
+
+    // some specifics
+    { 
+        auto blobs = do_three({6,6,5}, {338, 338, 8});
+        AssertMsg(blobs.size(), "No blobs found for three specific");
+    }
+
+    // some points
+    {
+        Point origin = coords.centers()[4] + 0.1*3456*3*units::mm*coords.pitch_dirs()[4];
+        auto points = spread(origin, 10*units::mm);
+        AssertMsg(points.size(), "Got no points");
+        auto blobs = do_shot(points, "left");
+        AssertMsg(blobs.size(), "Got no blobs");
+    }
+    {
+        Point origin = coords.centers()[4] + 0.5*3456*3*units::mm*coords.pitch_dirs()[4];
+        auto points = spread(origin, 10*units::mm);
+        AssertMsg(points.size(), "Got no points");
+        auto blobs = do_shot(points, "middle");
+        AssertMsg(blobs.size(), "Got no blobs");
+    }
+    {
+        Point origin = coords.centers()[4] + 0.9*3456*3*units::mm*coords.pitch_dirs()[4];
+        auto points = spread(origin, 10*units::mm);
+        AssertMsg(points.size(), "Got no points");
+        auto blobs = do_shot(points, "right");
+        AssertMsg(blobs.size(), "Got no blobs");
+    }
+    
 
     return 0;
 }

@@ -13,7 +13,6 @@ int main(int argc, char* argv[])
     WireSchema::StoreDB storedb;
     std::vector<size_t> nwires = {2400, 2400, 3456};
     std::vector<size_t> wire_offset = {0, 2400, 4800};
-    // auto wo = [&](size_t l) -> size_t { return wire_offset[l-2]; };
 
     for (size_t ind=0; ind<3; ++ind) {
         auto& plane = get_append(storedb, ind, 0, 0, 0);
@@ -32,53 +31,11 @@ int main(int argc, char* argv[])
         pitches[plane.ident] = store.mean_pitch(plane);
     }
 
-    // const double corner_radius = 0.5; // svg circle for corners
-    // std::vector<std::string> colors = {
-    //     "black", "black", "red", "green", "blue",
-    // };
-    // std::vector<svg::Color> svgcolors = {
-    //     svg::Color::White,
-    //     svg::Color::White,
-    //     svg::Color::Red,
-    //     svg::Color::Green,
-    //     svg::Color::Blue,
-    // };
-
-
-    // using svgshape = std::unique_ptr<svg::Shape>;
-
-    // auto wbox = [&](int layer, int grid) -> svgshape {
-    //     int wind = layer-2;
-    //     const auto& phalf = 0.4*pitches[wind];
-    //     const auto& w = wireobjs[wind][grid];
-
-    //     const auto fillcolor = svgcolors[layer];
-    //     const auto linecolor = svg::Color::White;
-
-    //     svg::Fill fill(fillcolor);
-    //     auto pg = std::make_unique<svg::Polygon>(fill, svg::Stroke(0.15, linecolor));
-    //     (*pg) << RaySvg::point(w.tail-phalf);
-    //     (*pg) << RaySvg::point(w.tail+phalf);
-    //     (*pg) << RaySvg::point(w.head+phalf);
-    //     (*pg) << RaySvg::point(w.head-phalf);
-    //     (*pg) << RaySvg::point(w.tail-phalf);
-    //     return pg;
-    // };
-    // auto wline = [&](int layer, int grid) -> svgshape {
-    //     int wind = layer-2;
-    //     const auto& phalf = 0.4*pitches[wind];
-    //     const auto& w = wireobjs[wind][grid];
-    //     const auto fillcolor = svgcolors[layer];
-    //     return std::make_unique<svg::Line>(RaySvg::point(w.tail), RaySvg::point(w.head),
-    //                                        svg::Stroke(2.5, fillcolor));
-    // };
-
     std::string fname = argv[0];
     fname += ".json.bz2";
     WireSchema::dump(fname.c_str(), store);
 
     auto raypairs = WireSchema::ray_pairs(store, store.faces()[0]);
-    // const int nlayers = raypairs.size();
 
     RayGrid::Coordinates coords(raypairs);
 
