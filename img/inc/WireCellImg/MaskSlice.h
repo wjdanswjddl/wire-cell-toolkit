@@ -55,11 +55,15 @@ namespace WireCell {
            protected:
             typedef std::map<size_t, Data::Slice*> slice_map_t;
             void slice(const IFrame::pointer& in, slice_map_t& sm);
+            bool thresholding(const WireCell::ITrace::ChargeSequence& wiener_charge,
+                              const WireCell::ITrace::ChargeSequence& gauss_charge, const size_t qind,
+                              const double threshold, const int tick_span, const bool verbose = false);
 
            private:
             IAnodePlane::pointer m_anode;
-            int m_tick_span;
-            std::string m_tag{"gauss"};
+            int m_tick_span{4};
+            std::string m_wiener_tag{"wiener"};
+            std::string m_charge_tag{"gauss"};
             std::string m_error_tag{"gauss_error"};
             std::vector<int> m_active_planes;
             std::vector<int> m_dummy_planes;
