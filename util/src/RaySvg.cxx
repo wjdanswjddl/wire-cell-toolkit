@@ -1,15 +1,158 @@
 #include "WireCellUtil/RaySvg.h"
 #include "WireCellUtil/Exceptions.h"
+#include "WireCellUtil/String.h"
+#include "WireCellUtil/Range.h"
 
 #include <boost/range/irange.hpp>
 
+using namespace svggpp;
+
+
+using namespace WireCell;
+using namespace WireCell::Range;
+using namespace WireCell::RaySvg;
+using namespace WireCell::String;
+
+
+
+// convert raygrid to svggpp
+
+static
+svggpp::attrs_t to_point(const Point& pt)
+{
+    return Attr::point(pt.z(), pt.y());
+}
+static
+std::vector<svggpp::point_t> to_points(const std::vector<Point>& pts)
+{
+    std::vector<svggpp::point_t> spts;
+    for (const auto& pt : pts) {
+        spts.emplace_back(pt.z(), pt.y());
+    }
+    return spts;
+}
+static
+std::vector<svggpp::point_t> to_ring(const std::vector<Point>& pts)
+{
+    size_t npts = pts.size();
+    Point avg;
+    for (const auto& pt : pts) {
+        avg += pt;
+    }
+    avg = avg / (double)npts;
+    std::vector<double> ang(npts);
+    std::vector<size_t> indices(npts);
+    for (size_t ind : irange(npts)) {
+        auto dir = pts[ind] - avg;
+        ang[ind] = atan2(dir[2], dir[1]);
+        indices[ind] = ind;
+    }
+    std::sort(indices.begin(), indices.end(),
+              [&](size_t a, size_t b) -> bool {
+                  return ang[a] < ang[b];
+              });    
+
+    std::vector<svggpp::point_t> spts(npts);
+    for (size_t ind : irange(npts)) {
+        const auto& pt = pts[indices[ind]];
+        spts[ind] = svggpp::point_t(pt.z(), pt.y());
+    }
+    return spts;
+}
+
+const WireSchema::Wire& get_wire(const std::vector<WireSchema::Wire>& wires, int ind)
+{
+    if (ind < 0) {
+        ind = 0;
+    }
+    else if (ind >= (int)wires.size()) {
+        ind = ((int)wires.size())-1;
+    }
+    return wires[ind];
+}
+
+svggpp::elem_t RaySvg::render_active_regions(const Geom& geom, const RayGrid::activities_t& acts)
+{
+    BoundingBox bb;
+    RayGrid::crossings_t bbxing = {
+        { {0,0}, {1,0} },
+        { {0,0}, {1,1} },
+        { {0,1}, {1,1} },
+        { {0,1}, {1,0} } };
+    auto bpts = geom.coords.ring_points(bbxing);
+    bb(bpts.begin(), bpts.end());
+
+    auto bbray = bb.bounds();
+    auto bb1 = bbray.first;
+    auto bbvec = ray_vector(bbray);
+
+    auto bbpts = to_points( bpts ) ;
+    auto bbpgon = Elem::polygon( bbpts );
+
+    auto bbattr = Attr::klass("active bounds");
+    bbattr.update(Attr::viewbox(bb1.z(), bb1.y(), bbvec.z(), bbvec.y()));
+    auto top = Elem::svg(bbattr, bbpgon);
+
+    std::vector<int> plane_numbers = {2,1,0};
+
+    for (int plane : plane_numbers) {
+        int layer = plane+2;
+        const auto & act = acts[layer];
+        
+        const auto& wires = geom.wires[plane];
+
+        const auto& pdir = geom.coords.pitch_dirs()[layer];
+        const auto& pmag = geom.coords.pitch_mags()[layer];
+        const auto phalf = 0.4*pmag*pdir;
+
+        const auto strips = act.make_strips();
+        // std::cerr << "plane=" << plane << " nstrips="<<strips.size() << "\n";
+        for (const RayGrid::Strip& strip : strips) {
+            const auto& w1 = get_wire(wires, strip.bounds.first);
+            const auto& w2 = get_wire(wires, strip.bounds.second-1);
+            auto spgon = Elem::polygon(
+                to_ring( {
+                        w1.tail-phalf,
+                        w1.head-phalf,
+                        w2.head+phalf,
+                        w2.tail+phalf } ),
+                Attr::klass(format("activity plane%d", plane)));
+            Elem::append(top, spgon);
+        }    
+
+    }
+    return top;
+}
+
+
+// svggpp::elem_t RaySvg::render_active_wires(const Geom& geom, const RayGrid::activities_t& acts)
+// {
+// }
+
+
+// svggpp::elem_t RaySvg::render_blob_corners(const Geom& geom, const RayGrid::blobs_t& blobs)
+// {
+// }
+
+
+// svggpp::elem_t RaySvg::render_blob_areas(const Geom& geom, const RayGrid::blobs_t& blobs)
+// {
+// }
+
+
+
+
+
+
+
+
+#if 0
 auto irange = [](const std::pair<int,int>& p) -> auto {
     return boost::irange(p.first, p.second);
 };
 
-using namespace WireCell;
-using namespace WireCell::RaySvg;
 
+namespace WireCell::RaySvg::deprecated {
 
 svg::Document RaySvg::document(const std::string& svgname, const Ray& bounds, int wpx, int hpx, double scale)
 {
@@ -138,14 +281,15 @@ Scene::corner_shape(const RayGrid::crossing_t& c)
         svg::Stroke(m_thin_line, m_outline_color));
 }
                                              
-void RaySvg::Scene::blob_view(const std::string& svgname)
+void RaySvg::Scene::blob_view(const std::string& svgname,
+                              int wpx, int hpx, double scale)
 {
     auto bb = m_blobs_bb;
     double pad = 10;
     const Vector vpad(pad,pad,pad);
     bb(bb.bounds().first - vpad);
     bb(bb.bounds().second + vpad);
-    auto doc = RaySvg::document(svgname, bb.bounds(), m_wpx, m_hpx, m_scale);
+    auto doc = RaySvg::document(svgname, bb.bounds(), wpx, hpx, scale);
 
     bool coalesce_strips = false; // fixme: make config
     bool inblob=false;
@@ -188,3 +332,5 @@ void RaySvg::Scene::wire_view(const std::string& svgname)
 {
 }
 
+}
+#endif

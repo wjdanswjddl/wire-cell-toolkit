@@ -1,7 +1,9 @@
 #include "WireCellUtil/RayGrid.h"
+#include "WireCellUtil/Range.h"
 
 using namespace WireCell;
 using namespace WireCell::RayGrid;
+using namespace WireCell::Range;
 
 Coordinates::Coordinates(const ray_pair_vector_t& rays, int normal_axis, double normal_location)
   : m_nlayers(rays.size())
@@ -134,4 +136,40 @@ double Coordinates::pitch_location(const coordinate_t& one, const coordinate_t& 
     const tensor_t::index il = one.layer, im = two.layer, in = other;
     const tensor_t::index i = one.grid, j = two.grid;
     return j * m_a[il][im][in] + i * m_a[im][il][in] + m_b[il][im][in];
+}
+
+
+
+// FIXME: annoyingly this is in PR#187
+// fixme: this is in PR #187
+vector_array1d_t Coordinates::ring_points(const crossings_t& corners) const
+{
+    const size_t npts = corners.size();
+    vector_array1d_t points(npts);
+    if (!npts) return points;
+    Point avg;
+    for (size_t ind : irange(npts)) {
+        const auto& [one, two] = corners[ind];
+        auto pt = ray_crossing(one, two);
+        points[ind] = pt;
+        avg += pt;
+    }
+    avg = avg / (double)npts;
+    std::vector<double> ang(npts);
+    std::vector<size_t> indices(npts);
+    for (size_t ind : irange(npts)) {
+        auto dir = points[ind] - avg;
+        ang[ind] = atan2(dir[2], dir[1]);
+        indices[ind] = ind;
+    }
+    std::sort(indices.begin(), indices.end(),
+              [&](size_t a, size_t b) -> bool {
+                  return ang[a] < ang[b];
+              });
+    
+    std::vector<Point> ret(npts);
+    for (size_t ind : irange(npts)) {
+        ret[ind] = points[indices[ind]];
+    }
+    return ret;
 }

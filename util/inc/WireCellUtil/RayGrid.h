@@ -63,6 +63,8 @@ namespace WireCell {
         // was class RayGrid
         class Coordinates {
            public:
+            // fixme: add default, copy, move constructors/assignment operators.
+
             // Create a ray grid by specifying the axis of projection.
             Coordinates(const ray_pair_vector_t& rays, int normal_axis = 0, double normal_location = 0.0);
 
@@ -74,6 +76,10 @@ namespace WireCell {
 
             // Return the pitch location of the crossing point of two coordinate rays as measured in an other layer.
             double pitch_location(const coordinate_t& one, const coordinate_t& two, layer_index_t other) const;
+
+            // fixme: this is in PR #187
+            // Return points of corners sorted by their angle about their center point.
+            vector_array1d_t ring_points(const crossings_t& corners) const;
 
             // Return relative number of pitch steps from ray 0 to the pitch location.
             double pitch_relative(double pitch, layer_index_t layer) const {

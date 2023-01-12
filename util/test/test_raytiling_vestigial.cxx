@@ -211,6 +211,11 @@ int main(int argc, char* argv[])
         auto blobs = do_three({6,6,5}, {338, 338, 8});
         AssertMsg(blobs.size(), "No blobs found for three specific");
     }
+    // some discrepencies with WCP found by haiwang
+    {
+        auto blobs = do_three({6,6,5}, {338, 338, 8});
+        AssertMsg(blobs.size(), "No blobs found for three specific");
+    }
 
     // some points
     {
