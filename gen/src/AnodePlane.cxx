@@ -291,7 +291,7 @@ void Gen::AnodePlane::configure(const WireCell::Configuration& cfg)
         log->debug("face:{} with {} planes and sensvol: {}",
                    ws_face.ident, planes.size(), sensvol.bounds());
 
-        m_faces[iface] = make_shared<AnodeFace>(ws_face.ident, planes, sensvol);
+        m_faces[iface] = make_shared<AnodeFace>(ws_face.ident, planes, sensvol, iface, m_ident);
     }  // face
 
     // remove any duplicate channels

@@ -80,7 +80,10 @@ Json::Value blob_jsoner(const cluster_node_t& n)
     ret["ident"] = iblob->ident();
     ret["value"] = iblob->value();
     ret["error"] = iblob->uncertainty();
-    ret["faceid"] = iblob->face()->ident();
+    {
+        WirePlaneId afid(kUnknownLayer, iface->which(), iface->anode());
+        ret["faceid"] = afid.ident();
+    }
     ret["sliceid"] = iblob->slice()->ident();
     Json::Value jcorners = Json::arrayValue;
     const auto& blob = iblob->shape();

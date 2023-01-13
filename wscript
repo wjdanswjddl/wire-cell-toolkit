@@ -34,6 +34,9 @@ def configure(cfg):
     if cfg.options.with_spdlog_static.lower() in ("yes","on","true"):
         cfg.env.CXXFLAGS += ['-DSPDLOG_COMPILED_LIB=1']
 
+    # See comments at top of Exceptions.h
+    cfg.env.LDFLAGS += ['-lbacktrace']
+
     print("Configured version", VERSION)
     # print(cfg.env)
 
