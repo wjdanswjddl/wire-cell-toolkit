@@ -35,7 +35,7 @@ def configure(cfg):
         cfg.env.CXXFLAGS += ['-DSPDLOG_COMPILED_LIB=1']
 
     # See comments at top of Exceptions.h
-    cfg.env.LDFLAGS += ['-lbacktrace']
+    # cfg.env.LDFLAGS += ['-lbacktrace']
 
     print("Configured version", VERSION)
     # print(cfg.env)

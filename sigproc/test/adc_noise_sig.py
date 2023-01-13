@@ -196,6 +196,8 @@ def pimp(wc, fakefs, realfs, pfile):
     fp = plot_params(wc.generator, 'fake', wc.tier, wc.domain)
     rp = plot_params(wc.generator, 'real', wc.tier, wc.domain)
     # dp = plot_params(wc.generator, "pimp", wc.tier, wc.domain)
+    fes = list()                # event
+    res = list()                # numbers
     fss = list()
     rss = list()
     l1s = list()
@@ -206,6 +208,9 @@ def pimp(wc, fakefs, realfs, pfile):
         print(rf)
         ra = numpy.load(rf)[rp['aname']]
         
+        fes.append(int(ff.split('/')[-2]))
+        res.append(int(rf.split('/')[-2]))
+
         fss.append(numpy.sum(fa))
         rss.append(numpy.sum(ra))
         l1s.append(numpy.sum(numpy.abs(fa-ra)))
@@ -214,10 +219,29 @@ def pimp(wc, fakefs, realfs, pfile):
     numpy.savez_compressed(pfile[0],
                            l1=numpy.array(l1s),
                            l2=numpy.array(l2s),
+                           fe=fes,
+                           re=res,
                            fsum=numpy.array(fss),
                            rsum=numpy.array(rss))
     
     
-    
+def plot_pimp(wc, ifile, ofile):
+    arrs = numpy.load(ifile[0])
 
-    
+    fig, axes = plt.subplots(nrows=1, ncols=3, sharex=True, sharey=True)
+
+    stit = f'{wc.tier} ({wc.generator})'
+    fig.suptitle(stit)
+
+    axes[0].set_title('Total')
+    axes[0].hist(-arrs['fsum'], label='GAN')
+    axes[0].hist(-arrs['rsum'], label='Sim')
+    axes[0].legend()
+
+    axes[1].set_title('L1(GAN,Sim)')
+    axes[1].hist(arrs['l1'])
+
+    axes[2].set_title('L2(GAN,Sim)')
+    axes[2].hist(arrs['l2'])
+
+    plt.savefig(ofile[0])

@@ -270,3 +270,22 @@ rule pimp_all:
                domain=['a','b'],
                tier=['raw','sig'])
 
+rule pimplot:
+    input:
+        rules.pimp_all.input
+    output:
+        f'{outdir}/pimp/{{domain}}/{{tier}}.{{ext}}'
+    wildcard_constraints:
+        ext = "png|pdf"
+    params:
+        wc = lambda wc: wc
+    run:
+        plot_pimp(params.wc, input, output);
+           
+rule pimplot_all:
+    input:
+        expand(rules.pimplot.output,
+               generator=generators,
+               domain=['a','b'],
+               tier=['raw','sig'],
+               ext=['png','pdf'])
