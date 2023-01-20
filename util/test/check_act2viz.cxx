@@ -94,19 +94,25 @@ int main(int argc, char* argv[])
 
     auto blobs = RayGrid::make_blobs(geom.coords, activities, nudge);
 
-    auto rar = RaySvg::render(geom, activities, blobs);
-    std::cerr << rar.dump(4) << std::endl;
-    
-    auto top = svg(svg_header);
-    top.update(size(512,512));
-    append(top, style(R"(
-.plane0 { fill: red; }
+    auto top = RaySvg::svg_full(geom, activities, blobs);
+    auto& topb = body(top);
+
+    // std::cerr << top.dump(4) << std::endl;
+
+    topb.insert(topb.begin(), style(R"(
+.bounds { fill: purple; fill-opacity: 0.1; }
+.plane0 { fill: red;}
 .plane1 { fill: green; }
 .plane2 { fill: blue; }
-.bounds { fill: yellow; }
 .blob_areas { fill: yellow; }
+.wires { stroke: black; stroke-width: 0.1; }
+
 )"));
-    append(top, rar);
+
+    // for debugging:
+    topb.insert(topb.begin(), element("rect", {
+                {"width", "100%"}, {"height","100%"},
+                {"fill", "pink"}}));
 
     std::string svgname;
     if (argc == 3) {

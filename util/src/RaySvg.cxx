@@ -7,7 +7,6 @@
 
 using namespace svggpp;
 
-
 // using namespace WireCell;
 using WireCell::Ray;
 using WireCell::Point;
@@ -23,19 +22,22 @@ svggpp::point_t WireCell::RaySvg::project(const Point& pt)
     return svggpp::point_t(pt.z(), pt.y());
 }
 
-svggpp::attr_t WireCell::RaySvg::viewbox(const Ray& bbray)
+svggpp::view_t WireCell::RaySvg::project(const Ray& bbray)
 {
     auto bb1 = project(bbray.first);
     auto bbvec = project(ray_vector(bbray));
-    return svggpp::viewbox(bb1.first, bb1.second,
-                           bbvec.first, bbvec.second);
+    view_t view;
+    view.x = bb1.first;
+    view.y = bb1.second;
+    view.width = bbvec.first;
+    view.height = bbvec.second;
+    return view;
 }
-
 
 // convert raygrid to svggpp
 
 static
-svggpp::attr_t to_point(const Point& pt)
+svggpp::xml_t to_point(const Point& pt)
 {
     return point(project(pt));
 }
@@ -87,34 +89,101 @@ const WireCell::WireSchema::Wire& get_wire(const std::vector<WireCell::WireSchem
     return wires[ind];
 }
 
-svggpp::elem_t WireCell::RaySvg::render(const Geom& geom, const RayGrid::activities_t& acts, const RayGrid::blobs_t& blobs)
+svggpp::xml_t WireCell::RaySvg::svg_dual(const Geom& geom, const RayGrid::activities_t& acts, const RayGrid::blobs_t& blobs)
 {
-    auto aa = render_active_area(geom);
-    aa.update({{"id","bounds"}});
-
-    auto vport = viewport(aa);
-    const double width = cast<double>(vport["width"]);
-    const double height = cast<double>(vport["height"]);
-
-    // Initial outer svg viewbox and inner viewbox of each major svg
-    const auto vbox = svggpp::viewbox(0, 0, width, height);
-
-    auto top = svg(vbox, defs(aa));
+    auto aa = svg_active_area(geom);
+    id(aa, "aa");
+    auto aabb = viewbox(aa);
+    attrs(aa).erase("viewBox");
+    auto common = defs(aa);
     
-    auto s1 = svg(vbox);
-    s1.update(point(0,0));
-    s1.update(size(width, height));
-    auto v1 = view("coarse", vbox);
-    svggpp::append(s1, use(link(aa)));
+    const double nominal_size = 512;
 
-    auto s2 = svg(vbox);
-    s2.update(point(width,height));
-    s2.update(size(width,height));
-    auto v2 = view("fine", svggpp::viewbox(width, height, width, height));
-    svggpp::append(s2, use(link(aa)));
+    // Nominal view
+    auto aabb1 = aabb;
+
+    // A view displaced diagonally by size, same size
+    auto aabb2 = aabb1;
+    aabb2.x += aabb2.width;
+    aabb2.y += aabb2.height;
+
+    // what we will return.
+    auto top = svg(svg_header);
+    id(top, "top");
+    view_t topv = aabb;
+    topv.x = topv.y = 0;
+    if (topv.width > topv.height) { // landscape
+        topv.height = nominal_size * topv.height/topv.width;
+        topv.width = nominal_size;
+    }
+    else {                      // portrait
+        topv.width = nominal_size * topv.width/topv.height;
+        topv.height = nominal_size;
+    }
+    viewport(top, topv);
+    viewbox(top, aabb1);
+
+    // coarse
+    xml_t s1a;
+    viewport(s1a, aabb2);
+    viewbox(s1a, aabb);
+    s1a.update({{"id","s1"}, {"class","coarse"}});
+    auto s1 = svg(s1a);
+
+    auto v1 = view("coarse");
+    viewbox(v1, aabb2);
+
+
+    // fine view, for zooms.  viewport diagonal from above
+    xml_t s2a;
+    viewport(s2a, aabb1);
+    viewbox(s2a, aabb);
+    s2a.update({{"id","s2"}, {"class","fine"}});
+    auto s2 = svg(s2a);
+
+    auto v2 = view("fine");
+    viewbox(v2, aabb1);
     
-    svggpp::append(top, anchor(link(v2), {}, s1));
-    svggpp::append(top, anchor(link(v1), {}, s2));
+    // Details to put in coarse or fine views
+
+    auto sas = g_active_strips(geom, acts);
+    id(sas, "sas");
+    body(common).push_back(sas);
+    auto saw = g_active_wires(geom, acts);
+    id(saw, "saw");
+    body(common).push_back(saw);
+    auto sba = g_blob_areas(geom, blobs);
+    id(sba, "sba");
+    body(common).push_back(sba);
+    auto sbc = g_blob_corners(geom, blobs);
+    id(sbc,"sbc");
+    body(common).push_back(sbc);
+
+    // Coarse
+
+    auto& s1b = body(s1);
+    s1b.push_back(use(link(aa))); // active
+    s1b.push_back(use(link(sas))); // strips
+    s1b.push_back(use(link(sba))); // blobs
+
+    // Fine 
+
+    auto& s2b = body(s2);
+    s2b.push_back(use(link(aa))); // active
+    s2b.push_back(use(link(saw))); // wires
+    s2b.push_back(use(link(sba))); // blobs
+    s2b.push_back(use(link(sbc))); // corners
+
+    // Top 
+    auto& topb = body(top);
+
+    topb.push_back(common);
+    topb.push_back(v1);
+    topb.push_back(v2);
+    topb.push_back(anchor(link(v2), nullptr, s1));
+    topb.push_back(anchor(link(v1), nullptr, s2));
+
+    return top;
 
     // coarse
     // - use aa with x=0,y=0
@@ -127,12 +196,86 @@ svggpp::elem_t WireCell::RaySvg::render(const Geom& geom, const RayGrid::activit
     // - blob areas with link to coarse 
     // - blob corners
 
-           
+
+}
+svggpp::xml_t WireCell::RaySvg::svg_full(const Geom& geom, const RayGrid::activities_t& acts, const RayGrid::blobs_t& blobs)
+{
+    auto aa = svg_active_area(geom);
+    id(aa, "aa");
+    auto aabb = viewbox(aa);
+    attrs(aa).erase("viewBox");
+    auto common = defs(aa);
+    
+    const double nominal_size = 2048;
+
+    // what we will return.
+    auto top = svg(svg_header);
+    id(top, "top");
+    view_t topv = aabb;
+    topv.x = topv.y = 0;
+    if (topv.width > topv.height) { // landscape
+        topv.height = nominal_size * topv.height/topv.width;
+        topv.width = nominal_size;
+    }
+    else {                      // portrait
+        topv.width = nominal_size * topv.width/topv.height;
+        topv.height = nominal_size;
+    }
+    viewport(top, topv);
+    viewbox(top, aabb);
+
+    // fine view, for zooms.  viewport diagonal from above
+    xml_t s2a;
+    viewport(s2a, aabb);
+    viewbox(s2a, aabb);
+    s2a.update({{"id","s2"}, {"class","fine"}});
+    auto s2 = svg(s2a);
+
+    auto v2 = view("fine");
+    viewbox(v2, aabb);
+    
+    // Details to put in coarse or fine views
+
+    auto saw = g_active_wires(geom, acts);
+    id(saw, "saw");
+    body(common).push_back(saw);
+    auto sba = g_blob_areas(geom, blobs);
+    id(sba, "sba");
+    body(common).push_back(sba);
+    auto sbc = g_blob_corners(geom, blobs);
+    id(sbc,"sbc");
+    body(common).push_back(sbc);
+
+    auto& s2b = body(s2);
+    s2b.push_back(use(link(aa))); // active
+    s2b.push_back(use(link(saw))); // wires
+    s2b.push_back(use(link(sba))); // blobs
+    s2b.push_back(use(link(sbc))); // corners
+
+    // Top 
+    auto& topb = body(top);
+
+    topb.push_back(common);
+    topb.push_back(v2);
+    topb.push_back(anchor(link(v2), nullptr, s2));
+
     return top;
+
+    // coarse
+    // - use aa with x=0,y=0
+    // - active strips
+    // - blob areas with link to fine blob areas
+
+    // fine
+    // - use aa with x=100,y=100
+    // - active wires
+    // - blob areas with link to coarse 
+    // - blob corners
+
+
 }
 
-
-svggpp::elem_t WireCell::RaySvg::render_active_area(const Geom& geom)
+svggpp::xml_t WireCell::RaySvg::svg_active_area(const Geom& geom)
 {
     BoundingBox bb;
     RayGrid::crossings_t xings = {
@@ -147,18 +290,20 @@ svggpp::elem_t WireCell::RaySvg::render_active_area(const Geom& geom)
     auto pgon = polygon( pts );
 
     auto attr = css_class("active bounds");
-    attr.update(viewbox(bb.bounds()));
+
+    viewbox(attr, project(bb.bounds()));
+
     auto top = svg(attr, pgon);
     return top;
 }
 
-#if 0
 
-svggpp::elem_t WireCell::RaySvg::render_active_strips(const Geom& geom, const RayGrid::activities_t& acts)
+svggpp::xml_t WireCell::RaySvg::g_active_strips(const Geom& geom, const RayGrid::activities_t& acts)
 {
     BoundingBox bb;
 
-    auto top = svg(css_class("active strips"));
+    auto top = group(css_class("activity strips"));
+    auto& topb = body(top);
 
     std::vector<int> plane_numbers = {2,1,0};
 
@@ -185,21 +330,21 @@ svggpp::elem_t WireCell::RaySvg::render_active_strips(const Geom& geom, const Ra
             bb(pts.begin(), pts.end());
             auto spgon = polygon(
                 to_ring( pts ),
-                css_class(format("activity plane%d", plane)));
-            svggpp::append(top, spgon);
+                css_class(format("plane%d", plane)));
+            topb.push_back(spgon);
         }    
     }
 
-    update(top, viewbox(bb.bounds()));
     return top;
 }
 
 
-svggpp::elem_t WireCell::RaySvg::render_active_wires(const Geom& geom, const RayGrid::activities_t& acts)
+svggpp::xml_t WireCell::RaySvg::g_active_wires(const Geom& geom, const RayGrid::activities_t& acts)
 {
     BoundingBox bb;
 
-    auto top = svg(css_class("active strips"));
+    auto top = group(css_class("activity wires"));
+    auto& topb = body(top);
 
     std::vector<int> plane_numbers = {2,1,0};
 
@@ -217,7 +362,7 @@ svggpp::elem_t WireCell::RaySvg::render_active_wires(const Geom& geom, const Ray
         // std::cerr << "plane=" << plane << " nstrips="<<strips.size() << "\n";
         for (const RayGrid::Strip& strip : strips) {
             for (auto wip : irange(strip.bounds)) {
-                std::cerr << strip << " " << wip<< std::endl;
+                // std::cerr << strip << " " << wip<< std::endl;
                 const auto& w = get_wire(wires, wip);
                 std::vector<Point> pts = {
                     w.tail-phalf,
@@ -228,22 +373,21 @@ svggpp::elem_t WireCell::RaySvg::render_active_wires(const Geom& geom, const Ray
                 bb(pts.begin(), pts.end());
                 auto spgon = polygon(
                     to_ring( pts ),
-                    css_class(format("activity plane%d wip%d", plane, wip)));
-                svggpp::append(top, spgon);
+                    css_class(format("plane%d wip%d", plane, wip)));
+                topb.push_back(spgon);
             }
         }
     }
 
-    update(top, viewbox(bb.bounds()));
     return top;
 }
 
-
-svggpp::elem_t WireCell::RaySvg::render_blob_corners(const Geom& geom, const RayGrid::blobs_t& blobs)
+svggpp::xml_t WireCell::RaySvg::g_blob_corners(const Geom& geom, const RayGrid::blobs_t& blobs)
 {
     BoundingBox bb;
     int count=0;
-    auto top = svg(css_class("blob_corners"));
+    auto top = group(css_class("blob_corners"));
+    auto& topb = body(top);
 
     for (const auto& blob : blobs) {
         ++count;
@@ -254,20 +398,19 @@ svggpp::elem_t WireCell::RaySvg::render_blob_corners(const Geom& geom, const Ray
             auto pt = geom.coords.ray_crossing(a,b);
             bb(pt);
             auto cir = circle(project(pt)); // fixme: radius
-            svggpp::append(grp, cir);
+            topb.push_back(cir);
         }
     }
 
-    update(top, viewbox(bb.bounds()));
     return top;
 }
 
 
-svggpp::elem_t WireCell::RaySvg::render_blob_areas(const Geom& geom, const RayGrid::blobs_t& blobs)
+svggpp::xml_t WireCell::RaySvg::g_blob_areas(const Geom& geom, const RayGrid::blobs_t& blobs)
 {
-    BoundingBox bb;
     int count=0;
-    auto top = svg(css_class("blob_areas"));
+    auto top = group(css_class("blob_areas"));
+    auto& topb = body(top);
 
     for (const auto& blob : blobs) {
         ++count;
@@ -278,29 +421,23 @@ svggpp::elem_t WireCell::RaySvg::render_blob_areas(const Geom& geom, const RayGr
             pts.push_back(geom.coords.ray_crossing(a,b));
         }
 
-        bb(pts.begin(), pts.end());
         bbb(pts.begin(), pts.end());
+        bbb.pad_rel(0.1);
 
         std::string bname = format("blobnum%d", count);
 
         auto spgon = polygon(
             to_ring( pts ),
             css_class(bname));
-        auto v = view(bname, viewbox(bbb.bounds()));
+        auto v = view(bname);
+        viewbox(v, project(bbb.bounds()));
         auto a = anchor(link(v), {}, spgon);
-        svggpp::append(top, a);
-
-        svggpp::append(top, v);
+        topb.push_back(a);
+        topb.push_back(v);
     }
 
-    update(top, viewbox(bb.bounds()));
     return top;
 }
-
-
-
-
-#endif
 
 
 

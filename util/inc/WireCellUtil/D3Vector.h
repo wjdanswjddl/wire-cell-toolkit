@@ -143,6 +143,12 @@ namespace WireCell {
             return *this;
         }
 
+        D3Vector& operator-=(const D3Vector& other)
+        {
+            this->set(x() - other.x(), y() - other.y(), z() - other.z());
+            return *this;
+        }
+
         bool operator!() const { return m_v.size() != 3; }
         operator bool() const { return m_v.size() == 3; }
         // can call set(x,y,z) to revalidate.
