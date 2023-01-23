@@ -31,11 +31,9 @@ int main(int argc, char* argv[])
 )");
     auto c = circle(50,50,30, css_class("target"));
     // in firefox, load file with "#target" appended to URL
-    auto v = view("target", viewbox(20,20,60,60));
+    auto v = view("target");
+    viewbox(v, view_t{20,20,60,60});
     std::cerr << v.dump() << std::endl;
-    auto v2 = viewport(v);
-    std::cerr << v2.dump() << std::endl;
-    assert(v2.contains("x"));
     auto pg = polygon({ {20,35}, {40,35}, {55,55}, {65,55} }, { {"fill","blue"} });
 
     auto top = svg(svg_header, {
@@ -47,8 +45,8 @@ int main(int argc, char* argv[])
             text("cat", 40,35,css_class("heavy")),
             text("is", 55,55,css_class("small")),
             text("Grumpy", 65,55,css_class("Rrrrr"))});
-    update(top, viewbox(0,0,240,80));
-    update(top, css_class("top"));
+    viewbox(top, view_t{0,0,240,80});
+    attrs(top).update(css_class("top"));
 
     std::cerr << top.dump(4) << std::endl;
     std::cerr << "-----\n";
@@ -58,5 +56,6 @@ int main(int argc, char* argv[])
     oname += ".svg";
     std::ofstream out(oname);
     out << dumps(top) << std::endl;
+    std::cerr << oname << std::endl;
     return 0;
 }

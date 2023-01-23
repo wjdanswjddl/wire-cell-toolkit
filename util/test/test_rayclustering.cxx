@@ -252,6 +252,18 @@ int main(int argc, char* argv[])
     auto raypairs = make_raypairs(width, height, pitch_magnitude);
 
     Coordinates coords(raypairs);
+    Assert(coords.nlayers() == 5);
+
+    {
+        Coordinates empty;
+    }
+    {
+        Coordinates copy;
+        copy = coords;
+    }
+    {
+        Coordinates copy(coords);
+    }
 
     Tiling tiling(coords, 1e-6);
 

@@ -9,6 +9,7 @@
 #include <WireCellUtil/Exceptions.h>
 #include <vector>
 #include <iostream>
+#include <fstream>
 
 using namespace WireCell;
 
@@ -19,12 +20,16 @@ int main(int argc, char* argv[])
     WireSchema::StoreDB storedb;
     std::vector<size_t> nwires = {2400, 2400, 3456};
     std::vector<size_t> wire_offset = {0, 2400, 4800};
-    // auto wo = [&](size_t l) -> size_t { return wire_offset[l-2]; };
+    std::vector<RaySvg::wire_vector_t> plane_wires;
 
     for (size_t ind=0; ind<3; ++ind) {
         auto& plane = get_append(storedb, ind, 0, 0, 0);
+        size_t ini = storedb.wires.size();
         size_t got = DetectorWires::plane(storedb, plane, DetectorWires::uboone[ind]);
         AssertMsg(got == nwires[ind], "wrong number of wires in plane");
+
+        auto beg = storedb.wires.begin()+ini;
+        plane_wires.push_back(RaySvg::wire_vector_t(beg, beg+got));
     }
     DetectorWires::flat_channels(storedb);
 
@@ -45,6 +50,8 @@ int main(int argc, char* argv[])
     // const int nlayers = raypairs.size();
 
     RayGrid::Coordinates coords(raypairs);
+    RaySvg::Geom geom{coords, plane_wires};
+
     const double hit=1.0;
     std::vector<std::pair<int,int>> tries = {
         {1,1727},               // single blob
@@ -63,18 +70,9 @@ int main(int argc, char* argv[])
         std::cerr << fname << "\n";
         std::cerr << "do_blobs: nblobs=" << blobs.size() << " nactivites=" << activities.size() << "\n";
 
-        RaySvg::Scene scene(coords, store);
-        scene(blobs);
-        scene(activities);
-
-        scene.blob_view(fname);
-
-        for (const auto& blob : blobs) {
-            for (const auto& strip : blob.strips()) {
-                int size = span_size(strip);
-                std::cerr << "do_blobs: layer=" << strip.layer << " size=" << size << "\n";
-            }
-        }
+        auto top = RaySvg::svg_full(geom, activities, blobs);
+        std::ofstream ofstr(fname);
+        ofstr << svggpp::dumps(top);
         return blobs;
     };        
 

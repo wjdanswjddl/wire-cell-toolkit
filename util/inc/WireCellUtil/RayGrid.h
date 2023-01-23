@@ -63,7 +63,10 @@ namespace WireCell {
         // was class RayGrid
         class Coordinates {
            public:
-            // fixme: add default, copy, move constructors/assignment operators.
+            Coordinates();
+            ~Coordinates();
+            Coordinates(const Coordinates& other);
+            Coordinates& operator=(const Coordinates& other);
 
             // Create a ray grid by specifying the axis of projection.
             Coordinates(const ray_pair_vector_t& rays, int normal_axis = 0, double normal_location = 0.0);
@@ -102,7 +105,7 @@ namespace WireCell {
             const tensor_t b() const { return m_b; }
 
            private:
-            int m_nlayers;
+            int m_nlayers{0};
 
             // Pitch magnitude for each layer
             std::vector<double> m_pitch_mag;
@@ -115,12 +118,12 @@ namespace WireCell {
 
             // Zero-rays crossing points indexed by layer index pairs.
             // Symmetric array, diagonal is invalid.
-            vector_array2d_t m_zero_crossing;
+            vector_array2d_t m_zero_crossing{};
 
             // Element (l,m) holds a relative vector which jumps along ray
             // direction of layer l between crossing points of neighboring
             // rays of layer m.  Not symmectric, and diagonal is invalid.
-            vector_array2d_t m_ray_jump;
+            vector_array2d_t m_ray_jump{};
 
             // Coefficients for fast pitch location calculation.  These
             // are scalar values indexed by three different layer

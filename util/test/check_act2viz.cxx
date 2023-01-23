@@ -95,25 +95,6 @@ int main(int argc, char* argv[])
     auto blobs = RayGrid::make_blobs(geom.coords, activities, nudge);
 
     auto top = RaySvg::svg_full(geom, activities, blobs);
-    auto& topb = body(top);
-
-    // std::cerr << top.dump(4) << std::endl;
-
-    // .bounds { fill: white; fill-opacity: 0.1; }
-    topb.insert(topb.begin(), style(R"(
-.blob_corners { fill: black; stroke: white; }
-.plane0 { fill: red;}
-.plane1 { fill: green; }
-.plane2 { fill: blue; }
-.blob_areas { fill: yellow; }
-.wires { stroke: black; stroke-width: 0.1; }
-
-)"));
-
-    // for debugging:
-    // topb.insert(topb.begin(), element("rect", {
-    //             {"width", "100%"}, {"height","100%"},
-    //             {"fill", "pink"}}));
 
     std::string svgname;
     if (argc == 3) {
@@ -124,11 +105,6 @@ int main(int argc, char* argv[])
     }
     std::ofstream ofstr(svgname);
     ofstr << svggpp::dumps(top);
-
-    // RaySvg::Scene scene(coords, store);
-    // scene(blobs);
-    // scene(activities);
-    // scene.blob_view(svgname, 2000, 1000);
 
     return 0;
 }

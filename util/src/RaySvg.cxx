@@ -210,6 +210,7 @@ svggpp::xml_t WireCell::RaySvg::svg_full(const Geom& geom, const RayGrid::activi
 
     // what we will return.
     auto top = svg(svg_header);
+
     id(top, "top");
     view_t topv = aabb;
     topv.x = topv.y = 0;
@@ -254,6 +255,17 @@ svggpp::xml_t WireCell::RaySvg::svg_full(const Geom& geom, const RayGrid::activi
 
     // Top 
     auto& topb = body(top);
+
+    // User, feel free to tweak this.
+    topb.push_back(style(R"(
+.blob_corners { fill: black; stroke: white; }
+.plane0 { fill: red;}
+.plane1 { fill: green; }
+.plane2 { fill: blue; }
+.blob_areas { fill: yellow; }
+.wires { stroke: black; stroke-width: 0.1; }
+
+)"));
 
     topb.push_back(common);
     topb.push_back(v2);
