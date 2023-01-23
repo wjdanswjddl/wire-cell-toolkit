@@ -1,8 +1,4 @@
+extra = ""
 if 'HAVE_TBB' in bld.env:
-    bld.smplpkg('WireCellApps', use='WireCellIface FFTWTHREADS TBB')
-else:
-    bld.smplpkg('WireCellApps', use='WireCellIface FFTWTHREADS')
-
-
-#            app_use='WireCellUtil JSONNET',
-#            test_use='WireCellUtil DYNAMO BOOST JSONCPP JSONNET')
+    extras = "TBB"
+bld.smplpkg('WireCellApps', use=f'WireCellIface FFTWTHREADS {extras}')

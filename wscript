@@ -21,7 +21,28 @@ def options(opt):
 def configure(cfg):
     # get this into config.h
     cfg.define("WIRECELL_VERSION", VERSION)
-    cfg.load("wcb")
+
+    # See comments at top of Exceptions.h for context.
+    cfg.load('compiler_cxx')
+    cfg.check_cxx(lib='backtrace', use='backtrace',
+                  uselib_store='BACKTRACE',
+                 define_name = 'HAVE_BACKTRACE_LIB',
+                 mandatory=False, fragment="""
+#include <backtrace.h>
+int main(int argc,const char *argv[])
+{
+    struct backtrace_state *state = backtrace_create_state(nullptr,false,nullptr,nullptr);
+}
+                 """)
+    if cfg.is_defined('HAVE_BACKTRACE_LIB'):
+        cfg.env.LDFLAGS += ['-lbacktrace']
+
+    # fixme: this should go away when everyone is up to at least boost
+    # 1.78.
+    cfg.check_cxx(header_name="boost/core/span.hpp", use='boost',
+                  define_name = 'HAVE_BOOST_CORE_SPAN_HPP',
+                  mandatory=False)
+
 
     # fixme: should go into wcb.py
     cfg.find_program("jsonnet", var='JSONNET')
@@ -34,11 +55,15 @@ def configure(cfg):
     if cfg.options.with_spdlog_static.lower() in ("yes","on","true"):
         cfg.env.CXXFLAGS += ['-DSPDLOG_COMPILED_LIB=1']
 
-    # See comments at top of Exceptions.h
-    # cfg.env.LDFLAGS += ['-lbacktrace']
+    # in principle, this should be the only line here.  Any cruft
+    # above that has accrued should be seen as a fixme: move to
+    # wcb/waf-tools.
+    cfg.load("wcb")
+
+    cfg.env.CXXFLAGS += ['-I.']
 
     print("Configured version", VERSION)
-    # print(cfg.env)
+#    print(cfg.env)
 
 def build(bld):
     bld.load('wcb')
