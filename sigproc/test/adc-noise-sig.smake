@@ -70,15 +70,17 @@ rule all:
         expand(eventdir + '/{filename}',
                generator=generators,
                source=sources, domain=domains, event=events,
-               filename=filenames),
-        expand(eventdir + '/{filename}',
-               generator=generators,
-               source=["frdp"], domain=domains, event=events,
-               filename=pngs+pdfs),
-        expand(eventdir + '/{filename}',
-               generator=generators,
-               source=["xddp"], domain=sources, event=events,
-               filename=pngs+pdfs),
+               filename=filenames)
+
+
+        # expand(eventdir + '/{filename}',
+        #        generator=generators,
+        #        source=["frdp"], domain=domains, event=events,
+        #        filename=pngs+pdfs),
+        # expand(eventdir + '/{filename}',
+        #        generator=generators,
+        #        source=["xddp"], domain=sources, event=events,
+        #        filename=pngs+pdfs),
         
 rule all_UVCGAN:
     input:
@@ -87,15 +89,16 @@ rule all_UVCGAN:
         expand(eventdir + '/{filename}',
                generator=generators[:1],
                source=sources, domain=domains, event=events,
-               filename=filenames),
-        expand(eventdir + '/{filename}',
-               generator=generators[:1],
-               source=["frdp"], domain=domains, event=events,
-               filename=pngs+pdfs),
-        expand(eventdir + '/{filename}',
-               generator=generators[:1],
-               source=["xddp"], domain=sources, event=events,
-               filename=pngs+pdfs),
+               filename=filenames)
+
+        # expand(eventdir + '/{filename}',
+        #        generator=generators[:1],
+        #        source=["frdp"], domain=domains, event=events,
+        #        filename=pngs+pdfs),
+        # expand(eventdir + '/{filename}',
+        #        generator=generators[:1],
+        #        source=["xddp"], domain=sources, event=events,
+        #        filename=pngs+pdfs),
         
                
 rule get_resp_b:
@@ -211,23 +214,28 @@ rule process_dot:
               {input} {output}
     """
 
-
+rule coalesce:
+    input:
+        expand('{outdir}/{source}/{{domain}}/{event}/{{tier}}.npz',
+               outdir=[outdir], source=sources, event=events)
+    output:
+        f'{outdir}/coal/{{domain}}/all/{{tier}}.npz'
+    run:
+        coalesce(input, output[0])
 
 
 # fake real diff plot
 rule frdplot:
     input:
-        fake = f'{outdir}/fake/{{domain}}/{{event}}/{{tier}}.npz',
-        real = f'{outdir}/real/{{domain}}/{{event}}/{{tier}}.npz'
+        images = rules.coalesce.output
     output:
         plot = f'{outdir}/{{source}}/{{domain}}/{{event}}/{{tier}}.{{ext}}'
     wildcard_constraints:
-        source = "frdp",
-        ext = "png|pdf"
+        source = "frdp"
     params:
         wc = lambda wc: wc
     run:
-        plot_frdp(params.wc, input.fake, input.real, output.plot)
+        plot_frdp(params.wc, input.images, output.plot)
 
 # cross-domain diff plot
 rule xddplot:
@@ -248,10 +256,7 @@ rule xddplot:
 # Paired image metric for comparing real/fake
 rule pimp:
     input:
-        r = expand('{outdir}/real/{{domain}}/{event}/{{tier}}.npz',
-                   outdir=[outdir], event=events),
-        f = expand('{outdir}/fake/{{domain}}/{event}/{{tier}}.npz',
-                   outdir=[outdir], event=events)
+        coal = rules.coalesce.output
     output:
         expand('{outdir}/pimp/{{domain}}/{{tier}}.npz',
                outdir=[outdir], event=events)
@@ -260,7 +265,7 @@ rule pimp:
     params:
         wc = lambda wc: wc
     run:
-        pimp(params.wc, input.f, input.r, output)
+        pimp(params.wc, input.coal[0], output[0])
         
 
 rule pimp_all:
@@ -272,7 +277,7 @@ rule pimp_all:
 
 rule pimplot:
     input:
-        rules.pimp_all.input
+        rules.pimp.output
     output:
         f'{outdir}/pimp/{{domain}}/{{tier}}.{{ext}}'
     wildcard_constraints:
@@ -280,7 +285,7 @@ rule pimplot:
     params:
         wc = lambda wc: wc
     run:
-        plot_pimp(params.wc, input, output);
+        plot_pimp(params.wc, input[0], output[0]);
            
 rule pimplot_all:
     input:

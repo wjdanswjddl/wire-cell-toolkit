@@ -2,10 +2,14 @@
 '''
 Functions for use in adc-noise-sig.smake
 '''
+import os
 import numpy
+import zipfile
+from collections import defaultdict, namedtuple
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+from matplotlib.gridspec import GridSpec
 from numpy.ma import masked_array, masked_where, masked_invalid
 
 # jsonnet -J cfg -e 'local a=import "test/pdsp-adc.jsonnet"; a.voltageperadc'
@@ -14,6 +18,9 @@ voltageperadc=3.4179687499999998e-10
 toffset=873
 
 def load_array(fname, index=0, with_name=False):
+    if type(fname) != str:
+        return fname
+
     fp = numpy.load(fname)
     name = list(fp.keys())[index]
     arr = fp[name]
@@ -28,6 +35,63 @@ def transform_array(orig, copy, trans=numpy.round, dtype='f2'):
 
 adcmm=10
 voltmm=adcmm*voltageperadc
+
+def coalesce(fnames, out):
+    '''
+    Bring arrays in many files to one file to help reduce snakemake overhead
+    '''
+    with zipfile.ZipFile(out, mode='w', compression=zipfile.ZIP_DEFLATED) as zf:
+        for fname in fnames:
+            base = os.path.splitext(fname)[0]
+            aname = "_".join(base.split("/")[-5:])
+            print (aname)
+            aname += ".npy"
+            # not much faster
+            # afile = f'/dev/shm/{aname}'
+            afile = aname
+
+            fp = numpy.load(fname);
+            arr = fp[list(fp.keys())[0]]
+            numpy.save(afile, arr)
+            zf.write(afile, aname)
+            os.remove(afile)
+        
+
+    # arrs = dict();
+    # for fname in fnames:
+    #     fp = numpy.load(fname);
+
+    #     # .../adc-noise-sig/UVCGAN/fake/b/258/vlt.npz
+    #     base = os.path.splitext(fname)[0]
+    #     aname = "_".join(base.split("/")[-5:])
+    #     arrs[aname] = fp[list(fp.keys())[0]]
+    # numpy.savez_compressed(out, **arrs)
+
+def coal_aname(wc, **kwds):
+    '''
+    Form coalesced array name based on object and any overriding keywords.
+    '''
+    d = wc._asdict()
+    d.update(kwds)
+    return "{generator}_{source}_{domain}_{event}_{tier}".format(**d)
+
+def coal_dict(aname):
+    parts = aname.split("_")
+    return dict(generator=parts[0],
+                source=parts[1],
+                domain=parts[2],
+                event=parts[3],
+                tier=parts[4]);
+Coal = namedtuple("Coal", "generator source domain event tier")
+def coal_tuple(aname):
+    if "/" in aname:            # path
+        parts = os.path.splitext(aname)[0][-5:]
+    else:                       # array name
+        parts = aname.split("_")
+
+    return Coal(*parts)
+
+    
 
 def plot_params(generator, source, tier, domain):
     'Return dictionary of plotting parameters based wildcards'
@@ -178,59 +242,106 @@ def plot_diff(wc, files, params):
     # plt.savefig(files[2], bbox_inches='tight')
     plt.savefig(files[2])
 
+def plot_frdp(wc, images, plot):
+    arrs = numpy.load(images)
+    fake = arrs[coal_aname(wc, source="fake")]
+    real = arrs[coal_aname(wc, source="real")]
 
-def plot_frdp(wc, fake, real, plot):
     fp = plot_params(wc.generator, "fake", wc.tier, wc.domain)
     rp = plot_params(wc.generator, "real", wc.tier, wc.domain)
     dp = plot_params(wc.generator, "diff", wc.tier, wc.domain)
     plot_diff(wc, [fake,real,plot], [fp, rp, dp])
 
 def plot_xddp(wc, afile, bfile, pfile):
+    arrs = numpy.load(images)
+    a = arrs[coal_aname(wc, domain="a")]
+    b = arrs[coal_aname(wc, domain="b")]
+
     ap = plot_params(wc.generator, wc.source, wc.tier, "a")
     bp = plot_params(wc.generator, wc.source, wc.tier, "b")
     dp = plot_params(wc.generator, "xddp", wc.tier, "ab")
-    plot_diff(wc, [afile, bfile, pfile], [ap, bp, dp])
+    plot_diff(wc, [a, b, pfile], [ap, bp, dp])
 
 
-def pimp(wc, fakefs, realfs, pfile):
+def pimp(wc, coal, pfile):
     fp = plot_params(wc.generator, 'fake', wc.tier, wc.domain)
     rp = plot_params(wc.generator, 'real', wc.tier, wc.domain)
     # dp = plot_params(wc.generator, "pimp", wc.tier, wc.domain)
-    fes = list()                # event
-    res = list()                # numbers
+    evs = list()                # event numbers
     fss = list()
     rss = list()
     l1s = list()
-    l2s = list()
-    for ff,rf in zip(fakefs, realfs):
-        print(ff)
-        fa = numpy.load(ff)[fp['aname']]
-        print(rf)
-        ra = numpy.load(rf)[rp['aname']]
-        
-        fes.append(int(ff.split('/')[-2]))
-        res.append(int(rf.split('/')[-2]))
+
+    l2as = list()
+
+    # arrs["real"]["<eve>"]
+    arrs = defaultdict(dict)
+
+    fp = numpy.load(coal)
+    for aname in fp.keys():
+        cobj = coal_tuple(aname)
+        if cobj.tier != wc.tier:
+            continue
+        if cobj.domain != wc.domain:
+            continue
+        if cobj.generator != wc.generator:
+            continue
+        if cobj.source not in ("real", "fake"):
+            continue
+
+        arrs[cobj.source][cobj.event] = (cobj, fp[aname])
+    
+    reve = list(arrs["real"].keys())
+    reve.sort()
+    feve = list(arrs["fake"].keys())
+    feve.sort()
+    if reve != feve:
+        raise ValueError("mismatch in event numbers")
+
+    for eve in reve:
+        fo,fa = arrs["fake"][eve]
+        ro,ra = arrs["real"][eve]
+
+        evs.append(eve)
 
         fss.append(numpy.sum(fa))
         rss.append(numpy.sum(ra))
         l1s.append(numpy.sum(numpy.abs(fa-ra)))
-        l2s.append(numpy.sum((fa-ra)**2))
+        l2 = numpy.sum((fa-ra)**2)
+        l2as.append((l2, fa, ra))
 
-    numpy.savez_compressed(pfile[0],
+    l2s = [t[0] for t in l2as]
+
+    # get images for largest l2
+    l2as.sort()
+    ml2,fml2,rml2 = l2as[0]
+
+    
+    numpy.savez_compressed(pfile,
                            l1=numpy.array(l1s),
                            l2=numpy.array(l2s),
-                           fe=fes,
-                           re=res,
+                           fml2=fml2,
+                           rml2=rml2,
+                           ev=reve,
                            fsum=numpy.array(fss),
                            rsum=numpy.array(rss))
     
     
 def plot_pimp(wc, ifile, ofile):
-    arrs = numpy.load(ifile[0])
+    arrs = numpy.load(ifile)
 
-    fig, axes = plt.subplots(nrows=1, ncols=3, sharex=True, sharey=True)
+    fig = plt.figure()
+    gs = GridSpec(2, 6, figure=fig)
 
-    stit = f'{wc.tier} ({wc.generator})'
+    axes = [
+        fig.add_subplot(gs[0, 0:2]),
+        fig.add_subplot(gs[0, 2:4]),
+        fig.add_subplot(gs[0, 4:6])
+    ]
+
+    #fig, axes2 = plt.subplots(nrows=2, ncols=3)
+
+    stit = f'{wc.tier} ({wc.generator}, domain "{wc.domain}")'
     fig.suptitle(stit)
 
     axes[0].set_title('Total')
@@ -244,4 +355,63 @@ def plot_pimp(wc, ifile, ofile):
     axes[2].set_title('L2(GAN,Sim)')
     axes[2].hist(arrs['l2'])
 
-    plt.savefig(ofile[0])
+    axes = [
+        fig.add_subplot(gs[1, 0:3]),
+        fig.add_subplot(gs[1, 3:6])
+    ]
+
+    fml2 = arrs['fml2']
+    rml2 = arrs['rml2']
+
+    if fml2.shape == (256,256): # patch
+        im = axes[0].imshow(fml2)
+        plt.colorbar(im);
+        im = axes[1].imshow(rml2)
+        plt.colorbar(im);
+    else:                       # full
+        im = axes[0].imshow(fml2[:256,1000:1256])
+        plt.colorbar(im);
+        im = axes[1].imshow(rml2[:256,1000:1256])
+        plt.colorbar(im);
+    plt.savefig(ofile)
+
+def main_coal_file(coalfile, *evefiles):
+    coalesce(evefiles, coalfile)
+
+
+def main_pimp(*evefiles):
+    parts = os.path.splitext(evefiles[0])[0].split("/")[-5:]
+    parts[3] = "all";
+    wc = Coal(*parts)
+    print (wc)
+
+    name = f'{wc.generator}-{wc.domain}-{wc.tier}'
+    coalfile = name + '-coal.npz'
+    pimpfile = name + '-pimp.npz'
+
+    if os.path.exists(coalfile):
+        print(f"file exists, not remaking: {coalfile}")
+    else:
+        coalesce(evefiles, coalfile)
+        print(f'coalesced to {coalfile}')
+
+    if os.path.exists(pimpfile):
+        print(f"file exists, not remaking: {pimpfile}")
+    else:
+        pimp(wc, coalfile, pimpfile)
+        print(f'pimped to {pimpfile}')
+
+    plotfile = name + "-pimp.pdf"
+    plot_pimp(wc, pimpfile, plotfile)
+    print(f'plotted to {plotfile}')    
+
+if '__main__' == __name__:
+    import sys
+
+    meth = globals()["main_" + sys.argv[1]]
+    got = meth(*sys.argv[2:])
+    print(got)
+
+    # coalesce(sys.argv[2:], sys.argv[1])
+    # /home/bv/wrk/wct/point-cloud/toolkit/build/sigproc/test/adc-noise-sig/ACLGAN/pimp/a/sig.npz
+    
