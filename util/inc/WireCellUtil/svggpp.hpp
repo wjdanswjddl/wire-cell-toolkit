@@ -153,6 +153,12 @@ namespace svggpp {
     xml_t polygon(const std::vector<point_t>& pts,
                   xml_t attrs = xml_t::object());
 
+    xml_t title(const std::string& tit,
+                double x, double y, double width, double height,
+                xml_t attrs = xml_t::object());
+    xml_t title(const std::string& tit,
+                xml_t attrs = xml_t::object());
+
     /// Abstract things and grouping
 
     /// Produces a <style> element.  Note there is also a style

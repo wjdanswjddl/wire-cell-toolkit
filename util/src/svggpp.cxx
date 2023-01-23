@@ -188,7 +188,6 @@ xml_t svggpp::endpoints(double x1, double y1, double x2, double y2)
         {"y2", std::to_string(y2)}});
 }
 
-
 view_t svggpp::viewbox(const xml_t& xml)
 {
     if (xml.contains(tag_key)) {
@@ -412,6 +411,24 @@ xml_t svggpp::style(const std::string& css)
 {
     return element("style", nullptr, css);
 }
+
+xml_t svggpp::title(const std::string& tit,
+                    double x, double y, double width, double height,
+                    xml_t attrs)
+{
+    attrs.update(svggpp::point(x,y));
+    attrs.update(svggpp::size(width,height));
+    xml_t xtit = tit;
+    return element("title", attrs, xtit);
+
+}
+xml_t svggpp::title(const std::string& tit, xml_t attrs)
+{
+    xml_t xtit = tit;
+    return element("title", attrs, xtit);
+}
+
+
 
 xml_t svggpp::view(const std::string& id, xml_t attr, xml_t body)
 {

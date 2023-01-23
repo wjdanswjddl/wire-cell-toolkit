@@ -99,8 +99,9 @@ int main(int argc, char* argv[])
 
     // std::cerr << top.dump(4) << std::endl;
 
+    // .bounds { fill: white; fill-opacity: 0.1; }
     topb.insert(topb.begin(), style(R"(
-.bounds { fill: purple; fill-opacity: 0.1; }
+.blob_corners { fill: black; stroke: white; }
 .plane0 { fill: red;}
 .plane1 { fill: green; }
 .plane2 { fill: blue; }
@@ -110,9 +111,9 @@ int main(int argc, char* argv[])
 )"));
 
     // for debugging:
-    topb.insert(topb.begin(), element("rect", {
-                {"width", "100%"}, {"height","100%"},
-                {"fill", "pink"}}));
+    // topb.insert(topb.begin(), element("rect", {
+    //             {"width", "100%"}, {"height","100%"},
+    //             {"fill", "pink"}}));
 
     std::string svgname;
     if (argc == 3) {

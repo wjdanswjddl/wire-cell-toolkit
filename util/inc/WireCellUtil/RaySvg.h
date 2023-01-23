@@ -45,7 +45,7 @@ namespace WireCell::RaySvg {
 
     // Return <svg> of active area.  The view port is empty.  The
     // viewbox reflects the user coordinates.
-    svggpp::xml_t svg_active_area(const Geom& geom);
+    svggpp::xml_t g_active_area(const Geom& geom);
 
     // Return <g> of wire plane activities as strips.
     svggpp::xml_t g_active_strips(const Geom& geom, const RayGrid::activities_t& acts);

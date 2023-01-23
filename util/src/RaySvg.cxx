@@ -91,7 +91,7 @@ const WireCell::WireSchema::Wire& get_wire(const std::vector<WireCell::WireSchem
 
 svggpp::xml_t WireCell::RaySvg::svg_dual(const Geom& geom, const RayGrid::activities_t& acts, const RayGrid::blobs_t& blobs)
 {
-    auto aa = svg_active_area(geom);
+    auto aa = g_active_area(geom);
     id(aa, "aa");
     auto aabb = viewbox(aa);
     attrs(aa).erase("viewBox");
@@ -200,7 +200,7 @@ svggpp::xml_t WireCell::RaySvg::svg_dual(const Geom& geom, const RayGrid::activi
 }
 svggpp::xml_t WireCell::RaySvg::svg_full(const Geom& geom, const RayGrid::activities_t& acts, const RayGrid::blobs_t& blobs)
 {
-    auto aa = svg_active_area(geom);
+    auto aa = g_active_area(geom);
     id(aa, "aa");
     auto aabb = viewbox(aa);
     attrs(aa).erase("viewBox");
@@ -275,7 +275,7 @@ svggpp::xml_t WireCell::RaySvg::svg_full(const Geom& geom, const RayGrid::activi
 
 }
 
-svggpp::xml_t WireCell::RaySvg::svg_active_area(const Geom& geom)
+svggpp::xml_t WireCell::RaySvg::g_active_area(const Geom& geom)
 {
     BoundingBox bb;
     RayGrid::crossings_t xings = {
@@ -293,7 +293,7 @@ svggpp::xml_t WireCell::RaySvg::svg_active_area(const Geom& geom)
 
     viewbox(attr, project(bb.bounds()));
 
-    auto top = svg(attr, pgon);
+    auto top = group(attr, pgon);
     return top;
 }
 
@@ -348,8 +348,16 @@ svggpp::xml_t WireCell::RaySvg::g_active_wires(const Geom& geom, const RayGrid::
 
     std::vector<int> plane_numbers = {2,1,0};
 
+    std::vector<int> wiresoff(3,0);
+    wiresoff[1] = geom.wires[0].size();
+    wiresoff[2] = wiresoff[1] + geom.wires[1].size();
+
     for (int plane : plane_numbers) {
         int layer = plane+2;
+
+        auto pgroup = group(css_class(format("plane%d", plane)));
+        auto& pgroupb = body(pgroup);
+
         const auto & act = acts[layer];
         
         const auto& wires = geom.wires[plane];
@@ -371,11 +379,15 @@ svggpp::xml_t WireCell::RaySvg::g_active_wires(const Geom& geom, const RayGrid::
                     w.head-phalf
                 };
                 bb(pts.begin(), pts.end());
-                auto spgon = polygon(
-                    to_ring( pts ),
-                    css_class(format("plane%d wip%d", plane, wip)));
-                topb.push_back(spgon);
+                auto tit = title(format("p-%d wip-%d wid=%d wcn=%d",
+                                        plane, wip, w.ident, wip+wiresoff[plane]));
+                auto spgon = polygon( to_ring( pts ) );
+                // don't classify each wire....
+                // css_class(format("wip%d", wip)));
+                body(spgon).push_back(tit);
+                pgroupb.push_back(spgon);
             }
+            topb.push_back(pgroup);
         }
     }
 
@@ -392,12 +404,17 @@ svggpp::xml_t WireCell::RaySvg::g_blob_corners(const Geom& geom, const RayGrid::
     for (const auto& blob : blobs) {
         ++count;
 
-        auto grp = group(css_class(format("blobnum%d", count)));
+        // don't classify each blob
+        // css_class(format("blob%d", count))
+        auto grp = group();
 
         for (const auto& [a,b] : blob.corners()) {
             auto pt = geom.coords.ray_crossing(a,b);
             bb(pt);
             auto cir = circle(project(pt)); // fixme: radius
+            auto tit = title(format("(%d,%d),(%d,%d)",
+                                    a.layer, a.grid, b.layer, b.grid));
+            body(cir).push_back(tit);
             topb.push_back(cir);
         }
     }
@@ -424,7 +441,7 @@ svggpp::xml_t WireCell::RaySvg::g_blob_areas(const Geom& geom, const RayGrid::bl
         bbb(pts.begin(), pts.end());
         bbb.pad_rel(0.1);
 
-        std::string bname = format("blobnum%d", count);
+        std::string bname = format("blob%d", count);
 
         auto spgon = polygon(
             to_ring( pts ),
