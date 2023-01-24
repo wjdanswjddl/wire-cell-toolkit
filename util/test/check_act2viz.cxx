@@ -78,10 +78,11 @@ int main(int argc, char* argv[])
         int pmax = std::min(nrays[level]-1, atoi(pp[1].c_str()));
 
         auto& m = measures[level];
-        if (m.size() <= (size_t)pmax) {
-            m.resize(pmax+1, 0);
+        if (m.size() < (size_t)pmax) {
+            m.resize(pmax, 0);
         }
-        for (int pind=pmin; pind<=pmax; ++pind) {
+        // A strip's upper most bound is not "in" the strip activities
+        for (int pind=pmin; pind<pmax; ++pind) {
             m[pind] += 1;
         }
         // std::cerr << "level=" << level << " pind=["<<pmin<<","<<pmax<<"]\n";
