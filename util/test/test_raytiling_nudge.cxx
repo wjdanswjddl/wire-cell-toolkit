@@ -5,6 +5,7 @@
 #include <WireCellUtil/RaySvg.h>
 #include <vector>
 #include <iostream>
+#include <fstream>
 
 using namespace WireCell;
 
@@ -13,12 +14,16 @@ int main(int argc, char* argv[])
     WireSchema::StoreDB storedb;
     std::vector<size_t> nwires = {2400, 2400, 3456};
     std::vector<size_t> wire_offset = {0, 2400, 4800};
+    std::vector<RaySvg::wire_vector_t> plane_wires;
 
     for (size_t ind=0; ind<3; ++ind) {
         auto& plane = get_append(storedb, ind, 0, 0, 0);
+        size_t ini = storedb.wires.size();
         size_t got = DetectorWires::plane(storedb, plane, DetectorWires::uboone[ind]);
         std::cerr << ind << ": " << nwires[ind] << "\n";
         Assert(got == nwires[ind]);
+        auto beg = storedb.wires.begin()+ini;
+        plane_wires.push_back(RaySvg::wire_vector_t(beg, beg+got));
     }
     DetectorWires::flat_channels(storedb);
 
@@ -38,6 +43,7 @@ int main(int argc, char* argv[])
     auto raypairs = WireSchema::ray_pairs(store, store.faces()[0]);
 
     RayGrid::Coordinates coords(raypairs);
+    RaySvg::Geom geom{coords, plane_wires};
 
     const double hit=1.0;
     for (size_t span=1; span<10; span +=2 ) 
@@ -59,80 +65,13 @@ int main(int argc, char* argv[])
             }
             std::cerr << iwire << ": " << blobs.size() << "\n";
 
-            RaySvg::Scene scene(coords, store);
-
-            scene(blobs);
-            scene(activities);
-
             std::stringstream ss;
-            ss << argv[0] << "-s" << span << "-w" << iwire << ".svg";
-            scene.blob_view(ss.str());
-            std::cerr << ss.str() << "\n";
-            // std::vector<svgshape> svgwires;
-            // std::vector<Point> corners;
+            ss << argv[0] << "-span" << span << ".svg";
 
+            auto top = RaySvg::svg_full(geom, activities, blobs);
+            std::ofstream ofstr(ss.str());
+            ofstr << svggpp::dumps(top);
 
-            // for (const auto& blob : blobs) {
-            //     std::cerr << "\t" << blob.as_string() << "\n";
-
-            //     std::stringstream swires;
-            //     std::string comma = "";
-            //     for (const auto& strip : blob.strips()) {
-            //         if (strip.layer <= 1) continue;
-
-            //         for (auto wip = strip.bounds.first; wip < strip.bounds.second; ++wip) {
-            //             svgwires.emplace_back(wline(strip.layer, wip));
-            //         }
-
-            //         swires << comma
-            //                << strip.bounds.first + wo(strip.layer)
-            //                << ":"
-            //                << strip.bounds.second + wo(strip.layer)
-            //                << ":1:red";
-            //             // << colors[strip.layer];
-            //         comma = ", ";
-            //     }
-            //     for (const auto& [a,b] : blob.corners()) {
-            //         const auto c = coords.ray_crossing(a,b);
-            //         bb(c);
-            //         corners.push_back(c);
-
-            //         if (a.layer >= 2) {
-            //             swires << comma
-            //                    << a.grid + wo(a.layer)
-            //                    << ":"
-            //                    << a.grid + wo(a.layer) + 1
-            //                    << ":1:green";
-            //             comma = ", ";
-            //         }
-
-            //         if (b.layer >= 2) {
-            //             swires << comma
-            //                    << b.grid + wo(b.layer)
-            //                    << ":"
-            //                    << b.grid + wo(b.layer) + 1
-            //                    << ":1:green";
-            //             comma = ", ";
-            //         }
-            //     }
-            //     std::cerr << swires.str() << "\n";
-            // } // blobs
-
-            // Vector pad(10,10,10);
-            // bb(bb.bounds().first - pad);
-            // bb(bb.bounds().second + pad);
-
-            // std::stringstream ss;
-            // ss << argv[0] << "-" << iwire << ".svg";
-            // auto doc = RaySvg::document(ss.str(), bb.bounds());
-            // for (const auto& svgwire : svgwires) {
-            //     doc << *svgwire;
-            // }
-            // for (const auto& pt : corners) {
-            //     doc << RaySvg::circle(pt, corner_radius);
-            // }
-            // doc.save();
-            // std::cerr << ss.str() << "\n";
         }
 
     }

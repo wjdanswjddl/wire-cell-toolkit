@@ -25,7 +25,7 @@ namespace WireCell {
         friend std::ostream& operator<<(std::ostream&, const D3Vector<U>&);
 
         typedef std::vector<T> D3VectorStore;
-        D3VectorStore m_v;
+        D3VectorStore m_v{3};
 
       public:
 
@@ -33,16 +33,21 @@ namespace WireCell {
 
         /// Construct from elements.
         D3Vector(const T& a = 0, const T& b = 0, const T& c = 0)
-          : m_v(3)
+            : m_v(3,0)
         {
             this->set(a, b, c);
         }
 
         // Copy constructor.
         D3Vector(const D3Vector& o)
-          : m_v(3)
+            : m_v(3,0)
         {
-            this->set(o.x(), o.y(), o.z());
+            if (o) {
+                this->set(o.x(), o.y(), o.z());
+            }
+            else {
+                this->invalidate();
+            }
         }
 
         // Move constructor.
@@ -51,7 +56,7 @@ namespace WireCell {
         { }
 
         D3Vector(const T d[3])
-          : m_v(3)
+            : m_v(3,0)
         {
             this->set(d[0], d[1], d[2]);
         }
@@ -59,14 +64,19 @@ namespace WireCell {
         // Assignment.
         D3Vector& operator=(const D3Vector& o)
         {
-            this->set(o.x(), o.y(), o.z());
+            if (o) {
+                this->set(o.x(), o.y(), o.z());
+            }
+            else {
+                this->invalidate();
+            }
             return *this;
         }
 
         /// Set vector from elements;
         void set(const T& a = 0, const T& b = 0, const T& c = 0)
         {
-            m_v.resize(3);
+            m_v.resize(3, 0);
             m_v[0] = a;
             m_v[1] = b;
             m_v[2] = c;
@@ -78,7 +88,7 @@ namespace WireCell {
         /// Convert from other typed vector.
         template <class TT>
         D3Vector(const D3Vector<TT>& o)
-          : m_v(3)
+            : m_v(3,0)
         {
             this->set(o.x(), o.y(), o.z());
         }
@@ -143,6 +153,12 @@ namespace WireCell {
         D3Vector& operator+=(const D3Vector& other)
         {
             this->set(x() + other.x(), y() + other.y(), z() + other.z());
+            return *this;
+        }
+
+        D3Vector& operator-=(const D3Vector& other)
+        {
+            this->set(x() - other.x(), y() - other.y(), z() - other.z());
             return *this;
         }
 

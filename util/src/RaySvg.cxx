@@ -1,190 +1,472 @@
 #include "WireCellUtil/RaySvg.h"
 #include "WireCellUtil/Exceptions.h"
+#include "WireCellUtil/String.h"
+#include "WireCellUtil/Range.h"
 
 #include <boost/range/irange.hpp>
 
-auto irange = [](const std::pair<int,int>& p) -> auto {
-    return boost::irange(p.first, p.second);
-};
+using namespace svggpp;
 
-using namespace WireCell;
+// using namespace WireCell;
+using WireCell::Ray;
+using WireCell::Point;
+using WireCell::Vector;
+using namespace WireCell::Range;
 using namespace WireCell::RaySvg;
+using namespace WireCell::String;
 
-
-svg::Document RaySvg::document(const std::string& svgname, const Ray& bounds, int wpx, int hpx, double scale)
+// Define the projection from 3D space to 2D space.  Avoid performing
+// the projection inline and instead call this.
+svggpp::point_t WireCell::RaySvg::project(const Point& pt)
 {
-    if (scale == 0) {
-        const auto rel = ray_vector(bounds);
-        const double real_width = x(rel);
-        scale = wpx/real_width;
+    return svggpp::point_t(pt.z(), pt.y());
+}
+
+svggpp::view_t WireCell::RaySvg::project(const Ray& bbray)
+{
+    auto bb1 = project(bbray.first);
+    auto bbvec = project(ray_vector(bbray));
+    view_t view;
+    view.x = bb1.first;
+    view.y = bb1.second;
+    view.width = bbvec.first;
+    view.height = bbvec.second;
+    return view;
+}
+
+// convert raygrid to svggpp
+
+static
+svggpp::xml_t to_point(const Point& pt)
+{
+    return point(project(pt));
+}
+static
+std::vector<svggpp::point_t> to_points(const std::vector<Point>& pts)
+{
+    std::vector<svggpp::point_t> spts;
+    for (const auto& pt : pts) {
+        spts.emplace_back(project(pt));
     }
+    return spts;
+}
+static
+std::vector<svggpp::point_t> to_ring(const std::vector<Point>& pts)
+{
+    size_t npts = pts.size();
+    Point avg;
+    for (const auto& pt : pts) {
+        avg += pt;
+    }
+    avg = avg / (double)npts;
+    std::vector<double> ang(npts);
+    std::vector<size_t> indices(npts);
+    for (size_t ind : irange(npts)) {
+        auto dir = pts[ind] - avg;
+        ang[ind] = atan2(dir[2], dir[1]);
+        indices[ind] = ind;
+    }
+    std::sort(indices.begin(), indices.end(),
+              [&](size_t a, size_t b) -> bool {
+                  return ang[a] < ang[b];
+              });    
+
+    std::vector<svggpp::point_t> spts(npts);
+    for (size_t ind : irange(npts)) {
+        spts[ind] = project(pts[indices[ind]]);
+    }
+    return spts;
+}
+
+const WireCell::WireSchema::Wire& get_wire(const std::vector<WireCell::WireSchema::Wire>& wires, int ind)
+{
+    if (ind < 0) {
+        ind = 0;
+    }
+    else if (ind >= (int)wires.size()) {
+        ind = ((int)wires.size())-1;
+    }
+    return wires[ind];
+}
+
+svggpp::xml_t WireCell::RaySvg::svg_dual(const Geom& geom, const RayGrid::activities_t& acts, const RayGrid::blobs_t& blobs)
+{
+    auto aa = g_active_area(geom);
+    id(aa, "aa");
+    auto aabb = viewbox(aa);
+    attrs(aa).erase("viewBox");
+    auto common = defs(aa);
     
+    const double nominal_size = 512;
 
-    // const svg::Dimensions dims(x(rel), y(rel));
-    const svg::Dimensions dims(wpx, hpx);
+    // Nominal view
+    auto aabb1 = aabb;
 
-    // Offset is ADDED to a user point prior to being MULTIPLIED by
-    // scale in order to get pixel coordinates.  If origin is Bottom
-    // (Right) then Y (X) pixel coordinate is found by subtracting
-    // from height (width).  Because offset are ADDED we must 
-    // take negative so origin is equivalent to min bounds.
-    double off_x = -x(bounds.first), off_y = -y(bounds.first);
+    // A view displaced diagonally by size, same size
+    auto aabb2 = aabb1;
+    aabb2.x += aabb2.width;
+    aabb2.y += aabb2.height;
 
-    const svg::Point origin_offset(off_x, off_y);
-    // std::cerr << "RaySvg: ["<<wpx<<","<<hpx<<"] scale="<<scale<< "pix/[length] "
-    //           << " offset=(" << off_x << "," << off_y << ") "
-    //           << svgname << "\n";
-    svg::Layout layout(dims, svg::Layout::BottomLeft, scale, origin_offset);
-    return svg::Document(svgname, layout);
-}
-
-Scene::Scene(const RayGrid::Coordinates& coords,
-             const WireSchema::Store& wires_store)
-    : m_coords(coords)
-    , m_wires(wires_store)
-{
-    for (auto plane : wires_store.planes()) {
-        m_wireobjs.push_back(wires_store.wires(plane));
-        m_pvecs.push_back(wires_store.mean_pitch(plane));
+    // what we will return.
+    auto top = svg(svg_header);
+    id(top, "top");
+    view_t topv = aabb;
+    topv.x = topv.y = 0;
+    if (topv.width > topv.height) { // landscape
+        topv.height = nominal_size * topv.height/topv.width;
+        topv.width = nominal_size;
     }
+    else {                      // portrait
+        topv.width = nominal_size * topv.width/topv.height;
+        topv.height = nominal_size;
+    }
+    viewport(top, topv);
+    viewbox(top, aabb1);
+
+    // coarse
+    xml_t s1a;
+    viewport(s1a, aabb2);
+    viewbox(s1a, aabb);
+    s1a.update({{"id","s1"}, {"class","coarse"}});
+    auto s1 = svg(s1a);
+
+    auto v1 = view("coarse");
+    viewbox(v1, aabb2);
+
+
+    // fine view, for zooms.  viewport diagonal from above
+    xml_t s2a;
+    viewport(s2a, aabb1);
+    viewbox(s2a, aabb);
+    s2a.update({{"id","s2"}, {"class","fine"}});
+    auto s2 = svg(s2a);
+
+    auto v2 = view("fine");
+    viewbox(v2, aabb1);
+    
+    // Details to put in coarse or fine views
+
+    auto sas = g_active_strips(geom, acts);
+    id(sas, "sas");
+    body(common).push_back(sas);
+    auto saw = g_active_wires(geom, acts);
+    id(saw, "saw");
+    body(common).push_back(saw);
+    auto sba = g_blob_areas(geom, blobs);
+    id(sba, "sba");
+    body(common).push_back(sba);
+    auto sbc = g_blob_corners(geom, blobs);
+    id(sbc,"sbc");
+    body(common).push_back(sbc);
+
+    // Coarse
+
+    auto& s1b = body(s1);
+    s1b.push_back(use(link(aa))); // active
+    s1b.push_back(use(link(sas))); // strips
+    s1b.push_back(use(link(sba))); // blobs
+
+    // Fine 
+
+    auto& s2b = body(s2);
+    s2b.push_back(use(link(aa))); // active
+    s2b.push_back(use(link(saw))); // wires
+    s2b.push_back(use(link(sba))); // blobs
+    s2b.push_back(use(link(sbc))); // corners
+
+    // Top 
+    auto& topb = body(top);
+
+    topb.push_back(common);
+    topb.push_back(v1);
+    topb.push_back(v2);
+    topb.push_back(anchor(link(v2), nullptr, s1));
+    topb.push_back(anchor(link(v1), nullptr, s2));
+
+    return top;
+
+    // coarse
+    // - use aa with x=0,y=0
+    // - active strips
+    // - blob areas with link to fine blob areas
+
+    // fine
+    // - use aa with x=100,y=100
+    // - active wires
+    // - blob areas with link to coarse 
+    // - blob corners
+
+
+}
+svggpp::xml_t WireCell::RaySvg::svg_full(const Geom& geom, const RayGrid::activities_t& acts, const RayGrid::blobs_t& blobs)
+{
+    auto aa = g_active_area(geom);
+    id(aa, "aa");
+    auto aabb = viewbox(aa);
+    attrs(aa).erase("viewBox");
+    auto common = defs(aa);
+    
+    const double nominal_size = 2048;
+
+    // what we will return.
+    auto top = svg(svg_header);
+
+    id(top, "top");
+    view_t topv = aabb;
+    topv.x = topv.y = 0;
+    if (topv.width > topv.height) { // landscape
+        topv.height = nominal_size * topv.height/topv.width;
+        topv.width = nominal_size;
+    }
+    else {                      // portrait
+        topv.width = nominal_size * topv.width/topv.height;
+        topv.height = nominal_size;
+    }
+    viewport(top, topv);
+    viewbox(top, aabb);
+
+    // fine view, for zooms.  viewport diagonal from above
+    xml_t s2a;
+    viewport(s2a, aabb);
+    viewbox(s2a, aabb);
+    s2a.update({{"id","s2"}, {"class","fine"}});
+    auto s2 = svg(s2a);
+
+    auto v2 = view("fine");
+    viewbox(v2, aabb);
+    
+    // Details to put in coarse or fine views
+
+    auto saw = g_active_wires(geom, acts);
+    id(saw, "saw");
+    body(common).push_back(saw);
+    auto sba = g_blob_areas(geom, blobs);
+    id(sba, "sba");
+    body(common).push_back(sba);
+    auto sbc = g_blob_corners(geom, blobs);
+    id(sbc,"sbc");
+    body(common).push_back(sbc);
+
+    auto& s2b = body(s2);
+    s2b.push_back(use(link(aa))); // active
+    s2b.push_back(use(link(saw))); // wires
+    s2b.push_back(use(link(sba))); // blobs
+    s2b.push_back(use(link(sbc))); // corners
+
+    // Top 
+    auto& topb = body(top);
+
+    // User, feel free to tweak this.
+    topb.push_back(style(R"(
+.blob_corners { fill: black; stroke: white; }
+.plane0 { fill: red;}
+.plane1 { fill: green; }
+.plane2 { fill: blue; }
+.blob_areas { fill: yellow; }
+.wires { stroke: black; stroke-width: 0.1; }
+
+)"));
+
+    topb.push_back(common);
+    topb.push_back(v2);
+    topb.push_back(anchor(link(v2), nullptr, s2));
+
+    return top;
+
+    // coarse
+    // - use aa with x=0,y=0
+    // - active strips
+    // - blob areas with link to fine blob areas
+
+    // fine
+    // - use aa with x=100,y=100
+    // - active wires
+    // - blob areas with link to coarse 
+    // - blob corners
+
+
 }
 
-void Scene::operator()(const RayGrid::activities_t& acts)
+svggpp::xml_t WireCell::RaySvg::g_active_area(const Geom& geom)
 {
-    for (const auto& act : acts) {
-        m_activities.push_back(act);
-        for (const RayGrid::Strip& strip : act.make_strips()) {
-            m_astrips.push_back(strip);
-            for (auto grid : irange(strip.bounds)) {
-                int pind = strip.layer-2;
-                if (pind < 0) continue;
-                if (grid < 0) continue;
-                const auto& wobjs = m_wireobjs[pind];
-                if (grid >= (int)wobjs.size()) continue;
-                const auto& w = wobjs[pind];
+    BoundingBox bb;
+    RayGrid::crossings_t xings = {
+        { {0,0}, {1,0} },
+        { {0,0}, {1,1} },
+        { {0,1}, {1,1} },
+        { {0,1}, {1,0} } };
+    auto bpts = geom.coords.ring_points(xings);
+    bb(bpts.begin(), bpts.end());
 
-                Ray r(w.tail, w.head);
-                m_astrips_bb(r);     // fixme, use region
+    auto pts = to_points( bpts ) ;
+    auto pgon = polygon( pts );
+
+    auto attr = css_class("active bounds");
+
+    viewbox(attr, project(bb.bounds()));
+
+    auto top = group(attr, pgon);
+    return top;
+}
+
+
+svggpp::xml_t WireCell::RaySvg::g_active_strips(const Geom& geom, const RayGrid::activities_t& acts)
+{
+    BoundingBox bb;
+
+    auto top = group(css_class("activity strips"));
+    auto& topb = body(top);
+
+    std::vector<int> plane_numbers = {2,1,0};
+
+    for (int plane : plane_numbers) {
+        int layer = plane+2;
+        const auto & act = acts[layer];
+        
+        const auto& wires = geom.wires[plane];
+
+        const auto& pdir = geom.coords.pitch_dirs()[layer];
+        const auto& pmag = geom.coords.pitch_mags()[layer];
+        const auto phalf = 0.4*pmag*pdir;
+
+        const auto strips = act.make_strips();
+        // std::cerr << "plane=" << plane << " nstrips="<<strips.size() << "\n";
+        for (const RayGrid::Strip& strip : strips) {
+            const auto& w1 = get_wire(wires, strip.bounds.first);
+            const auto& w2 = get_wire(wires, strip.bounds.second-1);
+            std::vector<Point> pts = {
+                w1.tail-phalf,
+                w1.head-phalf,
+                w2.head+phalf,
+                w2.tail+phalf };
+            bb(pts.begin(), pts.end());
+            auto spgon = polygon(
+                to_ring( pts ),
+                css_class(format("plane%d", plane)));
+            topb.push_back(spgon);
+        }    
+    }
+
+    return top;
+}
+
+
+svggpp::xml_t WireCell::RaySvg::g_active_wires(const Geom& geom, const RayGrid::activities_t& acts)
+{
+    BoundingBox bb;
+
+    auto top = group(css_class("activity wires"));
+    auto& topb = body(top);
+
+    std::vector<int> plane_numbers = {2,1,0};
+
+    std::vector<int> wiresoff(3,0);
+    wiresoff[1] = geom.wires[0].size();
+    wiresoff[2] = wiresoff[1] + geom.wires[1].size();
+
+    for (int plane : plane_numbers) {
+        int layer = plane+2;
+
+        auto pgroup = group(css_class(format("plane%d", plane)));
+        auto& pgroupb = body(pgroup);
+
+        const auto & act = acts[layer];
+        
+        const auto& wires = geom.wires[plane];
+
+        const auto& pdir = geom.coords.pitch_dirs()[layer];
+        const auto& pmag = geom.coords.pitch_mags()[layer];
+        const auto phalf = 0.4*pmag*pdir;
+
+        const auto strips = act.make_strips();
+        // std::cerr << "plane=" << plane << " nstrips="<<strips.size() << "\n";
+        for (const RayGrid::Strip& strip : strips) {
+            for (auto wip : irange(strip.bounds)) {
+                // std::cerr << strip << " " << wip<< std::endl;
+                const auto& w = get_wire(wires, wip);
+                std::vector<Point> pts = {
+                    w.tail-phalf,
+                    w.tail+phalf,
+                    w.head+phalf,
+                    w.head-phalf
+                };
+                bb(pts.begin(), pts.end());
+                auto tit = title(format("p-%d wip-%d wid=%d wcn=%d",
+                                        plane, wip, w.ident, wip+wiresoff[plane]));
+                auto spgon = polygon( to_ring( pts ) );
+                // don't classify each wire....
+                // css_class(format("wip%d", wip)));
+                body(spgon).push_back(tit);
+                pgroupb.push_back(spgon);
             }
+            topb.push_back(pgroup);
         }
     }
+
+    return top;
 }
-void Scene::operator()(const RayGrid::blobs_t& blobs)
+
+svggpp::xml_t WireCell::RaySvg::g_blob_corners(const Geom& geom, const RayGrid::blobs_t& blobs)
 {
+    BoundingBox bb;
+    int count=0;
+    auto top = group(css_class("blob_corners"));
+    auto& topb = body(top);
+
     for (const auto& blob : blobs) {
-        m_blobs.push_back(blob);
+        ++count;
+
+        // don't classify each blob
+        // css_class(format("blob%d", count))
+        auto grp = group();
+
         for (const auto& [a,b] : blob.corners()) {
-            const auto c = m_coords.ray_crossing(a,b);
-            m_blobs_bb(c);
-        }
-        for (const auto& strip : blob.strips()) {
-            m_bstrips.push_back(strip);
-            for (auto grid : irange(strip.bounds)) {
-                int pind = strip.layer-2;
-                if (pind < 0) continue;
-                if (grid < 0) continue;
-                const auto& wobjs = m_wireobjs[pind];
-                if (grid >= (int)wobjs.size()) continue;
-                const auto& w = wobjs[pind];
-
-                Ray r(w.tail, w.head);
-                m_bstrips_bb(r);     // fixme, use region
-            }
+            auto pt = geom.coords.ray_crossing(a,b);
+            bb(pt);
+            auto cir = circle(project(pt)); // fixme: radius
+            auto tit = title(format("(%d,%d),(%d,%d)",
+                                    a.layer, a.grid, b.layer, b.grid));
+            body(cir).push_back(tit);
+            topb.push_back(cir);
         }
     }
+
+    return top;
 }
 
-Scene::shape_p
-Scene::strip_shape(int layer, int grid, bool inblob)
+
+svggpp::xml_t WireCell::RaySvg::g_blob_areas(const Geom& geom, const RayGrid::blobs_t& blobs)
 {
-    const int pind = layer-2;
-    if (pind < 0) THROW(ValueError() << errmsg{"strip layer out of bounds"});
+    int count=0;
+    auto top = group(css_class("blob_areas"));
+    auto& topb = body(top);
 
-    const auto& phalf = 0.4*m_pvecs[pind];
-    if (grid < 0) THROW(ValueError() << errmsg{"strip grid below bounds"});
-    const auto& wobjs = m_wireobjs[pind];
-    if (grid >= (int)wobjs.size()) THROW(ValueError() << errmsg{"strip grid above bounds"});
-    const auto& w = wobjs[grid];
+    for (const auto& blob : blobs) {
+        ++count;
 
-    svg::Fill fill;
-    if (inblob) {
-        fill = svg::Fill(m_layer_colors[layer]);        
+        BoundingBox bbb;
+        std::vector<Point> pts;
+        for (const auto& [a,b] : blob.corners()) {
+            pts.push_back(geom.coords.ray_crossing(a,b));
+        }
+
+        bbb(pts.begin(), pts.end());
+        bbb.pad_rel(0.1);
+
+        std::string bname = format("blob%d", count);
+
+        auto spgon = polygon(
+            to_ring( pts ),
+            css_class(bname));
+        auto v = view(bname);
+        viewbox(v, project(bbb.bounds()));
+        auto a = anchor(link(v), {}, spgon);
+        topb.push_back(a);
+        topb.push_back(v);
     }
-    else {
-        fill = svg::Fill(m_layer_colors[layer], 0.5);
-    }
-    
-    auto pg = std::make_unique<svg::Polygon>(fill, svg::Stroke(0.15, m_outline_color));
-    (*pg) << RaySvg::point(w.tail-phalf);
-    (*pg) << RaySvg::point(w.tail+phalf);
-    (*pg) << RaySvg::point(w.head+phalf);
-    (*pg) << RaySvg::point(w.head-phalf);
-    // std::cerr << "stip_shape layer=" << layer << " grid=" << grid << " inblob="<<inblob<<"\n";
-    // std::cerr << "\tw=" << Ray(w.tail, w.head) << " phalf=" << phalf << "\n";
-    return pg;
-};
 
-Scene::shape_p
-Scene::corner_shape(const RayGrid::crossing_t& c)
-{
-    const auto [a,b] = c;
-    const auto cvec = m_coords.ray_crossing(a,b);
-
-    // std::cerr << "corner_shape crossing=" << c << "\n";
-     
-    return std::make_unique<svg::Circle>(
-        RaySvg::point(cvec), m_corner_radius,
-        svg::Fill(m_corner_color),
-        svg::Stroke(m_thin_line, m_outline_color));
+    return top;
 }
-                                             
-void RaySvg::Scene::blob_view(const std::string& svgname)
-{
-    auto bb = m_blobs_bb;
-    double pad = 10;
-    const Vector vpad(pad,pad,pad);
-    bb(bb.bounds().first - vpad);
-    bb(bb.bounds().second + vpad);
-    auto doc = RaySvg::document(svgname, bb.bounds(), m_wpx, m_hpx, m_scale);
 
-    bool coalesce_strips = false; // fixme: make config
-    bool inblob=false;
 
-    for (const auto& strip : m_astrips) {
-        if (coalesce_strips) {
-            // fixme: provide a strip()->shape_p
-        }
-        else {
-            for (auto grid : irange(strip.bounds)) {
-                if (strip.layer<=1) continue;
-                auto s = strip_shape(strip.layer, grid, inblob);
-                doc << *s;
-            }
-        }
-    }
-
-    inblob=true;
-    for (const auto& strip : m_bstrips) {
-        if (coalesce_strips) {
-            // fixme: provide a strip()->shape_p
-        }
-        else {
-            for (auto grid : irange(strip.bounds)) {
-                if (strip.layer<=1) continue;
-                auto s = strip_shape(strip.layer, grid, inblob);
-                doc << *s;
-            }
-        }
-    }
-    for (const auto& blob : m_blobs) {
-        for (const auto& c : blob.corners()) {
-            auto s = corner_shape(c);
-            doc << *s;
-        }
-    }
-    doc.save();
-}
-void RaySvg::Scene::wire_view(const std::string& svgname)
-{
-}
 

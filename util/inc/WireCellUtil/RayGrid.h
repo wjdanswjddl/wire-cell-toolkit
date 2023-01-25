@@ -63,6 +63,11 @@ namespace WireCell {
         // was class RayGrid
         class Coordinates {
            public:
+            Coordinates();
+            ~Coordinates();
+            Coordinates(const Coordinates& other);
+            Coordinates& operator=(const Coordinates& other);
+
             // Create a ray grid by specifying the axis of projection.
             Coordinates(const ray_pair_vector_t& rays, int normal_axis = 0, double normal_location = 0.0);
 
@@ -77,6 +82,10 @@ namespace WireCell {
 
             // Return the pitch location measured in an other layer give of the crossing point of two rays
             double pitch_location(const coordinate_t& one, const coordinate_t& two, layer_index_t other) const;
+
+            // fixme: this is in PR #187
+            // Return points of corners sorted by their angle about their center point.
+            vector_array1d_t ring_points(const crossings_t& corners) const;
 
             // Return relative number of pitch steps from ray 0 to the pitch location.
             double pitch_relative(double pitch, layer_index_t layer) const {
@@ -99,7 +108,7 @@ namespace WireCell {
             const tensor_t b() const { return m_b; }
 
            private:
-            int m_nlayers;
+            int m_nlayers{0};
 
             // Pitch magnitude for each layer
             std::vector<double> m_pitch_mag;
@@ -112,12 +121,12 @@ namespace WireCell {
 
             // Zero-rays crossing points indexed by layer index pairs.
             // Symmetric array, diagonal is invalid.
-            vector_array2d_t m_zero_crossing;
+            vector_array2d_t m_zero_crossing{};
 
             // Element (l,m) holds a relative vector which jumps along ray
             // direction of layer l between crossing points of neighboring
             // rays of layer m.  Not symmectric, and diagonal is invalid.
-            vector_array2d_t m_ray_jump;
+            vector_array2d_t m_ray_jump{};
 
             // Coefficients for fast pitch location calculation.  These
             // are scalar values indexed by three different layer

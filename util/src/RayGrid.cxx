@@ -5,6 +5,33 @@ using namespace WireCell;
 using namespace WireCell::RayGrid;
 using namespace WireCell::Range;
 
+Coordinates::~Coordinates()
+{
+}
+
+Coordinates::Coordinates()
+    : m_nlayers(0)
+{
+}
+Coordinates::Coordinates(const Coordinates& other)
+{
+    (*this) = other;
+}
+Coordinates& Coordinates::operator=(const Coordinates& other)
+{
+    m_nlayers = other.m_nlayers;
+    m_pitch_mag = other.m_pitch_mag;
+    m_pitch_dir = other.m_pitch_dir;
+    m_center = other.m_center;
+    m_zero_crossing = other.m_zero_crossing;
+    m_ray_jump = other.m_ray_jump;
+    m_a.resize(boost::extents[m_nlayers][m_nlayers][m_nlayers]);
+    m_b.resize(boost::extents[m_nlayers][m_nlayers][m_nlayers]);
+    m_a = other.m_a;
+    m_b = other.m_b;
+    return *this;
+}
+
 Coordinates::Coordinates(const ray_pair_vector_t& rays, int normal_axis, double normal_location)
   : m_nlayers(rays.size())
   , m_pitch_mag(m_nlayers, 0.0)
@@ -138,6 +165,10 @@ double Coordinates::pitch_location(const coordinate_t& one, const coordinate_t& 
     return j * m_a[il][im][in] + i * m_a[im][il][in] + m_b[il][im][in];
 }
 
+
+
+// FIXME: annoyingly this is in PR#187
+// fixme: this is in PR #187
 vector_array1d_t Coordinates::ring_points(const crossings_t& corners) const
 {
     const size_t npts = corners.size();
@@ -169,4 +200,3 @@ vector_array1d_t Coordinates::ring_points(const crossings_t& corners) const
     }
     return ret;
 }
-

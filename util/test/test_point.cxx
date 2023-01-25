@@ -12,6 +12,35 @@ using namespace WireCell;
 int main()
 {
     {
+        Point ppz;
+        Assert(ppz);
+        Assert(ppz.x() == 0);
+        Assert(ppz.y() == 0);
+        Assert(ppz.z() == 0);
+    }
+    {
+        Point pp1;
+        pp1.invalidate();
+        Assert(!pp1);
+        Point pp2 = pp1;
+        Assert(!pp2);
+    }
+    {
+        std::vector<Point> pts(3);
+        Assert(pts[2]);
+        Assert(pts[2].x() == 0);
+        Assert(pts[2].y() == 0);
+        Assert(pts[2].z() == 0);
+        
+        std::vector<Point> pts2;
+        pts2 = pts;
+        Assert(pts2[2]);
+        Assert(pts2[2].x() == 0);
+        Assert(pts2[2].y() == 0);
+        Assert(pts2[2].z() == 0);
+    }
+
+    {
         Point pp1(1, -500, -495);
         Point pp2(1, 500, -495);
         PointSet results;
