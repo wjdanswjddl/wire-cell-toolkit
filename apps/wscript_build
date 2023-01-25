@@ -1,4 +1,4 @@
-use = ['WireCellIface', 'FFTWTHREADS']
+extra = ""
 if 'HAVE_TBB' in bld.env:
-    use.append('TBB')
-bld.smplpkg('WireCellApps', use=use, app_use='WireCellApps')
+    extras = "TBB"
+bld.smplpkg('WireCellApps', use=f'WireCellIface FFTWTHREADS {extras}')

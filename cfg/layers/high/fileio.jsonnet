@@ -184,6 +184,6 @@ local wc = import "wirecell.jsonnet";
                   outnodes=[fanout],
                   centernodes=[sink],
                   edges=[pg.edge(fanout, sink, 1, 0)],
-                  name=pg.pname(sink)),
+                  name=name),
 
 }
