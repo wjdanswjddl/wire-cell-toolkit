@@ -60,7 +60,6 @@ void Sio::ClusterFileSink::finalize()
 WireCell::Configuration Sio::ClusterFileSink::default_configuration() const
 {
     Configuration cfg;
-    // output json file.  A "%d" type format code may be included to be resolved by a cluster identifier.
     cfg["outname"] = m_outname;
     cfg["prefix"] = m_prefix;
     cfg["format"] = m_format;

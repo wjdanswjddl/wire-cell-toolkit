@@ -65,7 +65,7 @@ Aux::blobs_by_slice_t Aux::blobs_by_slice(const cluster_graph_t& gr)
         for (auto nnvtx : mir(boost::adjacent_vertices(vtx, gr))) {
             const auto& nnobj = gr[nnvtx];
             if (nnobj.code() == 'b') {
-                auto iblob = std::get<cluster_node_t::blob_t>(vobj.ptr);
+                auto iblob = std::get<cluster_node_t::blob_t>(nnobj.ptr);
                 blobs.push_back(iblob);
             }
         }
