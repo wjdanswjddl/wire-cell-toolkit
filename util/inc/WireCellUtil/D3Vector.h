@@ -27,7 +27,10 @@ namespace WireCell {
         typedef std::vector<T> D3VectorStore;
         D3VectorStore m_v{3};
 
-       public:
+      public:
+
+        using coordinate_t = T;
+
         /// Construct from elements.
         D3Vector(const T& a = 0, const T& b = 0, const T& c = 0)
             : m_v(3,0)

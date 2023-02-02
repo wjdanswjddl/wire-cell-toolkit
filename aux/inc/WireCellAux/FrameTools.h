@@ -5,6 +5,7 @@
 #define WIRECELL_FRAMETOOLS
 
 #include "WireCellIface/IFrame.h"
+#include "WireCellIface/ITensorSet.h"
 #include "WireCellUtil/Array.h"
 #include "WireCellUtil/Logging.h"
 
@@ -115,7 +116,6 @@ namespace WireCell {
         /// the channel.  Zeros are padded for any intervening samples
         /// outside of any individual trace.
         IFrame::pointer sum(std::vector<IFrame::pointer> frames, int ident);
-
 
     }  // namespace Aux
 }  // namespace WireCell
