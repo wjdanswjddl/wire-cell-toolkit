@@ -105,8 +105,14 @@ Coordinates::Coordinates(const ray_pair_vector_t& rays, int normal_axis, double 
                 }
             }
             if (il == im) {
-                m_zero_crossing(il, im).invalidate();
-                m_ray_jump(il, im).invalidate();
+                // Initially we set diagonal elements to the "invalid"
+                // point.  But then realized these special case values
+                // are both useful and meaningful in context.  Setting
+                // zero crossing to centers is apparently redundant
+                // but m_center must be kept in order that centers()
+                // may continue to return a const reference.
+                m_zero_crossing(il, im) = m_center[il];
+                m_ray_jump(il, im) = ray_unit(rpl.first);
             }
         }
     }
@@ -145,7 +151,10 @@ Coordinates::Coordinates(const ray_pair_vector_t& rays, int normal_axis, double 
     }
 }
 
-Vector Coordinates::zero_crossing(layer_index_t one, layer_index_t two) const { return m_zero_crossing(one, two); }
+Vector Coordinates::zero_crossing(layer_index_t one, layer_index_t two) const
+{
+    return m_zero_crossing(one, two);
+}
 
 Vector Coordinates::ray_crossing(const coordinate_t& one, const coordinate_t& two) const
 {
@@ -165,10 +174,6 @@ double Coordinates::pitch_location(const coordinate_t& one, const coordinate_t& 
     return j * m_a[il][im][in] + i * m_a[im][il][in] + m_b[il][im][in];
 }
 
-
-
-// FIXME: annoyingly this is in PR#187
-// fixme: this is in PR #187
 vector_array1d_t Coordinates::ring_points(const crossings_t& corners) const
 {
     const size_t npts = corners.size();

@@ -7,6 +7,14 @@
 using namespace WireCell;
 using namespace WireCell::RayGrid;
 
+Ray RayGrid::crossing_points(const Coordinates& coords,
+                             const coordinate_t& ray,
+                             const Strip& strip)
+{
+    return Ray( coords.ray_crossing(ray, {strip.layer, strip.bounds.first}),
+                coords.ray_crossing(ray, {strip.layer, strip.bounds.second}));
+}
+
 Activity::Activity(layer_index_t layer)
   : m_span{}
   , m_layer(layer)
@@ -138,11 +146,13 @@ int in_strip(const Coordinates& coords,
 {
     const double pitch = coords.pitch_location(c.first, c.second, strip.layer);
     double find = coords.pitch_relative(pitch, strip.layer);
-    if (pitch < center) {
-        find += nudge;
-    }
-    else {
-        find -= nudge;
+    if (strip.layer >= 2) {     // only nudge for plane layers
+        if (pitch < center) {
+            find += nudge;
+        }
+        else {
+            find -= nudge;
+        }
     }
     const int pind = std::floor(find);
     if (strip.in(pind)) {
