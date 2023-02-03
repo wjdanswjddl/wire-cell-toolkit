@@ -11,9 +11,11 @@ using namespace svggpp;
 using WireCell::Ray;
 using WireCell::Point;
 using WireCell::Vector;
+using WireCell::ray_pair_t;
 using namespace WireCell::Range;
 using namespace WireCell::RaySvg;
 using namespace WireCell::String;
+using namespace WireCell::RayGrid;
 
 // Define the projection from 3D space to 2D space.  Avoid performing
 // the projection inline and instead call this.
@@ -210,6 +212,8 @@ svggpp::xml_t WireCell::RaySvg::svg_full(const Geom& geom, const RayGrid::activi
 
     // what we will return.
     auto top = svg(svg_header);
+    attrs(top).update({{"transform","scale(1 -1)"}});
+
 
     id(top, "top");
     view_t topv = aabb;
@@ -237,32 +241,40 @@ svggpp::xml_t WireCell::RaySvg::svg_full(const Geom& geom, const RayGrid::activi
     
     // Details to put in coarse or fine views
 
-    auto saw = g_active_wires(geom, acts);
-    id(saw, "saw");
-    body(common).push_back(saw);
-    auto sba = g_blob_areas(geom, blobs);
-    id(sba, "sba");
-    body(common).push_back(sba);
-    auto sbc = g_blob_corners(geom, blobs);
-    id(sbc,"sbc");
-    body(common).push_back(sbc);
+    auto active_wires = g_active_wires(geom, acts);
+    id(active_wires, "active_wires");
+    body(common).push_back(active_wires);
+
+    // auto blob_activities = g_blob_activites(geom, blobs);
+    // id(blob_activities, "blob_activities");
+    // body(common).push_back(blob_activities);
+
+    auto blob_areas = g_blob_areas(geom, blobs);
+    id(blob_areas, "blob_areas");
+    body(common).push_back(blob_areas);
+
+    auto blob_corners = g_blob_corners(geom, blobs);
+    id(blob_corners,"blob_corners");
+    body(common).push_back(blob_corners);
 
     auto& s2b = body(s2);
-    s2b.push_back(use(link(aa))); // active
-    s2b.push_back(use(link(saw))); // wires
-    s2b.push_back(use(link(sba))); // blobs
-    s2b.push_back(use(link(sbc))); // corners
+    s2b.push_back(use(link(aa)));
+    s2b.push_back(use(link(active_wires)));
+    // s2b.push_back(use(link(blob_activities)));
+    s2b.push_back(use(link(blob_areas)));
+    s2b.push_back(use(link(blob_corners)));
 
     // Top 
     auto& topb = body(top);
 
     // User, feel free to tweak this.
     topb.push_back(style(R"(
+.blob_areas { fill: yellow; }
 .blob_corners { fill: black; stroke: white; }
+.blob_activites { fill: white; stroke: white; fill-opacity: 0.2; }
 .plane0 { fill: red;}
 .plane1 { fill: green; }
 .plane2 { fill: blue; }
-.blob_areas { fill: yellow; }
 .wires { stroke: black; stroke-width: 0.1; }
 
 )"));
@@ -391,7 +403,7 @@ svggpp::xml_t WireCell::RaySvg::g_active_wires(const Geom& geom, const RayGrid::
                     w.head-phalf
                 };
                 bb(pts.begin(), pts.end());
-                auto tit = title(format("p-%d wip-%d wid=%d wcn=%d",
+                auto tit = title(format("p-%d wip=%d wid=%d wcn=%d",
                                         plane, wip, w.ident, wip+wiresoff[plane]));
                 auto spgon = polygon( to_ring( pts ) );
                 // don't classify each wire....
@@ -408,7 +420,6 @@ svggpp::xml_t WireCell::RaySvg::g_active_wires(const Geom& geom, const RayGrid::
 
 svggpp::xml_t WireCell::RaySvg::g_blob_corners(const Geom& geom, const RayGrid::blobs_t& blobs)
 {
-    BoundingBox bb;
     int count=0;
     auto top = group(css_class("blob_corners"));
     auto& topb = body(top);
@@ -422,7 +433,6 @@ svggpp::xml_t WireCell::RaySvg::g_blob_corners(const Geom& geom, const RayGrid::
 
         for (const auto& [a,b] : blob.corners()) {
             auto pt = geom.coords.ray_crossing(a,b);
-            bb(pt);
             auto cir = circle(project(pt)); // fixme: radius
             auto tit = title(format("(%d,%d),(%d,%d)",
                                     a.layer, a.grid, b.layer, b.grid));
@@ -458,6 +468,13 @@ svggpp::xml_t WireCell::RaySvg::g_blob_areas(const Geom& geom, const RayGrid::bl
         auto spgon = polygon(
             to_ring( pts ),
             css_class(bname));
+        std::stringstream ss;
+        ss << "blob " << count;
+        for (const auto& s : blob.strips()) {
+            ss << " L" << s.layer << "[" << s.bounds.first << "," << s.bounds.second << "]";
+        }
+        auto tit = title(ss.str());
+        body(spgon).push_back(tit);
         auto v = view(bname);
         viewbox(v, project(bbb.bounds()));
         auto a = anchor(link(v), {}, spgon);
@@ -470,3 +487,99 @@ svggpp::xml_t WireCell::RaySvg::g_blob_areas(const Geom& geom, const RayGrid::bl
 
 
 
+// Given ray extending from an origin in a direction, return a Ray of
+// the two extreme of all points along the origin ray formed by
+// projecting points to the origin ray.
+Ray minmax_projected(const Point& origin, const Vector& dir, const std::vector<Point>& points)
+{
+    std::vector<double> dots;
+    for (const auto& p : points) {
+        dots.push_back(dir.dot(p - origin));
+    }
+    const auto mm = minmax_element(dots.begin(), dots.end());
+    return Ray(points[std::distance(dots.begin(), mm.first)],
+               points[std::distance(dots.begin(), mm.second)]);
+}
+
+
+
+// Return the points outlining the maximum points of crossing of
+// strip0 with strips strip1 and strip2.
+static
+ray_pair_t minmax_crossings(const Coordinates& coords,
+                            const Strip& strip0,
+                            const Strip& strip1,
+                            const Strip& strip2)
+{
+    const Vector& ori = coords.centers()[strip0.layer];
+    const Vector& dir = coords.ray_jumps()(strip0.layer,strip0.layer);
+
+    ray_pair_t ret;
+
+    const auto layer = strip0.layer;
+    {
+        const coordinate_t c = {layer, strip0.bounds.first};
+        std::vector<Point> pts;
+        auto r1 = crossing_points(coords, c, strip1);
+        pts.push_back(r1.first);
+        pts.push_back(r1.second);
+        auto r2 = crossing_points(coords, c, strip2);
+        pts.push_back(r2.first);
+        pts.push_back(r2.second);
+        ret.first = minmax_projected(ori, dir, pts);
+    }
+
+    {
+        const coordinate_t c = {layer, strip0.bounds.second};
+        std::vector<Point> pts;
+        auto r1 = crossing_points(coords, c, strip1);
+        pts.push_back(r1.first);
+        pts.push_back(r1.second);
+        auto r2 = crossing_points(coords, c, strip2);
+        pts.push_back(r2.first);
+        pts.push_back(r2.second);
+        ret.second = minmax_projected(ori, dir, pts);
+    }
+    return ret;
+}                                        
+        
+
+svggpp::xml_t WireCell::RaySvg::g_blob_activites(const Geom& geom, const RayGrid::blobs_t& blobs)
+{
+    auto top = group(css_class("blob_activites"));
+    auto& topb = body(top);
+
+    for (int p=0; p<3; ++p) {
+        auto g = group(css_class(format("plane%d", p)));
+        topb.push_back(g);
+    }
+
+    for (const auto& blob : blobs) {
+        const auto& strips = blob.strips();
+        for (const auto& s0 : strips) {
+
+            const int plane0 = s0.layer-2;
+            if (plane0 < 0) continue;
+            const int plane1 = (plane0+1)%3;
+            const int plane2 = (plane0+2)%3;
+
+            const auto& s1 = strips[plane1+2];
+            const auto& s2 = strips[plane2+2];
+
+            const auto [r1,r2] = minmax_crossings(geom.coords, s0, s1, s2);
+            std::vector<Point> pts = {
+                r1.first, r1.second,
+                r2.first, r2.second
+            };
+
+            // for each ray in the pair that bound the strip, find the
+            // their points of intersection with the other strips
+            // which maximize the length.
+
+            auto spgon = polygon( to_ring( pts ) );
+            body(topb[plane0]).push_back(spgon);
+        }
+    }
+
+    return top;
+}

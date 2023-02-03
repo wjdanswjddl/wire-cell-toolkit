@@ -13,20 +13,23 @@ using namespace WireCell::String;
 void usage()
 {
     std::cerr << "Load text dump of activities, do tiling, make SVG\n"
-              << "usage:\n\tcheck_act2viz <act.txt> [<out.svg>]\n";
+              << "usage:\n\tcheck_act2viz <act.txt> [[<out.svg>] nudge]\n";
     exit (-1);
 }
 
 int main(int argc, char* argv[])
 {
-    const double nudge=1e-3;
-
-    if (argc < 2 or argc > 3) { usage(); }
+    if (argc < 2 or argc > 4) { usage(); }
 
     std::string iname = argv[1];
     std::ifstream fstr(iname);
     if (!fstr) usage();
     
+    double nudge=1e-3;
+    if (argc > 3) {
+        nudge = atof(argv[3]);
+    }
+
     //
     // MicroBooNE'ish
     //
@@ -94,11 +97,13 @@ int main(int argc, char* argv[])
     }
 
     auto blobs = RayGrid::make_blobs(geom.coords, activities, nudge);
+    std::cerr << "nactivities=" << activities.size()
+              << " nblobs=" << blobs.size() << "\n";
 
     auto top = RaySvg::svg_full(geom, activities, blobs);
 
     std::string svgname;
-    if (argc == 3) {
+    if (argc > 2) {
         svgname = argv[2];
     }
     else {

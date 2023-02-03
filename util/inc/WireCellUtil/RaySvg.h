@@ -59,6 +59,9 @@ namespace WireCell::RaySvg {
     // Return <g> of blobs represented by areas
     svggpp::xml_t g_blob_areas(const Geom& geom, const RayGrid::blobs_t& blobs);
 
+    // Return <g> of activities associated to blobs
+    svggpp::xml_t g_blob_activites(const Geom& geom, const RayGrid::blobs_t& blobs);
+
 };
 
 #endif

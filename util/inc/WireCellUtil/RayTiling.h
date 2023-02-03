@@ -25,6 +25,9 @@ namespace WireCell {
             // The pitch indices bounding the strip in its layer pitch direction.
             grid_range_t bounds;
 
+            // Note, this returns a pair of coordiante_t which is
+            // called a crossing_t but these two do not cross as they
+            // are in the same layer.
             crossing_t addresses() const
             {
                 return std::make_pair(coordinate_t{layer, bounds.first}, coordinate_t{layer, bounds.second});
@@ -40,6 +43,10 @@ namespace WireCell {
             }
         };
         typedef std::vector<Strip> strips_t;
+
+        // Return two crossing points of ray with bounds of strip.
+        Ray crossing_points(const Coordinates& coords, const coordinate_t& ray,
+                            const Strip& strip);
 
         // Activity represents an absolutly positioned span of pitch
         // indices which may contain some measure of some kind of
