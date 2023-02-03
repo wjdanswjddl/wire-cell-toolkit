@@ -34,10 +34,10 @@ WireCell::RayGrid::blobvec_t WireCell::RayGrid::select(const blobproj_t& proj, g
 }
 
 WireCell::RayGrid::blobvec_t WireCell::RayGrid::overlap(const blobref_t& blob, const blobproj_t& proj,
-                                                        layer_index_t layer)
+                                                        layer_index_t layer, grid_index_t tolerance)
 {
     const auto& strip = blob->strips()[layer];
-    auto blobs = select(proj, strip.bounds);
+    auto blobs = select(proj, {strip.bounds.first-tolerance, strip.bounds.second+tolerance});
     if (blobs.empty()) {
         return blobs;
     }
@@ -85,7 +85,7 @@ bool WireCell::RayGrid::surrounding(const blobref_t& a, const blobref_t& b)
     return false;
 }
 
-void WireCell::RayGrid::associate(const blobs_t& one, const blobs_t& two, associator_t func)
+void WireCell::RayGrid::associate(const blobs_t& one, const blobs_t& two, associator_t func, overlap_t ol)
 {
     if (one.empty() or two.empty()) {
         return;
@@ -94,7 +94,7 @@ void WireCell::RayGrid::associate(const blobs_t& one, const blobs_t& two, associ
     const size_t ilayer = nlayers - 1;
     const auto proj = projection(references(two), ilayer);
     for (blobref_t blob = one.begin(); blob != one.end(); ++blob) {
-        auto assoc = overlap(blob, proj, ilayer);  // recursive call
+        auto assoc = ol(blob, proj, ilayer);  // recursive call
         for (blobref_t other : assoc) {
             func(blob, other);
         }

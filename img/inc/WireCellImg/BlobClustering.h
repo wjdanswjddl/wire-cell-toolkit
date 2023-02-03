@@ -59,7 +59,8 @@ namespace WireCell {
             // a value of 1.0 means that if the next slice does not
             // abut the current slice end time then it would indicate
             // a "gap"
-            double m_spans{1.0};
+            // double m_spans{1.0};
+            std::string m_policy{"uboone"};
 
             // Collect blob sets
             IBlobSet::vector m_cache;
