@@ -130,10 +130,16 @@ namespace WireCell {
                 if (nstrips == 0) {
                     return false;
                 }  // empty
+                for (const auto& strip : m_strips) {
+                    if (strip.bounds.second == strip.bounds.first) {
+                        return false; // strip has no width
+                    }
+                }
                 if (nstrips == 1) {
                     return true;
-                }  // no corners expected
-                return corners().size() > 0;
+                }  // no corners expected with 1 strip
+                // A blob must have some area
+                return corners().size() >= 3;
             }
 
             std::string as_string() const;
@@ -171,8 +177,8 @@ namespace WireCell {
         size_t drop_invalid(blobs_t& blobs);
 
         // Visit each blob and prune away any portions of strips which
-        // are outside the corners.  These vestigle strip portions can
-        // result when another layer provides a corner inside the
+        // are outside the corners.  These vestigial strip portions
+        // can result when another layer provides a corner inside the
         // strip in question.  If a 2-layer corner is within
         // edge_nudge fraction of a pitch bin to an edge in the 3rd
         // layer, it will be considered moved to that near edge for

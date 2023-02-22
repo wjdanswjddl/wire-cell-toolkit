@@ -388,7 +388,8 @@ void WireCell::RayGrid::prune(const Coordinates& coords, blobs_t& blobs, double 
             }
         }
 
-        for (int layer = 0; layer < nlayers; ++layer) {
+        // Start with first wire plane layer.
+        for (int layer = 2; layer < nlayers; ++layer) {
             auto mm = std::minmax_element(mms[layer].begin(), mms[layer].end());
 
             double pmin = *mm.first;
@@ -435,5 +436,7 @@ blobs_t WireCell::RayGrid::make_blobs(const Coordinates& coords,
         drop_invalid(blobs);
     }
     prune(coords, blobs, nudge);
+    drop_invalid(blobs);
+
     return blobs;
 }
