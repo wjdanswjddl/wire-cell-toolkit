@@ -47,7 +47,7 @@ local tools =
 if fcl_params.process_crm == "partial"
 then tools_all {anodes: [tools_all.anodes[n] for n in std.range(32, 79)]}
 else if fcl_params.process_crm == "test1"
-then tools_all {anodes: [tools_all.anodes[n] for n in [36]]}
+then tools_all {anodes: [tools_all.anodes[n] for n in [5]]}
 else if fcl_params.process_crm == "test2"
 then tools_all {anodes: [tools_all.anodes[n] for n in [36, 44]]}
 else tools_all;
@@ -217,10 +217,10 @@ local multipass = [
   g.pipeline([
                 // wcls_simchannel_sink[n],
                 sn_pipes[n],
-                // sinks.orig_pipe[n],
+                sinks.orig_pipe[n],
                 // nf_pipes[n],
                 sp_pipes[n],
-                // sinks.decon_pipe[n],
+                sinks.decon_pipe[n],
                 // sinks.debug_pipe[n], // use_roi_debug_mode=true in sp.jsonnet
              ] + if fcl_params.use_dnnroi then [
                  dnnroi(tools.anodes[n], ts, output_scale=1.2),
