@@ -96,8 +96,8 @@ outputs: {
       fileName: "wcsim.root"
 
       outputCommands :   [
-         // "drop *", "keep recob::Wires_*_*_*"
-         "keep *_*_*_*"
+         # "keep *_*_*_*", "drop *", "keep recob::Wires_*_*_*"
+         "drop *"
       ]
 
    }
