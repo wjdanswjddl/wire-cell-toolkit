@@ -4,24 +4,25 @@ local wc = import "wirecell.jsonnet";
 
 local io = import 'pgrapher/common/fileio.jsonnet';
 local tools_maker = import 'pgrapher/common/tools.jsonnet';
-local response_plane = std.extVar('response_plane')*wc.cm;
 
-local fcl_params = {
-    response_plane: 18.92*wc.cm,
-    nticks: 8500,
-    ncrm: 320,
-    wires: 'dunevd10kt_3view_30deg_v6_refactored.json.bz2',
-    use_dnnroi: false,
-    process_crm: 'test1',
-};
+local input = std.extVar('input');
+
 // local fcl_params = {
 //     response_plane: 18.92*wc.cm,
 //     nticks: 8500,
-//     wires: 'dunevd10kt_3view_30deg_v5_refactored_1x8x6ref.json.bz2',
-//     ncrm: 24,
+//     ncrm: 320,
+//     wires: 'dunevd10kt_3view_30deg_v6_refactored.json.bz2',
 //     use_dnnroi: false,
-//     process_crm: 'test2',
+//     process_crm: 'test1',
 // };
+local fcl_params = {
+    response_plane: 18.92*wc.cm,
+    nticks: 8500,
+    wires: 'dunevd10kt_3view_30deg_v5_refactored_1x8x6ref.json.bz2',
+    ncrm: 24,
+    use_dnnroi: false,
+    process_crm: 'test1',
+};
 local params_maker =
 if fcl_params.ncrm ==320 then import 'pgrapher/experiment/dune-vd/params-10kt.jsonnet'
 else import 'pgrapher/experiment/dune-vd/params.jsonnet';
@@ -59,35 +60,18 @@ local sim = sim_maker(params, tools);
 
 // Deposit and drifter ///////////////////////////////////////////////////////////////////////////////
 
-local tracklist = [
-    {
-        time: 0*wc.ms,
-        charge: -5000,
-        ray: {
-            tail: wc.point(200, -500, 50, wc.cm),
-            head: wc.point(200, -500, 200, wc.cm),
-        }
-    },
-    {
-        time: 0*wc.ms,
-        charge: -5000,
-        ray: {
-            tail: wc.point(200, -550, 50, wc.cm),
-            head: wc.point(200, -550, 200, wc.cm),
-        }
-    },
-];
-
-local depos = g.pnode({
-        type: 'TrackDepos',
-        data: {
-            step_size: 1.0*wc.mm,
-            tracks: tracklist
-        },
+local depo_source  = g.pnode({
+    type: 'DepoFileSource',
+    data: { inname: input } // "depos.tar.bz2"
 }, nin=0, nout=1);
-
 local drifter = sim.drifter;
-local bagger = sim.make_bagger();
+local setdrifter = g.pnode({
+            type: 'DepoSetDrifter',
+            data: {
+                drifter: "Drifter"
+            }
+        }, nin=1, nout=1,
+        uses=[drifter]);
 
 // Parallel part //////////////////////////////////////////////////////////////////////////////
 
@@ -178,8 +162,9 @@ local sink = sim.frame_sink;
 
 // Final pipeline //////////////////////////////////////////////////////////////////////////////
 
-// local graph = g.pipeline([depos, drifter, bagger, parallel_graph, sink], "main");
-local graph = g.pipeline([depos, drifter, bagger, parallel_graph], "main");
+// local graph = g.pipeline([depos, drifter, bagger, parallel_graph, sink], "main"); // ending with Fanin
+// local graph = g.pipeline([depos, drifter, bagger, parallel_graph], "main"); // no Fanin
+local graph = g.pipeline([depo_source, setdrifter, parallel_graph], "main"); // 
 
 local app = {
   type: 'TbbFlow', //Pgrapher, TbbFlow
