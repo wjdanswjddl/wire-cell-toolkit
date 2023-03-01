@@ -10,14 +10,14 @@ physics :{
          module_type : WireCellToolkit
          wcls_main: {
             tool_type: WCLS
-            apps: ["Pgrapher"]
-            # apps: ["TbbFlow"]
+            # apps: ["Pgrapher"]
+            apps: ["TbbFlow"]
 
             logsinks: ["stdout:info", "wcls-sim-drift-simchannel-nf-sp.log:debug"]
             loglevels: ["debug"]
 
             plugins: ["WireCellPgraph", "WireCellGen","WireCellSio","WireCellRoot","WireCellLarsoft"
-            # ,"WireCellTbb"
+            ,"WireCellTbb"
             # , "WireCellPytorch"
             ]
 
