@@ -49,7 +49,7 @@ then tools_all {anodes: [tools_all.anodes[n] for n in std.range(32, 79)]}
 else if fcl_params.process_crm == "test1"
 then tools_all {anodes: [tools_all.anodes[n] for n in [5]]}
 else if fcl_params.process_crm == "test2"
-then tools_all {anodes: [tools_all.anodes[n] for n in [36, 44]]}
+then tools_all {anodes: [tools_all.anodes[n] for n in [0,1,4,5]]}
 else tools_all;
 
 local sim_maker = import 'pgrapher/experiment/dune-vd/sim.jsonnet';
@@ -217,10 +217,10 @@ local multipass = [
   g.pipeline([
                 // wcls_simchannel_sink[n],
                 sn_pipes[n],
-                sinks.orig_pipe[n],
+                // sinks.orig_pipe[n],
                 // nf_pipes[n],
                 sp_pipes[n],
-                sinks.decon_pipe[n],
+                // sinks.decon_pipe[n],
                 // sinks.debug_pipe[n], // use_roi_debug_mode=true in sp.jsonnet
              ] + if fcl_params.use_dnnroi then [
                  dnnroi(tools.anodes[n], ts, output_scale=1.2),
@@ -250,7 +250,7 @@ local bi_manifold =
     else if fcl_params.process_crm == "test1"
     then f.multifanpipe('DepoSetFanout', multipass, 'FrameFanin', [1,1], [1,1], [1,1], [1,1], 'sn_mag', outtags, tag_rules)
     else if fcl_params.process_crm == "test2"
-    then f.multifanpipe('DepoSetFanout', multipass, 'FrameFanin', [1,2], [2,1], [1,2], [2,1], 'sn_mag', outtags, tag_rules)
+    then f.multifanpipe('DepoSetFanout', multipass, 'FrameFanin', [1,4], [4,1], [1,4], [4,1], 'sn_mag', outtags, tag_rules)
     else if fcl_params.ncrm == 112
     then f.multifanpipe('DepoSetFanout', multipass, 'FrameFanin', [1,8,16], [8,2,7], [1,8,16], [8,2,7], 'sn_mag', outtags, tag_rules);
 

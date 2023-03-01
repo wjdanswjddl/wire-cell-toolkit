@@ -55,9 +55,9 @@ physics :{
                 # set mapping between internal wct plane ids and larsoft
                 # default is to assume WireCell::kU->geo::kU, kV->kV, kW->kW
                 # 3view-30deg: default, 3view: dunevd_3view
-                geo_planeid_labels: "dunevd_3view"
+                geo_planeid_labels: "default"
                 # process pratial or all CRMs: all or partial
-                process_crm: "test1"
+                process_crm: "test2"
             }
             structs: {
                 # number of time samples
