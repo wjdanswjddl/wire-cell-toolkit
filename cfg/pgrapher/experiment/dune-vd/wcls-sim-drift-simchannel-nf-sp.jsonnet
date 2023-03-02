@@ -69,8 +69,17 @@ local output = 'wct-sim-ideal-sig.npz';
 local wcls_maker = import 'pgrapher/ui/wcls/nodes.jsonnet';
 local wcls = wcls_maker(params, tools);
 local wcls_input = {
-  depos: wcls.input.depos(name='', art_tag='IonAndScint'),
-  // depos: wcls.input.depos(name='electron'),  // default art_tag="blopper"
+    depos: wcls.input.depos(name='', art_tag='IonAndScint'),
+    deposet: g.pnode({
+            type: 'wclsSimDepoSetSource',
+            name: "", 
+            data: {
+                model: "", 
+                scale: -1, //scale is -1 to correct a sign error in the SimDepoSource converter.
+                art_tag: "IonAndScint", //name of upstream art producer of depos "label:instance:processName"
+                assn_art_tag: "", 
+            },
+        }, nin=0, nout=1),
 };
 
 // Collect all the wc/ls output converters for use below.  Note the
@@ -131,14 +140,14 @@ local wcls_output = {
 
 //local deposio = io.numpy.depos(output);
 local drifter = sim.drifter;
+local setdrifter = g.pnode({
+            type: 'DepoSetDrifter',
+            data: {
+                drifter: "Drifter"
+            }
+        }, nin=1, nout=1,
+        uses=[drifter]);
 local bagger = sim.make_bagger();
-// local bagger = g.pnode({
-//   type: 'DepoBagger',
-//   name: 'bagger',
-//   data: {
-//     gate: [-250 * wc.us, 2750 * wc.us],  // fixed
-//   },
-// }, nin=1, nout=1);
 
 // signal plus noise pipelines
 // local sn_pipes = sim.signal_pipelines;
@@ -276,8 +285,8 @@ local retagger = g.pnode({
 //local frameio = io.numpy.frames(output);
 local sink = sim.frame_sink;
 
-local graph = g.pipeline([wcls_input.depos, drifter, wcls_simchannel_sink, bagger, bi_manifold, retagger, wcls_output.sp_signals, sink]);
-// local graph = g.pipeline([wcls_input.depos, drifter, wcls_simchannel_sink, bagger, multipass[36], retagger, wcls_output.sp_signals, sink]);
+// local graph = g.pipeline([wcls_input.depos, drifter, wcls_simchannel_sink, bagger, bi_manifold, retagger, wcls_output.sp_signals, sink]);
+local graph = g.pipeline([wcls_input.deposet, setdrifter, multipass[36], retagger, wcls_output.sp_signals, sink]);
 
 local app = {
     type: 'TbbFlow', //Pgrapher, TbbFlow
