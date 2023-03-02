@@ -1,0 +1,224 @@
+#+title: Wire-Cell Builder Waf Tools
+
+This repository holds some [[https://waf.io][Waf]] tools to help build the [[https://wirecell.bnl.gov][Wire-Cell
+Toolkit]] (or other) software.  The tools are bundled into a single
+program called ~wcb~, the Wire-Cell Builder.
+
+* Packing 
+
+The ~wcb~ command is a packed version of waf with extra tools.  A script is provided to automate rebuilding ~wcb~:
+
+#+begin_example
+  $ ./refresh-wcb -o /path/to/your/wire-cell-toolkit/wcb
+#+end_example
+
+When WCT is updated it's a good idea to tag ~waf-tools~.  Example session:
+
+#+begin_example
+  $ cd /path/to/your/waf-tools
+  $ ./refresh-wcb -o /path/to/your/wire-cell-toolkit/wcb
+  $ cd /path/to/your/wire-cell-toolkit
+  (...test...)
+  $ git commit -am "Refresh to wcb X.Y.Z" && git push
+  $ cd /path/to/your/waf-tools
+  $ git tag -am "...useful message..." X.Y.Z
+  $ git push --tags
+#+end_example
+
+
+Th refresh script essentially enacts this recipe:
+
+#+BEGIN_EXAMPLE
+  $ git clone https://github.com/WireCell/waf-tools.git
+  $ WTEXTRA=$(echo $(pwd)/waf-tools/*.py | tr ' ' ,)
+
+  $ git clone https://gitlab.com/ita1024/waf.git
+  $ cd waf/
+  $ ./waf-light --tools=doxygen,boost,bjam,$WTEXTRA
+  ...
+  adding /home/bv/dev/waf-tools/smplpkgs.py as waflib/extras/smplpkgs.py
+  adding /home/bv/dev/waf-tools/wcb.py as waflib/extras/wcb.py
+  ...
+  $ cp waf /path/to/your/wire-cell-toolkit/wcb
+#+END_EXAMPLE
+
+* Using the ~wcb~ tool
+
+On well provisioned systems, ~wcb~ builds the software automatically:
+
+#+begin_example
+  $ ./wcb configure --prefix=/path/to/install
+  $ ./wcb 
+  $ ./wcb install
+#+end_example
+
+In some environments, ~wcb~ may need help to find dependencies.  Hints
+can be given with ~--with-*~ type flags.  To see available flags use the
+online help:
+
+#+BEGIN_EXAMPLE
+  $ ./wcb --help
+#+END_EXAMPLE
+
+Packages can be included, excluded and located with the various
+~--with-NAME*~ flags.  The rules work as follows:
+
+1) If package is optional:
+
+  - omitting a ~--with-NAME*~ option will omit use the package
+
+  - explicitly using ~--with-NAME=false~ (or "~no~" or "~off~") will omit
+    use of the package.
+
+2) If package is mandatory:
+
+  - omitting all ~--with-NAME*~ options will use ~pkg-config~ to find the
+    package.
+
+  - explicitly using ~--with-NAME=false~ (or "~no~" or "~off~") will
+      assert.
+
+3) In either case:
+
+  - explicitly using ~--with-NAME=true~ (or "~yes~" or "~on~") will use
+    pkg-config to find the package.
+
+  - using ~--with-NAME*! with a path will attempt to locate the package
+    without using ~pkg-config~.
+
+When in doubt, explicitly include ~--with-NAME*~ flags.
+
+* Using the =smplpkgs= tool to build suites of packages
+
+The =smplpkgs= tool included in =waf-tools= provides a simple way to
+build a suite of software packages that have interdependencies without
+you, the developer, having to care much about the build system.
+
+** Package organization 
+
+To achieve this simplicity, some file and directory naminging
+conventions and organization must be followed, as illustrated:
+
+#+BEGIN_EXAMPLE
+  pkg1/
+  ├── wscript_build
+  ├── inc/
+  │   └── ProjectNamePkg1/*.h
+  ├── src/*.{cxx,h}
+  └── test/*.{cxx,h}
+  pkg2/
+  ├── wscript_build
+  ├── inc/
+  │   └── ProjectNamePkg2/*.h
+  ├── src/*.{cxx,h}
+  ├── app/*.{cxx,h}
+  └── test/*.{cxx,h}
+#+END_EXAMPLE
+
+Notes on the structure:
+
+- All packages placed in a top-level directory (not required, but aggregating them via =git submodule= is useful).
+- Public header files for the package must be placed under =<pkgdirname>/inc/<PackageName>/=
+- Library source (implementation and private headers) under =<pkgdirname>/src/=
+- Application source (implementation and private headers) under =<pkgdirname>/app/= with only main application files and one application per =*.cxx= file.
+- Test source (implementation and private headers) under =<pkgdirname>/test/= with main test programs named like =test_*.cxx=
+- A short `wscript_build` file in each package.
+
+The =<pkgdirname>= only matters in the top-level =wscript= file which you must provide.  The =<PackageName>= matters for inter-package dependencies.
+
+
+** The per-package =wscript_build= file
+
+Each package needs a brief (generally single line) file called =wscript_build= to exist at in its top-level directory.  It is responsible for declaring:
+
+- The package name
+- Library dependencies
+- Any additional application dependencies
+- Any additional test dependencies
+
+Example:
+
+#+BEGIN_SRC python
+  bld.smplpkg('MyPackage', use='YourPackage YourOtherPackage')
+#+END_SRC
+
+Test and application programs are allowed to have additional dependencies declared.  For example:
+
+#+BEGIN_SRC python
+  bld.smplpkg('MyPackage', use='YourPackage YourOtherPackage', test_use='ROOTSYS')
+#+END_SRC
+
+* Using ~wcb~ in your own build
+
+The ~wcb~ command is designed to build Wire-Cell Toolkit and is not a
+general purpose build tool.  However, it may be used to build packages
+that are providing WCT plugin libraries or other derived packages.
+
+To use it follow these steps:
+
+1) copy WCT's [[https://github.com/WireCell/wire-cell-toolkit/blob/master/wscript][wscript]] and [[https://github.com/WireCell/wire-cell-toolkit/blob/master/wcb][wcb]] to your package directory.
+
+2) create directory layout (see below)
+
+3) possibly modify ~wscript~ (see below)
+
+4) follow normal ~wcb~ build instructions
+
+An example package is available at 
+
+
+
+** Directory layout options
+
+You may create a package with one or more subpackages like WCT itself
+in which case each subpackage should have a ~wscript_build~ file as
+described above.  
+
+Or, a simple package may be created with ~inc/~, ~src/~, etc directly in
+the top-level directory.  Simply put the contents of a ~wscript_build~
+file in the main ~wscript~ file in the ~build()~ function.  For example:
+
+#+begin_src python
+def build(bld):
+    bld.load('wcb')
+    bld.smplpkg('WireCellJunk', use='WireCellUtil')
+#+end_src
+
+** Modify ~wscript~
+
+The ~wcb~ tool is created to find WCT's dependencies but not WCT itself.
+Nor does it predict new dependencies your own package may need.
+However, it has a simple mechanism to extend the method to search for
+dependencies.  In the ~wscript~ file, at top level the following code
+extends ~wcb~ to find WCT itself.
+
+#+begin_src python
+from waflib.extras import wcb
+wcb.package_descriptions["WCT"] = dict(
+    incs=["WireCellUtil/Units.h"],
+    libs=["WireCellUtil"], 
+    mandatory=True)
+#+end_src
+
+
+** The top-level =wscript= file
+
+The ~wscript~ file is Waf's equivalent to a venerable ~Makefile~.  Almost
+all functionality is bundled into ~wcb~ so the ~wscript~ is relatively
+empty.  Refer to WCT's:
+
+
+
+* Internals
+
+The ~wcb.py~ file holds what might otherwise be in a top-level ~wscript~
+file.  It's main thing is to list externals that can be handled in a
+generic way (see next para) and also doing any non-generic
+configuration.  It also enacts some dependency analysis to avoid
+building some sub-packages.
+
+The ~generic.py~ file provides a ~configure()~ method used to find most
+externals.  It results in defining ~HAVE_<name>_LIB~ and ~HAVE_<name>_INC~
+when libs or includes are successfully checked for a given package.
+These end up in ~config.h~ for use in C++ code.
+
