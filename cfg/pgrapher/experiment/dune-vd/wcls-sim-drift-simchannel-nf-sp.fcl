@@ -30,7 +30,7 @@ physics :{
 
             inputers: ["wclsSimDepoSource:"]
             outputers: [
-                "wclsSimChannelSink:postdrift",
+                # "wclsSimChannelSink:postdrift",
                 "wclsFrameSaver:spsignals"
             ]
 
