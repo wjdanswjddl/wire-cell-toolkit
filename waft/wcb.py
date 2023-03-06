@@ -1,9 +1,10 @@
 # Aggregate all the waftools to make the main wscript a bit shorter.
 # Note, this is specific to WC building
 
-from . import generic
+import generic
 import os.path as osp
 from waflib.Utils import to_list
+from waflib.Logs import debug, info, error, warn
 
 mydir = osp.dirname(__file__)
 
@@ -69,33 +70,31 @@ def find_submodules(ctx):
 
 
 def configure(cfg):
-    print ('Compile options: %s' % cfg.options.build_debug)
+    info ('Compile options: %s' % cfg.options.build_debug)
 
     cfg.load('boost')
     cfg.load('smplpkgs')
 
     for name, args in package_descriptions:
-        #print ("Configure: %s %s" % (name, args))
         generic._configure(cfg, name, **args)
-        #print ("configured %s" % name)
 
     if getattr(cfg.options, "with_libtorch", False) is False:
-        print ("sans libtorch")
+        info ("sans libtorch")
     else:
         cfg.load('libtorch')
 
     if getattr(cfg.options, "with_cuda", False) is False:
-        print ("sans CUDA")
+        info ("sans CUDA")
     else:
         cfg.load('cuda')
 
     if getattr(cfg.options, "with_kokkos", False) is False:
-        print ("sans KOKKOS")
+        info ("sans KOKKOS")
     else:
         cfg.load('kokkos')
 
     if getattr(cfg.options, "with_root", False) is False:
-        print ("sans ROOT")
+        info ("sans ROOT")
     else:
         cfg.load('rootsys')
 
@@ -110,9 +109,9 @@ def configure(cfg):
         one=one.upper()
         if 'LIB_'+one in cfg.env:
             cfg.env['HAVE_'+one] = 1
-            print('HAVE %s libs'%one)
+            info('HAVE %s libs'%one)
         else:
-            print('NO %s libs'%one)
+            info('NO %s libs'%one)
 
     # Check for stuff not found in the wcb-generic way
 
@@ -153,25 +152,33 @@ def configure(cfg):
             if have in cfg.env or have in cfg.env.define_key:
                 continue
             if pkg in submodules:
-                print ('Removing package "%s" due to lack of external dependency "%s"'%(pkg,have))
+                info('Removing package "%s" due to lack of external dependency "%s"'%(pkg,have))
                 submodules.remove(pkg)
 
     cfg.env.SUBDIRS = submodules
-    print ('Configured for submodules: %s' % (', '.join(submodules), ))
+    info ('Configured for submodules: %s' % (', '.join(submodules), ))
     cfg.write_config_header('config.h')
-    #print(cfg.env)
+
+    # Define env vars for wire-cell-python CLI's.
+    # Extend this list manually as more are developed!
+    for one in to_list("aux gen img pgraph plot pytorch resp sigproc test util validate"):
+        cmd = 'wirecell-' + one
+        var = 'WC' + one.upper()
+        cfg.find_program(cmd, var=var, mandatory=False)
+    cfg.env.WIRE_CELL_WIRES_UBOONE = "microboone-celltree-wires-v2.1.json.bz2"
+    cfg.env.WIRE_CELL_WIRES_PDSP = "protodune-wires-larsoft-v4.json.bz2"
+
+    debug(cfg.env)
 
 def build(bld):
     bld.load('smplpkgs')
 
     subdirs = bld.env.SUBDIRS
-    print ('Building: %s' % (', '.join(subdirs), ))
+    info ('Building: %s' % (', '.join(subdirs), ))
     bld.recurse(subdirs)
 
     if hasattr(bld, "smplpkg_graph"):
         # fixme: this writes directly.  Should make it a task, including
         # running graphviz to produce PNG/PDF
-        print ("writing wct-depos.dot")
+        debug ("writing wct-depos.dot")
         bld.path.make_node("wct-deps.dot").write(str(bld.smplpkg_graph))
-
-

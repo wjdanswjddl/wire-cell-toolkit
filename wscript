@@ -7,6 +7,11 @@ APPNAME = 'WireCell'
 VERSION = os.popen("git describe --tags").read().strip()
 
 
+# to avoid adding tooldir="waft" in all the load()'s
+import os
+import sys
+sys.path.insert(0, os.path.realpath("./waft"))
+
 def options(opt):
     opt.load("wcb")
 
@@ -43,9 +48,6 @@ int main(int argc,const char *argv[])
                   define_name = 'HAVE_BOOST_CORE_SPAN_HPP',
                   mandatory=False)
 
-
-    # fixme: should go into wcb.py
-    cfg.find_program("jsonnet", var='JSONNET')
 
     # boost 1.59 uses auto_ptr and GCC 5 deprecates it vociferously.
     cfg.env.CXXFLAGS += ['-Wno-deprecated-declarations']

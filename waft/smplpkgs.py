@@ -3,18 +3,22 @@
 
 Your source package may build any combination of the following:
 
- - shared libraries 
- - headers exposing an API to libraries
+ - shared libraries (src/*.cxx)
+ - headers exposing an API to libraries (inc/NAME/*.h)
  - a ROOT dictionary for this API
- - main programs
- - test programs
+ - main programs (apps/*.cxx)
+ - test programs (test/test_*, test/check_*, wscript_build)
 
 This tool will produce various methods on the build context.  You can
 avoid passing <name> to them if you set APPNAME in your wscript file.
 
+This file is part of the wire-cell-toolkit but we keep it free of
+direct concepts specific to building WCT.  See wcb.py for those.
+
 '''
 
-import os.path as osp
+import os
+from contextlib import contextmanager
 from waflib.Utils import to_list
 from waflib.Configure import conf
 import waflib.Context
@@ -33,7 +37,6 @@ class SimpleGraph(object):
 
         for edge, attrs in self._edges.items():
             for cat in attrs:
-                # print (edge, cat, self.colors[cat])
                 extra = ""
                 if cat == "tst":
                     extra=',constraint=false'
@@ -43,7 +46,6 @@ class SimpleGraph(object):
         return '\n'.join(lines)
 
     def register(self, pkg, **kwds):
-        # print ("register %s" % pkg)
         self.add_node(pkg)
         for cat, deps in kwds.items():
             kwds = {cat: True}
@@ -63,12 +65,13 @@ class SimpleGraph(object):
             
         
 
-_tooldir = osp.dirname(osp.abspath(__file__))
+_tooldir = os.path.dirname(os.path.abspath(__file__))
 
 def options(opt):
     opt.load('compiler_cxx')
     opt.load('waf_unit_test')
-    
+    opt.add_option('--nochecks', action='store_true', default=False,
+                   help='Exec no checks', dest='no_checks')
 
 def configure(cfg):
     cfg.load('compiler_cxx')
@@ -77,26 +80,292 @@ def configure(cfg):
 
     cfg.env.append_unique('CXXFLAGS',['-std=c++17'])
 
+    # Do not add any things specific to WCT here.  see wcb.py instead.
+
+    # interpreters
     cfg.find_program('python', var='PYTHON', mandatory=True)
     cfg.find_program('bash', var='BASH', mandatory=True)
+    cfg.find_program('bats', var='BATS', mandatory=False)
+    cfg.find_program('jsonnet', var='JSONNET', mandatory=False)
+
+    # For testing
+    cfg.find_program('diff', var='DIFF', mandatory=False)
     pass
 
 def build(bld):
     from waflib.Tools import waf_unit_test
     bld.add_post_fun(waf_unit_test.summary)
-    #print ("smplpkgs.build()")
+
+@conf
+def cycle_group(bld, gname):
+    if gname in bld.group_names:
+        bld.set_group(gname)
+    else:
+        bld.add_group(gname)
+
+
+# from waflib import Task, TaskGen
+# @TaskGen.feature('test_variant')
+# @TaskGen.after_method('process_source', 'apply_link')
+# def make_test_variant(self):
+#     cmdline = self.ut_str
+#     progname, argline = cmdline.split(' ',1)
+
+#     tvp = 'TEST_VARIANT_PROGRAM'
+
+#     output = self.path.find_or_declare(self.name + ".passed")
+
+#     source = getattr(self, 'source', None)
+#     srcnodes = self.to_nodes(source)
+
+#     if not source and progname.startswith("${"):
+#         warn("parameterized program name with lacking inputs is not supported: " + cmdline)
+#         return
+
+#     if not progname.startswith("${"):
+#         prognode = self.path.find_or_declare(progname)
+#         progname = "${%s}" % tvp
+
+#     cmdline = "%s %s && touch %s" % (progname, argline, output.abspath())
+
+#     tsk = self.create_task('utest', srcnodes, [output])
+
+#     if tvp in progname:
+#         tsk.env[tvp] = prognode.abspath()
+#         tsk.vars.append(tvp)
+#         tsk.dep_nodes.append(prognode)
+
+#     self.ut_run, lst = Task.compile_fun(cmdline, shell=True)
+#     tsk.vars = lst + tsk.vars
+
+#     if getattr(self, 'ut_cwd', None):
+#         self.handle_ut_cwd('ut_cwd')
+#     else:
+#         self.ut_cwd = self.path
+
+#     if not self.ut_cwd.exists():
+#         self.ut_cwd.mkdir()
+
+#     if not hasattr(self, 'ut_env'):
+#         self.ut_env = dict(os.environ)
+#         def add_paths(var, lst):
+#             # Add list of paths to a variable, lst can contain strings or nodes
+#             lst = [ str(n) for n in lst ]
+#             debug("ut: %s: Adding paths %s=%s", self, var, lst)
+#             self.ut_env[var] = os.pathsep.join(lst) + os.pathsep + self.ut_env.get(var, '')
+
+
+# A "fake" waf context (but real Python context manager) which will
+# return the Waf "group" to "libraries" on exit and which provides
+# several task generators and which defines tasks for the default
+# convention of test/test_*.* and test/check_*.cxx.  This is returned
+# by smplpkg().
+class ValidationContext:
+
+    compiled_extensions = ['.cxx', '.kokkos']
+    script_interpreters = {'.py':"python", '.bats':'bats', '.sh':'bash', '.jsonnet':'jsonnet'}
+
+    def __init__(self, bld, uses):
+        '''
+        Uses must include list of dependencies in "uses".
+        '''
+        self.bld = bld
+        self.uses = to_list(uses)
+
+        if self.bld.options.no_tests:
+            self.bld.options.no_checks = True # need tests for checks, in general
+            info("atomic unit tests will not be built nor run for " + self.bld.path.name)
+            return
+
+        self.bld.cycle_group("validations")
+
+        # Fake out: checks need tests but tests do not need checks but
+        # tests and checks are defined by the same functions which
+        # honor no_checks.
+        no_checks = self.bld.options.no_checks
+        self.bld.options.no_checks = False
+
+        # Default patterns
+        for one in self.bld.path.ant_glob('test/check_*.cxx'):
+            self.program(one)
+
+        # Atomic unit tests
+        for ext in self.compiled_extensions:
+            for one in self.bld.path.ant_glob('test/test_*'+ext):
+                self.program(one, "test")
+
+        for ext in self.script_interpreters:
+            for one in self.bld.path.ant_glob('test/test*'+ext):
+                self.script(one)
+
+        self.bld.options.no_checks = no_checks
+
+    def __enter__(self):
+        if self.bld.options.no_checks:
+            info("variant checks will not be built nor run for " + self.bld.path.name)
+        return self
+
+    def __exit__(self, exc_type, exc_value, exc_traceback):
+        self.bld.cycle_group("libraries")
+        return
+
+    def nodify_resource(self, name_or_node, path=None):
+        'Return a resource node'
+
+        if path is None:
+            path = self.bld.path
+        if isinstance(name_or_node, waflib.Node.Node):
+            return name_or_node
+        return path.find_resource(name_or_node)
+
+    def nodify_declare(self, name_or_node, path=None):
+        'Return a resource node'
+
+        if path is None:
+            path = self.bld.path
+        if isinstance(name_or_node, waflib.Node.Node):
+            return name_or_node
+        return path.find_or_declare(name_or_node)
+
+    def program(self, source, features=""):
+        '''Compile a C++ program to use in validation.
+
+        Add "test" as a feature to also run as a unit test.
+
+        '''
+        if self.bld.options.no_checks:
+            return
+        features = ["cxx","cxxprogram"] + to_list(features)
+        rpath = self.bld.get_rpath(self.uses) # fixme
+        source = self.nodify_resource(source)
+        ext = source.suffix()
+        self.bld.program(source = [source], 
+                         target = source.name.replace(ext,''),
+                         features = features,
+                         install_path = None,
+                         #rpath = rpath,
+                         includes = ['inc','test','tests'],
+                         use = self.uses)
+
+    def script(self, source):
+        'Create a task for atomic unit test with an interpreted script'
+        if self.bld.options.no_checks:
+            return
+        source = self.nodify_resource(source)
+        ext = source.suffix()
+
+        interp = self.script_interpreters.get(ext, None)
+
+        if interp is None:
+            warn(f'skipping script with no known interpreter: {source}')
+            return
+
+        INTERP = interp.upper()
+        if INTERP not in self.bld.env:
+            warn(f'skipping script with no found interpreter: {source}')
+            return
+
+        # info(f'{interp} {source}')
+        self.bld(features="test_scripts",
+                 ut_cwd   = self.bld.path, 
+                 use = self.uses, 
+                 test_scripts_source = source,
+                 test_scripts_template = "${%s} ${SCRIPT}" % INTERP)
+
+        
+    # def variant(self, cmdline, **kwds):
+    #     name = cmdline.replace(" ","_").replace("/","_").replace("$","_").replace("{","_").replace("}","_")
+    #     self.bld(name=name, features="test_variant", ut_str = cmdline)
+
+
+    def rule(self, rule, source="", target="", **kwds):
+        'Simple wrapper for arbitrary rule'
+        if self.bld.options.no_checks:
+            return
+        self.bld(rule=rule, source=source, target=target, **kwds)
+
+
+    def rule_http_get(self, task):
+        'A rule function transform a URL file into its target via HTTP(s)'
+        if self.bld.options.no_checks:
+            return
+        from urllib.request import urlopen
+        unode = task.inputs[0]
+        remote = unode.read()
+        text = urlopen(remote).read().decode()
+        onode = task.outputs[0]
+        onode.write(text)
+
+
+    def rule_scp_get(self, task):
+        'A rule function to transform a URL file its target via scp'
+        if self.bld.options.no_checks:
+            return
+        unode = task.inputs[0]
+        remote = unode.read()[4:]
+        local = task.outputs[0].abspath();
+        return task.exec_command(f'scp {remote} {local}')
+
+
+    # def rule_cp_get(self, task):
+    #     'A rule function to copy input to output'
+    #     remote = task.inputs[0].abspath()
+    #     local = task.outputs[0].abspath()
+    #     return task.exec_command(f'cp {remote} {local}')
+
+        
+    def get_file(self, remote='...', local='...'):
+        'Make task to bring remote file to local file'
+        if self.bld.options.no_checks:
+            return
+        if remote.startswith(("http://","https://")):
+            rule_get = lambda task: self.rule_http_get(task)
+        elif remote.startswith("scp:"):
+            rule_get = lambda task: self.rule_scp_get(task)
+        else:
+            raise ValueError("get file from absolute path not allowed")
+
+        lnode = self.bld.path.find_or_declare(local)
+        unode = lnode.parent.make_node(lnode.name + ".url")
+        unode.write(remote)
+        # make task instead of doing this immediately
+        self.bld(rule=rule_get, source = unode, target = lnode)
+
+    def put_file(self, local='...', remote='...'):
+        if self.bld.options.no_checks:
+            return
+        raise Unimplemented()
+
+    def diff(self, one, two):
+        'Make a task to output a diff between two files'
+        if self.bld.options.no_checks:
+            return
+        one = self.nodify_declare(one)
+        two = self.nodify_declare(two)
+        dnode = one.parent.find_or_declare(one.name +"_"+ two.name +".diff")
+        self.bld(rule="${DIFF} ${SRC} > ${TGT}",
+                 source=[one, two], target=[dnode], shell=True)
+    
+
+@conf
+def get_rpath(bld, uselst, local=True):
+    ret = set([bld.env["PREFIX"]+"/lib"])
+    for one in uselst:
+        libpath = bld.env["LIBPATH_"+one]
+        for l in libpath:
+            ret.add(l)
+        if local:
+            if one.startswith("WireCell"):
+                sd = one[8:].lower()
+                blddir = bld.path.find_or_declare(bld.out_dir)
+                pkgdir = blddir.find_or_declare(sd).abspath()
+                ret.add(pkgdir)
+    ret = list(ret)
+    ret.sort()
+    return ret
 
 @conf
 def smplpkg(bld, name, use='', app_use='', test_use=''):
-
-    if not hasattr(bld, 'smplpkg_graph'):
-        #print ("Make SimpleGraph")
-        bld.smplpkg_graph = SimpleGraph()
-    bld.smplpkg_graph.register(
-        name,
-        lib=set(to_list(use)),
-        app=set(to_list(app_use)),
-        tst=set(to_list(test_use)))
 
     use = list(set(to_list(use)))
     use.sort()
@@ -105,6 +374,14 @@ def smplpkg(bld, name, use='', app_use='', test_use=''):
     test_use = list(set(use + to_list(test_use)))
     test_use.sort()
 
+    if not hasattr(bld, 'smplpkg_graph'):
+        bld.smplpkg_graph = SimpleGraph()
+    bld.smplpkg_graph.register(
+        name,
+        lib=set(to_list(use)),
+        app=set(to_list(app_use)),
+        tst=set(to_list(test_use)))
+
     includes = [bld.out_dir]
     headers = []
     source = []
@@ -112,15 +389,9 @@ def smplpkg(bld, name, use='', app_use='', test_use=''):
     incdir = bld.path.find_dir('inc')
     srcdir = bld.path.find_dir('src')
     dictdir = bld.path.find_dir('dict')
-
-    testsrc = bld.path.ant_glob('test/test_*.cxx')
-    testsrc_kokkos = bld.path.ant_glob('test/test_*.kokkos')
-    test_scripts = bld.path.ant_glob('test/test_*.sh') + bld.path.ant_glob('test/test_*.py')
-    test_jsonnets = bld.path.ant_glob('test/test*.jsonnet')
-
-    checksrc = bld.path.ant_glob('test/check_*.cxx')
-
     appsdir = bld.path.find_dir('apps')
+
+    bld.cycle_group("libraries")
 
     if incdir:
         headers += incdir.ant_glob(name + '/*.h')
@@ -140,7 +411,6 @@ def smplpkg(bld, name, use='', app_use='', test_use=''):
     if dictdir:
         if not headers:
             error('No header files for ROOT dictionary "%s"' % name)
-        #print 'Building ROOT dictionary: %s using %s' % (name,use)
         if 'ROOTSYS' in use:
             linkdef = dictdir.find_resource('LinkDef.h')
             bld.gen_rootcling_dict(name, linkdef,
@@ -153,31 +423,10 @@ def smplpkg(bld, name, use='', app_use='', test_use=''):
 
     if hasattr(bld.env, "PROTOC"):
         pbs = bld.path.ant_glob('src/**/*.proto')
-        # if ("zpb" in name.lower()):
-        #     print ("protobufs: %s" % (pbs,))
         source += pbs
-
-    def get_rpath(uselst, local=True):
-        ret = set([bld.env["PREFIX"]+"/lib"])
-        for one in uselst:
-            libpath = bld.env["LIBPATH_"+one]
-            for l in libpath:
-                ret.add(l)
-            if local:
-                if one.startswith("WireCell"):
-                    sd = one[8:].lower()
-                    blddir = bld.path.find_or_declare(bld.out_dir)
-                    pkgdir = blddir.find_or_declare(sd).abspath()
-                    #print pkgdir
-                    ret.add(pkgdir)
-        ret = list(ret)
-        ret.sort()
-        return ret
 
     # the library
     if srcdir:
-        if ("zpb" in name.lower()):
-            print ("Building library: %s, using %s, source: %s"%(name, use, source))
         ei = ''
         if incdir:
             ei = 'inc' 
@@ -185,73 +434,25 @@ def smplpkg(bld, name, use='', app_use='', test_use=''):
             name = name,
             source = source,
             target = name,
-            #rpath = get_rpath(use),
+            #rpath = bld.get_rpath(use),
             includes = includes, # 'inc',
             export_includes = ei,
             use = use)            
 
+    bld.cycle_group("applications")
+
     if appsdir:
         for app in appsdir.ant_glob('*.cxx'):
-            #print 'Building %s app: %s using %s' % (name, app, app_use)
+            appbin = bld.path.find_or_declare(app.name.replace('.cxx',''))
             bld.program(source = [app], 
-                        target = app.name.replace('.cxx',''),
+                        target = appbin,
                         includes =  includes, # 'inc',
-                        #rpath = get_rpath(app_use + [name], local=False),
+                        #rpath = bld.get_rpath(app_use + [name], local=False),
                         use = app_use + [name])
+            keyname = appbin.name.upper().replace("-","_")
+            bld.env[keyname] = appbin.abspath()
+                          
+    bld.cycle_group("libraries")
 
+    return ValidationContext(bld, test_use + [name])
 
-    if (testsrc or testsrc_kokkos or test_scripts) and not bld.options.no_tests:
-        for test_main in testsrc_kokkos:
-            #print 'Building %s test: %s' % (name, test_main)
-            rpath = get_rpath(test_use + [name])
-            #print rpath
-            bld.program(features = 'cxx cxxprogram test', 
-                        source = [test_main], 
-                        ut_cwd   = bld.path, 
-                        target = test_main.name.replace('.kokkos',''),
-                        install_path = None,
-                        #rpath = rpath,
-                        includes = ['inc','test','tests'],
-                        use = test_use + [name])
-        for test_main in testsrc:
-            #print 'Building %s test: %s' % (name, test_main)
-            rpath = get_rpath(test_use + [name])
-            #print rpath
-            bld.program(features = 'test', 
-                        source = [test_main], 
-                        ut_cwd   = bld.path, 
-                        target = test_main.name.replace('.cxx',''),
-                        install_path = None,
-                        #rpath = rpath,
-                        includes = ['inc','test','tests'],
-                        use = test_use + [name])
-        for test_script in test_scripts:
-            interp = "${BASH}"
-            if test_script.abspath().endswith(".py"):
-                interp = "${PYTHON}"
-            #print 'Building %s test %s script: %s using %s' % (name, interp, test_script, test_use)
-            bld(features="test_scripts",
-                ut_cwd   = bld.path, 
-                test_scripts_source = test_script,
-                test_scripts_template = "pwd && " + interp + " ${SCRIPT}")
-
-    if test_jsonnets and not bld.options.no_tests:
-        # print ("testing %d jsonnets in %s" % (len(test_jsonnets), bld.path ))
-        for test_jsonnet in test_jsonnets:
-            bld(features="test_scripts",
-                ut_cwd   = bld.path, 
-                test_scripts_source = test_jsonnet,
-                test_scripts_template = "pwd && ../build/apps/wcsonnet ${SCRIPT}")
-
-    if checksrc and not bld.options.no_tests:
-        for check_main in checksrc:
-            #print 'Building %s check: %s' % (name, check_main)
-            rpath = get_rpath(test_use + [name])
-            #print rpath
-            bld.program(source = [check_main], 
-                        target = check_main.name.replace('.cxx',''),
-                        install_path = None,
-                        #rpath = rpath,
-                        includes = ['inc','test','tests'],
-                        use = test_use + [name])
-            

@@ -5,18 +5,16 @@
 
 output="$(pwd)/wcb"
 wafurl="https://gitlab.com/ita1024/waf.git"
-wafdir="$(pwd)/waf"
-waftag="waf-2.0.20"
+waftag="waf-2.0.25"
+wafdir="/tmp/wcb/$waftag"
 
 
-
-toolsurl="https://github.com/WireCell/waf-tools.git"
-tooldir="$(pwd)"
-# initial defaults from waf
-tools="doxygen boost bjam"
+tooldir="$(dirname $BASH_SOURCE)"
+# these are copied from waf
+# tools="doxygen boost bjam"
 # add any in cwd, assuming we are sitting in waf-tools
-tools="$tools $(echo *.py| sed 's/.py//g')"
-
+tools="$(cd $tooldir && echo *.py | sed 's/.py//g')"
+echo $tools
 
 
 usage () {
@@ -44,9 +42,6 @@ while getopts "v:w:t:o:W:T:" opt; do
 	W)
 	    wafurl=$OPTARG
 	    ;;
-	T)
-	    toolsurl=$OPTARG
-	    ;;
 	*)
 	    usage
 	    ;;
@@ -69,10 +64,12 @@ else
     git checkout $waftag
     popd
 fi
+echo "using waf in $wafdir"
 if [ ! -d "$tooldir" ] ; then
-    git clone "$toolsurl" "$tooldir"
+    echo "This script must exist in the wire-cell-toolkit/waft/ directory"
+    exit 1
 fi
-if [ ! -f "$tooldir/smplpkgs.py" ] ; then
+if [ ! -f "$tooldir/boost.py" ] ; then
     echo "Tooldir does not look correct: $tooldir"
     exit 1
 fi

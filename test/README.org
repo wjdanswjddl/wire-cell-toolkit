@@ -1,0 +1,150 @@
+#+name: Wire-Cell Toolkit Testing
+
+The Wire-Cell Toolkit (WCT) provides a large number of tests of different types.  This document describes how to exercise and develop them.  The ~wire-cell-toolkit~ provides assistance to running and developing tests in this sub-package (~wire-cell-toolkit/tests/~) and as part of the build system (~wire-cell-toolkit/waft/~).
+
+* Types of tests
+
+There are two cateogries of tests in WCT:
+
+- atomic :: self-contained unit tests
+- variant :: potentially graphs of related tests sharing files
+
+* Executing tests
+
+All tests will be built and executed by default when WCT is built.
+
+#+begin_example
+waf [ ... ]             # build everything and run all tests
+#+end_example
+
+This can greatly add to the build time.  Building and running test scan be *suppressed* with the ~--notests~ flag:
+
+#+begin_example
+waf --notests [ ... ]   # no tests
+#+end_example
+
+To build and run only the atomic unit tests the variant tests can be suppressed with the ~--nochecks~ flag:
+
+#+begin_example
+waf --nochecks [ ... ]  # just atomic unit tests
+#+end_example
+
+* Built-in test system
+
+WCT uses Waf's unit test framework.
+
+** Check programs
+
+Source files found as:
+
+#+begin_example
+<pkg>/test/check_*.<ext>
+#+end_example
+
+may be compiled, but will not be run automatically.  They are available for use in atomic or variant tests.
+
+** Atomic tests
+
+The build will compile, if needed, and automatically run *atomic tests* with source files found as:
+
+#+begin_example
+<pkg>/test/test_*.<ext>
+#+end_example
+
+Extensions of ~cxx~ or ~kokkos~ wil be compiled prior to running.  Interpreted scripts with extensions ~py, sh, bats, jsonnet~ will be run with their associated interpreter.  The check programs (above) are available for calling from these atomic tests as are various others.
+
+
+** Variant tests
+
+Variant tests are registered as Waf rules in the file found at:
+
+#+begin_example
+<pkg>/wscript_build
+#+end_example
+
+That code should utilize the return from a call to ~bld.smplpkg()~ as a context manager though which to register Waf rules.  Variant tests should not be registered directly via ~bld()~ as this will circumvent the test suppression.
+
+#+begin_src python
+  with bld.smplpkg('MyPackage', ...) as p:
+    p.rule("${WCSONNET} > ${TGT} 2>&1", target="wcsonnet-help.log")
+#+end_src
+
+The ~${WCSONNET}~ variable will point to the ~wcsonnet~ program in the build output.
+
+** BATS tests
+
+One interpreted test format is that of the Bash automated testing system ([[https://bats-core.readthedocs.io/][BATS]]).  This unit test framework allows one to quickly write simple bash functions to perform tests.  One may write atomic or variant tests as BATS files.  A reason to choose BATS over others is if the test is best expressed as shell code and/or to segregate a large set of related tests from bloating the Waf DAG.
+
+WCT provides some support for BATS tests in the file ~test/wct-bats.sh~ which can be used in a BATS test as in the following example:
+
+#+begin_example
+#+/usr/bin/env bats
+
+# in <pkg>/test/test_mytest.bats
+
+load ../test/wct-bats.sh
+
+@test "some test" {
+  usepkg util
+  # use $util_src, call test/check's made from util
+}
+#+end_example
+
+A BATS test can be run manually from anywhere:
+
+#+begin_example
+cd ..
+bats wire-cell-toolkit/util/test_bats.bats
+#+end_example
+
+However, Waf will run the test from the ~build/~ directory.  To fully replicate that:
+
+#+begin_example
+cd wire-cell-toolkit/build/
+bats ../util/test/test_bats.bats
+#+end_example
+
+When run by default, all ~@test~ functions in a BATS file will be run and they are not idempotent (but Waf tests are).  Especially while developing tests i tis useful to narrow which are run by applying a filter on the strings given to the ~@test~ command.
+
+#+begin_example
+bats -f "test wct bats" util/test/test_bats.bats.
+#+end_example
+
+** Other unit test frameworks
+
+In the future, support for ~pytest~ may be added.
+
+* Writing atomic tests in C++
+
+An atomic test, ~<pkg>/test/test_*.cxx~ 
+
+- must not *require* any arguments including input/output file names
+- may create files as a side effect
+- should create those based on the name of the executable from ~argv[0]~.
+- may load files via the environment (eg "wires files")
+- should ~assert()~ and ~return 1~ (or any non-zero) for anything that goes wrong
+- such assertions should be numerous
+- may use WCT ~Testing.h~ helper
+
+Here is a quick sampling to get started.  
+
+#+begin_src c++
+  #include "WireCellUtil/Testing.h"
+  #include <ofstream>
+  
+  int main(int argc, char* argv[]) {
+      std::string arg0 = argv[0];
+      std::ofstream ofstr(arg0 + "_someout.ext");
+      ofstr << "goodbye world!\n";
+      if (do_something() != 42) return 1;
+      assert(do_something_else());
+      Assert(yet_more());
+      AssertMsg(yet_more(), "with an error message");
+      return 0;
+  }
+#+end_src  
+
+* Writing a sub-DAG of variant tests
+
+Though one has to write Waf code to register them, variant tests may be extended over a subgraph of the Waf DAG by connecting them with files.  See ~wire-cell-toolkit/util/wscript_build~ for various examples.
+

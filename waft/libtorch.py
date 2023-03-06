@@ -1,4 +1,4 @@
-from . import generic
+import generic
 
 def options(opt):
     generic._options(opt, "libtorch")

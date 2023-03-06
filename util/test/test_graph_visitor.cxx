@@ -145,12 +145,11 @@ void fill(Gr& gr)
 }
 
 template<typename Gr>
-void test(std::string name)
+void test(std::string dotfile)
 {
     Gr gr;
     fill(gr);
 
-    std::string dotfile = "test_graph_visitor_" + name + ".dot";
     std::ofstream outf(dotfile);
     outf << dotify(gr) << std::endl;
     std::cerr << dotfile << std::endl;
@@ -158,21 +157,22 @@ void test(std::string name)
     DFSV<Gr> dfsv;
     std::vector<boost::default_color_type> colors(boost::num_vertices(gr));
     boost::iterator_property_map color_map(colors.begin(), boost::get(boost::vertex_index, gr));
-    std::cerr << name << " DFSV 0\n";
+    std::cerr << dotfile << ": DFSV 0\n";
     boost::depth_first_search(gr, dfsv, color_map, 0);
     // std::cerr << name << " DFSV 1\n";
     // boost::depth_first_search(gr, 1, dfsv);
 
     BFSV<Gr> bfsv;
 
-    std::cerr << name << " BFSV 0\n";
+    std::cerr << dotfile << ": BFSV 0\n";
     boost::breadth_first_search(gr, 0, boost::visitor(bfsv));
-    std::cerr << name << " BFSV 0\n";
+    std::cerr << dotfile << ": BFSV 0\n";
     boost::breadth_first_search(gr, 1, boost::visitor(bfsv));
 }
-int main ()
+int main (int argc, char* argv[])
 {
-    test<ugraph_t>("ugraph");
-    test<dgraph_t>("dgraph");
+    std::string arg0 = argv[0];
+    test<ugraph_t>(arg0 + "_ugraph.dot");
+    test<dgraph_t>(arg0 + "_dgraph.dot");
     return 0;
 }
