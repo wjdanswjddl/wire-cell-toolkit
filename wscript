@@ -2,6 +2,10 @@
 
 import os
 
+# fixme: move into waft/
+from waflib.Build import BuildContext
+from waflib.Logs import debug, info, error, warn
+
 TOP = '.'
 APPNAME = 'WireCell'
 VERSION = os.popen("git describe --tags").read().strip()
