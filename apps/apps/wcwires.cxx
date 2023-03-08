@@ -36,7 +36,7 @@ int main(int argc, char** argv)
 
     std::string filename="", output="";
     std::vector<std::string> load_path;
-    int correction = 3;
+    int correction = static_cast<int>(Correction::pitch);
     bool do_validate = false;
     bool do_fail_fast = false;
     double repsilon = 1e-6;
@@ -48,7 +48,7 @@ int main(int argc, char** argv)
                    "Write out a wires file (def=none)"
         )->type_size(1)->allow_extra_args(false);
     app.add_option("-c,--correction", correction,
-                   "Correction level: 0,1,2,3 (def=3)"
+                   "Correction level: 1=load,2=order,3=direction,4=pitch (def=4)"
         )->type_size(1)->allow_extra_args(false);
     app.add_flag("-v,--validate", do_validate,
                  "Perform input validation (def=false)"
@@ -80,7 +80,33 @@ int main(int argc, char** argv)
         }
     }
     else {
-        Store store = load(filename.c_str(), (Correction)correction);
+        std::string corstr="";
+        auto cor = static_cast<Correction>(correction);
+        switch(cor) {
+            case Correction::empty:
+                corstr="load";
+                cor = Correction::load;
+                break;
+            case Correction::load:
+                corstr="load";
+                break;
+            case Correction::order:
+                corstr="order";
+                break;
+            case Correction::direction:
+                corstr="direction";
+                break;
+            case Correction::pitch:
+                corstr="pitch";
+                break;
+            default:
+                corstr="pitch";
+                cor = Correction::pitch;
+                break;
+        };
+        std::cerr << "Loading " << filename << " with " << corstr << " corrections\n";
+
+        Store store = load(filename.c_str(), cor);
         if (do_validate) {
             try {
                 validate(store, repsilon, do_fail_fast);

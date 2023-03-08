@@ -4,12 +4,16 @@
 #include "WireCellUtil/Logging.h"
 #include "WireCellUtil/Intersection.h"
 
+#include <numeric>
+
 using namespace WireCell;
 using namespace WireCell::WireSchema;
 
 static // for now
 Ray ray_pitch_approx(const Ray& r1, const Ray& r2)
 {
+    // return ray_pitch(r1, r2);
+
     const auto c1 = 0.5*(r1.first + r1.second);
     const auto c2 = 0.5*(r2.first + r2.second);
     const auto d21 = c2 - c1;
@@ -176,13 +180,65 @@ using plane_fixers_t = std::vector<plane_fixer_f>;
 // Fix order of plane's wires-in-plane and wire endpoints.
 static void plane_fixer_order(StoreDB& store, Plane& plane)
 {    
-    const size_t axis = wire_order_axis(store, plane);
 
-    // Wire-in-plane ordering
-    std::sort(plane.wires.begin(), plane.wires.end(),
-              wip_order{store, axis});
+    const size_t nwires = plane.wires.size();
 
-    // endoint ordering
+    std::vector<double> ycen(nwires, 0.0), zcen(nwires, 0.0);
+
+    // Capture wire centers in original wire order
+    for (size_t ind=0; ind<nwires; ++ind) {
+        Wire& wire = store.wires[plane.wires[ind]];
+        ycen[ind] = 0.5*(wire.tail.y() + wire.head.y());
+        zcen[ind] = 0.5*(wire.tail.z() + wire.head.z());
+    }
+
+    // Find an origin as the center of centers and an approximate
+    // pitch direction going from minimum to maximum center.
+    double ymin, ymax, zmin, zmax;
+    const int axis = wire_order_axis(store, plane);
+    if (1 == axis) {            // minmax by Y
+        const auto [emin, emax] = std::minmax_element(ycen.begin(), ycen.end());        
+        ymin = *emin;
+        ymax = *emax;
+        zmin = zcen[std::distance(ycen.begin(), emin)];
+        zmax = zcen[std::distance(ycen.begin(), emax)];
+    }
+    else {                      // minmax by Z
+        const auto [emin, emax] = std::minmax_element(zcen.begin(), zcen.end());
+        ymin = ycen[std::distance(zcen.begin(), emin)];
+        ymax = ycen[std::distance(zcen.begin(), emax)];
+        zmin = *emin;
+        zmax = *emax;
+    }
+    Point origin(0, 0.5*(ymin+ymax), 0.5*(zmin+zmax));
+    Vector dir(0, ymax-ymin, zmax-zmin);
+    dir = dir.norm();
+
+    // Find a position of wire centers from origin along direction.
+    std::vector<double> pos(nwires, 0.0);
+    for (size_t ind=0; ind<nwires; ++ind) {
+        Point pt(0, ycen[ind], zcen[ind]);
+        pos[ind] = dir.dot(pt - origin);
+    }
+    
+    // This holds original indices into the plane.wires vector.
+    std::vector<size_t> indices(nwires);
+    std::iota(indices.begin(), indices.end(), 0);
+    
+    // Sort those indices according to position.
+    std::sort(indices.begin(), indices.end(),
+              [&] (size_t a, size_t b) -> bool {
+                  return pos[a] < pos[b];
+              });
+
+    // Replace the ordering to plane.wires.
+    std::vector<int> new_wires(nwires);
+    for (size_t ind=0; ind<nwires; ++ind) {
+        new_wires[ind] = plane.wires[indices[ind]];
+    }
+    plane.wires = new_wires;
+
+    // Maybe flip endpoints to get correct wire direction.
     for (int iwire : plane.wires) {
         Wire& wire = store.wires[iwire];
 
@@ -259,32 +315,33 @@ static void plane_fixer_pitch(StoreDB& store, Plane& plane)
             midway = next;
         }
         if (wind) {            // wait until 2nd to calculate diff
-            // ptot += ray_vector(ray_pitch(prev, next));
-            ptot += ray_vector(ray_pitch_approx(prev, next));
+            ptot += ray_vector(ray_pitch(prev, next));
+            // ptot += ray_vector(ray_pitch_approx(prev, next));
         }
         prev = next;
     }
     const Vector pmean = ptot / (nwires-1);
     const double pmag = pmean.magnitude();
-    const Vector pdir = ptot.norm();
+    const Vector pdir = pmean/pmag; // ptot.norm();
 
     // Center point of midway wire
     const Vector origin = 0.5*(midway.first + midway.second);
 
     for (size_t wind=0; wind<nwires; ++wind) {
-        if (wind == nhalf) {
-            // dont' correct fixed midway wire
-            continue;
-        }
         auto& wire = store.wires[plane.wires[wind]];
 
         // Center of wire relative to origin
         const auto wcen = 0.5*(wire.tail + wire.head) - origin;
 
+        if (wind == nhalf) {
+            // don't correct fixed midway wire
+            continue;
+        }
+
         const double have_pitch = pdir.dot(wcen);
         const double want_pitch = ((int)wind - (int)nhalf)*pmag;
-
-        const auto diff = (want_pitch - have_pitch)*pdir;
+        const double delta_pitch = want_pitch - have_pitch;
+        const Vector diff = delta_pitch*pdir;
 
         wire.tail += diff;
         wire.head += diff;
@@ -297,10 +354,13 @@ static void fix_planes(StoreDB& store, plane_fixers_t& fixers)
     if (fixers.empty()) return;
 
     for (auto& detector : store.detectors) {
+
         for (int ianode : detector.anodes) {
             auto& anode = store.anodes[ianode];
+
             for (int iface : anode.faces) {
                 auto& face = store.faces[iface];
+
                 for (int iplane : face.planes) {
                     auto& plane = store.planes[iplane];
 

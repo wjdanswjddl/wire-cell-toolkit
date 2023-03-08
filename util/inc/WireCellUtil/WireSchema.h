@@ -163,9 +163,9 @@ namespace WireCell {
 
            A number of cumulative corrections can be applied.
 
-           - none :: The store represents data as-is from the file.
+           - laod=1 :: The store represents data as-is from the file.
 
-           - order :: Correct order of wire-in-plane (WIP) and wire
+           - order=2 :: Correct order of wire-in-plane (WIP) and wire
              endpoints.
 
              Normally, this orders by ascending wire center Z value
@@ -180,13 +180,13 @@ namespace WireCell {
              increasing WIP is same as increasing pitch vector and
              that X x W = P.
 
-           - direction :: Rotate wires about their centers so that
+           - direction=3 :: Rotate wires about their centers so that
              they are all parallel.  The common wire direction is
              taken as the average over the original wires, rotated
              into the Y-Z plane.  Wire length and centers are held
              fixed.
 
-           - pitch :: Translate wires along a common pitch direction
+           - pitch=4 :: Translate wires along a common pitch direction
              so that they become uniformly distributed.  The common
              pitch is taken as the average over all wires rotated into
              the Y-Z plane.  The center Y/Z of the central wire at WIP
