@@ -32,14 +32,14 @@ def check_root(cfg, mandatory=False):
         
     kwargs = dict(path_list=path_list)
 
-    cfg.find_program('root-config', var='ROOT-CONFIG', mandatory=mandatory, **kwargs)
-    if not 'ROOT-CONFIG' in cfg.env:
+    cfg.find_program('root-config', var='ROOT_CONFIG', mandatory=mandatory, **kwargs)
+    if not 'ROOT_CONFIG' in cfg.env:
         if mandatory:
             raise RuntimeError("root-config not found but ROOT required")
         print ("skipping non mandatory ROOT, use --with-root to force")
         return
 
-    cfg.check_cfg(path=cfg.env['ROOT-CONFIG'], uselib_store='ROOTSYS',
+    cfg.check_cfg(path=cfg.env['ROOT_CONFIG'], uselib_store='ROOTSYS',
                   args = '--cflags --libs --ldflags', package='', mandatory=mandatory)
 
 

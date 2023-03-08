@@ -69,3 +69,6 @@ int main(int argc,const char *argv[])
 
 def build(bld):
     bld.load('wcb')
+
+def dumpenv(bld):
+    bld.load('wcb')

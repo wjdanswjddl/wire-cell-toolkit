@@ -5,6 +5,7 @@ import generic
 import os.path as osp
 from waflib.Utils import to_list
 from waflib.Logs import debug, info, error, warn
+from waflib.Build import BuildContext
 
 mydir = osp.dirname(__file__)
 
@@ -157,7 +158,11 @@ def configure(cfg):
 
     cfg.env.SUBDIRS = submodules
     info ('Configured for submodules: %s' % (', '.join(submodules), ))
-    cfg.write_config_header('config.h')
+    info ('Configured for submodules: %s' % (', '.join(submodules), ))
+    bch = 'WireCellUtil/BuildConfig.h' 
+    cfg.env['BuildConfig'] = bch
+    info ('Writing build config: %s' % bch) 
+    cfg.write_config_header(bch)
 
     # Define env vars for wire-cell-python CLI's.
     # Extend this list manually as more are developed!
@@ -173,6 +178,9 @@ def configure(cfg):
 def build(bld):
     bld.load('smplpkgs')
 
+    bch = bld.path.find_or_declare(bld.env.BuildConfig)
+    bld.install_files('${PREFIX}/include/' + bch.parent.name, bch)
+
     subdirs = bld.env.SUBDIRS
     info ('Building: %s' % (', '.join(subdirs), ))
     bld.recurse(subdirs)
@@ -182,3 +190,19 @@ def build(bld):
         # running graphviz to produce PNG/PDF
         debug ("writing wct-depos.dot")
         bld.path.make_node("wct-deps.dot").write(str(bld.smplpkg_graph))
+
+def dumpenv(bld):
+    'print build environment'
+    for key in bld.env:
+        val = bld.env[key]
+        if isinstance(val, list):
+            val = ' '.join(val)
+        if "-" in key:
+            warn("replace '-' with '_' in: %s" % key)
+            key = key.replace("-","_")
+        print('%s="%s"' % (key, val))
+
+
+class DumpenvContext(BuildContext):
+    cmd = 'dumpenv'
+    fun = 'dumpenv'
