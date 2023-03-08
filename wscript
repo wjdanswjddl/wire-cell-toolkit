@@ -2,6 +2,10 @@
 
 import os
 
+# fixme: move into waft/
+from waflib.Build import BuildContext
+from waflib.Logs import debug, info, error, warn
+
 TOP = '.'
 APPNAME = 'WireCell'
 VERSION = os.popen("git describe --tags").read().strip()
@@ -67,3 +71,23 @@ int main(int argc,const char *argv[])
 
 def build(bld):
     bld.load('wcb')
+
+
+
+## fixme: move into waft
+def dumpenv(bld):
+    'print build environment'
+    for key in bld.env:
+        val = bld.env[key]
+        if isinstance(val, list):
+            val = ' '.join(val)
+        if "-" in key:
+            warn("replace '-' with '_' in: %s" % key)
+            key = key.replace("-","_")
+        print('%s="%s"' % (key, val))
+
+
+class DumpenvContext(BuildContext):
+    cmd = 'dumpenv'
+    fun = 'dumpenv'
+
