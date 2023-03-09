@@ -10,8 +10,7 @@ physics :{
          module_type : WireCellToolkit
          wcls_main: {
             tool_type: WCLS
-            # apps: ["Pgrapher"]
-            apps: ["TbbFlow"]
+            apps: ["Pgrapher"] # Pgrapher, TbbFlow
 
             logsinks: ["stdout:info", "wcls-sim-drift-simchannel-nf-sp.log:debug"]
             loglevels: ["debug"]

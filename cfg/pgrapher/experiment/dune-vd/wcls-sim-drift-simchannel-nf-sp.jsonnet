@@ -289,7 +289,7 @@ local graph = g.pipeline([wcls_input.depos, drifter, wcls_simchannel_sink, bagge
 // local graph = g.pipeline([wcls_input.deposet, setdrifter, wcls_simchannel_sink, bi_manifold, retagger, wcls_output.sp_signals, sink]);
 
 local app = {
-    type: 'TbbFlow', //Pgrapher, TbbFlow
+    type: 'Pgrapher', //Pgrapher, TbbFlow
     data: {
         edges: g.edges(graph),
     },
