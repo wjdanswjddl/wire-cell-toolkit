@@ -28,9 +28,9 @@ physics :{
             // Contract note: these exact "type:name" must be used to identify
             // the configuration data structures for these components in the Jsonnet.
 
-            inputers: ["wclsSimDepoSetSource:"]
+            inputers: ["wclsSimDepoSource:"]
             outputers: [
-                # "wclsSimChannelSink:postdrift",
+                "wclsSimChannelSink:postdrift",
                 "wclsFrameSaver:spsignals"
             ]
 
@@ -97,7 +97,7 @@ outputs: {
 
       outputCommands :   [
          # "keep *_*_*_*", "drop *", "keep recob::Wires_*_*_*"
-         "drop *"
+         "keep *_*_*_*"
       ]
 
    }

@@ -285,8 +285,8 @@ local retagger = g.pnode({
 //local frameio = io.numpy.frames(output);
 local sink = sim.frame_sink;
 
-// local graph = g.pipeline([wcls_input.depos, drifter, wcls_simchannel_sink, bagger, bi_manifold, retagger, wcls_output.sp_signals, sink]);
-local graph = g.pipeline([wcls_input.deposet, setdrifter, bi_manifold, retagger, wcls_output.sp_signals, sink]);
+local graph = g.pipeline([wcls_input.depos, drifter, wcls_simchannel_sink, bagger, bi_manifold, retagger, wcls_output.sp_signals, sink]);
+// local graph = g.pipeline([wcls_input.deposet, setdrifter, wcls_simchannel_sink, bi_manifold, retagger, wcls_output.sp_signals, sink]);
 
 local app = {
     type: 'TbbFlow', //Pgrapher, TbbFlow
