@@ -1,0 +1,157 @@
+#+title: Guidance on writing BATS tests for WCT
+
+* Create a BATS test file
+
+BATS tests are often *atomic* (see [[../../README.org][README]]) and so their source should be found at
+
+#+begin_example
+<pkg>/test/test_<name>.bats
+#+end_example
+
+If a BATS test is to be *variant* then any name not starting with ~test_~ may be used.  However, by convention this pattern is often chosen:
+
+#+begin_example
+<pkg>/test/check_<name>.bats
+#+end_example
+
+For the rest of the document we will use ~test_~ or ~check_~ prefixes to signify the test is  *atomic* or *variant*, respectively.
+
+In either case, it is best to pick a ~<name>~ that is unique to all of ~*/test/test_*.*~ and which describes the nature of the test.  If the test relates to an issue on GitHub (and ideally there is a test for every resolved issue) then this is an excellent pattern:
+
+#+begin_example
+<pkg>/test/test_issueNNNN.bats
+#+end_example
+
+* Getting started
+
+Edit the file with some standard boilerplate and an initial test function.  Name the test function with a phrase that would be true if the test passes.
+
+#+begin_src bash
+  #!/usr/bin/env bats
+  
+  load ../../test/wct-bats.sh
+  
+  @test "assure the frob correctly kerplunks" {
+      echo "nothing yet"
+  }
+#+end_src
+
+Test that this works so far:
+
+#+begin_example
+  $ bats <pkg>/test/test_issueNNNN.bats
+#+end_example
+
+At this point, it is fine and actually good if the bug you are attacking still exits.  Fill in the test function with some command that *does* fail.  Frequently re-run and grow your test and add new tests as you hunt and fix the bug.
+
+* Test logging
+
+BATS uses a "test protocol" and so unlike normal shell scripts the ~stdout~ and ~stderr~ is captured.  This is sometimes unwanted when the user wishes to see diagnostic messages directly.  There are three mechanisms to accomplish that.
+
+** Logging on failure
+
+By default, ~bats~ will show ~stdout~ for a test that fails.
+
+#+begin_src shell
+  @test "chirp and fail" {
+      echo "hello world"
+      exit 1
+  }
+#+end_src
+
+Running ~bats~ on this test will fail and print ~hello world~.
+
+** Logging on success
+
+The output of successful tests can also be shown.
+
+#+begin_src shell
+  @test "chirp and succeed" {
+      echo "goodbye world"
+  }
+#+end_src
+
+Running ~bats~ as:
+
+#+begin_example
+  $ bats --show-output-of-passing-tests chirp.bats
+#+end_example
+
+will show ~goodbye world~.
+
+** File descriptor 3.
+
+There is a special file descriptor that will always lead to output to the terminal.  Normally this should not be used as the other two methods keep the tests quiet normally but still allow output.  But, if there is a need, output can be redirected to file descriptor ~3~:
+
+#+begin_src shell
+  @test "chirp no matter what" {
+      echo "Ahhhhhhhh" 1>&3
+  }
+#+end_src
+
+* Input and output files
+
+** Files with atomic tests
+
+As *atomic* files are by definition executed with no arguments the Waf unit test framework will neither provide input files nor expect output files from the test.  An *atomic* test may nonetheless consume and produce files internally.  See section [[Implicit files]]. 
+
+** Files with variant tests
+
+On the other hand, a *variant* test may be registered in a ~wcb~ rule such that input files may be provided and output files may be expected.  The only way to communicate these files into the BATS test is via environment variables.
+
+See the file [[file:../wscript_build]] and note:
+
+- We convert files into Waf nodes to better share them between two rules.
+- We define a rule named ~check_batsio~ with a command line build from the Waf arrays ~SRC~ and ~TGT~ that correspond to the arrays given by the ~source~ and ~target~ arguments, holding our nodes.
+- We invent ~WCTEST_*~ environment variables to pass the absolute path to the files.
+- We give the ~.bats~ script itself as an element in the ~source~ array so that it is a dependency in running the test.
+
+The BATS test itself is in [[file:../test/check_batsio.bats]].  Note these aspects of its code:
+
+- We have the values of ~WCTEST_*~ variables to learn what input we consume and output to produce.
+- We do various sanity tests using bash's ~[[ ... ]]~.  Had any failed, the test would fail.
+- The production of the output file is done with a simple ~cp~.  Had this test *failed* to produce output then the Waf unit test would notice the failure.
+
+** Implicit files
+
+An *atomic* and a *variant* test may implicitly attempt to consume and produce files internally.  These files will not be visible to ~wcb~ and so can not be used to form dependencies to other Waf tasks.
+
+The ~wct-bats.sh~ library provides some functions that will help test functions work with files.
+
+#+begin_src bash
+  local path="$(download_file <url> [<target>])"
+#+end_src
+
+This function will attempt to download the file at the URL to a cache under ~build/~ and return the absolute path to the downloaded file.  By default the file will be named as the basename of the URL unless ~<target>~ is given.
+
+#+begin_src bash
+  local path="$(resolve_file <filename>)"
+#+end_src
+
+This function will attempt to locate and return the absolute path for a filename.  It search current directory, the downloads cache, the ~test/data/~ directory and then checks ~WIRECELL_PATH~ and a special ~WIRECELL_TEST_DATA_PATH~.
+
+** Temporary files
+
+Every BATS run, file and test is given a temporary directory to hold any intermediate files.
+
+- ~$BATS_RUN_TMPDIR~ :: a base directory for one run of the ~bats~ command
+- ~$BATS_FILE_TMPDIR~ :: a directory for use at file level
+- ~$BATS_TEST_TMPDIR~ :: a directory for use by each test
+
+Typically, only the last used.  The ~wct-bats.sh~ library provides some helpers to work with temporary areas:
+
+#+begin_src bash
+  local here=$(cd_tmp)   # move to BATS_TEST_TMPDIR
+  # ...                  # do stuff in the temp area
+  cd $here               # return to initial dir
+#+end_src
+
+It is not required to ~cd $here~ unless your test needs it.
+
+By default ~bats~ will remove these files after a test.  When tests fail it can be useful to interrogate what was placed in the temporary directories:
+
+#+begin_example
+  $ bats --no-tempdir-cleanup path/to/test_foo.bats
+#+end_example
+
+The temporary directory that was used will be printed to the terminal. 

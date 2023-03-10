@@ -7,6 +7,10 @@ from waflib.Utils import to_list
 from waflib.Logs import debug, info, error, warn
 from waflib.Build import BuildContext
 
+# Use our own "wcsonnet" command instead of plain "jsonnet".
+from smplpkgs import ValidationContext
+ValidationContext.script_interpreters[".jsonnet"] = "wcsonnet"
+
 mydir = osp.dirname(__file__)
 
 ## These are packages descriptions which fit the generic functions.
@@ -158,7 +162,6 @@ def configure(cfg):
 
     cfg.env.SUBDIRS = submodules
     info ('Configured for submodules: %s' % (', '.join(submodules), ))
-    info ('Configured for submodules: %s' % (', '.join(submodules), ))
     bch = 'WireCellUtil/BuildConfig.h' 
     cfg.env['BuildConfig'] = bch
     info ('Writing build config: %s' % bch) 
@@ -172,6 +175,10 @@ def configure(cfg):
         cfg.find_program(cmd, var=var, mandatory=False)
     cfg.env.WIRE_CELL_WIRES_UBOONE = "microboone-celltree-wires-v2.1.json.bz2"
     cfg.env.WIRE_CELL_WIRES_PDSP = "protodune-wires-larsoft-v4.json.bz2"
+
+    # fixme: when wcb.py is used to build WCT "user" packages, the
+    # WCSONNET and WIRE_CELL vars will not be populated.  We may need
+    # to add find_program() calls to set them here.
 
     debug(cfg.env)
 

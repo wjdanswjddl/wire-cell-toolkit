@@ -1,0 +1,11 @@
+with bld.smplpkg('WireCellTest', use='WireCellApps') as p:
+
+    wa = bld.path.find_resource("wscript_build")
+    wb = bld.path.find_or_declare("wscript_build_copy")
+    cb = bld.path.find_resource("test/check_batsio.bats")
+    p.rule('WCTEST_INPUT=${SRC[0].abspath()} WCTEST_OUTPUT=${TGT[0].abspath()} ${BATS} ${SRC[1]}',
+           name="check_batsio", source=[wa,cb], target=[wb])
+    p.diff(wa, wb)
+    pass
+
+

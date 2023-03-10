@@ -1,10 +1,14 @@
 #!/usr/bin/env bats
 
-load "wct-bats.sh"
+load ../../test/wct-bats.sh
 
 @test "check muon depos" {
     usepkg util test
-    run check_numpy_depos $test_src/data/muon-depos.npz
+
+    npz=$(resolve_file muon-depos.npz)
+    [[ -n "$npz" ]]
+
+    run check_numpy_depos "$npz"
     echo "$output"
     [ "$status" -eq 0 ]
     [ $(echo "$output" | grep 'row=' | wc -l) = 32825 ]

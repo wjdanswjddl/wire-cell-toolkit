@@ -10,3 +10,7 @@ load "../../test/wct-bats.sh"
     [ -n "$(wcsonnet)" ] 
 }
 
+@test "dump env" {
+    wcb dumpenv 1>&3
+}
+    

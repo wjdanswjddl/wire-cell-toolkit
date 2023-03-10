@@ -2,34 +2,34 @@
 
 # Test for https://github.com/WireCell/wire-cell-toolkit/issues/200
 #
-# In part this issue invovles a problem building against WCT so we put
-# this test outside of sub-packages.
+# Here, we pretend we build against WCT and make sure the build config
+# header is found.
+
+load ../wct-bats.sh
 
 @test "assure build config built" {
-    eval $(../wcb dumpenv|grep =)
-    [[ -f "$BuildConfig" ]]
+    wcb_env
+    echo  "$BuildConfig" 
+
+    [[ -n "$BuildConfig" ]]
+    path="$(top)/build/$BuildConfig"
+    echo "Expect build config file built at: $path"
+    [[ -f "$path" ]]
 }
 
 @test "assure build config installed" {
-    eval $(../wcb dumpenv|grep =)
+    wcb_env
     [[ -n "$PREFIX" ]]
-    [[ -n "$BuildConfig" ]]
 
-    echo "Expect build config file: $PREFIX/include/$BuildConfig"
+    echo "Expect build config file installed at: $PREFIX/include/$BuildConfig"
     [[ -f "$PREFIX/include/$BuildConfig" ]]
 }
 
 @test "external build with config" {
-    # assume we run from build/
-    eval $(../wcb dumpenv|grep =)
-    [[ -n "$PREFIX" ]]
-    [[ -n "$BuildConfig" ]]
+    wcb_env
     [[ -n "$CXX" ]]
 
-    here=$(pwd)
-    tmp="$(mktemp -d ${BATS_TMPDIR}/test-issue200-build-with-config-XXXXX)"
-    echo "working in: $tmp"
-    cd $tmp/
+    cd_tmp
 
     cat <<EOF > check.cxx
 #include "$BuildConfig"
@@ -49,6 +49,5 @@ EOF
 
     [[ -n "$(echo $output|grep version)" ]]
 
-    cd $here
-    rm -rf $tmp
+
 }
