@@ -85,11 +85,12 @@ def configure(cfg):
     # interpreters
     cfg.find_program('python', var='PYTHON', mandatory=True)
     cfg.find_program('bash', var='BASH', mandatory=True)
-    cfg.find_program('bats', var='BATS', mandatory=False)
+    cfg.find_program('bats', var='BATS', mandatory=False,
+                     path_list=["./test/bats/bin"])
     cfg.find_program('jsonnet', var='JSONNET', mandatory=False)
 
     # For testing
-    cfg.find_program('diff', var='DIFF', mandatory=False)
+    cfg.find_program('diff', var='DIFF', mandatory=True)
     pass
 
 def build(bld):
