@@ -5,6 +5,33 @@ using namespace WireCell;
 using namespace WireCell::RayGrid;
 using namespace WireCell::Range;
 
+Coordinates::~Coordinates()
+{
+}
+
+Coordinates::Coordinates()
+    : m_nlayers(0)
+{
+}
+Coordinates::Coordinates(const Coordinates& other)
+{
+    (*this) = other;
+}
+Coordinates& Coordinates::operator=(const Coordinates& other)
+{
+    m_nlayers = other.m_nlayers;
+    m_pitch_mag = other.m_pitch_mag;
+    m_pitch_dir = other.m_pitch_dir;
+    m_center = other.m_center;
+    m_zero_crossing = other.m_zero_crossing;
+    m_ray_jump = other.m_ray_jump;
+    m_a.resize(boost::extents[m_nlayers][m_nlayers][m_nlayers]);
+    m_b.resize(boost::extents[m_nlayers][m_nlayers][m_nlayers]);
+    m_a = other.m_a;
+    m_b = other.m_b;
+    return *this;
+}
+
 Coordinates::Coordinates(const ray_pair_vector_t& rays, int normal_axis, double normal_location)
   : m_nlayers(rays.size())
   , m_pitch_mag(m_nlayers, 0.0)
@@ -78,8 +105,14 @@ Coordinates::Coordinates(const ray_pair_vector_t& rays, int normal_axis, double 
                 }
             }
             if (il == im) {
-                m_zero_crossing(il, im).invalidate();
-                m_ray_jump(il, im).invalidate();
+                // Initially we set diagonal elements to the "invalid"
+                // point.  But then realized these special case values
+                // are both useful and meaningful in context.  Setting
+                // zero crossing to centers is apparently redundant
+                // but m_center must be kept in order that centers()
+                // may continue to return a const reference.
+                m_zero_crossing(il, im) = m_center[il];
+                m_ray_jump(il, im) = ray_unit(rpl.first);
             }
         }
     }
@@ -118,7 +151,10 @@ Coordinates::Coordinates(const ray_pair_vector_t& rays, int normal_axis, double 
     }
 }
 
-Vector Coordinates::zero_crossing(layer_index_t one, layer_index_t two) const { return m_zero_crossing(one, two); }
+Vector Coordinates::zero_crossing(layer_index_t one, layer_index_t two) const
+{
+    return m_zero_crossing(one, two);
+}
 
 Vector Coordinates::ray_crossing(const coordinate_t& one, const coordinate_t& two) const
 {
@@ -169,4 +205,3 @@ vector_array1d_t Coordinates::ring_points(const crossings_t& corners) const
     }
     return ret;
 }
-
