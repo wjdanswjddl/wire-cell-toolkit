@@ -1,6 +1,7 @@
 #+title: Wire-Cell Toolkit Noise
 #+options: ':t
 #+latex_header: \usepackage[margin=1in]{geometry}
+#+latex_header: \usepackage{listings}
 #+LaTeX_HEADER: \lstloadlanguages{[ISO]C++}
 #+LaTeX_HEADER: \definecolor{background}{RGB}{255,255,255}
 #+LaTeX_HEADER: \definecolor{delim}{RGB}{20,105,176}

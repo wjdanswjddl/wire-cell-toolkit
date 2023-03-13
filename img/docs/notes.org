@@ -129,7 +129,7 @@ The direction of $p^l$ defines an axis for ROCS $l$ and its magnitude defines a 
 
 A second ROCS $m$ is now considered which has rays at some non-zero angle with ROCS $l$.  The set of crossing points of rays from each form a regular, non-orthogonal 2D grid.  We define:
 
-- $r^{lm}_{ij}$ :: a vector giving the location (expressed in global Cartesian coordinates) of the crossing point of the $i^{th}$ ray in ROCS $l$ and the $j^{th$ ray in ROCS $m$, $l \ne m$ and with one set of rays having a non-zero angle w.r.t. the other.
+- $r^{lm}_{ij}$ :: a vector giving the location (expressed in global Cartesian coordinates) of the crossing point of the $i^{th}$ ray in ROCS $l$ and the $j^{th}$ ray in ROCS $m$, $l \ne m$ and with one set of rays having a non-zero angle w.r.t. the other.
 
 - $w^{lm}$ :: a relative vector giving the displacement between the intersections of a pair of neighboring rays of ROCS $m$ with a ray in ROCS $l$.  That is, this vector allows one to "hop" along a ray in $l$ from one crossing point of a ray in $m$ to the crossing point of its neighbor.
 
@@ -138,7 +138,7 @@ Without loss of generality one ray in each ROCS is given index $i = 0$ and it is
 In forming "blobs" it is typical that one must test if a particular point is "inside" some boundary defined by a pair of rays.  This is equivalent to calculating the pitch location of the point in the ROCS coordinate system.  If the only points which may be tested are themselves calculated as $r^{lm}_{ij}$ then one evaluate the pitch location in a third ROCS in terms of the original crossings of two other ROCS, $P^{lmn}_{ij} = (r^{lm}_{ij} - c^n) \cdot \hat{p}^n$.  
 Expanding, one arrives at, $P^{lmn}_{ij} = r^{lm}_{00}\cdot \hat{p}^n + jw^{lm} \cdot \hat{p}^n + iw^{ml} \cdot \hat{p}^n - c^n \cdot \hat{p}^n$.  Note, that this decomposes into the a form of two three dimensional tensors $P^{lmn}_{ij} = ja^{lmn} + ia^{mln} + b^{lmn}$ where $b^{lmn}$ is symmetric about the exchange of $l$ and $m$.  The size of each tensor dimension is that of the number of ROCS considered.
 
-Finally, one may divide this tensor by the magnitude of the pitch of the third ROCS in order to find the index of the closest ray.  This pitch index is $I^{lmn}_ij} = P^{lmn}_{ij}/|p^n|$. 
+Finally, one may divide this tensor by the magnitude of the pitch of the third ROCS in order to find the index of the closest ray.  This pitch index is $I^{lmn}_{ij} = P^{lmn}_{ij}/|p^n|$. 
 
 
 *** Slice Overlaps
@@ -233,7 +233,7 @@ A per-slice blobs can be viewed:
   paraview test-pdsp-748-blobs.vtu
 #+END_EXAMPLE
 
-[[file:x.svg]]
+[[file:x.pdf]]
 
 On Mate desktop, paraview renders tool tips with white text on yellow
 background which is unreadable.  [[https://community.slickedit.com/index.php/topic,14388.0.html][This solution]] works.  Install ~qtconfig~, "Appearance" tab, "Tune Palette..." button "ToolTipBase" and "ToolTipText" under "Central color roles".  Pick nicer color (I just made text black) and save.

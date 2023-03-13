@@ -35,7 +35,7 @@ Notes:
 * 
 
 #+begin_center
-\includegraphics[height=\textheight,page=9]{../../img/docs/dpf-raytiling.pdf}
+\includegraphics[height=\textheight,page=9]{../../../img/docs/dpf-raytiling.pdf}
 #+end_center
 
 

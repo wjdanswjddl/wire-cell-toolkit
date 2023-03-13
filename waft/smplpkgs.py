@@ -210,6 +210,24 @@ class ValidationContext:
         self.bld.cycle_group("libraries")
         return
 
+    def has(self, *args):
+        '''
+        Return true if we are built with all pkgs 
+        '''
+        if not args:
+            return true
+        
+        pkgs = list()
+        for a in args:
+            pkgs += to_list(a)
+
+        have_all = True
+        for pkg in pkgs:
+            maybe = 'HAVE_' + pkg.upper()
+            if not maybe in self.bld.env:
+                have_all = False
+        return have_all
+
     def nodify_resource(self, name_or_node, path=None):
         'Return a resource node'
 
@@ -391,6 +409,7 @@ def smplpkg(bld, name, use='', app_use='', test_use=''):
     srcdir = bld.path.find_dir('src')
     dictdir = bld.path.find_dir('dict')
     appsdir = bld.path.find_dir('apps')
+    docdir = bld.path.find_dir('docs')
 
     bld.cycle_group("libraries")
 
@@ -453,6 +472,18 @@ def smplpkg(bld, name, use='', app_use='', test_use=''):
             keyname = appbin.name.upper().replace("-","_")
             bld.env[keyname] = appbin.abspath()
                           
+    bld.cycle_group("documentation")
+    if docdir and "PANDOC" in bld.env:
+        for docsrc in docdir.ant_glob("*.org"):
+            docname = docsrc.name.replace('.org','')
+            if docname.startswith("setup"):
+                continue
+            docpdf = bld.path.find_or_declare(docname + ".pdf")
+            bld(rule="pandoc -o ${TGT[0].abspath()} ${SRC[0].abspath()}",
+                source = [docsrc], target = [docpdf])
+                        
+
+
     bld.cycle_group("libraries")
 
     return ValidationContext(bld, test_use + [name])

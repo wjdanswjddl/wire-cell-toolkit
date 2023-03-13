@@ -180,6 +180,8 @@ def configure(cfg):
     # WCSONNET and WIRE_CELL vars will not be populated.  We may need
     # to add find_program() calls to set them here.
 
+    cfg.find_program("pandoc", var="PANDOC", mandatory=False)
+
     debug(cfg.env)
 
 def build(bld):

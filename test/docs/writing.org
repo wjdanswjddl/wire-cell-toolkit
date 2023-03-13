@@ -1,0 +1,59 @@
+#+title: Writing WCT tests
+#+latex_header: \usepackage[margin=1in]{geometry}
+#+options: ':t toc:t
+
+This provides general information on how to write WCT tests.  The following documents provide more specific instruction.
+
+- [[file:docs/cpp.org][How to write C++ tests]]
+- [[file:docs/bats.org][How to write Jsonnet tests]]
+- [[file:docs/bats.org][How to write BATS tests]]
+- [[file:docs/variant.org][How to write variant tests]]
+- [[file:docs/report.org][How to produce test reports]]
+- [[file:docs/datafiles.org][How to use data files in tests]]
+
+* Determine the scope of the test
+
+When considering to develop a test, consider what should be tested and then ask yourself:
+
+- Can the initial scope be partitioned into smaller scopes, each with their own tests.
+- What *code* must a test depend on?  Can it be reduced?
+- What *data* must a test depend on?  Can it be reduced, removed or hard-coded?
+  
+* Location of test source
+
+The source file for a test should be placed under one of the
+directories:
+
+#+begin_example
+<pkg>/test/
+#+end_example
+
+In deciding the ~<pkg>~ to house the test, particular care is needed to respect the WCT library dependency graph.  This graph should be produced by the build.  That graph at the time this document was rendered is shown below.
+
+[[file:../../wct-deps.png]]
+
+It is allowed for the dependency tree for test programs to be different than the library dependency graph.  However, tests should avoid adding a dependency on an external package that is not shared by that package's library.  On the other hand, tests may add dependencies on other WCT sub packages that the sub package library does not require.
+
+For example, if a test of code in ~WireCellGen~ requires ROOT, that test should go into ~WireCellRoot~ (under ~root/test/*~ and not ~gen/test/*~).
+
+* Name the test
+
+An *atomic test* must have a source file name of ~<pkg>/test/test_<name>.<ext>~.  The ~<name>~ should be chosen so that:
+
+- it is unique among all atomic tests of all extensions
+- it briefly summarizes the scope of the test
+- lower case with optional underscores ("~_~") 
+
+* Test source content
+
+The main requirement of all tests is that when they are executed they have a zero return code when successfully (test passes) and non-zero when an error occurs (test fails).
+
+The WCT test framework supports tests written in a number of languages and a guide for each is provided:
+
+- [[file:cpp.org][Compiled C++]]
+- [[file:jsonnet.org][Jsonnet]]
+- [[file:python.org][Python]]
+- [[file:shell.org][Shell]]
+- [[file:bats.org][BATS]]
+Additional forms may be added in the future.
+

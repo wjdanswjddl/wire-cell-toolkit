@@ -1,0 +1,131 @@
+#+title: Wire-Cell Toolkit testing framework
+#+latex_header: \usepackage[margin=1in]{geometry}
+#+options: ':t toc:t
+
+This document describes the WCT test framework.
+
+* Overview
+
+The WCT test framework allows the developers and users to:
+
+- streamline the creation of simple and complex tests.
+- allow manual and direct execution in keeping with the WCT toolkit philosophy, but also automatically compile and run or interpret as part of the test framework.
+- connect (variant) tests via the files they produce and files in WCT configuration and test data repositories.
+- collect and include all test source inside the WCT project itself.
+
+All WCT tests are main programs or interpreted scripts that may be executed by the WCT build command (~wcb~) its use of the "Waf unit test" framework.  By default, test programs will be run automatically as part of the build but they may be suppressed by the user, for example to reduce build time.
+
+* Test categories
+
+All WCT test programs are the same in that they communicate success (test passed) by a return code of zero or that an error occurred (test failed) by a non-zero return code (usual Unix convention).  Beyond that, WCT tests fall into one of two categories that are distinct in how the test is integrated with the build.
+
+- An *atomic* test program is one that consumes no input files and produces no output files from the point of view of the WCT build system.  An atomic test needs no special registration with the build system other than to follow a source file naming convention (~test_*~).  
+- A *variant* test program is one that is explicitly registered with the WCT test framework.  This frees it from the restrictive conventions that govern atomic tests.  Freedoms include choice of source file name, requiring command line arguments and files produced or consumed being known to the build system.
+
+In software development, it is common to categorize a test as being either a *unit test* or an *integration test*.  These terms rely on an often vague definition of a software "unit".  In WCT testing, there is no attempt to realize these categories.  However, *atomic tests* are generally if not universally expected to be written to test some smaller software parts and so tend toward being "unit" tests while *variant tests*, and particularly DAGs of several variant tests sharing files, tend toward being "integration" tests.
+
+* Executing tests
+
+WCT provides three ways to execute its tests.
+
+** Automatic execution
+
+All tests will be built and executed by default when WCT is built.
+
+#+begin_example
+./wcb [ ... ]             # build everything and run all tests
+#+end_example
+
+Running all tests will greatly increases total build time.  In some situations it may be advantageous to *suppress* the building and running of tests.  This can be accomplished by adding the ~--notests~ flag:
+
+#+begin_example
+./wcb --notests [ ... ]   # no tests
+#+end_example
+
+The atomic test are generally expected to cover a smaller code scope and thus require less time to build and run compared to variant tests.  We may suppress only variant tests while including still the atomic tests by using the ~--nochecks~ flag:
+
+#+begin_example
+./wcb --nochecks [ ... ]  # just the atomic tests
+#+end_example
+Notes, ~wcb~ caches the outcome of a test.  Whether it succeeded or failed a test is not rerun until the test source or its dependencies change.  However, we may force all tests to run again:
+
+#+begin_example
+./wcb --alltests
+#+end_example
+
+** Explicit execution
+
+An individual test may be run explicitly via ~wcb~ by giving its "target".
+
+#+begin_example
+./wcb --target=test_testing
+#+end_example
+Notes,
+
+- This too is subject to caching of test outcomes described above.
+- The known compiled targets may be listed with ~./wcb list~.
+  - fixme: how to list interpreted tests?
+
+** Direct execution
+
+Test programs may be executed directly from the shell command line.  Compiled tests are found under ~build/<pkg>/<testprogram>~ while interpreted test files are left in-place in the source trees.  Here are some examples of directly running tests:
+
+#+begin_example
+./build/util/test_testing
+wcsonnet cfg/test/test_wirecell.jsonnet
+bats util/test/test_bats.bats
+#+end_example
+Notes:
+
+- Test programs should not be sensitive to the choice of the current working directory.  However some are (consider them buggy, file issues, fix).  They may require to be run as: ~cd build; ./<pkg>/test_<name>~.
+
+- Some tests may require the ~WIRECELL_PATH~ shell environment variable to be defined to include ~wire-cell-data~.  Setting this variable is a responsibility of the user invoking ~wcb~.
+
+- The ~wcb~ build progresses through a series of discrete stages (Waf groups).  The first three builds in order: libraries, WCT application programs and test programs.  In the last stage, tests are run.  When running tests manually, be sure the prior build steps are complete.
+
+- Tests may output files which are not considered in the build DAG executed by ~wcb~.   For example, some produce diagnostic PDF files which are intended to be reviewed by experts.  All tests should be developed to write these files into the ~build/~ directly, typically as siblings to the test executable.  Some may instead write to the current working directory.  Doing this is considered a bug.  Please make an issue and/or provide a fix.
+
+
+
+* Built-in test system
+
+WCT uses Waf's unit test framework with an overlay of conventions.
+
+** Check programs
+
+Source files found as:
+
+#+begin_example
+<pkg>/test/check_*.<ext>
+#+end_example
+will be compiled, but not run automatically nor installed.  They are intended to be used in atomic tests (eg called from ~test_*~ scripts) or called directly by ~wcb~ after being registered as a variant test.
+
+** Atomic tests
+
+The build will compile, if needed, and automatically run *atomic tests* with source files found as:
+
+#+begin_example
+<pkg>/test/test_*.<ext>
+#+end_example
+Extensions of ~cxx~ or ~kokkos~ wil be compiled prior to running.  Interpreted scripts with extensions ~py, sh, bats, jsonnet~ will be run with their associated interpreter.  The check programs (above) are available for calling from these atomic tests.
+
+** Variant tests
+
+Variant tests are explicitly registered as ~wcb~ rules in a file found at:
+
+#+begin_example
+<pkg>/wscript_build
+#+end_example
+That code should utilize the return from a call to ~bld.smplpkg()~ as a context manager though which to register ~wcb~ rules.  Variant tests should not be registered directly via ~bld()~ as this will circumvent the test suppression.
+
+#+begin_example
+  with bld.smplpkg('MyPackage', ...) as p:
+      p.rule("${WCSONNET} > ${TGT} 2>&1", target="wcsonnet-help.log")
+#+end_example
+As shown, a *rule* consists of a *command line* which may use a number of Waf environment variables (*not* shell environment variables) and a *target* which may be a single file name or a list of file names.  The ~target~ list is mapped to the ~${TGT}~ variable.  This is an array variable an individual files in the list may be referenced.  For example, ~${TGT[0]}~ is the first.  Not shown but likewise an argument *source* and variable ~${SRC}~ may be provided to introduce files on which the rule is *dependent*.  The source files will be found, possibly created by other rules, by ~wcb~.
+
+The other variable in the example is ~${WCSONNET}~.  Its value is set to the path to the ~wcsonnet~ program by the build system (see ~waft/wcb.py~).  Also provided is ~${WIRE_CELL}~ that holds the path to the ~wire-cell~ program.  Likewise the following are set to supported interpreters: ~${BASH}, ${BATS}, ${PYTHON}, ${JSONNET}~.
+
+A ~p.rule()~ is a thin wrapper around the Waf build context call ~bld()~ with hooks to enact test suppression.
+For more information on rules see the Waf Book at https://waf.io/book/ and look at teh various ~<pkg>/wscript_build~ files.
+

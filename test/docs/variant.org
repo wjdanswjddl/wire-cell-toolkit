@@ -1,0 +1,63 @@
+#+title: WCT Variant tests
+#+latex_header: \usepackage[margin=1in]{geometry}
+#+options: ':t toc:t
+
+This describes general aspects of *variant tests* as apposed to *atomic tests*.  See [[file:framework.org]] for an overview.
+
+* Variant tests
+
+In WCT, a *variant test* is formed when a test program requires command line arguments.  These command line arguments may specify file names which are known to ~wcb~.  Those files may then form connections between other variant tests or in general other Waf tasks so that the variant test becomes a connect part of Waf's DAG.
+
+* Basics of registering
+
+We must explicitly register a variant test with ~wcb~ in a ~<pkg>/wscript_build~ file.  There we specify a parameterized command line string and optional source input and/or target output files.
+
+A simple example from ~util/wscript_build~:
+
+#+begin_example
+with bld.smplpkg('WireCellUtil',
+                 use='SPDLOG BOOST FFTW EIGEN DYNAMO JSONCPP JSONNET ZLIB',
+                 test_use='WireCellApps') as p:
+    
+    p.rule("${WIRE_CELL} --help 2>&1 | grep 'Command line interface to the Wire-Cell Toolkit' > ${TGT}",
+           name="wire-cell-help",
+           target="wire-cell-help.log")
+#+end_example
+Several things to note in this short bit of code:
+- The usual ~smplpkg()~ call returns a Python context manager as ~p~.
+- The ~p.rule()~ is the general registration function, more on this below.
+- The first argument is the parameterized command line.
+- An explicit name is given (optional).
+- A ~target~ argument gives a file name (or a list of file names) of output files
+- A ~source~ argument, not used in this example, provides input files
+
+The parameterized command line makes use of ~${WIRE_CELL}~ which is set to the path to the ~wire-cell~ program that is also built by ~wcb~.  The output ~${TGT}~ is replaced by the contents of the ~target~ argument.  Had ~target~ been a list of file names, ~${TGT}~ would be replaced by a space-separated version of that same list.  Individual files can be referenced, eg as ~${TGT[0]}~ and their full paths can be assured with ~${TGT[0].abspath()}~.
+
+If another rule exists that uses ~wire-cell-help.log~ as its input, ~wcb~ will assure to run ~wire-cell-help~ first.
+See ~wire-cell-toolkit/util/wscript_build~ for various examples of how such sub-DAGs can be formed.
+
+* A variant conditional on dependencies
+
+The ~test_idft~ atomic test may also be used as a variant test.  See [[file:cpp.org]] for more on this particular test.
+The variants have different run-time dependencies as they will load a plugin which is given on the command line in order to use a particular component ~IDFT~, also named on the command line.
+
+We may assure that the variant requiring a particular dependency is only run with that dependency is available by registering the variant in a context that otherwise has that dependency.  For example, the PyTorch variant is registered in ~pytorch/wscript_build~ like this:
+
+#+begin_example
+with bld.smplpkg('WireCellPytorch', use='WireCellAux LIBTORCH') as p:
+    p.rule("./${SRC}", source=["test_idft", "TorchDFT", "WireCellPytorch"])
+#+end_example
+
+The *rule* command line here uses a small trick.  Just as described for ~${TGT}~ above, the ~${SRC}~ array variable is expanded to hold the elements of the list provided by the ~source~ argument, separated by spaces.  We provide the ~test_idft~ as the first in the "source" list so that the rule generates a Waf task that depends on that program being built.  The order of the sources also matches the required command line calling sequence.  Had some more complex command line been required we would have provided the rule string with ~${SRC[0]}~ etc elements.
+
+By placing this in ~pytorch/wscript_build~ the test will only be run when WCT is build with support for ~pytorch~.  Alternatively, when that sub-package level switch is not possible (eg, there is no single sub package providing all required dependencies), the *rule* can be defined inside a test for some package support.
+
+For example, here is a contrived example (not) in ~test/wscript_build~ that depends on both CUDA and ROOT.  Since it requires both, we can not put it in either the ~root/wscript_build~ nor ~cuda/wscript_build~.
+
+#+begin_example
+with bld.smplpkg('WireCellTest', use='WireCellApps') as p:
+    if p.has('cuda root'):
+        p.rule("./${SRC}", source=["check_cuda_and_root"])
+#+end_example
+
+FIXME: for such a thing to actually work, ~test~ needs to depend on both but in a way that does not totally break when ROOT or CUDA is excluded.  This is more a problem for building the fictional ~check_cuda_and_root~ program.  
