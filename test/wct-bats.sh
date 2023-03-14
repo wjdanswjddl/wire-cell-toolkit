@@ -25,6 +25,12 @@ function die () {
     exit 1
 }
 
+function dumpenv () {
+    env | grep = | sort
+    # warn $BATS_TEST_FILENAME
+    # warn $BATS_TEST_SOURCE    
+}
+
 # Return the top level source directory based on this file.
 function top () {
     dirname $(dirname $(realpath $BASH_SOURCE))
@@ -37,13 +43,29 @@ function bld () {
 
 # Save a product of the test to the build area.
 # usage:
-# save path/in/test/dir/file.ext dir/under/build/
+#
+# save path/in/test/dir/file.ext [target/dir/file2.ext]
+#
+# If a second argument is given it is interpreted to be a relative
+# path to where the file should be copied.  Actual copied file path
+# will be like:
+#
+# build/output/<name>/target/dir/file2.ext
+#
+# where <name> is from BATS_TEST_FILENAME
 function saveout () {
     local src="$1" ; shift
     local tgt="$1"
-    local tpath="$(bld)/$tgt"
-    mkdir -p "$tpath"
-    cp $src $tpath
+    local name="$(basename $BATS_TEST_FILENAME .bats)"
+    local tpath="$(bld)/output/${name}"
+    if [ -z "$tgt" ] ; then
+        mkdir -p "$tpath"
+        tpath="$tpath/$(basename $src)"
+    else
+        tpath="$tpath/$tgt"
+        mkdir -p "$(dirname $tpath)"
+    fi
+    cp "$src" "$tpath"
     log "saved $src to $tpath"
 }
 

@@ -31,7 +31,7 @@ load ../wct-bats.sh
 }
 
 # @test "blah" {
-#     env|sort|grep BATS
+#     dumpenv > /tmp/batsenv.dump
 #     exit 1
 # }
     

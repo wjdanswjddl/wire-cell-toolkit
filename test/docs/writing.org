@@ -2,14 +2,7 @@
 #+latex_header: \usepackage[margin=1in]{geometry}
 #+options: ':t toc:t
 
-This provides general information on how to write WCT tests.  The following documents provide more specific instruction.
-
-- [[file:docs/cpp.org][How to write C++ tests]]
-- [[file:docs/bats.org][How to write Jsonnet tests]]
-- [[file:docs/bats.org][How to write BATS tests]]
-- [[file:docs/variant.org][How to write variant tests]]
-- [[file:docs/report.org][How to produce test reports]]
-- [[file:docs/datafiles.org][How to use data files in tests]]
+This provides general information on how to write WCT tests.  See the top [[file:../README.org][README]] for links to other documents describing how to write particular tsts.
 
 * Determine the scope of the test
 
@@ -38,11 +31,35 @@ For example, if a test of code in ~WireCellGen~ requires ROOT, that test should 
 
 * Name the test
 
-An *atomic test* must have a source file name of ~<pkg>/test/test_<name>.<ext>~.  The ~<name>~ should be chosen so that:
+An *atomic test* must have a source file name that matches the pattern:
+
+#+begin_example
+<pkg>/test/test[-_]<name>.<ext>
+#+end_example
+
+The ~<name>~ should be chosen so that:
 
 - it is unique among all atomic tests of all extensions
 - it briefly summarizes the scope of the test
-- lower case with optional underscores ("~_~") 
+- lower case with underscore or dash separators
+
+If a test specifically addresses a GitHub issue the test file name should
+include the issue number.  For example:
+
+#+begin_example
+test_issue200.bats
+#+end_example
+Likewise, if a test addresses things in a PR, it should contain the PR
+number.  For example:
+#+begin_example
+test-pr195.bats
+#+end_example
+
+If a test is a BATS or shell script and uses auxiliary files such as
+providing configuration, they should be included as a sibling to the
+test file.  Take caution not to name them starting with ~test*~ if they
+potentially match an atomic test file name and are not themselves
+usable as such.
 
 * Test source content
 
@@ -57,3 +74,14 @@ The WCT test framework supports tests written in a number of languages and a gui
 - [[file:bats.org][BATS]]
 Additional forms may be added in the future.
 
+* Test data files
+
+Data files may be used to provide a test input.  Other "blessed" files
+may be provided so that the test may attempt to reproduce them exactly
+or statistically.
+
+Files should be collected in the WCT test data repository and reuse of
+files between tests is encouraged.  For more information see the
+document [[file:datarepo.org]].  See also the document [[file:bats.org]] for
+ways to access test data repo and other files in the context of BATS
+tests.

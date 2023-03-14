@@ -3,7 +3,7 @@
 
 The Wire-Cell Toolkit (WCT) provides a large number of tests.  Developers and users are strongly encouraged to contribute yet more.  Below are links to documents that explanation of the WCT test framework and simple "howto" guides for providing tests.
 
-- [[file:docs/this.org][This sub package]]
+- [[file:docs/this.org][Description of the test sub package]]
 - [[file:docs/framework.org][WCT test framework]]
 - [[file:docs/writing.org][How to write tests]]
 - [[file:docs/atomic.org][How to write atomic tests]]
@@ -12,4 +12,4 @@ The Wire-Cell Toolkit (WCT) provides a large number of tests.  Developers and us
 - [[file:docs/jsonnet.org][How to write Jsonnet tests]]
 - [[file:docs/bats.org][How to write BATS tests]]
 - [[file:docs/report.org][How to produce test reports]]
-- [[file:docs/datafiles.org][How to use data files in tests]]
+- [[file:docs/datarepo.org][How to use files from the test data repo]]
