@@ -1,4 +1,4 @@
-#+title: WCT Variant tests
+#+title: WCT variant tests
 #+latex_header: \usepackage[margin=1in]{geometry}
 #+options: ':t toc:t
 
@@ -27,7 +27,7 @@ Several things to note in this short bit of code:
 - The usual ~smplpkg()~ call returns a Python context manager as ~p~.
 - The ~p.rule()~ is the general registration function, more on this below.
 - The first argument is the parameterized command line.
-- An explicit name is given (optional).
+- An explicit ~name~ should be given so the task shows in ~./wcb list~ and may be used in ~./wcb --target=<name>~.
 - A ~target~ argument gives a file name (or a list of file names) of output files
 - A ~source~ argument, not used in this example, provides input files
 

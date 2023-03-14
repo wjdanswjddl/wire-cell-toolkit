@@ -272,6 +272,8 @@ class ValidationContext:
             return
         source = self.nodify_resource(source)
         ext = source.suffix()
+        name = source.name.replace(ext,'')
+        outnode = self.bld.path.find_or_declare(name + '.out')
 
         interp = self.script_interpreters.get(ext, None)
 
@@ -285,11 +287,12 @@ class ValidationContext:
             return
 
         debug(f'{interp} {source}')
-        self.bld(features="test_scripts",
+        self.bld(features="test_scripts", name=name,
                  ut_cwd   = self.bld.path, 
                  use = self.uses, 
                  test_scripts_source = source,
-                 test_scripts_template = "${%s} ${SCRIPT}" % INTERP)
+                 test_scripts_template = "${%s} ${SCRIPT}" % INTERP,
+                 target = [outnode])
 
         
     # def variant(self, cmdline, **kwds):

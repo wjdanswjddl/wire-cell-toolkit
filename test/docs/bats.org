@@ -226,17 +226,19 @@ Every BATS run, file and test is given a temporary directory to hold any interme
 Typically, only the last used.  The ~wct-bats.sh~ library provides some helpers to work with temporary areas:
 
 #+begin_example
-  local here=$(cd_tmp)   # move to BATS_TEST_TMPDIR
+  local here=$(cd_tmp)   # move to WCTEST_TMPDIR or BATS_TEST_TMPDIR
   # ...                  # do stuff in the temp area
   cd $here               # return to initial dir
 #+end_example
-It is not required to ~cd $here~ unless your test needs it.
+The ~cd_tmp~ will change to ~$WCTEST_TMPDIR"~ if define or to "~$BATS_TEST_TMPDIR~" which BATS will define unique for each test.  The former may be used to force tests that use ~cd_tmp~ to re-run in a prior directory.  In combination with writing idempotent test code, this can allow rerunning tests more quickly.  This is mostly a benefit during development of long-running tests.
 
-By default ~bats~ will remove these files after a test.  When tests fail it can be useful to interrogate what was placed in the temporary directories:
+The ~cd_tmp~ echos the current working directory which may be captured in order to return after using the temporary directory.  This is not required unless subsequent code in the test function needs it.
+
+By default ~bats~ will remove ~$BATS_RUN_TMPDIR~ (but not ~$WCTEST_TMPDIR~) after testing.  When tests fail it can be useful to examine what was placed in the temporary directories.  To allow this run the test like:
 
 #+begin_example
   $ bats --no-tempdir-cleanup path/to/test_foo.bats
 #+end_example
+The temporary directory will be printed to the terminal. 
 
-The temporary directory that was used will be printed to the terminal. 
 

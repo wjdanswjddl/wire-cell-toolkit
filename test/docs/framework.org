@@ -63,8 +63,9 @@ An individual test may be run explicitly via ~wcb~ by giving its "target".
 Notes,
 
 - This too is subject to caching of test outcomes described above.
-- The known compiled targets may be listed with ~./wcb list~.
-  - fixme: how to list interpreted tests?
+- Target names are same as the name of the program or the script file.
+- The known targets may be listed with ~./wcb list~.
+
 
 ** Direct execution
 
@@ -111,6 +112,7 @@ Extensions of ~cxx~ or ~kokkos~ wil be compiled prior to running.  Interpreted s
 
 ** Variant tests
 
+See [[file:variant.org]] for details on variant tests.
 Variant tests are explicitly registered as ~wcb~ rules in a file found at:
 
 #+begin_example
@@ -120,11 +122,15 @@ That code should utilize the return from a call to ~bld.smplpkg()~ as a context 
 
 #+begin_example
   with bld.smplpkg('MyPackage', ...) as p:
-      p.rule("${WCSONNET} > ${TGT} 2>&1", target="wcsonnet-help.log")
+      p.rule("${WCSONNET} > ${TGT} 2>&1",
+             name="wcsonnet-help",
+             target="wcsonnet-help.log")
 #+end_example
 As shown, a *rule* consists of a *command line* which may use a number of Waf environment variables (*not* shell environment variables) and a *target* which may be a single file name or a list of file names.  The ~target~ list is mapped to the ~${TGT}~ variable.  This is an array variable an individual files in the list may be referenced.  For example, ~${TGT[0]}~ is the first.  Not shown but likewise an argument *source* and variable ~${SRC}~ may be provided to introduce files on which the rule is *dependent*.  The source files will be found, possibly created by other rules, by ~wcb~.
 
 The other variable in the example is ~${WCSONNET}~.  Its value is set to the path to the ~wcsonnet~ program by the build system (see ~waft/wcb.py~).  Also provided is ~${WIRE_CELL}~ that holds the path to the ~wire-cell~ program.  Likewise the following are set to supported interpreters: ~${BASH}, ${BATS}, ${PYTHON}, ${JSONNET}~.
+
+A ~name~ must be given for the task to appear as a target in ~./wcb list~ for use in ~./wcb --target=<name>~.
 
 A ~p.rule()~ is a thin wrapper around the Waf build context call ~bld()~ with hooks to enact test suppression.
 For more information on rules see the Waf Book at https://waf.io/book/ and look at teh various ~<pkg>/wscript_build~ files.

@@ -4,14 +4,47 @@
 # To use inside a <pkg>/test/test_XXX.bats do:
 # load ../../test/wct-bats.sh
 
-# Return the top level source directory
+function log () {
+    echo "$@"
+}
+
+function yell () {
+    echo "$@" 1>&3
+}
+
+function warn () {
+    local msg="warning: $@"
+    log "$msg"
+    yell "$msg" 
+}
+
+function die () {
+    local msg="FATAL: $@"
+    log "$msg"
+    yell "$msg" 
+    exit 1
+}
+
+# Return the top level source directory based on this file.
 function top () {
     dirname $(dirname $(realpath $BASH_SOURCE))
 }    
 
 # Return the build directory.
 function bld () {
-    return $(top)/build
+    echo "$(top)/build"
+}
+
+# Save a product of the test to the build area.
+# usage:
+# save path/in/test/dir/file.ext dir/under/build/
+function saveout () {
+    local src="$1" ; shift
+    local tgt="$1"
+    local tpath="$(bld)/$tgt"
+    mkdir -p "$tpath"
+    cp $src $tpath
+    log "saved $src to $tpath"
 }
 
 # Return the download cache directory
@@ -57,46 +90,71 @@ function usepkg () {
 # cd "$origin"  # maybe return
 function cd_tmp () {
     pwd
-    cd $BATS_TEST_TMPDIR
+    if [ -n "$WCTEST_TMPDIR" ] ; then
+        mkdir -p "$WCTEST_TMPDIR"
+        cd "$WCTEST_TMPDIR"
+    else 
+        cd "$BATS_TEST_TMPDIR"
+    fi
 }
 
+# Resolve a file name in in or more path lists.
+# A path list may be a :-separated list
+#
+# usage:
+# local path="$(resolve_path emacs $PATH $MY_OTHER_PATH /sbin:/bin:/etc)"
+function resolve_path () {
+    local want="$1"; shift
 
-# Do best to take a relative file name and return (echo) an absolute
-# path to that file.  
+    # already absolute
+    if [[ "$want" =~ ^/.* ]] ; then
+        echo $want
+    fi
+
+
+    for pathlst in $@ ; do
+        for maybe in $(echo ${pathlst} | tr ":" "\n")
+        do
+            if [ -f "${maybe}/$want" ] ; then
+                echo "${maybe}/$want"
+                return
+            fi
+        done
+    done
+}
+
+# Do best to resolve a file path and return (echo) an absolute path to
+# that file.  If path is relative a variety of locations will be
+# searched through a series of pats:
+# - if absolute, return
+# - cwd
+# - search any paths given on command line
+# - test/data/
+# - $(top)/
+# - $WIRECELL_PATH
+# - $WIRECELL_TEST_DATA_PATH
+#
+# Note, the original BATS file path is not available here and so we
+# can not check for siblings.  To check for siblings call like:
+#
+# local path="$(resolve_file $filename $(dirname $BATS_TEST_FILENAME))"
+#
+# See resolve_path for policy free path searches
 function resolve_file () {
     local want="$1" ; shift
 
-    # it's RIGHT there
     if [ -f "$want" ] ; then
-        echo "$want"
+        realpath "$want"
         return
     fi
 
-    if [ -f "$(downloads)/$want" ] ; then
-        echo "$(downloads)/$want"
+    local t="$(top)"
+    resolve_path $want "$t/test/data" "$t" ${WIRECELL_PATH} ${WIRECELL_TEST_DATA_PATH}
+    local got="$(resolve_path $want $@)"
+    if [ -n "$got" ] ; then
+        echo $got
         return
     fi
-
-    if [ -f "$(top)/test/data/$want" ] ; then
-       echo "$(top)/test/data/$want"
-       return
-    fi
-
-    for maybe in $(echo ${WIRECELL_PATH} | tr ":" "\n")
-    do
-        if [ -f "${maybe}/$want" ] ; then
-            echo "${maybe}/$want"
-            return
-        fi
-    done
-
-    for maybe in $(echo ${WIRECELL_TEST_DATA_PATH} | tr ":" "\n")
-    do
-        if [ -f "${maybe}/$want" ] ; then
-            echo "${maybe}/$want"
-            return
-        fi
-    done
 }
 
 # Download a file from a URL.
@@ -118,25 +176,31 @@ function download_file () {
         return
     fi
 
-    wget --quiet -O "$path" "$url" || return
+    wget -O "$path" "$url" 1>&2 || return
     echo "$path"
 }
 
-# # Return absolute path to file.
-# #
-# # This will search in order:
-# # - the directory holding BATS_TEST_FILENAME
-# # - BATS_CWD
-# # - BATS_CWD/.. if BATS_CWD ends in /build/
-# # - every dir in WIRECELL_PATH
-# # - every dir in WIRECELL_TEST_PATH
-# # usage:
-# # local f=$(data_file muon-depos.npz
-# function resolve () {
-#     local f="$1" ; shift
-#     local t="$(top)"
-#     if [ -f "$t/test/data/$1" ] then
-#        echo "$t/test/data/$1"
-#        return
-#     fi
-# }
+# Assure that test data repository is available and located by setting
+# WIRECELL_TEST_DATA_PATH.  If this variable is already set, this
+# function is a no-op.
+function assure_wirecell_test_data () {
+    if [ -n "$WIRECELL_TEST_DATA_PATH" ] ; then
+        return
+    fi
+
+    declare -a lst
+    # look for sibling of path in WIRECELL_PATH
+    for one in $(echo ${WIRECELL_PATH} | tr ":" "\n") ; do
+        local base="$(dirname $(realpath $one))"
+        local maybe="$base/wire-cell-test-data"
+        # log "AWCTD: $one $base $maybe"
+        if [ -d "$maybe" ] ; then
+            lst+="$maybe"
+        fi
+    done
+    if [ -z "${lst[*]}" ] ; then
+        die "no WIRECELL_TEST_DATA_PATH found"
+    fi
+    IFS=: ; printf -v WIRECELL_TEST_DATA_PATH '%s' "${lst[*]}"
+#    export WIRECELL_TEST_DATA_PATH
+}
