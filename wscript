@@ -28,8 +28,9 @@ def options(opt):
                    help="Def is true, set to false if your spdlog is not compiled (not recomended)")
 
 def configure(cfg):
-    # get this into config.h
+    # Save to BuildConfig.h and env
     cfg.define("WIRECELL_VERSION", VERSION)
+    cfg.env.VERSION = VERSION
 
     # See comments at top of Exceptions.h for context.
     cfg.load('compiler_cxx')

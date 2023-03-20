@@ -66,6 +66,9 @@ def options(opt):
     opt.add_option('--build-debug', default='-O2 -ggdb3',
                    help="Build with debug symbols")
 
+    opt.add_option('--test-data', type=str, default=None,
+                   help="The location for test data")
+
 def find_submodules(ctx):
     sms = list()
     for wb in ctx.path.ant_glob("**/wscript_build"):
@@ -173,14 +176,18 @@ def configure(cfg):
         cmd = 'wirecell-' + one
         var = 'WC' + one.upper()
         cfg.find_program(cmd, var=var, mandatory=False)
-    cfg.env.WIRE_CELL_WIRES_UBOONE = "microboone-celltree-wires-v2.1.json.bz2"
-    cfg.env.WIRE_CELL_WIRES_PDSP = "protodune-wires-larsoft-v4.json.bz2"
-
-    # fixme: when wcb.py is used to build WCT "user" packages, the
-    # WCSONNET and WIRE_CELL vars will not be populated.  We may need
-    # to add find_program() calls to set them here.
 
     cfg.find_program("pandoc", var="PANDOC", mandatory=False)
+
+    # Check if have test data directory.
+    if cfg.options.test_data:
+        wctd = cfg.root.find_dir(cfg.options.test_data)
+        if wctd:
+            cfg.env.TEST_DATA = wctd.abspath()
+    if 'TEST_DATA' in cfg.env:
+        print("using test data from", cfg.env.TEST_DATA)
+    else:
+        print("no test data path.  some tests will be disabled")
 
     debug(cfg.env)
 
@@ -202,6 +209,11 @@ def build(bld):
 
 def dumpenv(bld):
     'print build environment'
+
+    # This is an ugly hack as the info needed is not in this build context.
+    for app in "wire-cell wcsonnet wcwires".split():
+        bld.env[app.upper().replace("-","_")] = bld.out_dir + "/apps/" + app
+
     for key in bld.env:
         val = bld.env[key]
         if isinstance(val, list):

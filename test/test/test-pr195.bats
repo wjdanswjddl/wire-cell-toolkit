@@ -4,12 +4,14 @@
 
 load ../wct-bats.sh
 
-# FIXME: this use case brings forth a number of things that a
-# validation "system" could supply.  I note them here for #199.
+# FIXME: this test provides use cases for the test system
 #
-# - A systematic way to run a bats test in a pre-created directory under build/tests/<test-name>/ to keep build tidy.
+# - [x] A systematic way to run a bats test in a pre-created directory
+#   under build/tests/<test-name>/ to keep build tidy.  --> cd_tmp
+#   
 # 
-# - A dataset with input and expected output files.  In full rigour, this dataset must be defined on a per WCT release.  Eg, new code should not necessarily reproduce old blessed, nor vice versa.  But old releases should still be testable.
+# - [x] A "test data repository" with files for input and expected
+#   output. --> ./wcb --test-data=/...  and wct-bats.sh helpers
 #
 # - This test implements the commands from the README.md in above URL.  It produces PDFs which clearly show a problem, but require a human.  In addition to the PDFs, this test should compare data at the "frames" file level.  This likely needs a "wirecell-util diff-array" command to be written.
 #
@@ -20,21 +22,16 @@ load ../wct-bats.sh
 
 @test "check pdsp sim" {
 
-    assure_wirecell_test_data
-    [[ -n "$WIRECELL_TEST_DATA_PATH" ]]
+    skip_if_no_test_data
 
     # Assume we run from build/.
-    # Fixme: use wct-bats support from PR #199.
-    # cfgfile="$(realpath ../test/test/test-pr195.jsonnet)"
-    cfgfile="$(resolve_file test/test/pdsp-depos-simsn-frames.jsonnet)"
+    cfgfile="$(relative_path pdsp-depos-simsn-frames.jsonnet)"
     echo "using config: $cfgfile"
     [[ -n "$cfgfile" ]]
     [[ -f "$cfgfile" ]]
 
     # Assure input file
-    # infile="$(download_file https://www.phy.bnl.gov/~hyu/wct-ci/gen/depos.tar.bz2)"
-    ## Set WIRECELL_TEST_DATA_PATH
-    infile="$(resolve_file pdsp/sim/sn/depos.tar.bz2)"
+    infile="$(test_data_file pdsp/sim/sn/depos.tar.bz2)"
     echo "infile: $infile"
     [[ -f "$infile" ]]
 

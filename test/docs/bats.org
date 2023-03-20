@@ -30,7 +30,7 @@ BATS is under development and versions provided by even updated distributions li
 #+begin_example
   $ alias bats=/path/to/my/wire-cell-toolkit/test/bats/bin/bats
 #+end_example
-In addition, WCT provides a BATS support library file at ~test/wct-bats.sh~ to assist in writing BATS tests for WCT.  To use, it must be loaded via a path relative to the BATS file:
+In addition, WCT provides a BATS support library file at ~test/wct-bats.sh~ to assist in writing BATS tests for WCT.  To use, it must be loaded via a path relative to the BATS file.  For example from ~apps/test/test_apps.bats~:
 
 #+begin_example
   $ cat util/test/test_bats.bats
@@ -38,34 +38,34 @@ In addition, WCT provides a BATS support library file at ~test/wct-bats.sh~ to a
   
   load "../../test/wct-bats.sh"
   
-  @test "test wct bats" {
-      usepkg util apps
-      t=$(top)
-      [ -f "$t/build/apps/wire-cell" ] 
-      [ -n "$util_src" ]
-      [ -n "$(wcsonnet)" ] 
-  }
+  @test "test wire-cell help" {
+
+      # Set environment with certain wcb Waf build variables
+      wcb_env
   
-  @test "dump env" {
-      wcb dumpenv 1>&3
+      # Defined by wcb_env, "run" by bats
+      run $WIRE_CELL --help
+  
+      # Bats will only show this if test fails.
+      echo "$output"
+  
+      # Assert no error status code
+      [[ "$status" -eq 0 ]]
+  
+      # Assert expected info
+      [[ -n "$(echo $output | grep 'Wire-Cell Toolkit')" ]]
   }
 #+end_example
 The ~test/wct-bats.sh~ file is heavily commented and it is best to read this file to learn what functions it provides. 
 
 * Running BATS tests
 
-In principle, a BATS test can be run from anywhere:
+A BATS test should run from anywhere:
 
 #+begin_example
 bats util/test/test_bats.bats
 #+end_example
-However, some tests may not be written to be fully portable (the test has a bug!).  To fully replicate how ~wcb~ runs the test:
-
-#+begin_example
-cd build/
-bats ../util/test/test_bats.bats
-#+end_example
-When run by default, all ~@test~ functions in a BATS file will be run and they are not idempotent (but Waf tests are).  Especially while developing tests i tis useful to narrow which are run by applying a filter on the strings given to the ~@test~ command.
+When run by default, all ~@test~ functions in a BATS file will be.  A subset of tests with names that match a filter can be selected for running.
 
 #+begin_example
 bats -f "test wct bats" util/test/test_bats.bats
@@ -87,9 +87,9 @@ As with all tests, select a ~<name>~ that is unique to all of ~*/test/test_*.*~ 
 
 BATS tests should be placed in a ~<pkg>~ which best provides the run-time dependencies.  For example, if PyTorch is required they should be placed in the ~<pytorch>~ sub package.  If there is no single package to assure the correct dependency context the test must be added as a variant.  See [[file:variant.org]] for how that may be done.
 
-* Getting started
+* First steps
 
-Edit the file with and provide some boilerplate and an initial test function.  Name the test function with a phrase that would be true if the test passes.
+Edit the ~.bats~ file, add the ~@test~ function:
 
 #+begin_example
   #!/usr/bin/env bats
@@ -100,14 +100,30 @@ Edit the file with and provide some boilerplate and an initial test function.  N
       echo "nothing yet"
   }
 #+end_example
-
-Test that this works so far:
+Best to pick a name that describes a positive test outcome.
+Check that the test works:
 
 #+begin_example
   $ bats <pkg>/test/test_issueNNNN.bats
 #+end_example
 
-At this point, the test must pass as it does not actually test anything.  It is fine and actually good to now add command line programs that test the bug you are hunting and that actually fail.  Then as you hunt the bug,  frequently re-run your test and grow your it by adding more tests.
+At this point thet test does nothing that can fail so it is not really testing anything.  Now that the basic exercising of the test works, real testing can begin.  Below we progressively add more tests constraints.  It is very good idea to build up tests in this way as you hunt the bug.  This means tests will initially fail.  Don't fix the bug first but rather write the tests and fix the bug so the failing tests now succeed.
+
+* Basic elements of a test
+
+Typically an ~@test~ will consist of one or more stanzas with the following four lines:
+
+#+begin_example
+  run some_command             # (1)
+  echo "$output"               # (2)
+  [[ "$status" -eq 0 ]]        # (3)
+  [[ check_output "$output" ]] # (4)
+#+end_example
+We explain each:
+1. Use Bats ~run~ to run some command under test.
+2. The ~run~ will stuff command output to ~$output~ which we echo.  We will only see this output on the terminal if the overall test fails.  (see logging below).
+3. Assert that the command exited with a success status code (~0~).
+4. Perform some check on the output.  The ~check_output~ is not a real command but instead just shows an example.  We might ~grep~ the ~$output~ for some expected strings, save the output to a file and ~diff~ it against expected output, or any other manner.  Alternatively, the ~some_command~ may write output files that we ~diff~ or otherwise compare with prior "blessed" output.
 
 * Start up and tear down
 
@@ -241,4 +257,42 @@ By default ~bats~ will remove ~$BATS_RUN_TMPDIR~ (but not ~$WCTEST_TMPDIR~) afte
 #+end_example
 The temporary directory will be printed to the terminal. 
 
+** Idempotent tests
 
+Some tests are long running and multi stage.  As just described, a test should run in a per-test temporary directory by calling ~cd_tmp~.  When developing tests or investigating failures, it can be very painful to run and re-run the same test many times.  By setting ~WCTEST_TMPDIR~ we can control where the test runs, but we must still write the tests to be *idempotent* to allow us to quickly run and re-run them and not repeat the portions that pass. 
+
+Adding idempotency to tests simply comes down to adding test for command output files and only running the command if the file is missing.  An example:
+
+#+begin_example
+  @test "an idempotent test" {
+    myout="myoutput.txt"
+    if [ -f "$myout" ] ; then
+      echo "reusing $myout"
+    else
+      date > $myout
+    fi
+    # ...
+  }
+#+end_example
+Here the ~date~ command stands in for a "long running" program.  The ~echo~ is not seen on the terminal unless the test later fails.   That's it.  Now when running and re-running the test with ~WCTEST_TMPDIR~ set it will only call the "slow" ~date~ program once.
+
+Another common pattern is one initial, long-running command followed by many faster tests that utilize the results of that first command.  This pattern is well served by using the Bats ~setup_file~ function to run the command in the temporary directory at "file scope" via ~cd_tmp file~.  As default scope is per-test, each subsequent test must locate that file-scope temp.
+
+#+begin_example
+  function setup_file -o output.dat () {
+    cd_tmp file
+    run my_slow_command
+    [[ "$status" -eq 0 ]]
+  }
+
+  @test "A test running in file temp dir" {
+    cd_tmp file
+    [[ -s output.dat ]]
+  }
+
+  @test "A in test temp dir using file temp dir" {
+    local ft="$(tmpdir file)"
+    cd_tmp
+    [[ -s "$ft/output.dat" ]]
+  }
+#+end_example

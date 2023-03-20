@@ -7,17 +7,14 @@
 function log () {
     echo "$@"
 }
-
 function yell () {
     echo "$@" 1>&3
 }
-
 function warn () {
     local msg="warning: $@"
     log "$msg"
     yell "$msg" 
 }
-
 function die () {
     local msg="FATAL: $@"
     log "$msg"
@@ -25,10 +22,26 @@ function die () {
     exit 1
 }
 
+# Return shell environment
 function dumpenv () {
     env | grep = | sort
     # warn $BATS_TEST_FILENAME
     # warn $BATS_TEST_SOURCE    
+}
+
+# Return JSON text of flat object formed from given list of key=value arguments.
+# Fixme: this currently requires "jq", perhaps add required functionality into wire-cell-python.
+function tojson () {
+    declare -a args=("-n")
+    while read line
+    do
+        parts=(${line//=/ })
+        key="${parts[0]}"
+        val=${line#"${key}="}
+        args+=("--arg" "$key" "$val")
+    done < <(printf '%s\n' "$@")
+    args+=('$ARGS.named')
+    jq "${args[@]}"
 }
 
 # Return the top level source directory based on this file.
@@ -81,10 +94,54 @@ function wcb () {
     $(top)/wcb $@
 }
 
-# Set Waf environment variables as shell environment variables
-function wcb_env () {
-    eval $(wcb dumpenv | grep = )
+# Return key=var lines from wcb' Waf build variables.
+# With no arguments, all are returned.
+# Otherwise keys may be specified and onlytheir key=var lines are returned.
+#
+# usage:
+# echo "dump Waf vars:"
+# wcb_env_vars
+#
+# usage:
+# echo "wire cell version: "
+# wcb_env_vars WIRECELL_VERSION
+function wcb_env_vars () {
+    # we keep a cache to save a whole 100 ms....
+    local cache="${BATS_RUN_TMPDIR}/wcb_env.txt"
+    if [ ! -f "$cache" ] ; then
+        wcb dumpenv | grep = | sort > $cache
+    fi
+    if [ -z "$1" ] ; then
+        cat "$cache"
+    fi
+    for one in $@
+    do
+        grep "^${one}=" "$cache"
+    done
 }
+
+
+# Return the value for one variable
+# usage:
+# wcb_env_value WIRECELL_VERSION
+wcb_env_value () {
+    wcb_env_vars $1 | sed -e 's/[^=]*=//' | sed -e 's/^"//' -e 's/"$//'
+}
+
+
+# Forward arguments to wcb_env_vars and eval return.
+#
+# usage:
+# wcb_env WIRECELL_VERSION
+# echo "we have version $WIRECELL_VERSION"
+#
+# usage:
+# wcb_env
+# echo "we build subpackages: $SUBDIRS"
+function wcb_env () {
+    eval $(wcb_env_vars $@)
+}
+
 
 # Add package (util, gen, etc) test apps into PATH, etc.  define
 # <pkg>_src to be that sub-package source directory.
@@ -93,7 +150,7 @@ function usepkg () {
         local pkg=$1 ; shift
         printf -v "${pkg}_src" "%s/%s" "$t" "$pkg"
         local t=$(top)
-        PATH="$t/build/$pkg:$PATH"
+        PATH="$(bld)/$pkg:$PATH"
     done
     echo $PATH
 }
@@ -104,6 +161,20 @@ function usepkg () {
 # - test :: $BATS_TEST_TMPDIR
 #
 # to not purge tmp:  bats --no-tempdir-cleanup
+function tmpdir () {
+    if [ -n "$WCTEST_TMPDIR" ] ; then
+        echo "$WCTEST_TMPDIR"
+        return
+    fi
+
+    local loc="${1:-test}"
+    case $loc in
+        base) echo "$BATS_RUN_TMPDIR";;
+        run) echo "$BATS_RUN_TMPDIR";;
+        file) echo "$BATS_FILE_TMPDIR";;
+        *) echo "$BATS_TEST_TMPDIR";;
+    esac
+}
 
 # Change to per test temporary directory
 # usage:
@@ -112,12 +183,18 @@ function usepkg () {
 # cd "$origin"  # maybe return
 function cd_tmp () {
     pwd
-    if [ -n "$WCTEST_TMPDIR" ] ; then
-        mkdir -p "$WCTEST_TMPDIR"
-        cd "$WCTEST_TMPDIR"
-    else 
-        cd "$BATS_TEST_TMPDIR"
-    fi
+    local t="$(tmpdir $1)"
+    mkdir -p "$t"
+    cd "$t"
+}
+
+# Resolve a file path relative to the path of the BATS test file.
+#
+# usage:
+# local mycfg=$(relative_path my-cfg-jsonnet)
+function relative_path () {
+    local want="$1"; shift
+    realpath "$(dirname $BATS_TEST_FILENAME)/$want"
 }
 
 # Resolve a file name in in or more path lists.
@@ -154,6 +231,7 @@ function resolve_path () {
 # - test/data/
 # - $(top)/
 # - $WIRECELL_PATH
+# - TEST_DATA (from build config)
 # - $WIRECELL_TEST_DATA_PATH
 #
 # Note, the original BATS file path is not available here and so we
@@ -170,14 +248,30 @@ function resolve_file () {
         return
     fi
 
+    wcb_env
+
     local t="$(top)"
-    resolve_path $want "$t/test/data" "$t" ${WIRECELL_PATH} ${WIRECELL_TEST_DATA_PATH}
+    resolve_path $want "$t/test/data" "$t" ${WIRECELL_PATH} ${TEST_DATA} ${WIRECELL_TEST_DATA_PATH}
     local got="$(resolve_path $want $@)"
     if [ -n "$got" ] ; then
         echo $got
         return
     fi
 }
+
+
+# Echo the test data directory, if it exists
+function test_data_dir () {
+    wcb_env_value TEST_DATA
+}
+
+
+# Resolve relative path to a test data file.  This ONLY looks in the
+# directory given by "./wcb --test-data".
+function test_data_file () {
+    resolve_path $1 $(test_data_dir)
+}
+
 
 # Download a file from a URL.
 #
@@ -202,27 +296,23 @@ function download_file () {
     echo "$path"
 }
 
-# Assure that test data repository is available and located by setting
-# WIRECELL_TEST_DATA_PATH.  If this variable is already set, this
-# function is a no-op.
-function assure_wirecell_test_data () {
-    if [ -n "$WIRECELL_TEST_DATA_PATH" ] ; then
-        return
-    fi
 
-    declare -a lst
-    # look for sibling of path in WIRECELL_PATH
-    for one in $(echo ${WIRECELL_PATH} | tr ":" "\n") ; do
-        local base="$(dirname $(realpath $one))"
-        local maybe="$base/wire-cell-test-data"
-        # log "AWCTD: $one $base $maybe"
-        if [ -d "$maybe" ] ; then
-            lst+="$maybe"
+# skip test if there is no test data repo
+function skip_if_no_test_data () {
+    local path="$1" ; shift     # may require specific path
+
+    tdd="$(test_data_dir)"
+    if [ -n "${tdd}" ] ; then
+        if [ -d "$tdd" ] ; then
+            if [ -z "$path" ] ; then
+                return
+            fi
+            path="$(test_data_file $path)"
+            if [ -f "${path}" ] ; then
+                return
+            fi
         fi
-    done
-    if [ -z "${lst[*]}" ] ; then
-        die "no WIRECELL_TEST_DATA_PATH found"
     fi
-    IFS=: ; printf -v WIRECELL_TEST_DATA_PATH '%s' "${lst[*]}"
-#    export WIRECELL_TEST_DATA_PATH
+    # yell "Test data file missing: ${path}"
+    skip "Test data missing"
 }

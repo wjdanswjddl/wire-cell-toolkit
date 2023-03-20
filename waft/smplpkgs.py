@@ -416,6 +416,8 @@ def smplpkg(bld, name, use='', app_use='', test_use=''):
 
     bld.cycle_group("libraries")
 
+    validation_envs = dict()
+
     if incdir:
         headers += incdir.ant_glob(name + '/*.h')
         includes += ['inc']
@@ -473,7 +475,7 @@ def smplpkg(bld, name, use='', app_use='', test_use=''):
                         #rpath = bld.get_rpath(app_use + [name], local=False),
                         use = app_use + [name])
             keyname = appbin.name.upper().replace("-","_")
-            bld.env[keyname] = appbin.abspath()
+            validation_envs[keyname] = appbin.abspath()
                           
     bld.cycle_group("documentation")
     if docdir and "PANDOC" in bld.env:
@@ -484,8 +486,10 @@ def smplpkg(bld, name, use='', app_use='', test_use=''):
             docpdf = bld.path.find_or_declare(docname + ".pdf")
             bld(rule="pandoc -o ${TGT[0].abspath()} ${SRC[0].abspath()}",
                 source = [docsrc], target = [docpdf])
-                        
 
+    bld.cycle_group("validations")
+    for key,val in validation_envs.items():
+        bld.env[key] = val
 
     bld.cycle_group("libraries")
 

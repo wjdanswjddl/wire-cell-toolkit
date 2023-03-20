@@ -1,7 +1,9 @@
 #+title: Wire-Cell Toolkit Testing
 
 
-The Wire-Cell Toolkit (WCT) provides a large number of tests.  Developers and users are strongly encouraged to contribute yet more.  Below are links to documents that explanation of the WCT test framework and simple "howto" guides for providing tests.
+The Wire-Cell Toolkit (WCT) provides a large number of tests.  Developers and users are strongly encouraged to contribute yet more.  Although the tests are built and run by default, typically, "normal users" are okay to suppress them (~./wcb --notests~).  They are most needed by developers, release managers and users that port WCT to new platforms.
+
+The following documents describe the WCT test framework and provide simple "howto" guides for providing tests.
 
 - [[file:docs/this.org][Description of the test sub package]]
 - [[file:docs/framework.org][WCT test framework]]
