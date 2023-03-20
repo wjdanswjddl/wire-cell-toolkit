@@ -1,43 +1,46 @@
 #!/usr/bin/env bats
 
-tstdir="$(realpath $BATS_TEST_DIRNAME)"
-pkgdir="$(dirname $tstdir)"
-pkg="$(basename $pkgdir)"
-topdir="$(dirname $pkgdir)"
-blddir="$topdir/build"
-bindir="$blddir/$pkg"
+load ../../test/wct-bats.sh
 
 setup_file () {
-    export outdir=$(mktemp -d /tmp/wct-util-test-tiling-uboone.XXXXXX)
+    usepkg util
+    cd_tmp file
 
-    run $bindir/check_act2viz -o $outdir/blobs.svg -w microboone-celltree-wires-v2.1.json.bz2 -n 0.01 -d $outdir/blobs.txt $tstdir/activities3.txt 
+    local wf="$(resolve_file microboone-celltree-wires-v2.1.json.bz2)"
+    [[ -s "$wf" ]]
+    local af="$(relative_path activities3.txt)"
+    [[ -s "$af" ]]
+    run check_act2viz -o blobs.svg -w "$wf" -n 0.01 -d blobs.txt "$af"
     echo "$output"
-    [ "$status" -eq 0 ]
+    [[ "$status" -eq 0 ]]
+    [[ -s blobs.svg ]]
+    [[ -s blobs.txt ]]
 }
 
 @test "reproduce act2vis blob finding" {
+    local ft="$(tmpdir file)"
+    local bf="$(relative_path activities3-act2viz-uboone.txt)"
+    [[ -s "$bf" ]]
 
-    run diff $tstdir/activities3-act2viz-uboone.txt $outdir/blobs.txt
+    run diff "$bf" "$ft/blobs.txt"
     echo "$output"
     [ "$status" -eq 0 ]
     [ -z "$output" ] 
 }
 
 @test "reproduce full blob finding" {
+    local ft="$(tmpdir file)"
+    local af="$(relative_path activities3-full.txt)"
+    [[ -s "$af" ]]
 
-    run diff $tstdir/activities3-full.txt $outdir/blobs.txt
+    run diff "$af" "$ft/blobs.txt"
     echo "$output"
     [ "$status" -eq 0 ]
     [ -z "$output" ] 
 }
 
 @test "no missing bounds" {
-    run grep -E 'pind:\[([0-9]+),\1\]' $outdir/blobs.txt
+    local ft="$(tmpdir file)"
+    run grep -E 'pind:\[([0-9]+),\1\]' $ft/blobs.txt
     [ -z "$output" ]
-}
-
-teardown_file () {
-    if [ -n "$outdir" ] ; then
-       rm -rf "$outdir"
-    fi
 }
