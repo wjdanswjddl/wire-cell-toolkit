@@ -21,8 +21,6 @@
 #include <vector>
 #include <iostream>
 
-#include "config.h"
-
 #if HAVE_FFTWTHREADS_LIB
 #include <fftw3.h>
 #endif
