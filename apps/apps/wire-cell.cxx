@@ -15,11 +15,10 @@ int main(int argc, char* argv[])
 
     try {
         rc = m.cmdline(argc, argv);
-        if (rc) {
-            return rc;
+        if (rc == 0) {
+            m.initialize();
+            m();
         }
-        m.initialize();
-        m();
     }
     catch (Exception& e) {
         cerr << errstr(e) << endl;

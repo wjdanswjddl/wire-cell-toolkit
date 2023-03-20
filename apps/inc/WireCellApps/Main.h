@@ -30,6 +30,10 @@ namespace WireCell {
         ///
         /// Or, one can use subsequent methods for more fine-grained
         /// setup and execution.
+        ///
+        /// Return code rc:
+        /// rc = 1 : if --help or --version,
+        /// rc = 0 : if normal running should commence
         int cmdline(int argc, char* argv[]);
 
         /// Individual setup methods called by cmdline() or called
