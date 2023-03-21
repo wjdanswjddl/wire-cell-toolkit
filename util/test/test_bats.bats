@@ -10,8 +10,14 @@ load "../../test/wct-bats.sh"
     [ -n "$(wcsonnet)" ] 
 }
 
-@test "dump env" {
-    wcb dumpenv
+@test "dump waf env" {
+    run wcb dumpenv
+    echo "$output"
+    [[ "$status" -eq 0 ]]
+}
+@test "dump shell env" {
+    run env
+    echo "$output"
     [[ "$status" -eq 0 ]]
 }
     

@@ -78,6 +78,7 @@ function srcdir () {
 # where <name> is from BATS_TEST_FILENAME
 function saveout () {
     local src="$1" ; shift
+    [[ -n "$src" ]]
     local tgt="$1"
     local name="$(basename $BATS_TEST_FILENAME .bats)"
     local tpath="$(blddir)/output/${name}"
@@ -90,6 +91,7 @@ function saveout () {
     fi
     cp "$src" "$tpath"
     log "saved $src to $tpath"
+    yell "saved $src to $tpath"
 }
 
 # Return the download cache directory
@@ -166,7 +168,7 @@ function usepkg () {
 }
 
 # Bats defines a base temp directory and two sub-dirs.
-# - base :: $BATS_RUN_TMPDIR
+# - run :: $BATS_RUN_TMPDIR
 # - file :: $BATS_FILE_TMPDIR
 # - test :: $BATS_TEST_TMPDIR
 #
@@ -179,7 +181,6 @@ function tmpdir () {
 
     local loc="${1:-test}"
     case $loc in
-        base) echo "$BATS_RUN_TMPDIR";;
         run) echo "$BATS_RUN_TMPDIR";;
         file) echo "$BATS_FILE_TMPDIR";;
         *) echo "$BATS_TEST_TMPDIR";;
@@ -338,4 +339,77 @@ function skip_if_no_test_data () {
     fi
     # yell "Test data file missing: ${path}"
     skip "Test data missing"
+}
+
+
+# Return the file name of a archive in a test context.
+#
+# Normally, this name is opaque to testing code.
+#
+# A tmpdir context name may be given.
+function archive_name () {
+    local t="$(tmpdir $1)"
+    [[ -n "$t" ]]
+    echo "$t/archive.zip"
+}
+
+# Append one or more files to an archive.
+#
+# The first argument may be a tmpdir context to select a specific
+# archive file.  The default context is "test".  Broader contexts will
+# likely cause problems if bats is allowed to run parallel.  For
+# running Bats in WCT test framework, the "test" and "file" contexts
+# are safe.
+# 
+# Note, all paths must be relative and not leave the parent.  Any path
+# starting with "/" or ".." will abort.  As a consequence, files may
+# need to be moved into the tmpdir context prior to being archived.
+# Otherwise, relative paths are retained in the archive.
+#
+# usage:
+#
+# cd_tmp
+# touch file1.txt file2.txt
+# archive_append touch file1.txt file2.txt
+function archive_append () {
+    local ctx="test"
+    if [ -n "$(echo "test file run" | grep "\b$1\b")" ] ; then
+        ctx="$1"
+        shift
+    fi
+
+    local arch="$(archive_name $ctx)"
+
+    for one in $@
+    do
+        if [[ $one =~ ^/.* || $one =~ ^\.\./.* ]] ; then
+            exit 1
+        fi
+        zip -g "$arch" $one
+    done
+}
+
+
+# Save an archive out of tmpdir and to build dir.
+# A tmpdir context may be passed.
+function archive_saveout () {
+    local ctx="test"
+
+    if [ -n "$1" -a -n "$(echo "test file run" | grep "\b$1\b")" ] ; then
+        ctx="$1"
+        shift
+    fi
+
+    local arch="$(archive_name $ctx)"
+    local tname="${BATS_TEST_NAME}"
+
+    tgt="archive/$(basename $BATS_RUN_TMPDIR)"
+    if [ "$ctx" = "test" ] ; then
+        tgt="$tgt/${tname}.zip"
+    elif [ "$ctx" = "file" ] ; then
+        tgt="$tgt/file.zip"
+    elif [ "$ctx" = "run" ] ; then
+        tgt="$tgt/run.zip"
+    fi
+    saveout "$arch" "$tgt"
 }

@@ -296,3 +296,54 @@ Another common pattern is one initial, long-running command followed by many fas
     [[ -s "$ft/output.dat" ]]
   }
 #+end_example
+
+
+* Archiving results
+
+Bats tests that produce file should generally do so in a temp directory created in the per-test or per-file context.
+
+#+begin_example
+cd_tmp      # move to per-test tmp directory
+cd_tmp file # move to per-file tmp directory
+#+end_example
+
+Sometimes tests can make files that should live beyond temporary use.  For example, tests may produce files for later inspection by human.  The ~wct-bats.sh~ provides the concept of a test "archive" for these files.  An archive is simply a Zip file associated with a temporary directory context (again, "test", "file", etc).
+
+The test must explicitly add files to an archive and then save the archive out.
+#+begin_example
+@test "test something and make an archive" {
+  cd_tmp
+
+  touch junk.txt
+  archive_append junk.txt
+
+  touch junk1.txt junk2.txt
+  archive_append junk1.txt junk2.txt
+
+  archive_saveout
+}
+#+end_example
+A test file context archive may also be created.  It may be appended to in the ~setup_file~ function and must be saved in the ~teardown~ function (if it is to be saved).  In the mean time, it is possible for ~@test~ functions to also append to the archive.  As Bats is used in WCT this is safe.  However, if you force Bats to run test in parallel, the results are undefined.
+
+#+begin_example
+setup_file () {
+  # a file context archvie
+  touch junk.txt
+  archive_append file junk.txt
+}
+
+@test "a test adding to test file context archive" {
+  cd_tmp file
+  touch junk2.txt
+  archive_append file junk2.txt
+}
+
+teardown () {
+  archive_saveout file
+}
+#+end_example
+
+* Summarizing results
+
+* Visualizing results
+
