@@ -1,10 +1,9 @@
 load ../wct-bats.sh
 
 @test "resolve file in src" {
-#    env|grep =|sort
-    top
     local got="$(resolve_file test/test/test_wct_bats.bats)"
     [[ -n "$got" ]]
+    [[ -n "$BATS_TEST_FILENAME" ]]
     a="$(cat $BATS_TEST_FILENAME | md5sum)"
     b="$(cat $got | md5sum)"
     echo "$a"
@@ -102,8 +101,13 @@ load ../wct-bats.sh
 }
 
 
-# @test "blah" {
-#     env
-#     exit 1
-# }
+@test "bats run command env var" {
+    run env
+    echo "run command: $BATS_RUN_COMMAND"
+    [[ -n "$BATS_RUN_COMMAND" ]]
+    # why is it not in env?
+    [[ -z "$(env |grep BATS_RUN_COMMAND)" ]]
+    export BATS_RUN_COMMAND
+    [[ -n "$(env |grep BATS_RUN_COMMAND)" ]]
+}
     

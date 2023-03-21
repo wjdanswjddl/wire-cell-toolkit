@@ -4,13 +4,14 @@ load "../../test/wct-bats.sh"
 
 @test "test wct bats" {
     usepkg util apps
-    t=$(top)
+    t=$(topdir)
     [ -f "$t/build/apps/wire-cell" ] 
     [ -n "$util_src" ]
     [ -n "$(wcsonnet)" ] 
 }
 
 @test "dump env" {
-    wcb dumpenv 1>&3
+    wcb dumpenv
+    [[ "$status" -eq 0 ]]
 }
     

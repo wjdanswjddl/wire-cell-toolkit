@@ -45,14 +45,24 @@ function tojson () {
 }
 
 # Return the top level source directory based on this file.
-function top () {
+function topdir () {
     dirname $(dirname $(realpath $BASH_SOURCE))
 }    
 
 # Return the build directory.
-function bld () {
-    echo "$(top)/build"
+function blddir () {
+    echo "$(topdir)/build"
 }
+
+# Return the build directory.
+function srcdir () {
+    local path="$1" ; shift
+    local maybe="$(topdir)/$path"
+    if [ -d "$maybe" ] ; then
+        echo "$maybe"
+    fi
+}
+
 
 # Save a product of the test to the build area.
 # usage:
@@ -70,7 +80,7 @@ function saveout () {
     local src="$1" ; shift
     local tgt="$1"
     local name="$(basename $BATS_TEST_FILENAME .bats)"
-    local tpath="$(bld)/output/${name}"
+    local tpath="$(blddir)/output/${name}"
     if [ -z "$tgt" ] ; then
         mkdir -p "$tpath"
         tpath="$tpath/$(basename $src)"
@@ -84,14 +94,14 @@ function saveout () {
 
 # Return the download cache directory
 function downloads () {
-    local d="$(top)/downloads"
+    local d="$(topdir)/downloads"
     mkdir -p "$d"
     echo $d
 }
 
 # Run the Wire-Cell build tool 
 function wcb () {
-    $(top)/wcb $@
+    $(topdir)/wcb $@
 }
 
 # Return key=var lines from wcb' Waf build variables.
@@ -149,10 +159,10 @@ function usepkg () {
     for pkg in $@; do
         local pkg=$1 ; shift
         printf -v "${pkg}_src" "%s/%s" "$t" "$pkg"
-        local t=$(top)
-        PATH="$(bld)/$pkg:$PATH"
+        local t=$(topdir)
+        PATH="$(blddir)/$pkg:$PATH"
     done
-    echo $PATH
+#    echo $PATH
 }
 
 # Bats defines a base temp directory and two sub-dirs.
@@ -222,6 +232,19 @@ function resolve_path () {
     done
 }
 
+# Return an absolute path of a relative path found in config areas.
+function config_path () {
+    local path="$1" ; shift
+    local maybe="$(top)/cfg/$path"
+    if [ -f "$maybe" ] ; then
+        echo "$maybe"
+        return
+    fi
+    if [ -n "$WIRECELL_PATH" ] ; then
+        resolve_path $path $WIRECELL_PATH
+    fi
+}
+
 # Do best to resolve a file path and return (echo) an absolute path to
 # that file.  If path is relative a variety of locations will be
 # searched through a series of pats:
@@ -229,7 +252,7 @@ function resolve_path () {
 # - cwd
 # - search any paths given on command line
 # - test/data/
-# - $(top)/
+# - $(topdir)/
 # - $WIRECELL_PATH
 # - TEST_DATA (from build config)
 # - $WIRECELL_TEST_DATA_PATH
@@ -250,7 +273,7 @@ function resolve_file () {
 
     wcb_env
 
-    local t="$(top)"
+    local t="$(topdir)"
     resolve_path $want "$t/test/data" "$t" ${WIRECELL_PATH} ${TEST_DATA} ${WIRECELL_TEST_DATA_PATH}
     local got="$(resolve_path $want $@)"
     if [ -n "$got" ] ; then
@@ -299,7 +322,7 @@ function download_file () {
 
 # skip test if there is no test data repo
 function skip_if_no_test_data () {
-    local path="$1" ; shift     # may require specific path
+    local path="$1"             # may require specific path
 
     tdd="$(test_data_dir)"
     if [ -n "${tdd}" ] ; then

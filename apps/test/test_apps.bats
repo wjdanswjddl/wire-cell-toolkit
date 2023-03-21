@@ -4,7 +4,7 @@ load "../../test/wct-bats.sh"
 
 @test "test wct bats in apps" {
     usepkg util apps
-    t=$(top)
+    t=$(topdir)
     echo "TOP $t"
     [ -f "$t/build/apps/wire-cell" ] 
     [ -n "$util_src" ]

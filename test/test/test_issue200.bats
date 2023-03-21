@@ -12,7 +12,7 @@ load ../wct-bats.sh
     echo  "$BuildConfig" 
 
     [[ -n "$BuildConfig" ]]
-    path="$(top)/build/$BuildConfig"
+    path="$(topdir)/build/$BuildConfig"
     echo "Expect build config file built at: $path"
     [[ -f "$path" ]]
 }

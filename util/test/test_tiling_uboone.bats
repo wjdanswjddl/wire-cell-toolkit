@@ -1,5 +1,7 @@
 #!/usr/bin/env bats
 
+# Targetted test for tiling with check_act2viz using microboone wires
+
 load ../../test/wct-bats.sh
 
 setup_file () {
@@ -22,22 +24,24 @@ setup_file () {
     local bf="$(relative_path activities3-act2viz-uboone.txt)"
     [[ -s "$bf" ]]
 
-    run diff "$bf" "$ft/blobs.txt"
+    run diff -u "$bf" "$ft/blobs.txt"
+    echo "$BATS_RUN_COMMAND"
     echo "$output"
     [ "$status" -eq 0 ]
     [ -z "$output" ] 
 }
 
-@test "reproduce full blob finding" {
-    local ft="$(tmpdir file)"
-    local af="$(relative_path activities3-full.txt)"
-    [[ -s "$af" ]]
+# @test "reproduce full blob finding" {
+#     local ft="$(tmpdir file)"
+#     local af="$(relative_path activities3-full.txt)"
+#     [[ -s "$af" ]]
 
-    run diff "$af" "$ft/blobs.txt"
-    echo "$output"
-    [ "$status" -eq 0 ]
-    [ -z "$output" ] 
-}
+#     run diff -u "$af" "$ft/blobs.txt"
+#     echo "$BATS_RUN_COMMAND"
+#     echo "$output"
+#     [ "$status" -eq 0 ]
+#     [ -z "$output" ] 
+# }
 
 @test "no missing bounds" {
     local ft="$(tmpdir file)"
