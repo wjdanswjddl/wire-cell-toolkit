@@ -1,5 +1,11 @@
 #!/usr/bin/env python
 
+# Copyright 2015-2023 Brookhaven National Laboratory for the benefit
+# of the Wire-Cell Team.
+# 
+# This file is part of the wire-cell-toolkit project and distributed
+# according to the LICENSE file provided as also part of this project.
+
 import os
 
 # fixme: move into waft/
