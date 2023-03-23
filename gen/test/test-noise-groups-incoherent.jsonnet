@@ -19,7 +19,7 @@
     },
     {
         plane: "w",
-        groupID: 0,             // quietest
+        groupID: 1,             // quietest
         channels: std.range(800 + 800, 800 + 800 + 960-1),
     },
 ]    

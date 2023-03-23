@@ -53,7 +53,7 @@ bool Gen::IncoherentAddNoise::operator()(const input_pointer& inframe, output_po
     // array will start from a random location in the recycled buffer
     // and a few percent will be "freshened".  This results in a small
     // amount of coherency between nearby channels.
-    auto rn = Normals::make_recycling(m_rng, 2*m_nsamples, 2*m_rep_percent);
+    auto rn = Normals::make_recycling(m_rng, 2*m_nsamples, 0, 1, 2*m_rep_percent);
     GeneratorN rwgen(m_dft, rn);
 
     // Limit number of warnings below
@@ -121,7 +121,7 @@ bool Gen::CoherentAddNoise::operator()(const input_pointer& inframe, output_poin
     // array will start from a random location in the recycled buffer
     // and a few percent will be "freshened".  This results in a small
     // amount of coherency between nearby channels.
-    auto rn = Normals::make_recycling(m_rng, 2*m_nsamples, 2*m_rep_percent);
+    auto rn = Normals::make_recycling(m_rng, 2*m_nsamples, 0, 1, 2*m_rep_percent);
     GeneratorN rwgen(m_dft, rn);
 
     // Look up the generated wave for a group.

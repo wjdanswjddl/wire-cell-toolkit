@@ -20,6 +20,7 @@ local tns = import "test-noise-spectra.jsonnet";
 local tng = {
     inco: import "test-noise-groups-incoherent.jsonnet",
     cohe: import "test-noise-groups-coherent.jsonnet",
+    empno: import "test-noise-groups-incoherent.jsonnet",
 };
 
 // Size of original (fictional) waveforms
@@ -96,10 +97,16 @@ local digidata = {
 };
 
 
-// The graph will have two major pipelines split based on coherent nad
+local tick = 0.5*wc.us;
+
+// The graph will have two major pipelines split based on coherent and
 // incoherent noise.  Here are the short nick names to ID each:
-local nicks = ["inco", "cohe"];
-local adder_types = { inco: "IncoherentAddNoise", cohe: "CoherentAddNoise" };
+local group_nicks = ["inco", "cohe"];
+local adder_types = {
+    inco: "IncoherentAddNoise",
+    cohe: "CoherentAddNoise",
+    empno: "IncoherentAddNoise",
+};
 local models = {
     [one]: {
         type: "GroupNoiseModel",
@@ -110,9 +117,24 @@ local models = {
                          rms=1*wc.mV), // PDSP is eg 1.3 mV
             groups: tng[one],
             nsamples: nsamples_generate,
-            tick: 0.5*wc.us,
+            tick: tick,
         }
-    } for one in nicks};
+    }
+    for one in group_nicks} + {
+        empno: {
+            type: "EmpiricalNoiseModel",
+            name: "empno",
+            data: {
+                anode: wc.tn(anode),
+                chanstat: "",
+                spectra_file: "protodune-noise-spectra-v1.json.bz2",
+                nsamples: nsamples_generate,
+                period: tick,
+                wire_length_scale: 1*wc.cm,
+            }, uses: [anode]
+        },
+    };
+
 local pipes = {
     [one]: [
 
@@ -181,13 +203,13 @@ local pipes = {
                 outname: "test-noise-roundtrip-%s-spectra.json.bz2"%one
             },
         }, nin=1, nout=0, uses=[svcs.dft, isnoise])] // one pipe
-    for one in nicks
+    for one in std.objectFields(models)
 };                              // pipes
 
-
+//local nicks_to_use = ["empno", "cohe"];
+local nicks_to_use = ["inco", "cohe"];
 local fanout = pg.fan.fanout('FrameFanout', [
-    pg.pipeline(pipes.inco),
-    pg.pipeline(pipes.cohe)
+    pg.pipeline(pipes[nick]) for nick in nicks_to_use
 ]);
 local graph = pg.pipeline([absurd, reframer, fanout]);
 
