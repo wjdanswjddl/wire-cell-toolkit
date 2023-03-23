@@ -33,7 +33,7 @@ BATS is under development and versions provided by even updated distributions li
 In addition, WCT provides a BATS support library file at ~test/wct-bats.sh~ to assist in writing BATS tests for WCT.  To use, it must be loaded via a path relative to the BATS file.  For example from ~apps/test/test_apps.bats~:
 
 #+begin_example
-  $ cat util/test/test_bats.bats
+  $ cat test/test/test_bats.bats
   #!/usr/bin/env bats
   
   load "../../test/wct-bats.sh"
@@ -63,12 +63,12 @@ The ~test/wct-bats.sh~ file is heavily commented and it is best to read this fil
 A BATS test should run from anywhere:
 
 #+begin_example
-bats util/test/test_bats.bats
+bats test/test/test_bats.bats
 #+end_example
 When run by default, all ~@test~ functions in a BATS file will be.  A subset of tests with names that match a filter can be selected for running.
 
 #+begin_example
-bats -f "test wct bats" util/test/test_bats.bats
+bats -f "test wct bats" test/test/test_bats.bats
 #+end_example
 
 * Create a BATS test file
@@ -300,12 +300,72 @@ Another common pattern is one initial, long-running command followed by many fas
 
 * Archiving results
 
-Bats tests that produce file should generally do so in a temp directory created in the per-test or per-file context.
+The ~wct-bats.sh~ library provides support for producing an "archive" of files from an individual Bats test or a Bats test file.  An archive is simply a Zip file that may later be found in the ~build/~ area.  The intention of test archives is to retain a carefully selected subset of files for later human inspection.  An archive should *not* be used to arbitrarily collect all files that may be produced by a test.  It is expected that these archives will be directly consumed by a future test summary "database" or "browser" of some form.
+
+** Producing files for archive
+
+Files for archive are produced like any files except that they must reside in a Bats temporary directory.
+As described above, this should be achieved naturally by calling ~cd_tmp~ in an individual test:
+#+begin_example
+@test "my test" {
+  cd_tmp
+  # ...
+}
+#+end_example
+Or by calling ~cd_tmp file~ in the special test-file ~setup_file~ function:
+#+begin_example
+setup_file()
+  cd_tmp file
+  # ...
+}
+#+end_example
+
+** Naming files for archive
+
+Each archive is placed under ~build/~ in a sub directory named based on the test.  Thus it is not necessary to prefix the names of files that are to be archived with additional test-specific labels.
+
+However, if a test developer wishes to add this redundant information consider using ~${BATS_TEST_NAME}~ in the context of a ~@test~ function and ~$(basename $BATS_TEST_FILENAME .bats)~ in the context of a ~setup_file~ function.
+
+** Individual test and test file archives
+
+Bats provides a separate temporary directory for each individual test and one for the test file as a whole.  It is possible to provide an archive from each of these contexts.  It is also possible for an individual test to provide a file to the test-file level archive.  The one restriction is that every file to be archived must be placed in the temporary directory context for that archive.  Some examples:
 
 #+begin_example
-cd_tmp      # move to per-test tmp directory
-cd_tmp file # move to per-file tmp directory
+# special file-level function
+setup_file () {
+  cd_tmp file
+  touch file_level.txt
+  # The special "file" argument gives the context
+  archive_append file file_level.txt
+}
+
+@test "my individual test" {
+  cd_tmp
+  touch test_level.txt
+  archive_append test_level.txt
+
+  cd_tmp file
+  touch another_file_level.txt
+  archive_append file another_file_level.txt
+
+  # save the test-level archive
+  archive_saveout
+}
+
+# special file-level function
+teardown () {
+  archive_aveout file
+}
+
 #+end_example
+
+
+
+
+
+** Naming test-file context files for archive
+
+When files for archive are produced at file-level in the ~setup_file~ file 
 
 Sometimes tests can make files that should live beyond temporary use.  For example, tests may produce files for later inspection by human.  The ~wct-bats.sh~ provides the concept of a test "archive" for these files.  An archive is simply a Zip file associated with a temporary directory context (again, "test", "file", etc).
 

@@ -11,9 +11,10 @@ function(infile="celltree.root", outfile="frames.npz",
     local source = high.fio.celltree_file_source(
         infile, eventid,
         branches = ["calibWiener", "calibGaussian"],
-        frame_tags = ["gauss"], trace_tags = trace_tags);
+        frame_tags = ["gauss","weiner"],
+        trace_tags = trace_tags);
 
     local target = high.fio.frame_file_sink(outfile, trace_tags);
         
     local graph = high.pg.pipeline([source, target]);
-    high.main(graph)
+    high.main(graph, extra_plugins=['WireCellRoot'])

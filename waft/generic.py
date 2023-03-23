@@ -37,6 +37,8 @@ use explicit --with-NAME=[<bool>|<dir>].
 
 import sys
 import os.path as osp
+from waflib.Logs import debug
+
 def _options(opt, name, incs=None, libs=None):
     lower = name.lower()
     opt = opt.add_option_group('%s Options' % name)
@@ -68,16 +70,14 @@ def _configure(ctx, name, incs=(), libs=(), bins=(), pcname=None, mandatory=True
         if maybe:
             libs = [s.strip() for s in maybe.split(",") if s.strip()]
     
-    #print ("CONFIGURE", name, instdir, incdir, libdir, mandatory, extuses)
+    debug ("CONFIGURE", name, instdir, incdir, libdir, mandatory, extuses)
 
     if mandatory:
         if instdir:
             assert (instdir.lower() not in ['no','off','false'])
     else:                       # optional
-        # if not any([instdir, incdir, libdir]):
-        #     print ("skipping non mandatory %s, use --with-%s=[yes|<dir>] to force" % (name, lower))
-        #     return
         if instdir and instdir.lower() in ['no','off','false']:
+            debug ("%s: skipping non mandatory %s, use --with-%s=[yes|<dir>] to force" % (lower, name, lower))
             return
 
     # rely on package config
@@ -128,9 +128,9 @@ def _configure(ctx, name, incs=(), libs=(), bins=(), pcname=None, mandatory=True
         ctx.end_msg(str(have_libs))
         if ctx.is_defined('HAVE_'+UPPER+'_LIB'):
             ctx.env['HAVE_'+UPPER] = 1
-            print('HAVE %s libs' % UPPER)
+            debug('%s: HAVE %s libs' % (lower, UPPER))
         else:
-            print('NO %s libs' % UPPER)
+            debug('%s: NO %s libs' % (lower, UPPER))
             
 
     if incs:
@@ -142,9 +142,9 @@ def _configure(ctx, name, incs=(), libs=(), bins=(), pcname=None, mandatory=True
         ctx.end_msg(str(have_incs))
         if ctx.is_defined('HAVE_'+UPPER+'_INC'):
             ctx.env['HAVE_'+UPPER] = 1
-            print('HAVE %s includes' % UPPER)
+            debug('%s: HAVE %s includes' % (lower, UPPER))
         else:
-            print('NO %s includes' % UPPER)
+            debug('%s: NO %s includes' % (lower, UPPER))
 
     if bins:
         ctx.start_msg("Bins for %s" % name)

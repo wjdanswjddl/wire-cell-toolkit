@@ -1,5 +1,16 @@
 load ../wct-bats.sh
 
+@test "usepkg" {
+    usepkg cfg
+    [[ -n "$cfg_src" ]]
+    [[ -d "$cfg_src" ]]
+
+    cd_tmp
+    usepkg util
+    [[ -n "$util_src" ]]
+    [[ -d "$util_src" ]]
+}
+
 @test "resolve file in src" {
     local got="$(resolve_file test/test/test_wct_bats.bats)"
     [[ -n "$got" ]]
@@ -22,7 +33,6 @@ load ../wct-bats.sh
 @test "wcb env" {
     [[ -z "$PREFIX" ]]
     local prefix=$(wcb_env_value PREFIX)
-    [[ "$status" -eq 0 ]]
     [[ -z "$(echo $prefix | grep '"')" ]]
     [[ -z "$PREFIX" ]]
 
@@ -51,6 +61,20 @@ load ../wct-bats.sh
     [[ -n "$VERSION" ]]
     [[ -n "$SUBDIRS" ]]
 
+}
+
+@test "wcb env in temp dir" {
+    cd_tmp
+    [[ -z "$PREFIX" ]]
+    local prefix=$(wcb_env_value PREFIX)
+    [[ -z "$(echo $prefix | grep '"')" ]]
+    [[ -z "$PREFIX" ]]
+
+    # note to any users reading this test for examples, don't use
+    # wcsonnet directly but instead call compile_jsonnet.
+    wcsonnet=$(wcb_env_value WCSONNET)
+    echo "wcsonnet=|$wcsonnet|"
+    [[ -n "$wcsonnet" ]]
 }
 
 @test "have a test data file or skip" {

@@ -3,6 +3,7 @@ import os.path as osp
 import waflib
 import waflib.Utils
 from waflib.Configure import conf
+from waflib.Logs import debug
 
 _tooldir = osp.dirname(osp.abspath(__file__))
 
@@ -20,7 +21,7 @@ def check_root(cfg, mandatory=False):
     if instdir and instdir.lower() in ['no','off','false']:
         if mandatory:
             raise RuntimeError("ROOT is mandatory but disabled via command line")
-        print ("optional ROOT dependency disabled by command line")
+        debug ("root: optional ROOT dependency disabled by command line")
         return
 
     cfg.env.CXXFLAGS += ['-fPIC']
@@ -36,7 +37,7 @@ def check_root(cfg, mandatory=False):
     if not 'ROOT_CONFIG' in cfg.env:
         if mandatory:
             raise RuntimeError("root-config not found but ROOT required")
-        print ("skipping non mandatory ROOT, use --with-root to force")
+        debug ("root: skipping non mandatory ROOT, use --with-root to force")
         return
 
     cfg.check_cfg(path=cfg.env['ROOT_CONFIG'], uselib_store='ROOTSYS',
@@ -65,7 +66,7 @@ def gen_rootcling_dict(bld, name, linkdef, headers = '', includes = '', use=''):
     includes = waflib.Utils.to_list(includes)
     for u in use:
         more = bld.env['INCLUDES_'+u]
-        #print 'USE(%s)=%s: %s' % (name, u, more)
+        debug('root: USE(%s)=%s: %s' % (name, u, more))
         includes += more
 
     # make into -I...
@@ -78,7 +79,7 @@ def gen_rootcling_dict(bld, name, linkdef, headers = '', includes = '', use=''):
         if not newinc in incs:
             incs.append(newinc)
     incs = ' '.join(incs)
-    #print 'INCS(%s): %s' % (name, str(incs))
+    debug('root: INCS(%s): %s' % (name, str(incs)))
     
     dict_src = name + 'Dict.cxx'
     # dict_lib = 'lib' + name + 'Dict.so' # what for Mac OS X?
@@ -93,7 +94,6 @@ def gen_rootcling_dict(bld, name, linkdef, headers = '', includes = '', use=''):
     source_nodes = headers + [linkdef]
     sources = ' '.join([x.abspath() for x in source_nodes])
     rule = '${ROOTCLING} -f ${TGT[0].abspath()} -rml %s -rmf ${TGT[1].abspath()} %s %s' % (dict_lib, incs, sources)
-    #print 'RULE:',rule
     bld(source = source_nodes,
         target = [dict_src, dict_map, dict_pcm],
         rule=rule, use = use)

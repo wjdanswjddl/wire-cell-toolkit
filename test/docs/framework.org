@@ -56,15 +56,14 @@ Notes, ~wcb~ caches the outcome of a test.  Whether it succeeded or failed a tes
 ** Explicit execution
 
 An individual test may be run explicitly via ~wcb~ by giving its "target".
-
 #+begin_example
 ./wcb --target=test_testing
 #+end_example
-Notes,
-
-- This too is subject to caching of test outcomes described above.
-- Target names are same as the name of the program or the script file.
-- The known targets may be listed with ~./wcb list~.
+This too is subject to caching of test outcomes described above and the test may be forcibly run with:
+#+begin_example
+./wcb --alltests --target=test_testing
+#+end_example
+Test target names are the same as the name of the program or the script file (absent its file name extension) and will be found in the output of ~./wcb list~.
 
 
 ** Direct execution
@@ -74,7 +73,7 @@ Test programs may be executed directly from the shell command line.  Compiled te
 #+begin_example
 ./build/util/test_testing
 wcsonnet cfg/test/test_wirecell.jsonnet
-bats util/test/test_bats.bats
+bats test/test/test_bats.bats
 #+end_example
 Notes:
 

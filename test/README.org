@@ -1,9 +1,9 @@
 #+title: Wire-Cell Toolkit Testing
 
 
-The Wire-Cell Toolkit (WCT) provides a large number of tests.  Developers and users are strongly encouraged to contribute yet more.  Although the tests are built and run by default, typically, "normal users" are okay to suppress them (~./wcb --notests~).  They are most needed by developers, release managers and users that port WCT to new platforms.
+The Wire-Cell Toolkit (WCT) includes a large number of tests.  Developers and users are strongly encouraged to contribute even more.  Although the tests are built and run by default, typically, "normal users" are okay to suppress them (~./wcb --notests~) in order to reduce build time.  Tests are most needed by developers as they create and fix bugs, release managers preparing a release and users that are porting WCT to new platforms.
 
-The following documents describe the WCT test framework and provide simple "howto" guides for providing tests.
+The following documents describe the WCT test sub package and the test framework.  These should be read prior to moving on to reading one or more of the "howto" guides.  The first "How to write tests" gives a general introduction and the remaining describe how to write tests of a particular type and language.
 
 - [[file:docs/this.org][Description of the test sub package]]
 - [[file:docs/framework.org][WCT test framework]]
@@ -13,5 +13,4 @@ The following documents describe the WCT test framework and provide simple "howt
 - [[file:docs/cpp.org][How to write C++ tests]]
 - [[file:docs/jsonnet.org][How to write Jsonnet tests]]
 - [[file:docs/bats.org][How to write BATS tests]]
-- [[file:docs/report.org][How to produce test reports]]
 - [[file:docs/datarepo.org][How to use files from the test data repo]]

@@ -20,7 +20,43 @@ load ../wct-bats.sh
 # - A common patter to name and extract "human interesting" products of the test, such as the PDFs.
 
 
-@test "check pdsp sim" {
+function waveform_figure () {
+    dat="$1" ; shift
+    [[ -n "$dat" ]]
+    [[ -f "$dat" ]]
+    fig="$1"; shift
+    [[ -n "$fig" ]]
+
+    if [ -f "$fig" ] ; then
+        warn "Reusing existing $fig"
+    else
+        run wirecell-plot frame -n wave "$dat" "$fig"
+        echo "$output"
+        [[ "$status" -eq 0 ]]
+        [[ -s "$fig" ]]
+        archive_append "$fig"
+    fi
+}
+
+    
+function channel_figure () {
+    local chan="$1"; shift
+    local old_dat="$1"; shift
+    local new_dat="$1"; shift
+    local fig="$1"; shift
+
+    if [ -f "$fig" ] ; then
+        warn "Reusing existing $fig"
+    else
+        run wirecell-plot wave-comp -c $chan $old_dat $new_dat $fig
+        echo "$output"
+        [[ "$status" -eq 0 ]]
+        [[ -s "$fig" ]]
+        archive_append "$fig"
+    fi
+}
+
+@test "check pdsp signal" {
 
     skip_if_no_test_data
 
@@ -35,30 +71,18 @@ load ../wct-bats.sh
     echo "infile: $infile"
     [[ -f "$infile" ]]
 
-    # infile="$(realpath depos.tar.bz2)"
-    # if [ -f "$infile" ] ; then
-    #     echo "Reusing prior depos file"
-    # else
-    #     echo "Downloading depos file.  Fixme: centralize this."
-    #     wget --quiet -O $infile 'https://www.phy.bnl.gov/~hyu/wct-ci/gen/depos.tar.bz2'
-    # fi
-    # [[ -f "$infile" ]]
-
     cd_tmp
 
-    logfile="frames-pr195.log"
-    outfile="frames-pr195.tar.gz"
+    logfile="${BATS_TEST_NAME}.log"
+    outfile="${BATS_TEST_NAME}_frames.tar.gz"
     if [ -f "$logfile" -a -f "$outfile" ] ; then
         warn "Reusing existing output of wire-cell on $cfgfile"
     else
         echo "Running wire-cell on $cfgfile"
-        run wire-cell -l "$logfile" -L debug \
+        wct -l "$logfile" -L debug \
             -A input="$infile" \
             -A output="$outfile" \
             -c "$cfgfile"
-        echo "$output"
-        ls -l
-        [[ "$status" -eq 0 ]]
     fi
     [[ -f "$logfile" ]]
     [[ -s "$logfile" ]]
@@ -66,33 +90,28 @@ load ../wct-bats.sh
     [[ -s "$outfile" ]]
     
 
-    # make PDF
-    pdffile="frames-pr195.pdf"
-    if [ -f "$pdffile" ] ; then
-        warn "Reusing existing $pdffile"
-    else
-        run wirecell-plot frame -n wave "$outfile" "$pdffile"
-        echo "$output"
-        [[ "$status" -eq 0 ]]
-    fi
-    saveout "$pdffile"
+    # make figures
+    local fmt="pdf"
 
-    # oldfile="$(download_file https://www.phy.bnl.gov/~hyu/wct-ci/gen/pr186-ref/frames-pr186.tar.bz2)"
-    oldfile="$(resolve_file pdsp/sim/sn/frames-expected.tar.bz2)"
-    [[ -f "$oldfile" ]] 
-    [[ -s "$oldfile" ]] 
+    # make waveform figures for new data and old ("blessed") data.
+    local new_dat="$outfile"
+    local new_fig="${BATS_TEST_NAME}_frame_new.$fmt"
+    waveform_figure $new_dat $new_fig
 
+    local old_dat="$(test_data_file pdsp/sim/sn/frames-expected.tar.bz2)"
+    [[ -n "$old_dat" ]]
+    local old_fig="${BATS_TEST_NAME}_frame_old.$fmt"
+    waveform_figure $old_dat $old_fig
 
-    cmpfile="frames-pr186-pr195.pdf"
-    if [ -f "$cmpfile" ] ; then
-        warn "Reusing existing $cmpfile"
-    else
-        run wirecell-plot wave-comp -c 700 $oldfile $outfile $cmpfile
-        echo "$output"
-        [[ "$status" -eq 0 ]]
-    fi
-    [[ -f "$cmpfile" ]]
-    [[ -s "$cmpfile" ]]
-    saveout "$cmpfile"
-
+    for chan in 700 701 702
+    do
+        fig="${BATS_TEST_NAME}_channel_$chan.$fmt"
+        channel_figure $chan $old_dat $new_dat $fig
+    done
+    
+    archive_saveout
 }
+
+## waiting on https://www.phy.bnl.gov/~yuhw/wct-ci/gen/check_pdsp_noise.jsonnet
+# @test "check pdsp nosie" {
+# }

@@ -9,7 +9,7 @@ from waflib.Build import BuildContext
 
 # Use our own "wcsonnet" command instead of plain "jsonnet".
 from smplpkgs import ValidationContext
-ValidationContext.script_interpreters[".jsonnet"] = "wcsonnet"
+ValidationContext.script_templates[".jsonnet"] = "${WCSONNET} ${SCRIPT}"
 
 mydir = osp.dirname(__file__)
 
@@ -185,11 +185,11 @@ def configure(cfg):
         if wctd:
             cfg.env.TEST_DATA = wctd.abspath()
     if 'TEST_DATA' in cfg.env:
-        print("using test data from", cfg.env.TEST_DATA)
+        info("wcb: using test data from", cfg.env.TEST_DATA)
     else:
-        print("no test data path.  some tests will be disabled")
+        info("wcb: no test data path.  some tests will be disabled")
 
-    debug(cfg.env)
+    debug("dump: " + str(cfg.env))
 
 def build(bld):
     bld.load('smplpkgs')
@@ -198,17 +198,17 @@ def build(bld):
     bld.install_files('${PREFIX}/include/' + bch.parent.name, bch)
 
     subdirs = bld.env.SUBDIRS
-    info ('Building: %s' % (', '.join(subdirs), ))
+    debug ('wcb: subdirs %s' % (', '.join(subdirs), ))
     bld.recurse(subdirs)
 
     if hasattr(bld, "smplpkg_graph"):
         # fixme: this writes directly.  Should make it a task, including
         # running graphviz to produce PNG/PDF
-        debug ("writing wct-depos.dot")
+        debug ("wcb: writing wct-depos.dot")
         bld.path.make_node("wct-deps.dot").write(str(bld.smplpkg_graph))
 
 def dumpenv(bld):
-    'print build environment'
+    'dump build environment to stdout'
 
     # This is an ugly hack as the info needed is not in this build context.
     for app in "wire-cell wcsonnet wcwires".split():
@@ -221,7 +221,7 @@ def dumpenv(bld):
         if "-" in key:
             warn("replace '-' with '_' in: %s" % key)
             key = key.replace("-","_")
-        print('%s="%s"' % (key, val))
+        info('wcb: %s="%s"' % (key, val))
 
 
 class DumpenvContext(BuildContext):

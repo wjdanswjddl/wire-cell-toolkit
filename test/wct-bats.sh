@@ -2,7 +2,12 @@
 
 # BATS helper functions.
 # To use inside a <pkg>/test/test_XXX.bats do:
+#
 # load ../../test/wct-bats.sh
+#
+# See test/docs/bats.org for more info.
+#
+# Note, these generally exit on error.
 
 function log () {
     echo "$@"
@@ -21,6 +26,7 @@ function die () {
     yell "$msg" 
     exit 1
 }
+
 
 # Return shell environment
 function dumpenv () {
@@ -103,7 +109,10 @@ function downloads () {
 
 # Run the Wire-Cell build tool 
 function wcb () {
-    $(topdir)/wcb $@
+    local here="$(pwd)"
+    cd "$(topdir)"
+    ./wcb $@
+    cd "$here"
 }
 
 # Return key=var lines from wcb' Waf build variables.
@@ -121,7 +130,7 @@ function wcb_env_vars () {
     # we keep a cache to save a whole 100 ms....
     local cache="${BATS_RUN_TMPDIR}/wcb_env.txt"
     if [ ! -f "$cache" ] ; then
-        wcb dumpenv | grep = | sort > $cache
+        wcb dumpenv | grep 'wcb: ' | sed -e 's/^wcb: '// | sort > $cache
     fi
     if [ -z "$1" ] ; then
         cat "$cache"
@@ -160,19 +169,119 @@ function wcb_env () {
 function usepkg () {
     for pkg in $@; do
         local pkg=$1 ; shift
-        printf -v "${pkg}_src" "%s/%s" "$t" "$pkg"
         local t=$(topdir)
+        printf -v "${pkg}_src" "%s/%s" "$t" "$pkg"
+        export ${pkg}_src
         PATH="$(blddir)/$pkg:$PATH"
     done
 #    echo $PATH
 }
 
-# Bats defines a base temp directory and two sub-dirs.
-# - run :: $BATS_RUN_TMPDIR
-# - file :: $BATS_FILE_TMPDIR
-# - test :: $BATS_TEST_TMPDIR
+# Execute the Jsonnet compiler under Bats "run".
+# Tries wcsonnet then jsonnet.
+# The cfg dir is put into the search path and WIRECELL_PATH is ignored.
 #
-# to not purge tmp:  bats --no-tempdir-cleanup
+# usage:
+# compile_jsonnet file.jsonnet file.json [-A/-V etc options, no -J/-P]
+function compile_jsonnet () {
+    local ifile=$1 ; shift
+    local ofile=$1 ; shift
+    local cfgdir="$(topdir)/cfg"
+
+    local orig_wcpath=$WIRECELL_PATH
+    WIRECELL_PATH=""
+
+    cmd=$(wcb_env_value WCSONNET)
+    if [ -n "$cmd" -a -x "$cmd" ] ; then
+        ## switch to this when wcsonnet gets "-o"
+        # cmd="$cmd -P $cfgdir -o $ofile $@ $ifile"
+        ## until then
+        cmd="$cmd -o $ofile -P $cfgdir $@ $ifile"
+    fi
+    if [ -z "$cmd" ] ; then
+        cmd=$(wcb_env_value JSONNET)
+        if [ -z "cmd" ] ; then
+            cmd="jsonnet"       # hail mary
+        fi
+        if [ -n "$cmd" -a -x "$cmd" ] ; then        
+            cmd="$cmd -o $ofile -J $cfgdir $@ $ifile"
+        fi
+    fi
+    [[ -n "$cmd" ]]
+    echo "$cmd"
+    run $cmd
+    echo "$output"
+    [[ "$status" -eq 0 ]]
+    WIRECELL_PATH="$orig_wcpath"
+}
+
+# Execute wire-cell CLI under Bats "run".
+# This wraps a normal wire-cell CLI in some boilerplate.
+#
+# usage:
+# wct [args]
+function wct () {
+    cli=$(wcb_env_value WIRE_CELL)
+    [[ -n "$cli" ]]
+    [[ -x "$cli" ]]
+
+    run $cli $@
+    echo "$output"
+    [[ "$status" -eq 0 ]]    
+}
+
+
+# Execute the "wirecell-pgraph dotify" program under Bats "run".
+#
+# usage:
+# dotify_graph input.{json,jsonnet} output.{svg,png,pdf}
+function dotify_graph () {
+    local ifile=$1 ; shift
+    [[ -n "$ifile" ]]
+    [[ -f "$ifile" ]]
+    local ofile=$1 ; shift
+    [[ -n "$ofile" ]]
+    local cfgdir="$(topdir)/cfg"
+    [[ -d "$cfgdir" ]] 
+
+    cmd=$(wcb_env_value WCPGRAPH)
+    [[ -n "$cmd" ]]
+    [[ -x "$cmd" ]]    
+    
+    cmd="$cmd dotify -J $cfgdir $@ $ifile $ofile"
+    echo "$cmd"
+    run $cmd
+    echo "$output"
+    [[ "$status" -eq 0 ]]
+}
+
+
+
+# Return the Bats context name as divined by the Bats environment.
+#
+# test, file or run
+function divine_context () {
+    if [ -n "$BATS_TEST_NAME" ] ; then
+        echo "test"
+    elif [ -n "$BATS_TEST_FILENAME" ] ; then
+        echo "file"
+    elif [ -n "$BATS_RUN_TMPDIR" ] ; then
+        echo "run"
+    else
+        die "apparently not running under bats"
+    fi
+}
+
+
+# Return a Bats temporary directory.
+#
+# With no arguments, this divines the correct one for the current Bats context.
+#
+# With a single argument it will return the temporary directory for that context.
+#
+# To not purge the tmp:  bats --no-tempdir-cleanup
+#
+# If WCTEST_TMPDIR is defined, it trumps all.
 function tmpdir () {
     if [ -n "$WCTEST_TMPDIR" ] ; then
         echo "$WCTEST_TMPDIR"
@@ -187,14 +296,19 @@ function tmpdir () {
     esac
 }
 
-# Change to per test temporary directory
+# Change to the context temporary directory.
+#
+# If a context is given, that temporary directory will be used
+# otherwise it will be divined.
+#
 # usage:
-# local origin="$(cd_tmp)"
-# ...           $ do something
-# cd "$origin"  # maybe return
+# cd_tmp
 function cd_tmp () {
-    pwd
-    local t="$(tmpdir $1)"
+    ctx="$1"
+    if [ -z "$ctx" ] ; then
+        ctx="$(divine_context)"
+    fi
+    local t="$(tmpdir $ctx)"
     mkdir -p "$t"
     cd "$t"
 }
@@ -236,7 +350,7 @@ function resolve_path () {
 # Return an absolute path of a relative path found in config areas.
 function config_path () {
     local path="$1" ; shift
-    local maybe="$(top)/cfg/$path"
+    local maybe="$(topdir)/cfg/$path"
     if [ -f "$maybe" ] ; then
         echo "$maybe"
         return
@@ -277,10 +391,9 @@ function resolve_file () {
     local t="$(topdir)"
     resolve_path $want "$t/test/data" "$t" ${WIRECELL_PATH} ${TEST_DATA} ${WIRECELL_TEST_DATA_PATH}
     local got="$(resolve_path $want $@)"
-    if [ -n "$got" ] ; then
-        echo $got
-        return
-    fi
+    [[ -n "$got" ]]
+    [[ -f "$got" ]]
+    echo $got
 }
 
 
@@ -346,9 +459,15 @@ function skip_if_no_test_data () {
 #
 # Normally, this name is opaque to testing code.
 #
-# A tmpdir context name may be given.
+# A tmpdir context name may be given.  Otherwise the result is context
+# dependent.  
 function archive_name () {
-    local t="$(tmpdir $1)"
+    ctx="$1"
+    if [ -n "$ctx" ] ; then
+        ctx="$(divine_context)"
+    fi
+
+    local t="$(tmpdir $ctx)"
     [[ -n "$t" ]]
     echo "$t/archive.zip"
 }

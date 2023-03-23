@@ -1,11 +1,3 @@
-// This is a main entry point for configuring a wire-cell CLI job to
-// simulate protoDUNE-SP.  It is simplest signal-only simulation with
-// one set of nominal field response function.  It excludes noise.
-// The kinematics are a mixture of Ar39 "blips" and some ideal,
-// straight-line MIP tracks.
-//
-// Output is a Python numpy .npz file.
-
 local g = import 'pgraph.jsonnet';
 local f = import 'pgrapher/common/funcs.jsonnet';
 local wc = import 'wirecell.jsonnet';

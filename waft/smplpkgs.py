@@ -19,7 +19,7 @@ direct concepts specific to building WCT.  See wcb.py for those.
 
 import os
 from contextlib import contextmanager
-from waflib.Utils import to_list
+from waflib.Utils import to_list, subst_vars
 from waflib.Configure import conf
 import waflib.Context
 from waflib.Logs import debug, info, error, warn
@@ -164,7 +164,16 @@ def cycle_group(bld, gname):
 class ValidationContext:
 
     compiled_extensions = ['.cxx', '.kokkos']
-    script_interpreters = {'.py':"python", '.bats':'bats', '.sh':'bash', '.jsonnet':'jsonnet'}
+
+    # Script CLI templates by file extension.
+    # Must include command and script variables.
+    script_templates = {
+        '.py': "${PYTHON} ${SCRIPT}",
+        '.pyt':"${PYTEST} ${SCRIPT}",
+        '.sh':'${BASH} ${SCRIPT}',
+        # Explicitly force bats to run serially
+        '.bats':'${BATS} --jobs 1 ${SCRIPT}',
+        '.jsonnet':'${JSONNET} ${SCRIPT}'}
 
     def __init__(self, bld, uses):
         '''
@@ -175,7 +184,7 @@ class ValidationContext:
 
         if self.bld.options.no_tests:
             self.bld.options.no_checks = True # need tests for checks, in general
-            info("atomic unit tests will not be built nor run for " + self.bld.path.name)
+            debug("smplpkgs: atomic unit tests will not be built nor run for " + self.bld.path.name)
             return
 
         self.bld.cycle_group("validations")
@@ -195,7 +204,7 @@ class ValidationContext:
             for one in self.bld.path.ant_glob('test/test_*'+ext):
                 self.program(one, "test")
 
-        for ext in self.script_interpreters:
+        for ext in self.script_templates:
             for one in self.bld.path.ant_glob('test/test*'+ext):
                 self.script(one)
 
@@ -203,7 +212,7 @@ class ValidationContext:
 
     def __enter__(self):
         if self.bld.options.no_checks:
-            info("variant checks will not be built nor run for " + self.bld.path.name)
+            debug("smplpkgs: variant checks will not be built nor run for " + self.bld.path.name)
         return self
 
     def __exit__(self, exc_type, exc_value, exc_traceback):
@@ -275,23 +284,24 @@ class ValidationContext:
         name = source.name.replace(ext,'')
         outnode = self.bld.path.find_or_declare(name + '.out')
 
-        interp = self.script_interpreters.get(ext, None)
+        templ = self.script_templates.get(ext, None)
 
-        if interp is None:
+        if templ is None:
             warn(f'skipping script with no known interpreter: {source}')
             return
 
-        INTERP = interp.upper()
-        if INTERP not in self.bld.env:
+        cli = subst_vars(templ, self.bld.env)
+        if not cli.split(" ")[0]:
             warn(f'skipping script with no found interpreter: {source}')
             return
 
-        debug(f'{interp} {source}')
-        self.bld(features="test_scripts", name=name,
+        # debug('script: ' + cli)
+        self.bld(features="test_scripts",
+                 name=name,
                  ut_cwd   = self.bld.path, 
                  use = self.uses, 
                  test_scripts_source = source,
-                 test_scripts_template = "${%s} ${SCRIPT}" % INTERP,
+                 test_scripts_template = templ,
                  target = [outnode])
 
         

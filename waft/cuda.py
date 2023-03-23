@@ -4,6 +4,7 @@ from waflib import Task
 from waflib.TaskGen import extension
 from waflib.Tools import ccroot, c_preproc
 from waflib.Configure import conf
+from waflib.Logs import debug
 
 import os
 
@@ -41,4 +42,4 @@ def configure(cfg):
     nvccflags = "-shared -Xcompiler -fPIC "
     nvccflags += os.environ.get("NVCCFLAGS","")
     cfg.env.NVCCFLAGS += nvccflags.strip().split()
-    print ("NVCCFLAGS = %s" % (' '.join(cfg.env.NVCCFLAGS)))
+    debug ("cuda: NVCCFLAGS = %s" % (' '.join(cfg.env.NVCCFLAGS)))

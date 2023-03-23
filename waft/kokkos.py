@@ -4,6 +4,7 @@ from waflib import Task
 from waflib.TaskGen import extension
 from waflib.Tools import ccroot, c_preproc
 from waflib.Configure import conf
+from waflib.Logs import debug
 
 import os
 
@@ -28,10 +29,10 @@ class kokkos_cuda(Task.Task):
 def kokkos_hook(self, node):
     options = getattr(self.env, 'KOKKOS_OPTIONS', None)
     if 'cuda' in options:
-        # print('use nvcc on ', node)
+        debug('kokkos: use nvcc on ' + str(node))
         return self.create_compiled_task('kokkos_cuda', node)
     else:
-        # print('use gcc on ', node)
+        debug('kokkos: use gcc on ' + str(node))
         return self.create_compiled_task('kokkos_gcc', node)
 
 def options(opt):
