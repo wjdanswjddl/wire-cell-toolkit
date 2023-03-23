@@ -207,14 +207,8 @@ def plot(array, channels, cmap, format, output, aname, fname):
     fig.savefig(output, format=format, bbox_inches='tight')
 
 @cli.command("image")
-# @click.option("-a", "--array", default="frame_*_0", help="array name")
-# @click.option("-c", "--channels", default="800,800,960", help="comma list of channel counts per plane in u,v,w order")
-# @click.option("-C", "--cmap", default="gist_ncar", help="Color map name def=gist_ncar")
-# @click.option("-f", "--format", default="auto", help="Output file format, def=auto")
-# @click.option("-o", "--output", default="/dev/stdout", help="Output file, def=stdout")
-# @click.argument("npzfile")
 @frame_to_image
-def image(array, channels, cmap, format, output, npzfile):
+def image(array, channels, cmap, format, output, aname, fname):
     '''
     Dump array to image, ignoring channels.
     '''
