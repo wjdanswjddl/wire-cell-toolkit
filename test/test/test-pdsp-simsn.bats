@@ -48,7 +48,7 @@ function channel_figure () {
     if [ -f "$fig" ] ; then
         warn "Reusing existing $fig"
     else
-        run wirecell-plot wave-comp -c $chan $old_dat $new_dat $fig
+        run wirecell-plot comp1d -c $chan $old_dat $new_dat $fig
         echo "$output"
         [[ "$status" -eq 0 ]]
         [[ -s "$fig" ]]
