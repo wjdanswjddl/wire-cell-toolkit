@@ -218,6 +218,27 @@ def image(array, channels, cmap, format, output, aname, fname):
 
 
 
+@cli.command("configured-spectra")
+@click.option("-t","--type", default="GroupNoiseModel", help="component type name")
+@click.option("-n","--name", default="inco", help="component instance name")
+@click.argument("cfgfile")
+@click.argument("output")
+def configured_spectra(type, name, cfgfile, output):
+    from wirecell.util import jsio
+    from wirecell.sigproc.noise.plots import plot_many
+
+    got = None
+    for one in jsio.load(cfgfile):
+        if one['type'] == type and one['name'] == name:
+            got=one['data']['spectra']
+            break
+    if got is None:
+        raise click.BadParameter(f'failed to find node {type}:{name}')
+
+    zero_suppress = True
+    plot_many(got, output, zero_suppress)
+    
+
 def main():
     cli(obj=dict())
 
