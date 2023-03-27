@@ -1,8 +1,6 @@
 #!/usr/bin/env bats
 
-# fixme: this is first developed outside of check-test branch.  It
-# should be refactored to use that Bats support, once merged.
-# It does assume a new bats such as the one provided by check-test.
+load ../../test/wct-bats.sh
 
 #   coherent/incoherent
 #   vin = voltage level
@@ -19,26 +17,64 @@
 # test-noise-roundtrip-cohe-spectra.json.bz2
 
 setup_file () {
-    # cd_tmp
+    cd_tmp
 
-    local cfgfile="${BATS_TEST_FILENAME%".bats"}.jsonnet"
-    run wire-cell -l log -L debug $cfgfile
-    echo "$output"
-    [[ "$status" -eq 0 ]]
-    
+    local tname="$(basename $BATS_TEST_FILENAME .bats)"
+    local cfgfile="$(relative_path ${tname}.jsonnet)"
+    if [ -f log ] ; then
+        echo "reusing output of $cfgfile"
+    else
+        wct -l log -L debug $cfgfile
+        echo "$output"
+        [[ "$status" -eq 0 ]]
+    fi
+    [[ -s "log" ]]
 }
 
 @test "plot adc" {
-    # cd_tmp file
-    local mydir="$(dirname ${BATS_TEST_FILENAME})"
-    python $mydir/check_noise_roundtrip.py plot -o inco-adc.png  test-noise-roundtrip-inco-adc.npz
-    python $mydir/check_noise_roundtrip.py plot -o cohe-adc.png  test-noise-roundtrip-cohe-adc.npz
-    # archive these
+    cd_tmp file                 # access file level temp context
+
+    local tname="$(basename $BATS_TEST_FILENAME .bats)"
+    local tier="adc"
+    local plotter=$(wcb_env_value WCPLOT)
+
+    for label in inco cohe
+    do
+        local base="${tname}-${label}-${tier}"
+        local fig="${base}.png"
+        run $plotter frame-means -o "$fig" "${base}.npz"
+        echo "$output"
+        [[ "$status" -eq 0 ]]
+        [[ -s "$fig" ]]
+        archive_append "$fig"
+    done
+}
+
+@test "plot spectra" {
+    cd_tmp file                 # access file level temp context
+    local tname="$(basename $BATS_TEST_FILENAME .bats)"
+    local plotter=$(wcb_env_value WCSIGPROC)
+    local tier="spectra"
+
+    for label in inco cohe
+    do
+        local base="${tname}-${label}-${tier}"
+        local fig="${base}.pdf"
+        run $plotter plot-noise-spectra "${base}.json.bz2" "$fig"
+        echo "$output"
+        [[ "$status" -eq 0 ]]
+        [[ -s "$fig" ]]
+        archive_append "$fig"
+    done
+
+    #
+    # wirecell-sigproc plot-noise-spectra \
+    #    test-noise-roundtrip-inco-spectra.json.bz2 \
+    #    inco-spectra.pdf
+    echo
 }
 
 @test "no weird endpoints of mean waveform" {
-    local mydir="$(dirname ${BATS_TEST_FILENAME})"
-    declare -a line
 
     ## good lines are:
     # U t 4096 0.02282684326171875 0.06892286163071752 4096 1291 185 13 2 0 0 0 0 0 0
@@ -54,6 +90,8 @@ setup_file () {
     # V c 800 0.24620086669921876 0.43083546962103825 800 198 0 0 0 0 0 0 0 0 0
     # W t 4096 0.23283335367838542 0.20440386815418213 4096 39 26 15 14 14 14 13 11 10 10
     # W c 960 0.23283335367838542 0.4332668683930272 960 249 0 0 0 0 0 0 0 0 0    
+
+    local checker=$(wcb_env_value WCGEN)
 
     while read line ; do
         parts=($line)
@@ -71,7 +109,11 @@ setup_file () {
         # rms should be small.  dumb subst for floating point check.
         [[ -n "$(echo ${parts[4]} | grep '^0\.0')" ]]
         
-    done < <(python $mydir/check_noise_roundtrip.py stats test-noise-roundtrip-inco-adc.npz)
+    done < <($checker frame_stats test-noise-roundtrip-inco-adc.npz)
     
     
+}
+
+teardown () {
+    archive_saveout
 }

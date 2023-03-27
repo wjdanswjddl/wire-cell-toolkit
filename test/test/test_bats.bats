@@ -22,9 +22,10 @@ setup_file () {
     [ -d "$cfg_src" ]
 }
 
-@test "dump waf env" {
-    run wcb dumpenv 
-    echo "$output"
+# tip: give bats the argument --show-output-of-passing-tests  
+@test "dump wcb env" {
+    run wcb dumpenv
+    echo "$output" |grep '^wcb: '| sed -e 's/wcb://'
     [[ "$status" -eq 0 ]]
 }
 @test "dump shell env" {
