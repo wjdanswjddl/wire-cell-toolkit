@@ -185,7 +185,7 @@ GeneratorN::spec(const real_vector_t& sigmas)
             
     complex_vector_t spec(nsamples, 0);
 
-    auto normals = normal(2*(nhalf+nextra));
+    auto normals = normal(2*(nhalf+nextra)+1);
 
     // The zero-frequency bin must be real and may be negative.
     for (size_t ind=0; ind <= nhalf+nextra; ++ind) {

@@ -96,9 +96,18 @@ void Gen::GroupNoiseModel::configure(const WireCell::Configuration& cfg)
     
     // Read in, resample and intern the spectra.
     m_grp2amp.clear();
+    int count=0; 
     for (const auto& jso : jspectra) {
-        auto jgroup = jso["group"].isNull() ? jso["groupID"] : jso["group"];
-        const int group = jgroup.asInt();
+        // Some noise files lack explicit group ID so simply count groups.
+        int group = count;
+        auto jgroup = jso["group"];
+        if (jgroup.isNull()) {
+            jgroup = jso["groupID"];
+        }
+        if (jgroup.isInt()) {
+            group = jgroup.asInt();
+        }
+        ++count;
 
         // The original waveform size and sampling period
         const size_t norig = jso["nsamples"].asInt();
@@ -107,11 +116,13 @@ void Gen::GroupNoiseModel::configure(const WireCell::Configuration& cfg)
             ++errors;
             continue;
         }
-        const double porig = jso["period"].asInt();
+        const double porig = jso["period"].asDouble();
 
         const auto jfreqs = jso["freqs"];
         const auto jamps = jso["amps"];
         const size_t npts = jfreqs.size();
+        log->debug("loaded group:{} nsamples:{} period:{} nfreqs:{} namps:{}",
+                   group, norig, porig, jfreqs.size(), jamps.size());
 
         const double Fnyquist = 1.0/(2*porig);
         const double Frayleigh = 1.0/(norig*porig);
