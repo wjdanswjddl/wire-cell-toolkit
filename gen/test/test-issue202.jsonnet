@@ -20,7 +20,7 @@ local tns = import "test-noise-spectra.jsonnet";
 local tng = {
     inco: import "test-noise-groups-incoherent.jsonnet",
     cohe: import "test-noise-groups-coherent.jsonnet",
-    empno: import "test-noise-groups-pdsp.jsonnet",
+    empno: import "test-noise-groups-incoherent.jsonnet",
 };
 
 // Size of original (fictional) waveforms
