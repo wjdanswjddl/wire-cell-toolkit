@@ -512,6 +512,7 @@ function archive_append () {
         cd "$base"
         zip -g "$arch" "$rel"
     done
+    cd $here
 }
 
 
