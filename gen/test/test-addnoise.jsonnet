@@ -3,7 +3,6 @@
 local wc = import "wirecell.jsonnet";
 local pg = import "pgraph.jsonnet";
 
-local nsamples_generate = 4096;
 local tick = 0.5*wc.us;
 
 // services
@@ -42,36 +41,53 @@ local absurd = pg.pnode({
         nchannels: 2560,
     }}, nin=0, nout=1);
 
-local reframer = pg.pnode({
+local reframer(nsamples) = pg.pnode({
     type: 'Reframer',
     data: {
-        nticks: nsamples_generate,
+        nticks: nsamples,
         anode: wc.tn(anode),
     }}, nin=1, nout=1, uses=[anode]);
 
-local empno = {
-    type: "EmpiricalNoiseModel",
-    name: "empno",
-    data: {
-        anode: wc.tn(anode),
-        chanstat: "",
-        spectra_file: "protodune-noise-spectra-v1.json.bz2",
-        nsamples: nsamples_generate,
-        period: tick,
-        wire_length_scale: 1*wc.cm,
-    }, uses: [anode]
+local pdsp_noise_file = "protodune-noise-spectra-v1.json.bz2";
+
+local noise_models(nsamples) = {
+
+    empno: {
+        type: "EmpiricalNoiseModel",
+        name: "empno",
+        data: {
+            anode: wc.tn(anode),
+            chanstat: "",
+            spectra_file: pdsp_noise_file,
+            nsamples: nsamples,
+            period: tick,
+            wire_length_scale: 1*wc.cm,
+        }, uses: [anode]
+    },
+    inco: {
+        type: "GroupNoiseModel",
+        name: "inco",
+        data: {
+            // This can also be given as a JSON/Jsonnet file
+            spectra: pdsp_noise_file,
+            groups: import "test-noise-groups-pdsp.jsonnet",
+            nsamples: nsamples,
+            tick: tick,
+        }
+    }
 };
 
-local addnoise =
+
+local addnoise(model, nsamples) =
     pg.pnode({
         type: 'AddNoise',
         name: "",
         data: {
             dft: wc.tn(svcs.dft),
             rng: wc.tn(svcs.rng),
-            model: wc.tn(empno),
-            nsamples: nsamples_generate,
-        }}, nin=1, nout=1, uses=[empno, svcs.dft, svcs.rng]);
+            model: wc.tn(model),
+            nsamples: nsamples,
+        }}, nin=1, nout=1, uses=[model, svcs.dft, svcs.rng]);
 
 local digi = pg.pnode({
     type: "Digitizer",
@@ -86,7 +102,10 @@ local digi = pg.pnode({
     }
 }, nin=1, nout=1, uses=[anode]);
 
-function(outfile="test-addnoise.tar.bz2")
+function(outfile="test-addnoise.tar.bz2", noise="empno", nsamples=4096)
+    local int_nsamples = if std.type(nsamples) == "number" then nsamples else std.parseInt(nsamples);
+
+    local nmodel = noise_models(int_nsamples)[noise];
 
     local sink = pg.pnode({
         type: "FrameFileSink",
@@ -96,7 +115,7 @@ function(outfile="test-addnoise.tar.bz2")
             digitize: true,
         },
     }, nin=1, nout=0);
-    local graph = pg.pipeline([absurd, reframer, addnoise, digi, sink]);
+    local graph = pg.pipeline([absurd, reframer(int_nsamples), addnoise(nmodel, int_nsamples), digi, sink]);
     local app = {
         type: 'Pgrapher',
         data: {

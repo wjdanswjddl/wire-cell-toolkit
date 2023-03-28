@@ -2,33 +2,53 @@
 
 * Overview
 
-WCT provides a single "noise model" which perhaps is best labeled a "sampled spectrum" model.
-It is rather simple but covers all known forms of noise. 
+WCT provides a "sampled spectrum noise model" which is parametererized by two types of information:
 
-The model is parameterized by three pieces of information, all of which are provided by the user:
+- A set of "median noise spectra".
 
-- one or more "mean noise spectra"
+- An associative mapping between channel and spectrum.
 
-- a mapping from channel to spectrum
+The WCT implementation is structured into two layers.
 
-- a mapping strategy
+1. A "model" component provides a median noise spectrum given a key (channel or group).
 
-The kernel of the model performs a sampling of a spectrum to generate a voltage-level waveform.
-The sampling has two steps.  First, each frequency bin of the mean spectrum is fluctuated according to the Rayleigh distribution.  To this fluctuated spectrum an inverse discrete Fourier transform is applied to produce a novel voltage-level waveform.
+2. An "adder" component generates a noise waveform and associates it to one or more channels.
 
-The resulting waveform is then added to one or more channels via a mapping and tha mapping strategy.
+* Noise generation
 
-There are two mapping strategies:
+The kernel of the noise generation returns a fluctuated noise waveform given a real-valued median amplitude spectrum.  Median and not mean is the proper statistic to supply.
+The sampling of the distribution characterized by the median spectrum has two steps. 
 
-- the "incoherent" strategy adds a single waveform to a single channel via the mapping. A channel is mapped directly to a spectrum from which the waveform was generated.
+1. Each frequency bin of the median spectrum is fluctuated to produce a complex amplitude sample.
 
-- the "coherent" strategy adds a single waveform to each in a group of channels. A channel is mapped to a "group" and the "group" is mapped to a spectrum.
+2. An inverse discrete Fourier transform is applied to the spectrum of samples to produce the noise waveform.
 
-There is a WCT graph component that implements each strategy: ~IncoherentAddNoise~ and ~CoherentAddNoise~, respectively.[fn:old] 
+The fluctuation at each frequency is produced by twice sampling a Gaussian distribution of mean zero and sigma equal to the median.  These samples form the real and imaginary part of a complex valued spectral sample.  Equivalently, such samples have Rayleigh-distributed complex amplitude and uniform-distributed complex phase.  This sampling motivates supplying a median and not a mean spectrum.
 
-A WCT graph may, of course, apply multiple instances of either or both components.  This allows both types of noises to be added and, for example, interleaving of different types of coherent noise.
+* Noise adders
 
-Note, it is left to the user to provide properly normalized spectra so that when combined there is no "double counting" of noise power.
+There are two types of noise adders:
 
+- ~IncoherentAddNoise~ :: adds an independent noise waveform to each channel.  The ~AddNoise~ type is an alias for this type.
+- ~CoherentAddNoise~ :: adds an independent noise waveform to each in a group of channels.
 
-[fn:old] An older ~AddNoise~ was used.  This component type is aliased to ~IncoherentAddNoise~.
+* Noise spectrum models
+
+There are two types of noise spectrum models:
+
+** ~EmpiricalNoiseModel~
+
+This spectral model associates an initial median spectrum and a set of post-hoc transformations of that spectrum to a channel.  It expects as input a set of initial median spectra each of which are identified by a plane number and a wire length and summary information.  The post-hoc transformations are the following:
+
+- The initial spectrum for a given channel is formed as the interpolation between provided spectra based on their total wire lengths and that of the channel.
+- An additional white-noise component may be specified for each input spectrum, this too is subject to wire-length interpolation.
+- A pair of gain and shaping time values may be associated with an input spectrum and a different pair with each channel and the spectrum will be transformed accordingly. 
+
+The ~EmpiricalNoiseModel~ spectrum model may only be used with the ~IncoherentAddNoise~ noise adder.
+
+** ~GroupNoiseModel~
+
+This spectral model associates a channel to a group and a group to a spectrum.  No post-hoc wire-length interpolations nor any transformations are performed on the input spectra.
+
+This spectrum model may be used with ~IncoherentAddNoise~ and ~CoherentAddNoise~
+

@@ -59,6 +59,7 @@ bool Gen::IncoherentAddNoise::operator()(const input_pointer& inframe, output_po
 
     // Limit number of warnings below
     static bool warned = false;
+    static bool warned2 = false;
 
     // Make waveforms of size nsample from each model, adding only
     // ncharge of their element to the trace charge.  This
@@ -76,27 +77,37 @@ bool Gen::IncoherentAddNoise::operator()(const input_pointer& inframe, output_po
 
         for (auto& [mtn, model] : m_models) {
             const auto& spec = model->channel_spectrum(chid);
+            const size_t nspec = spec.size();
 
-            if (spec.empty()) {
+            if (! nspec) {
                 continue;       // channel not in model
             }
+
             // The model spec size may differ than expected nsamples.
             // We could interpolate to correct for that which would
             // slow things down.  Better to correct the model(s) code
             // and configuration.
-            if (not warned and spec.size() != m_nsamples) {
+            if (not warned and nspec != m_nsamples) {
                 log->warn("model {} produced {} samples instead of expected {}, future warnings muted",
-                          mtn, spec.size(), m_nsamples);
+                          mtn, nspec, m_nsamples);
                 warned = true;
             }
 
-            real_vector_t sigmas(m_nsamples);
-            for (size_t ind=0; ind<m_nsamples; ++ind) {
+            const size_t nsigmas = nspec;
+            // const nsigmas = m_nsamples;
+            real_vector_t sigmas(nsigmas);
+            for (size_t ind=0; ind < nsigmas; ++ind) {
                 sigmas[ind] = spec[ind]*sqrt2opi;
             }
+
             auto wave = rwgen.wave(sigmas);
+            if (not warned2 and wave.size() < ncharge) {
+                log->warn("undersized noise {} for input waveform {}, future warnings muted", wave.size(), ncharge);
+                warned2 = true;
+            }
             wave.resize(ncharge);
             Waveform::increase(charge, wave);
+
         }
 
         auto trace = make_shared<SimpleTrace>(chid, intrace->tbin(), charge);
