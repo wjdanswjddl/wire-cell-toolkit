@@ -474,22 +474,23 @@ function archive_name () {
 
 # Append one or more files to an archive.
 #
-# The first argument may be a tmpdir context to select a specific
-# archive file.  The default context is "test".  Broader contexts will
-# likely cause problems if bats is allowed to run parallel.  For
-# running Bats in WCT test framework, the "test" and "file" contexts
-# are safe.
-# 
-# Note, all paths must be relative and not leave the parent.  Any path
-# starting with "/" or ".." will abort.  As a consequence, files may
-# need to be moved into the tmpdir context prior to being archived.
-# Otherwise, relative paths are retained in the archive.
+# The first argument may be a tmpdir context name ("file" or "test")
+# to select a specific archive file, o.w. the context is detected.
+#
+# Otherwise, arguments are interpeted as file paths.
+#
+# Only RELATIVE and DESCENDING paths are allowed.  All others (eg
+# absolute "/..." or ascending "../...") are an error.
 #
 # usage:
 #
 # cd_tmp
 # touch file1.txt file2.txt
-# archive_append touch file1.txt file2.txt
+# archive_append file1.txt file2.txt
+# 
+# mkdir subdir && cd subdir
+# touch file3.txt
+# archive_append file3.txt  # added as "subdir/file3.txt"
 function archive_append () {
     local ctx="test"
     if [ -n "$(echo "test file run" | grep "\b$1\b")" ] ; then
@@ -498,13 +499,18 @@ function archive_append () {
     fi
 
     local arch="$(archive_name $ctx)"
-
+    local base="$(tmpdir $ctx)"
+    local here="$(pwd)"
     for one in $@
     do
         if [[ $one =~ ^/.* || $one =~ ^\.\./.* ]] ; then
-            exit 1
+            die "illegal archive path: $one"
         fi
-        zip -g "$arch" $one
+        cd "$here"
+        abs="$(realpath $one)"
+        rel="$(realpath --relative-to=$base $abs)"
+        cd "$base"
+        zip -g "$arch" "$rel"
     done
 }
 

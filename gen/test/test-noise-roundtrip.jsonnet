@@ -135,17 +135,20 @@ local models = {
         },
     };
 
-local pipes = {
+
+local pipes(round=true, bug202 = 0.0) = {
     [one]: [
 
         // add noise
         pg.pnode({
             type: adder_types[one],
+            name: one,
             data: {
                 dft: wc.tn(svcs.dft),
                 rng: wc.tn(svcs.rng),
                 model: wc.tn(models[one]),
                 nsamples: nsamples_generate,
+                bug202: bug202,
             }}, nin=1, nout=1, uses=[models[one], svcs.dft, svcs.rng]),
 
         // tap input to modeler
@@ -162,7 +165,8 @@ local pipes = {
         pg.pnode({
             type: "Digitizer",
             name: one,
-            data: digidata}, nin=1, nout=1, uses=[anode]),
+            data: digidata + {round: round}
+        }, nin=1, nout=1, uses=[anode]),
 
         // tap generated noise
         pg.fan.tap('FrameFanout',  pg.pnode({
@@ -206,26 +210,30 @@ local pipes = {
     for one in std.objectFields(models)
 };                              // pipes
 
-//local nicks_to_use = ["empno", "cohe"];
-local nicks_to_use = ["inco", "cohe"];
-local fanout = pg.fan.fanout('FrameFanout', [
-    pg.pipeline(pipes[nick]) for nick in nicks_to_use
-]);
-local graph = pg.pipeline([absurd, reframer, fanout]);
+function(round=true, bug202=0.0) 
+    local bool_round = round == true || round == "true" || round == "round";
+    local number_bug202 = if std.type(bug202) == "number" then bug202 else std.parseJson(bug202);
 
-local app = {
-    type: 'Pgrapher',
-    data: {
-        edges: pg.edges(graph),
-    },
-};
-local cmdline = {
-    type: "wire-cell",
-    data: {
-        plugins: ["WireCellAux", "WireCellSigProc", "WireCellGen", "WireCellApps", "WireCellPgraph", "WireCellSio"],
-        apps: [app.type]
-    }
-};
-[cmdline] + pg.uses(graph) + [app]
+    local nicks_to_use = ["empno", "cohe", "inco"];
+    local fanout = pg.fan.fanout('FrameFanout', [
+        pg.pipeline(pipes(bool_round, number_bug202)[nick]) for nick in nicks_to_use
+    ]);
+    local graph = pg.pipeline([absurd, reframer, fanout]);
+
+    local app = {
+        type: 'Pgrapher',
+        data: {
+            edges: pg.edges(graph),
+        },
+    };
+    local cmdline = {
+        type: "wire-cell",
+        data: {
+            plugins: ["WireCellAux", "WireCellSigProc", "WireCellGen",
+                      "WireCellApps", "WireCellPgraph", "WireCellSio"],
+            apps: [app.type]
+        }
+    };
+    [cmdline] + pg.uses(graph) + [app]
 
                                  
