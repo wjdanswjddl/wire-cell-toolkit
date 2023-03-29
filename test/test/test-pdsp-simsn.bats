@@ -1,5 +1,10 @@
 #!/usr/bin/env bats
 
+# fixme: add asserts
+# fixme: use history mechanism
+
+# bats file_tags=implicit,plots
+
 # Some tests for https://github.com/WireCell/wire-cell-toolkit/pull/195
 
 load ../wct-bats.sh
@@ -34,7 +39,7 @@ function waveform_figure () {
         echo "$output"
         [[ "$status" -eq 0 ]]
         [[ -s "$fig" ]]
-        archive_append "$fig"
+        saveout -c plots "$fig"
     fi
 }
 
@@ -52,7 +57,7 @@ function channel_figure () {
         echo "$output"
         [[ "$status" -eq 0 ]]
         [[ -s "$fig" ]]
-        archive_append "$fig"
+        saveout -c bplots "$fig"
     fi
 }
 
@@ -103,13 +108,8 @@ function channel_figure () {
     local old_fig="${BATS_TEST_NAME}_frame_old.$fmt"
     waveform_figure $old_dat $old_fig
 
-    for chan in 700 701 702
-    do
-        fig="${BATS_TEST_NAME}_channel_$chan.$fmt"
-        channel_figure $chan $old_dat $new_dat $fig
-    done
-    
-    archive_saveout
+    wirecell-plot comp1d --chmin 0 --chmax 800 -n wave --transform median -o check-pdsp-signal-wave.png -s $old_dat $new_dat
+    wirecell-plot comp1d --chmin 0 --chmax 800 -n spec --transform median -o check-pdsp-signal-spec.png -s $old_dat $new_dat
 }
 
 ## waiting on https://www.phy.bnl.gov/~yuhw/wct-ci/gen/check_pdsp_noise.jsonnet

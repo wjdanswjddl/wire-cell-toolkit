@@ -2,6 +2,8 @@
 
 # Test noise "round tripo"
 
+# bats file_tags=topic:noise
+
 load ../../test/wct-bats.sh
 
 setup_file () {
@@ -84,6 +86,7 @@ setup_file () {
 }
 
 
+# bats test_tags=implicit,plots
 @test "plot spectra" {
 
     local wcsigproc="$(wcb_env_value WCSIGPROC)"
@@ -119,13 +122,7 @@ setup_file () {
             [[ "$status" -eq 0 ]]
         fi
 
-        archive_append "$ifile" "$ofile"
+        saveout -c plots "$ifile" "$ofile"
 
     done
-}
-
-
-
-teardown () {
-    archive_saveout
 }

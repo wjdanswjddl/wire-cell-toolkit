@@ -156,7 +156,7 @@ local pipes(round=true, bug202 = 0.0) = {
             type: "FrameFileSink",
             name: one+'vin',
             data: {
-                outname: "test-noise-roundtrip-%s-vin.npz"%one, 
+                outname: "test-issue202-%s-vin.npz"%one, 
                 digitize: false,
             },
         }, nin=1, nout=0), one+'vin'),
@@ -173,7 +173,7 @@ local pipes(round=true, bug202 = 0.0) = {
             type: "FrameFileSink",
             name: one+'adc',
             data: {
-                outname: "test-noise-roundtrip-%s-adc.npz"%one, 
+                outname: "test-issue202-%s-adc.npz"%one, 
                 digitize: true,
             },
         }, nin=1, nout=0), one+'adc'),
@@ -190,7 +190,7 @@ local pipes(round=true, bug202 = 0.0) = {
             type: "FrameFileSink",
             name: one+'dac',
             data: {
-                outname: "test-noise-roundtrip-%s-dac.npz"%one, 
+                outname: "test-issue202-%s-dac.npz"%one, 
                 digitize: false,
             },
         }, nin=1, nout=0), one+'dac'),
@@ -204,7 +204,7 @@ local pipes(round=true, bug202 = 0.0) = {
                 isnoise: wc.tn(isnoise),
                 threshold: 0.9,
                 groups: tng[one],
-                outname: "test-noise-roundtrip-%s-spectra.json.bz2"%one
+                outname: "test-issue202-%s-spectra.json.bz2"%one
             },
         }, nin=1, nout=0, uses=[svcs.dft, isnoise])] // one pipe
     for one in std.objectFields(models)

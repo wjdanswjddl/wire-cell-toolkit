@@ -38,7 +38,7 @@ load ../../test/wct-bats.sh
 
         local svgfile="$(basename $jsonfile .json).svg"
         dotify_graph "$jsonfile" "$svgfile"
-        archive_append $svgfile
+        saveout $svgfile
     done
-    archive_saveout
+
 }    

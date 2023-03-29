@@ -3,6 +3,8 @@
 # Test for:
 # https://github.com/WireCell/wire-cell-toolkit/issues/202
 
+# bats file_tags=issue:202,topic:noise,time:2
+
 # Commentary
 # 
 # The way noise generaion is supposed to work: For each frequency bin
@@ -60,7 +62,7 @@ tier_path () {
     if [ "$tier" = "spectra" ] ; then
         ext="json.bz2"
     fi
-    echo "test-noise-roundtrip-${ntype}-${tier}.${ext}"
+    echo "test-issue202-${ntype}-${tier}.${ext}"
 }
 
 # Run a wire-cell job to make files that span:
@@ -77,8 +79,8 @@ tier_path () {
 # - spectra = output of NoiseModeler
 #
 # files like:
-# test-noise-roundtrip-{ntype}-{tier}.npz
-# test-noise-roundtrip-{ntype}-spectra.json.bz2
+# test-issue202-{ntype}-{tier}.npz
+# test-issue202-{ntype}-spectra.json.bz2
 #
 setup_file () {
 
@@ -167,6 +169,7 @@ setup_file () {
         local wd="$(variant_subdir $trunc)"
 
         local adcfile="$wd/$(tier_path empno)"
+        echo "$adcfile"
         [[ -s "$adcfile" ]]
 
         while read line ; do
@@ -194,6 +197,7 @@ setup_file () {
 }
 
 
+# bats test_tags=implicit,plots
 @test "plot adc frame means" {
 
     local tname="$(basename $BATS_TEST_FILENAME .bats)"
@@ -217,13 +221,14 @@ setup_file () {
                 echo "$output"
                 [[ "$status" -eq 0 ]]
                 [[ -s "$figfile" ]]
-                archive_append "$figfile"
+                saveout -c plots "$figfile"
             done
         done
     done
 }
 
 
+# bats test_tags=implicit,pltos
 @test "plot spectra" {
 
     local wcsigproc="$(wcb_env_value WCSIGPROC)"
@@ -255,7 +260,7 @@ setup_file () {
                 
                 # Spectra is inside configuration
                 if [ "$ntype" = "inco" ] ; then
-                    run $wcsigproc plot-configured-spectra -c ac -n "$ntype" test-noise-roundtrip.json "${ifile}" 
+                    run $wcsigproc plot-configured-spectra -c ac -n "$ntype" test-issue202.json "${ifile}" 
                     echo "$output"
                     [[ "$status" -eq 0 ]]
                 fi
@@ -269,14 +274,14 @@ setup_file () {
                     [[ "$status" -eq 0 ]]
                 fi
 
-                archive_append "$ifile" "$ofile"
+                saveout -c plots "$ifile" "$ofile"
 
             done
         done
     done
 }
 
-
+# bats test_tags=implicit,plots
 @test "compare round vs floor no bug" {
     # cd_tmp file
     cd_tmp file
@@ -304,13 +309,14 @@ setup_file () {
                     "$fadc" "$radc"
 
                     if [[ $grp -le 3 ]] ; then
-                        archive_append $outpng
+                        saveout -c plots $outpng
                     fi
             done
         done
     done
 }
 
+# bats test_tags=implicit,plots
 @test "compare bug and no bug with round and floor" {
 
     cd_tmp file
@@ -340,15 +346,10 @@ setup_file () {
                                   --output "$outpng" \
                                   "$radcnb" "$radcsb" "$radcbb"
                     if [[ $grp -eq 10 ]] ; then
-                        archive_append $outpng
+                        saveout -c plots $outpng
                     fi
                 done
             done
         done
     done
-}
-
-
-teardown () {
-    archive_saveout
 }

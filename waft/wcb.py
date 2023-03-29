@@ -67,7 +67,7 @@ def options(opt):
                    help="Build with debug symbols")
 
     opt.add_option('--test-data', type=str, default=None,
-                   help="The location for test data")
+                   help="A :-separated path list to locate test data files.")
 
 def find_submodules(ctx):
     sms = list()

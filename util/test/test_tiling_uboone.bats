@@ -18,7 +18,7 @@ setup_file () {
     [[ -s blobs.svg ]]
     [[ -s blobs.txt ]]
 
-    archive_append file blobs.svg
+    saveout -c plots blobs.svg
 }
 
 @test "reproduce act2vis blob finding" {
@@ -49,8 +49,4 @@ setup_file () {
     local ft="$(tmpdir file)"
     run grep -E 'pind:\[([0-9]+),\1\]' $ft/blobs.txt
     [ -z "$output" ]
-}
-
-teardown () {
-    archive_saveout file
 }

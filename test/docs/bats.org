@@ -96,6 +96,7 @@ Edit the ~.bats~ file, add the ~@test~ function:
   
   load ../../test/wct-bats.sh
   
+  # bats test_tags=tag1,tag2
   @test "assure the frob correctly kerplunks" {
       echo "nothing yet"
   }
@@ -138,6 +139,37 @@ function teardown_file () {
 }
 #+end_example
 One example for using ~setup_file~ is to run any long-running programs that produce output required by more than one ~@test~.
+
+* Test tags
+
+As shown in the [[First steps]] one can assert [[https://bats-core.readthedocs.io/en/stable/writing-tests.html#tagging-tests][test tags]] above a ~@test~.  One can also have file-level tags.
+
+#+begin_example
+# bats file_tags=issue:202
+
+# bats test_tags=topic:noise
+@test "test noise spectra for issue 202" {
+  ...
+}
+#+end_example
+
+Tag name conventions are defined here:
+
+- ~implicit~ :: The test only performs implicit tests ("it ran and didn't crash") and side effects (report, history).
+- ~report~ :: The test produces a "report" of files saved to output (see [[Reports]])
+- ~history~ :: The test produces results relevant to multiple released versions (see [[Historical testing]]).
+- ~issue:<number>~ :: The test is relevant to GitHub issue of the given number.
+- ~pkg:<name>~ :: The test is part of package named ~<name>~ (~gen~, ~util~, etc)
+- ~topic:<name>~ :: The test relates to topic named ~<name>~ (~wires~, ~response~, etc)
+- ~time:N~ :: The test requires on order $10^N$ seconds to run, limited to $N \in [1, 2, 3]$.
+
+By default, all tests are run.  The user may explicitly include or exclude tests.  For example, to run tests tagged as being related to ~wires~ and that take a few minutes or less to run and explicitly those in the ~util/~ sub package: 
+
+#+begin_example
+bats --filter-tags 'topic:wires,!time:3' util/test/test*.bats
+#+end_example
+
+Note: it is very likely that a lot of developers of tests neglect to place tags.  They are only as useful as they are used.
 
 * Test logging
 
@@ -233,29 +265,36 @@ This function will attempt to locate and return the absolute path for a filename
 
 ** Temporary files
 
-Every BATS run, file and test is given a temporary directory to hold any intermediate files.
+Bats has a concept of a context-dependent temporary working directory.  The contexts are:
 
-- ~$BATS_RUN_TMPDIR~ :: a base directory for one run of the ~bats~ command
-- ~$BATS_FILE_TMPDIR~ :: a directory for use at file level
-- ~$BATS_TEST_TMPDIR~ :: a directory for use by each test
+- ~test~ :: a single ~@test~ function.
 
-Typically, only the last used.  The ~wct-bats.sh~ library provides some helpers to work with temporary areas:
+- ~file~ :: a ~.bats~ test file, such as in ~setup_file()~ or ~teardown()~ functions.
+
+- ~run~ :: an invocation of the ~bats~ command.
+
+Typically, ~run~ is not used.  The ~wct-bats.sh~ library provides some helpers to work with temporary areas:
 
 #+begin_example
-  local here=$(cd_tmp)   # move to WCTEST_TMPDIR or BATS_TEST_TMPDIR
-  # ...                  # do stuff in the temp area
-  cd $here               # return to initial dir
+  cd_tmp      (1)
+  cd_tmp file (2)
 #+end_example
-The ~cd_tmp~ will change to ~$WCTEST_TMPDIR"~ if define or to "~$BATS_TEST_TMPDIR~" which BATS will define unique for each test.  The former may be used to force tests that use ~cd_tmp~ to re-run in a prior directory.  In combination with writing idempotent test code, this can allow rerunning tests more quickly.  This is mostly a benefit during development of long-running tests.
+Where:
+1. The shell will change to the temporary directory for the current context.   
+2. Explicitly change to the ~file~ context.  This is typical to use in a ~@test~ function to utilize files produced in this scope.
 
-The ~cd_tmp~ echos the current working directory which may be captured in order to return after using the temporary directory.  This is not required unless subsequent code in the test function needs it.
-
-By default ~bats~ will remove ~$BATS_RUN_TMPDIR~ (but not ~$WCTEST_TMPDIR~) after testing.  When tests fail it can be useful to examine what was placed in the temporary directories.  To allow this run the test like:
+By default ~bats~ will all temporary directories after completion of the test run.  When tests fail it can be useful to examine what was placed in the temporary directories.  To allow this run the test like:
 
 #+begin_example
   $ bats --no-tempdir-cleanup path/to/test_foo.bats
 #+end_example
 The temporary directory will be printed to the terminal. 
+
+Alternatively, ~wct-bats.sh~  overrules default temporary directories, combines them and does not delete them when ~WCTEST_TMPDIR~ is defined.  This can be useful while developing and debugging tests, particularly in combination with writing long running tests in an idempotent fashion.  Do *not* define this variable in any test but instead in your interactive shell session:
+#+begin_example
+  $ WCTEST_TMPDIR=$HOME/my-wct-tmp-dir bats [...]
+#+end_example
+
 
 ** Idempotent tests
 
@@ -298,112 +337,75 @@ Another common pattern is one initial, long-running command followed by many fas
 #+end_example
 
 
-* Archiving results
+* Saving results
 
-The ~wct-bats.sh~ library provides support for producing an "archive" of files from an individual Bats test or a Bats test file.  An archive is simply a Zip file that may later be found in the ~build/~ area.  The intention of test archives is to retain a carefully selected subset of files for later human inspection.  An archive should *not* be used to arbitrarily collect all files that may be produced by a test.  It is expected that these archives will be directly consumed by a future test summary "database" or "browser" of some form.
-
-** Producing files for archive
-
-Files for archive are produced like any files except that they must reside in a Bats temporary directory.
-As described above, this should be achieved naturally by calling ~cd_tmp~ in an individual test:
-#+begin_example
-@test "my test" {
-  cd_tmp
-  # ...
-}
-#+end_example
-Or by calling ~cd_tmp file~ in the special test-file ~setup_file~ function:
-#+begin_example
-setup_file()
-  cd_tmp file
-  # ...
-}
-#+end_example
-
-** Naming files for archive
-
-Each archive is placed under ~build/~ in a sub directory named based on the test.  Thus it is not necessary to prefix the names of files that are to be archived with additional test-specific labels.
-
-However, if a test developer wishes to add this redundant information consider using ~${BATS_TEST_NAME}~ in the context of a ~@test~ function and ~$(basename $BATS_TEST_FILENAME .bats)~ in the context of a ~setup_file~ function.
-
-** Individual test and test file archives
-
-Bats provides a separate temporary directory for each individual test and one for the test file as a whole.  It is possible to provide an archive from each of these contexts.  It is also possible for an individual test to provide a file to the test-file level archive.  The one restriction is that every file to be archived must be placed in the temporary directory context for that archive.  Some examples:
+Files produced by a test may be explicitly saved to a more permanent location with the ~saveout~ command.
 
 #+begin_example
-# special file-level function
-setup_file () {
-  cd_tmp file
-  touch file_level.txt
-  # The special "file" argument gives the context
-  archive_append file file_level.txt
-}
-
-@test "my individual test" {
-  cd_tmp
-  touch test_level.txt
-  archive_append test_level.txt
-
-  cd_tmp file
-  touch another_file_level.txt
-  archive_append file another_file_level.txt
-
-  # save the test-level archive
-  archive_saveout
-}
-
-# special file-level function
-teardown () {
-  archive_aveout file
-}
-
+saveout [-c/--category <cat>] [-t/--target <tgt>] <src> [<src> ...]
 #+end_example
 
-
-
-
-
-** Naming test-file context files for archive
-
-When files for archive are produced at file-level in the ~setup_file~ file 
-
-Sometimes tests can make files that should live beyond temporary use.  For example, tests may produce files for later inspection by human.  The ~wct-bats.sh~ provides the concept of a test "archive" for these files.  An archive is simply a Zip file associated with a temporary directory context (again, "test", "file", etc).
-
-The test must explicitly add files to an archive and then save the archive out.
-#+begin_example
-@test "test something and make an archive" {
-  cd_tmp
-
-  touch junk.txt
-  archive_append junk.txt
-
-  touch junk1.txt junk2.txt
-  archive_append junk1.txt junk2.txt
-
-  archive_saveout
-}
-#+end_example
-A test file context archive may also be created.  It may be appended to in the ~setup_file~ function and must be saved in the ~teardown~ function (if it is to be saved).  In the mean time, it is possible for ~@test~ functions to also append to the archive.  As Bats is used in WCT this is safe.  However, if you force Bats to run test in parallel, the results are undefined.
+The ~saveout~ function places files in the ~build/~ directory at paths like:
 
 #+begin_example
-setup_file () {
-  # a file context archvie
-  touch junk.txt
-  archive_append file junk.txt
-}
-
-@test "a test adding to test file context archive" {
-  cd_tmp file
-  touch junk2.txt
-  archive_append file junk2.txt
-}
-
-teardown () {
-  archive_saveout file
-}
+build/tests/<category>/<version>/<test-name>/<tgt>
 #+end_example
 
-* Summarizing results
+Where:
 
-* Visualizing results
+- ~<category> :: given by ~-c/--category~ with default to ~output~
+- ~<version>~ :: the Wire-Cell toolkit version
+- ~<test-name>~ :: name of the Bats test file without the ~.bats~ extension
+- ~<tgt>~ :: explicitly given by ~-t/--target~ or the basename of the ~<src>~ file. 
+
+** Categories
+
+The following category conventions apply:
+
+- ~output~ :: default category.  Should be only lightly used.
+- ~history~ :: for historical files (see [[Historical testing]])
+- ~report~ :: for report files (see [[Reports]])
+
+* Historical testing
+
+This is still a WIP.
+
+Conceptually, a *historical test* is one that evaluates multiple versions of the software through the production or consumption of one or more *historical files*.  A historical file is one that is produced in the context of one software version and which may be consumed in the context of another software version.
+
+** Production 
+
+A historical file is produced in a test by saving it out to a category of ~history~ with:
+
+#+begin_example
+saveout -c history file.ext
+#+end_example
+
+A test should *not* encode a version string to historical files.  They will be located in a versioned sub-directory.
+
+** Historical repository
+
+Historical file production and consumption by different software releases are made independent through the indirection of a *historical repository*.  To produce a historical repository:
+
+#+begin_example
+cd build/
+for one in history/*
+do
+    tar -xf history-$(basename $one).tar $one
+done
+#+end_example
+
+This makes files like ~history-<version>.tar~.
+
+** TODO fixme
+
+- make a new waf group or command to package up (and provide?) history files
+- produce tests that perform historical tests.
+- contribute to Reports
+
+
+* Reports
+
+Tests may produce reports in the form of PDF or web (HTML, PNG, JPG, etc).
+
+
 

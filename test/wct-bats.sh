@@ -70,34 +70,58 @@ function srcdir () {
 }
 
 
-# Save a product of the test to the build area.
+# Save out a file to the build/output/ directory
+#
 # usage:
 #
-# save path/in/test/dir/file.ext [target/dir/file2.ext]
+#  saveout [-c/--category <cat>] [-t/--target <tgt>] <src> [<src> ...]
 #
-# If a second argument is given it is interpreted to be a relative
-# path to where the file should be copied.  Actual copied file path
-# will be like:
+# If the optional -c/--category <cat> is given, the file(s) are saved
+# out to a category specific sub directory.  Default category is
+# "output".
+# 
+# If the optional -t/--target <tgt> is given, only the first <src> is
+# saved copied to that target.  <tgt> must be relative.
 #
-# build/output/<name>/target/dir/file2.ext
+# Files are copied to build/tests/<category>/<version>/<test-name>/
 #
-# where <name> is from BATS_TEST_FILENAME
+# Where:
+# - <version> is the current wire-cell version
+# - <test-name> is from BATS_TEST_FILENAME without the extension.
 function saveout () {
-    local src="$1" ; shift
+    declare -a src=()
+    subdir="output"
+    tgt=""
+    while [[ $# -gt 0 ]] ; do
+        case $1 in
+            -t|--target) tgt="$2"; shift 2;;
+            -c|--category) subdir="$2"; shift 2;;
+            -*|--*) die "Unknown option $1";;
+            *) src+=("$1"); shift;;
+        esac
+    done
+          
     [[ -n "$src" ]]
-    local tgt="$1"
+
     local name="$(basename $BATS_TEST_FILENAME .bats)"
-    local tpath="$(blddir)/output/${name}"
-    if [ -z "$tgt" ] ; then
-        mkdir -p "$tpath"
-        tpath="$tpath/$(basename $src)"
-    else
-        tpath="$tpath/$tgt"
-        mkdir -p "$(dirname $tpath)"
+    local base="$(blddir)/tests/$subdir/$(version)/${name}"
+
+    # single, directed target
+    if [ -n "$tgt" ] ; then
+        tgt="${base}/${tgt}"
+        mkdir -p "$(dirname $tgt)"
+        cp "$src" "$tgt"
+        return
     fi
-    cp "$src" "$tpath"
-    log "saved $src to $tpath"
-    yell "saved $src to $tpath"
+
+    mkdir -p "${base}"
+    # multi, implicit target
+    for one in ${src[*]}
+    do
+        local tgt="${base}/$(basename ${one})"
+        mkdir -p "$(dirname $tgt)"
+        cp "$src" "$tgt"
+    done
 }
 
 # Return the download cache directory
@@ -230,6 +254,10 @@ function wct () {
     [[ "$status" -eq 0 ]]    
 }
 
+# Emit version string
+function version() {
+    wct --version
+}
 
 # Execute the "wirecell-pgraph dotify" program under Bats "run".
 #
@@ -360,24 +388,27 @@ function config_path () {
     fi
 }
 
-# Do best to resolve a file path and return (echo) an absolute path to
-# that file.  If path is relative a variety of locations will be
-# searched through a series of pats:
-# - if absolute, return
-# - cwd
-# - search any paths given on command line
-# - test/data/
+# Emit absolute path to given relative path
+#
+# If absolute, emit given.  
+#
+# The following path lists will be checked for the given relative path
+# on a first one wins basis.
+# 
+# - current working directory
+# - relative to directory holding current Bats test file
+# - any path lists given on function command line
+# - $(topdir)/test/data/
 # - $(topdir)/
+# - $(topdir)/build/output/
 # - $WIRECELL_PATH
-# - TEST_DATA (from build config)
-# - $WIRECELL_TEST_DATA_PATH
+# - TEST_DATA (from "./wcb --test-data" option)
+# - $WCTEST_DATA_PATH
 #
-# Note, the original BATS file path is not available here and so we
-# can not check for siblings.  To check for siblings call like:
+# See resolve_path to resolve paths in a policy-free manner.
 #
-# local path="$(resolve_file $filename $(dirname $BATS_TEST_FILENAME))"
+# See relative_path to resolve paths relative to bats test file.
 #
-# See resolve_path for policy free path searches
 function resolve_file () {
     local want="$1" ; shift
 
@@ -386,10 +417,11 @@ function resolve_file () {
         return
     fi
 
-    wcb_env
+    local test_data="$(wcb_env_value TEST_DATA)"
+    local mydir="$(dirname ${BATS_TEST_FILENAME})"
 
     local t="$(topdir)"
-    resolve_path $want "$t/test/data" "$t" ${WIRECELL_PATH} ${TEST_DATA} ${WIRECELL_TEST_DATA_PATH}
+    resolve_path $want "$t/test/data" "$t" ${WIRECELL_PATH} ${test_data} ${WCTEST_DATA_PATH}
     local got="$(resolve_path $want $@)"
     [[ -n "$got" ]]
     [[ -f "$got" ]]
@@ -454,88 +486,3 @@ function skip_if_no_test_data () {
     skip "Test data missing"
 }
 
-
-# Return the file name of a archive in a test context.
-#
-# Normally, this name is opaque to testing code.
-#
-# A tmpdir context name may be given.  Otherwise the result is context
-# dependent.  
-function archive_name () {
-    ctx="$1"
-    if [ -n "$ctx" ] ; then
-        ctx="$(divine_context)"
-    fi
-
-    local t="$(tmpdir $ctx)"
-    [[ -n "$t" ]]
-    echo "$t/archive.zip"
-}
-
-# Append one or more files to an archive.
-#
-# The first argument may be a tmpdir context name ("file" or "test")
-# to select a specific archive file, o.w. the context is detected.
-#
-# Otherwise, arguments are interpeted as file paths.
-#
-# Only RELATIVE and DESCENDING paths are allowed.  All others (eg
-# absolute "/..." or ascending "../...") are an error.
-#
-# usage:
-#
-# cd_tmp
-# touch file1.txt file2.txt
-# archive_append file1.txt file2.txt
-# 
-# mkdir subdir && cd subdir
-# touch file3.txt
-# archive_append file3.txt  # added as "subdir/file3.txt"
-function archive_append () {
-    local ctx="test"
-    if [ -n "$(echo "test file run" | grep "\b$1\b")" ] ; then
-        ctx="$1"
-        shift
-    fi
-
-    local arch="$(archive_name $ctx)"
-    local base="$(tmpdir $ctx)"
-    local here="$(pwd)"
-    for one in $@
-    do
-        if [[ $one =~ ^/.* || $one =~ ^\.\./.* ]] ; then
-            die "illegal archive path: $one"
-        fi
-        cd "$here"
-        abs="$(realpath $one)"
-        rel="$(realpath --relative-to=$base $abs)"
-        cd "$base"
-        zip -g "$arch" "$rel"
-    done
-    cd $here
-}
-
-
-# Save an archive out of tmpdir and to build dir.
-# A tmpdir context may be passed.
-function archive_saveout () {
-    local ctx="test"
-
-    if [ -n "$1" -a -n "$(echo "test file run" | grep "\b$1\b")" ] ; then
-        ctx="$1"
-        shift
-    fi
-
-    local arch="$(archive_name $ctx)"
-    local tname="${BATS_TEST_NAME}"
-
-    tgt="archive/$(basename $BATS_RUN_TMPDIR)"
-    if [ "$ctx" = "test" ] ; then
-        tgt="$tgt/${tname}.zip"
-    elif [ "$ctx" = "file" ] ; then
-        tgt="$tgt/file.zip"
-    elif [ "$ctx" = "run" ] ; then
-        tgt="$tgt/run.zip"
-    fi
-    saveout "$arch" "$tgt"
-}

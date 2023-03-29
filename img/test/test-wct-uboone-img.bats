@@ -36,10 +36,5 @@ setup_file () {
     [[ -f "$jsonfile" ]]
     local svgfile="test-wct-uboone-img-graph.svg"
     dotify_graph "$jsonfile" "$svgfile"
-    archive_append file "$svgfile"
+    saveout -c plots "$svgfile"
 }
-
-teardown () {
-    archive_saveout file
-}
-

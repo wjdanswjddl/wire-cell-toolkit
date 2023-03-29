@@ -1,85 +1,52 @@
+#!/usr/bin/env bats
 
-file_base () {
-    local noise="$1" ; shift
-    local nsamples="${1:-6000}"
+# A test to run on current, past and future releases to check for any
+# unexepcted change in noise simulation.
+#
+# The test is meant to be self locating so that one can do:
+#
+# cd ~/path/to/new-wct/
+# alias bats-$(realpath test/bats/bin/bats)
+# cd ~/path/to/old/release
+# bats ~/path/to/new-wct/gen/test/test-addnoise.bats
 
-    local ver="$(wire-cell --version)"
-    local base="$(basename ${BATS_TEST_FILENAME} .bats)"
-    echo "test-addnoise-${ver}-${noise}-${nsamples}"
-}    
+# bats file_tags=noise,history
 
-make_noise () {
-    local noise="$1" ; shift
-    local nsamples="${1:-6000}"
+load ../../test/wct-bats.sh
 
-    local base="$(file_base $noise $nsamples)"
+# The intention is to run this test in multiple releases and compare across releases.
+# bats test_tags=history,plots,implicit
+@test "generate simple noise for comparison with older releases" {
 
+    cd_tmp
+
+    local nsamples=6000
+    local noise=empno
+    local name="test-addnoise-${noise}-${nsamples}"
+    local adcfile="${name}.tar.gz" # format with support going back the longest
     local cfgfile="${BATS_TEST_FILENAME%.bats}.jsonnet"
 
-    local outfile="${base}.tar.gz"
-    local logfile="${base}.log"
-
-    rm -f "$logfile"            # appends otherwise
-    if [ -s "$outfile" ] ; then
-        echo "already have $outfile" 1>&3
-        return
-    fi
     run wire-cell -l "$logfile" -L debug \
-        -A nsamples=$nsamples -A noise=$noise -A outfile="$outfile" \
+        -A nsamples=$nsamples -A noise=$noise -A outfile="$adcfile" \
         -c "$cfgfile"
     echo "$output"
     [[ "$status" -eq 0 ]]
-    [[ -s "$outfile" ]]
-}
+    [[ -s "$adcfile" ]]
+    saveout -c history "$adcfile"
 
-
-# The intention is to run this test in multiple releases and compare across releases.
-@test "generate simple noise for comparison with older releases" {
-
-
-    
-    for nsamples in 6000
+    local wcplot=$(wcb_env_value WCPLOT)
+    for what in spec wave
     do
-        for noise in empno 
-        do
-            make_noise $noise $nsamples
-            local base="$(file_base $noise $nsamples)"
-
-            wirecell-plot comp1d -o comp1d-addnoise-${ver}-${noise}-${nsamples}.pdf \
-                          --markers 'o + x .' -t '*' -n spec \
-                          --chmin 0 --chmax 800 -s --transform ac \
-                          "${base}.tar.gz"
-        done
+        local pout="${name}-comp1d-${what}.png"
+        $wcplot comp1d \
+                -o $pout \
+                -t '*' -n $what \
+                --chmin 0 --chmax 800 -s --transform ac \
+                "${adcfile}"
+        echo "$output"
+        [[ "$status" -eq 0 ]]
+        [[ -s "$pout" ]]
+        saveout -c plots "$pout"
     done
-    # wirecell-plot comp1d -o comp1d-addnoise-${ver}-all-all.pdf \
-    #               --markers 'o + x .' -t '*' -n spec \
-    #               --chmin 0 --chmax 800 -s --transform ac \
-    #               "test-addnoise-${ver}-empno-4096.tar.gz" \
-    #               "test-addnoise-${ver}-inco-4096.tar.gz" \
-    #               "test-addnoise-${ver}-empno-6000.tar.gz" \
-    #               "test-addnoise-${ver}-inco-6000.tar.gz"
-
-}
-
-
-
-@test "inco and empno with external spectra file is identical" {
-
-    for nsamples in 4095 4096 6000
-    do
-        for noise in empno inco
-        do
-            make_noise $noise $nsamples
-        done
-        
-        wirecell-plot comp1d \
-                      -o "$(file_base inco+empno $nsamples)-comp1d.pdf" \
-                      --markers 'o .' -t '*' -n spec \
-                      --chmin 0 --chmax 800 -s --transform ac \
-                      "$(file_base inco $nsamples).tar.gz" \
-                      "$(file_base empno $nsamples).tar.gz"
-    
-    done
-    
 }
 

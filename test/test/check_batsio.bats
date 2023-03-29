@@ -1,4 +1,3 @@
-
 # See wscript_build for how this VARIANT test is registered.  That
 # registration must collude with the test code here so that the same
 # env var names are used to communicate input and output files.  We
