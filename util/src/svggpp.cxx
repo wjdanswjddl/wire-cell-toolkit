@@ -1,6 +1,7 @@
 #include "WireCellUtil/svggpp.hpp"
 #include <stdexcept>
 
+#include <sstream>
 #include <regex>
 
 // tag: required SVG element name
