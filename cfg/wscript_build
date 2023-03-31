@@ -12,12 +12,4 @@ if exps:
                           bld.path.ant_glob("pgrapher/experiment/%s/**/*.fcl" % exp),
                           relative_trick=True)
 
-with bld.smplpkg('WireCellCfg', test_use='WireCellAppps') as p:
-
-    ### layers are broken right now
-    # tuthigh = bld.path.find_resource("layers/tut-high.jsonnet")
-    # for det in ["pdsp", "uboone"]:
-    #     p.rule('${WCSONNET} -A detector="+det+" ${SRC} > ${TGT}',
-    #            source=[tuthigh], target=[det + "-tut-hight.json"])
-        
-    pass
+bld.smplpkg('WireCellCfg', test_use='WireCellAppps')

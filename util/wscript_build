@@ -1,53 +1,9 @@
-
 util_inc_dir = bld.path.find_dir('inc')
 bld.install_files('${PREFIX}/include',
                   util_inc_dir.ant_glob('custard/**/*.hpp'),
                   cwd = util_inc_dir, relative_trick=True)
 
 # util is the base WC library and must not "use" other WC libraries.
-with bld.smplpkg('WireCellUtil',
-                 use='SPDLOG BOOST FFTW EIGEN DYNAMO JSONCPP JSONNET ZLIB',
-                 test_use='WireCellApps') as p:
-    
-    ## Use main wire-cell program.  Here we don't simply run it
-    ## because --help leads to a non-zero return code.  This also
-    ## shows how we form a "wrong-way/cross-package" dependency on
-    ## WireCellApps via the test_use.
-    p.rule("${WIRE_CELL} --help 2>&1 | grep 'Command line interface to the Wire-Cell Toolkit' > ${TGT}", target="wire-cell-help.log")
-
-    ## OTOH, wcsonnet is less strict
-    p.rule("${WCSONNET} > ${TGT} 2>&1", target="wcsonnet-help.log")
-
-    # Dumb example of getting an external file and comparing it to our local copy.
-    p.get_file('https://raw.githubusercontent.com/WireCell/wire-cell-toolkit/master/cfg/wirecell.jsonnet',
-               'wirecell-copy.jsonnet')
-    p.script('wirecell-copy.jsonnet')
-    wca = p.nodify_resource("../cfg/wirecell.jsonnet")
-    wcb = p.nodify_declare("wirecell-copy.jsonnet")
-    p.diff(wca, wcb)
-    wca2 = p.nodify_declare("wirecell-ours.json");
-    wcb2 = p.nodify_declare("wirecell-copy.json");
-    p.rule('${JSONNET} ${SRC} > ${TGT}', source=[wca], target=[wca2]);
-    p.rule('${JSONNET} ${SRC} > ${TGT}', source=[wcb], target=[wcb2]);
-    p.diff(wca2, wcb2)
-
-    # An example of a variant test using a "check" program built here.
-    # We must make the program itself a "source".  The rule provides a
-    # template where ${SRC} and ${TGT} are expanded to a list of
-    # strings given by source and target, respectively.
-    for nsem in [0, 1, 2]:
-        p.rule("${SRC} %d > ${TGT} 2>&1"%nsem,
-               source="check_semaphore", target="check_semaphore_%d.log"%nsem)
-    
-    # Example of a variant test by calling an atomic test but with
-    # optional CLI args.  This relies on the wires file variable being
-    # defined elsewhere (in wcb.py).  It is NOT a source as the test
-    # program finds it out-of-band of waf.  As above we must give the
-    # executable as a "source" so waf finds it.
-    p.rule("${SRC} ${WIRE_CELL_WIRES_PDSP} > ${TGT} 2>&1",
-           source="test_wireschema", target="test_wireschema_pdps.log")
-
-    # Example of a variant that needs a file in the source directory.
-    p.rule("${SRC} > ${TGT} 2>&1",
-           source = ["check_numpy_depos", bld.srcnode.find_resource("test/data/muon-depos.npz")],
-           target = ["check_numpy_depos_muon-depos.log"])
+bld.smplpkg('WireCellUtil',
+            use='SPDLOG BOOST FFTW EIGEN DYNAMO JSONCPP JSONNET ZLIB',
+            test_use='WireCellApps')

@@ -1,8 +1,1 @@
-with bld.smplpkg('WireCellAux', use='WireCellIface', test_use='WireCellIface') as p:
-
-    ## Example of how to expose a rule only if required package exists.
-    ## In reality, this code is best outside of a test and in cuda/wscript_build.
-    if p.has('cuda'):
-        p.rule("./${SRC}", source=["test_idft", "cuFftDFT", "WireCellCuda"])
-
-    pass
+bld.smplpkg('WireCellAux', use='WireCellIface', test_use='WireCellIface')

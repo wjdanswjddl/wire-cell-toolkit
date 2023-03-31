@@ -69,13 +69,12 @@ _tooldir = os.path.dirname(os.path.abspath(__file__))
 
 def options(opt):
     opt.load('compiler_cxx')
-    opt.load('waf_unit_test')
-    opt.add_option('--nochecks', action='store_true', default=False,
-                   help='Exec no checks', dest='no_checks')
+    opt.load('wcb_unit_test') # adds --tests
+
 
 def configure(cfg):
     cfg.load('compiler_cxx')
-    cfg.load('waf_unit_test')
+    cfg.load('wcb_unit_test')
     cfg.load('rpathify')
 
     cfg.env.append_unique('CXXFLAGS',['-std=c++17'])
@@ -91,11 +90,13 @@ def configure(cfg):
 
     # For testing
     cfg.find_program('diff', var='DIFF', mandatory=True)
-    pass
+
 
 def build(bld):
-    from waflib.Tools import waf_unit_test
-    bld.add_post_fun(waf_unit_test.summary)
+    bld.load('wcb_unit_test')
+
+
+from wcb_unit_test import test_group_sequence
 
 @conf
 def cycle_group(bld, gname):
@@ -103,58 +104,6 @@ def cycle_group(bld, gname):
         bld.set_group(gname)
     else:
         bld.add_group(gname)
-
-
-# from waflib import Task, TaskGen
-# @TaskGen.feature('test_variant')
-# @TaskGen.after_method('process_source', 'apply_link')
-# def make_test_variant(self):
-#     cmdline = self.ut_str
-#     progname, argline = cmdline.split(' ',1)
-
-#     tvp = 'TEST_VARIANT_PROGRAM'
-
-#     output = self.path.find_or_declare(self.name + ".passed")
-
-#     source = getattr(self, 'source', None)
-#     srcnodes = self.to_nodes(source)
-
-#     if not source and progname.startswith("${"):
-#         warn("parameterized program name with lacking inputs is not supported: " + cmdline)
-#         return
-
-#     if not progname.startswith("${"):
-#         prognode = self.path.find_or_declare(progname)
-#         progname = "${%s}" % tvp
-
-#     cmdline = "%s %s && touch %s" % (progname, argline, output.abspath())
-
-#     tsk = self.create_task('utest', srcnodes, [output])
-
-#     if tvp in progname:
-#         tsk.env[tvp] = prognode.abspath()
-#         tsk.vars.append(tvp)
-#         tsk.dep_nodes.append(prognode)
-
-#     self.ut_run, lst = Task.compile_fun(cmdline, shell=True)
-#     tsk.vars = lst + tsk.vars
-
-#     if getattr(self, 'ut_cwd', None):
-#         self.handle_ut_cwd('ut_cwd')
-#     else:
-#         self.ut_cwd = self.path
-
-#     if not self.ut_cwd.exists():
-#         self.ut_cwd.mkdir()
-
-#     if not hasattr(self, 'ut_env'):
-#         self.ut_env = dict(os.environ)
-#         def add_paths(var, lst):
-#             # Add list of paths to a variable, lst can contain strings or nodes
-#             lst = [ str(n) for n in lst ]
-#             debug("ut: %s: Adding paths %s=%s", self, var, lst)
-#             self.ut_env[var] = os.pathsep.join(lst) + os.pathsep + self.ut_env.get(var, '')
-
 
 # A "fake" waf context (but real Python context manager) which will
 # return the Waf "group" to "libraries" on exit and which provides
@@ -175,6 +124,8 @@ class ValidationContext:
         '.bats':'${BATS} --jobs 1 ${SCRIPT}',
         '.jsonnet':'${JSONNET} ${SCRIPT}'}
 
+    extra_prefixes = dict(atomic=("test",))
+
     def __init__(self, bld, uses):
         '''
         Uses must include list of dependencies in "uses".
@@ -182,36 +133,51 @@ class ValidationContext:
         self.bld = bld
         self.uses = to_list(uses)
 
-        if self.bld.options.no_tests:
-            self.bld.options.no_checks = True # need tests for checks, in general
-            debug("smplpkgs: atomic unit tests will not be built nor run for " + self.bld.path.name)
+        if not self.bld.env.TESTS:
+            debug("smplpkgs: tests suppressed for " + self.bld.path.name)
             return
 
-        self.bld.cycle_group("validations")
+        # We impose a series of groups to assure coarse grained
+        # dependency with a source naming convention to separate
+        # different intentions.  Map scope name to source file name
+        # prefix.
+        extra_prefixes = dict(atomic=("test",))
 
-        # Fake out: checks need tests but tests do not need checks but
-        # tests and checks are defined by the same functions which
-        # honor no_checks.
-        no_checks = self.bld.options.no_checks
-        self.bld.options.no_checks = False
+        match_pat = 'test/%s*%s' #  (prefix, ext)
 
-        # Default patterns
-        for one in self.bld.path.ant_glob('test/check_*.cxx'):
-            self.program(one)
+        for group in test_group_sequence:
+            self.do_group(group)
+            if group == bld.env.TEST_GROUP:
+                break
 
-        # Atomic unit tests
-        for ext in self.compiled_extensions:
-            for one in self.bld.path.ant_glob('test/test_*'+ext):
-                self.program(one, "test")
+    def do_group(self, group):
+        self.bld.cycle_group("testing_"+group)
+        features = "" if group == "check" else "test"
 
-        for ext in self.script_templates:
-            for one in self.bld.path.ant_glob('test/test*'+ext):
-                self.script(one)
+        prefixes = [group]
+        prefixes += self.extra_prefixes.get(group, [])
+        match_pat = 'test/%s*%s' #  (prefix, ext)
 
-        self.bld.options.no_checks = no_checks
+        for prefix in prefixes:
+
+            for ext in self.compiled_extensions:
+                pat = match_pat % (prefix, ext)
+                for one in self.bld.path.ant_glob(match_pat % (prefix, ext)):
+                    debug("tests: (%s) %s" %(features, one))
+                    self.program(one, features)
+
+            if group == "check":
+                continue
+
+            for ext in self.script_templates:
+                for prefix in prefixes:
+                    for one in self.bld.path.ant_glob(match_pat % (prefix, ext)):
+                        self.script(one)
+        
+
 
     def __enter__(self):
-        if self.bld.options.no_checks:
+        if not self.bld.env.TESTS:
             debug("smplpkgs: variant checks will not be built nor run for " + self.bld.path.name)
         return self
 
@@ -261,7 +227,7 @@ class ValidationContext:
         Add "test" as a feature to also run as a unit test.
 
         '''
-        if self.bld.options.no_checks:
+        if not self.bld.env.TESTS:
             return
         features = ["cxx","cxxprogram"] + to_list(features)
         rpath = self.bld.get_rpath(self.uses) # fixme
@@ -277,7 +243,7 @@ class ValidationContext:
 
     def script(self, source):
         'Create a task for atomic unit test with an interpreted script'
-        if self.bld.options.no_checks:
+        if not self.bld.env.TESTS:
             return
         source = self.nodify_resource(source)
         ext = source.suffix()
@@ -287,17 +253,18 @@ class ValidationContext:
         templ = self.script_templates.get(ext, None)
 
         if templ is None:
-            warn(f'skipping script with no known interpreter: {source}')
+            warn(f'skipping script of unsupported extention: {ext}')
             return
 
         cli = subst_vars(templ, self.bld.env)
-        if not cli.split(" ")[0]:
+        interp = cli.split(" ")[0].strip()
+        if not interp:
             warn(f'skipping script with no found interpreter: {source}')
             return
 
         # debug('script: ' + cli)
         self.bld(features="test_scripts",
-                 name=name,
+                 name=name + '_' + os.path.basename(interp),
                  ut_cwd   = self.bld.path, 
                  use = self.uses, 
                  test_scripts_source = source,
@@ -312,14 +279,14 @@ class ValidationContext:
 
     def rule(self, rule, source="", target="", **kwds):
         'Simple wrapper for arbitrary rule'
-        if self.bld.options.no_checks:
+        if not self.bld.env.TESTS:
             return
         self.bld(rule=rule, source=source, target=target, **kwds)
 
 
     def rule_http_get(self, task):
         'A rule function transform a URL file into its target via HTTP(s)'
-        if self.bld.options.no_checks:
+        if not self.bld.env.TESTS:
             return
         from urllib.request import urlopen
         unode = task.inputs[0]
@@ -331,7 +298,7 @@ class ValidationContext:
 
     def rule_scp_get(self, task):
         'A rule function to transform a URL file its target via scp'
-        if self.bld.options.no_checks:
+        if not self.bld.env.TESTS:
             return
         unode = task.inputs[0]
         remote = unode.read()[4:]
@@ -348,7 +315,7 @@ class ValidationContext:
         
     def get_file(self, remote='...', local='...'):
         'Make task to bring remote file to local file'
-        if self.bld.options.no_checks:
+        if not self.bld.env.TESTS:
             return
         if remote.startswith(("http://","https://")):
             rule_get = lambda task: self.rule_http_get(task)
@@ -364,13 +331,13 @@ class ValidationContext:
         self.bld(rule=rule_get, source = unode, target = lnode)
 
     def put_file(self, local='...', remote='...'):
-        if self.bld.options.no_checks:
+        if not self.bld.env.TESTS:
             return
         raise Unimplemented()
 
     def diff(self, one, two):
         'Make a task to output a diff between two files'
-        if self.bld.options.no_checks:
+        if not self.bld.env.TESTS:
             return
         one = self.nodify_declare(one)
         two = self.nodify_declare(two)
@@ -426,8 +393,6 @@ def smplpkg(bld, name, use='', app_use='', test_use=''):
 
     bld.cycle_group("libraries")
 
-    validation_envs = dict()
-
     if incdir:
         headers += incdir.ant_glob(name + '/*.h')
         includes += ['inc']
@@ -476,6 +441,9 @@ def smplpkg(bld, name, use='', app_use='', test_use=''):
 
     bld.cycle_group("applications")
 
+    # hack in to the env entries for the apps we build
+    validation_envs = dict()
+
     if appsdir:
         for app in appsdir.ant_glob('*.cxx'):
             appbin = bld.path.find_or_declare(app.name.replace('.cxx',''))
@@ -503,5 +471,7 @@ def smplpkg(bld, name, use='', app_use='', test_use=''):
 
     bld.cycle_group("libraries")
 
+    # Return even if we are no tests so as to not break code in
+    # wscript_build that uses this return to define "variant" tests.
     return ValidationContext(bld, test_use + [name])
 

@@ -75,8 +75,8 @@ int main(int argc,const char *argv[])
 
     cfg.env.CXXFLAGS += ['-I.']
 
-    print("Configured version", VERSION)
-#    print(cfg.env)
+    info("Configured version %s" % VERSION)
+
 
 def build(bld):
     bld.load('wcb')

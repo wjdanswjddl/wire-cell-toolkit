@@ -66,8 +66,6 @@ def options(opt):
     opt.add_option('--build-debug', default='-O2 -ggdb3',
                    help="Build with debug symbols")
 
-    opt.add_option('--test-data', type=str, default=None,
-                   help="A :-separated path list to locate test data files.")
 
 def find_submodules(ctx):
     sms = list()
@@ -113,21 +111,21 @@ def configure(cfg):
     #     cfg.load('protobuf')
 
 
+    # Check for stuff not found in the wcb-generic way
+    #
+    # Record having a lib as a 'HAVE'.
     def haveit(one):
         one=one.upper()
         if 'LIB_'+one in cfg.env:
             cfg.env['HAVE_'+one] = 1
-            info('HAVE %s libs'%one)
+            debug('HAVE %s libs'%one)
         else:
             info('NO %s libs'%one)
-
-    # Check for stuff not found in the wcb-generic way
 
     cfg.check_boost(lib='system filesystem graph thread program_options iostreams regex')
     haveit('boost')
 
-    cfg.check(header_name="dlfcn.h", uselib_store='DYNAMO',
-              lib=['dl'], mandatory=True)
+    cfg.check(header_name="dlfcn.h", uselib_store='DYNAMO', lib=['dl'], mandatory=True)
     haveit('dynamo')
 
     cfg.check(features='cxx cxxprogram', lib=['pthread'], uselib_store='PTHREAD')
@@ -140,10 +138,6 @@ def configure(cfg):
     cfg.env.LIB += ['z']
     
     submodules = find_submodules(cfg)
-
-    # submodules = 'util iface gen sigproc img pgraph apps sio dfp tbb ress cfg root'.split()
-    # submodules.sort()
-    # submodules = [sm for sm in submodules if osp.isdir(sm)]
 
     # Remove WCT packages if they an optional dependency wasn't found
     for pkg,ext in [
@@ -178,16 +172,6 @@ def configure(cfg):
         cfg.find_program(cmd, var=var, mandatory=False)
 
     cfg.find_program("pandoc", var="PANDOC", mandatory=False)
-
-    # Check if have test data directory.
-    if cfg.options.test_data:
-        wctd = cfg.root.find_dir(cfg.options.test_data)
-        if wctd:
-            cfg.env.TEST_DATA = wctd.abspath()
-    if 'TEST_DATA' in cfg.env:
-        info("wcb: using test data from", cfg.env.TEST_DATA)
-    else:
-        info("wcb: no test data path.  some tests will be disabled")
 
     debug("dump: " + str(cfg.env))
 
