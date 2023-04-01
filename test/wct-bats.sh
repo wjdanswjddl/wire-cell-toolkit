@@ -9,6 +9,9 @@
 #
 # Note, these generally exit on error.
 
+shopt -s extglob
+shopt -s nullglob
+
 function log () {
     echo "$@"
 }
@@ -152,7 +155,7 @@ function wcb () {
 # wcb_env_vars WIRECELL_VERSION
 function wcb_env_vars () {
     # we keep a cache to save a whole 100 ms....
-    local cache="${BATS_RUN_TMPDIR}/wcb_env.txt"
+    local cache="${BATS_RUN_TMPDIR:-/tmp}/wcb_env.txt"
     if [ ! -f "$cache" ] ; then
         wcb dumpenv | grep 'wcb: ' | sed -e 's/^wcb: '// | sort > $cache
     fi
@@ -350,11 +353,33 @@ function relative_path () {
     realpath "$(dirname $BATS_TEST_FILENAME)/$want"
 }
 
+# Resolve multiple pathlists to a single list, removing any that do
+# not exist.  Consequitive duplicates are removed.
+#
+# usage:  assume X does not exist
+# paths=( $(resolve_pathlist A:X A B:C) )
+# A
+# B
+# C
+function resolve_pathlist () {
+    declare -a parts=( $(echo $@ | tr ':' ' ') )
+    declare -a exists
+    for one in ${parts[@]}
+    do
+        if [ -d $one ] ; then
+            exists+=( $one )
+        fi
+    done
+    printf "%s\n" ${exists[@]} | awk '!seen[$0]++'
+
+}
+
 # Resolve a file name in in or more path lists.
 # A path list may be a :-separated list
 #
 # usage:
 # local path="$(resolve_path emacs $PATH $MY_OTHER_PATH /sbin:/bin:/etc)"
+# /usr/bin/emacs
 function resolve_path () {
     local want="$1"; shift
 
@@ -363,17 +388,38 @@ function resolve_path () {
         echo $want
     fi
 
-
-    for pathlst in $@ ; do
-        for maybe in $(echo ${pathlst} | tr ":" "\n")
-        do
-            if [ -f "${maybe}/$want" ] ; then
-                echo "${maybe}/$want"
-                return
-            fi
-        done
+    for maybe in $(resolve_pathlist $@) ; do
+        if [ -f "${maybe}/$want" ] ; then
+            echo "${maybe}/$want"
+            return
+        fi
     done
 }
+
+
+# Emit all matching paths.
+#
+# usage:
+# resolve_all emacs $PATH
+# /usr/bin/emacs
+# /usr/local/bin/emacso
+#
+function find_paths () {
+    local want="$1" ; shift
+
+    # already absolute, only one answer
+    if [[ "$want" =~ ^/.* ]] ; then
+        echo $want
+    fi
+    
+    for maybe in $(resolve_pathlist $@) ; do
+        if [ -f "${maybe}/$want" ] ; then
+            echo "${maybe}/$want" 
+        fi
+    done
+}
+
+
 
 # Return an absolute path of a relative path found in config areas.
 function config_path () {
@@ -388,9 +434,12 @@ function config_path () {
     fi
 }
 
-# Emit absolute path to given relative path
+# Emit the absolute path for a given path.
 #
-# If absolute, emit given.  
+# usage:
+# resolve_file file1.txt
+#
+# If absolute, emit as given.  If not found, exit.
 #
 # The following path lists will be checked for the given relative path
 # on a first one wins basis.
@@ -412,21 +461,104 @@ function config_path () {
 function resolve_file () {
     local want="$1" ; shift
 
-    if [ -f "$want" ] ; then
+    local test_data="$(wcb_env_value TEST_DATA)"
+    local mydir="$(dirname ${BATS_TEST_FILENAME})"
+    local t="$(topdir)"
+    local paths=$(resolve_pathlist "$t/test/data" "$t" ${WIRECELL_PATH} ${test_data} ${WCTEST_DATA_PATH})
+
+    if [ -f "$want" -o -d "$want" ] ; then
         realpath "$want"
         return
     fi
-
-    local test_data="$(wcb_env_value TEST_DATA)"
-    local mydir="$(dirname ${BATS_TEST_FILENAME})"
-
-    local t="$(topdir)"
-    resolve_path $want "$t/test/data" "$t" ${WIRECELL_PATH} ${test_data} ${WCTEST_DATA_PATH}
-    local got="$(resolve_path $want $@)"
-    [[ -n "$got" ]]
-    [[ -f "$got" ]]
-    echo $got
+    
+    for $path in ${paths[*]}
+    do
+        local maybe=$path/$want
+        if [ -f "$maybe" -o -d "$maybe" ] ; then
+            echo $maybe
+            return
+        fi
+    done
+    die "No such file or directory: $want"
 }
+
+# Emit all versions paths found for category.
+#
+# usage:
+# category_version_paths [-c/--category <cat>] [-d/--dirty] [-p|--pathlist <pathlist>]
+#
+# Default category is "output".
+# 
+# Default matches only release versions, -d/--dirty will also match locally modified versions
+#
+# -p/--pathlist gives a ":"-separated path list to check prior to checking $(blddir)/tests and WCTEST_DATA_PATH.
+#
+# The path lists are checked for <category>/<version>/
+function category_version_paths () {
+    local category="output"
+    # match "git describe --tags" 
+    local matcher='+([0-9])\.+([0-9])\.+([x0-9])'
+    local dirty=""
+    declare -a pathlist
+    while [[ $# -gt 0 ]] ; do
+        case $1 in
+            -c|--category) category="$2"; shift 2;;
+            -d|--dirty) dirty="${matcher}-*"; shift;;
+            -p|--pathlist) pathlist+=( "$2" ); shift 2;;
+            *) break;;          # leave others args in place
+        esac
+    done
+
+    pathlist=( $(resolve_pathlist ${pathlist[*]} $(blddir)/tests ${WCTEST_DATA_PATH}) )
+
+    declare -a ret
+
+    for path in ${pathlist[*]}
+    do
+        for one in $(echo $path/$category/$matcher)
+        do
+            if [ -d "$one" ] ; then
+                ret+=( $one )
+            fi
+        done
+        if [ -z "$dirty" ] ; then
+            continue
+        fi
+        for one in $(echo $path/$category/$dirty)
+        do
+            if [ -d "$one" ] ; then
+                ret+=( $one )
+            fi
+        done
+    done
+    echo ${ret[*]}
+}
+
+# Emit the category path for the version
+# usage:
+# category_path [-c/--category <cat>] [-d/--dirty] [-p|--pathlist <pathlist>] <version>
+#
+# See category_version_paths for details.
+function category_path () {
+    declare -a pdirs=( $(category_version_paths $@) )
+    echo "pdirs: ${pdirs[*]}" 1>&2
+    echo "left: $@" 1>&2
+    local ver="$1" ; shift
+
+
+    for maybe in ${pdirs[*]}
+    do 
+        echo "maybe: $maybe" 1>&2
+        if [ "$ver" = "$(basename $maybe)" ] ; then
+            echo $maybe
+            return
+        fi
+    done
+    die "no category path for version $ver"
+}
+    
+    
+# build/tests/history/<ver>/test-addnoise/test-addnoise-empno-6000.tar.gz
 
 
 # Echo the test data directory, if it exists
@@ -482,7 +614,6 @@ function skip_if_no_test_data () {
             fi
         fi
     fi
-    # yell "Test data file missing: ${path}"
+
     skip "Test data missing"
 }
-

@@ -135,3 +135,55 @@ load ../wct-bats.sh
     [[ -n "$(env |grep BATS_RUN_COMMAND)" ]]
 }
     
+@test "pathlist resolution" {
+    local t=$(topdir)
+    declare -a got=( $(resolve_pathlist $t/gen:$t/test $t/sigproc:$t/apps $t/doesnotexist) )
+    # yell ${got[*]}
+    [[ ${#got[@]} -eq 4 ]]
+    [[ ${got[0]} = $t/gen ]]
+    [[ ${got[1]} = $t/test ]]
+    [[ ${got[2]} = $t/sigproc ]]
+    [[ ${got[3]} = $t/apps ]]
+}
+
+@test "category resolution" {
+    
+    local category="testing"
+    local test_data="$(blddir)/tests"
+    local release=0.0.0
+    local dirty="${release}-dirty"
+
+    for one in $release $dirty
+    do
+        dir=$test_data/$category/$one
+        rm -rf $dir
+        mkdir -p $dir
+        touch $dir/junk.txt
+    done
+
+    declare -a got=( $(category_version_paths -p $test_data -c testing) )
+    [[ ${#got[@]} -eq 1 ]]
+    [[ ${got[0]} = "$test_data/testing/$release" ]]
+
+    got=( $(category_version_paths -p $test_data -c testing -d) )
+    [[ ${#got[@]} -eq 2 ]]
+    [[ ${got[0]} = "$test_data/testing/$release" ]]
+    [[ ${got[1]} = "$test_data/testing/$dirty" ]]
+
+    got=( $(category_version_paths -c testing -d) )
+    [[ ${#got[@]} -eq 2 ]]
+    [[ ${got[0]} = "$test_data/testing/$release" ]]
+    [[ ${got[1]} = "$test_data/testing/$dirty" ]]
+    
+
+    declare -a got3=( $(find_paths junk.txt ${got[*]}) )
+    [[ ${#got3[@]} -eq 2 ]]
+    [[ "$(basename ${got3[0]})" = "junk.txt" ]]
+    [[ "$(basename ${got3[1]})" = "junk.txt" ]]
+
+
+    vers=( $(for n in ${got[*]}; do basename $n; done | sort -u | tail -1 ) )
+    [[ "$vers" = "0.0.0-dirty" ]]
+    
+
+}
