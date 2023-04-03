@@ -21,7 +21,7 @@ directories:
 
 In deciding the ~<pkg>~ to house the test, particular care is needed to respect the WCT library dependency graph.  This graph should be produced by the build.  That graph at the time this document was rendered is shown below.
 
-[[file:../../wct-deps.png]]
+[[https://github.com/WireCell/wire-cell-toolkit/raw/master/wct-deps.png]]
 
 It is allowed for the dependency tree for test programs to be different than the library dependency graph.  However, tests should avoid adding a dependency on an external package that is not shared by that package's library.  On the other hand, tests may add dependencies on other WCT sub packages that the sub package library does not require.
 
@@ -32,11 +32,11 @@ For example, if a test of code in ~WireCellGen~ requires ROOT, that test should 
 As described in [[file:framework.org]] a test must have a source file name that matches the pattern:
 
 #+begin_example
-<pkg>/test/<category>[-_]<name>.<ext>
+<pkg>/test/<prefix><sep><name>.<ext>
 #+end_example
 
 Most tests are "atomic" so may start with that string or simply ~test~.
-The separators between ~<category>~ and ~<name>~ are optional.
+The separators between ~<prefix>~ and ~<name>~ are optional.
 The test source file name:
 
 - should be unique among all tests
@@ -60,6 +60,6 @@ test-pr195.bats
 
 If a test is a BATS or shell script and uses auxiliary files such as
 providing configuration, they should be included as a sibling to the
-test file.  Take caution not to name them starting with a ~<category>~
+test file.  Take caution not to name them starting with a ~<preifx>~
 label unless they themselves are meant to be run directly.  
 

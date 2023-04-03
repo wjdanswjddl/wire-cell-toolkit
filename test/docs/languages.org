@@ -8,7 +8,9 @@ fast rules but the following guidelines may be considered:
 - BATS for "integration" type tests that involves composition of command line programs.
 - Jsonnet is convenient for testing Jsonnet functions and structures without the need to develop specific command programs (though doing so is an option).
 
-  It is also possible to write WCT tests in Python and plain shell.  However, these are not well supported nor currently recommended.  However,  developers are encouraged to consider adding functionality that is useful for tests into the various command Python modules and Click line interfaces in ~wire-cell-python~.  These may then be easily used from a BATS test.
+#+begin_note
+It is also possible to write WCT tests in Python and plain shell.  However, these are not well supported nor currently recommended.  However,  developers are encouraged to consider adding functionality that is useful for tests into the various command Python modules and Click line interfaces in ~wire-cell-python~.  These may then be easily used from a BATS test.
+#+end_note
 
 The remainder of this sections gives details of WCT testing framework support specific to the recommended languages.
 
