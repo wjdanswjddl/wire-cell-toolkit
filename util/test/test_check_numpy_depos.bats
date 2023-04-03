@@ -3,9 +3,11 @@
 load ../../test/wct-bats.sh
 
 @test "check muon depos" {
-    usepkg util test
+    skip_if_no_input
 
-    npz=$(resolve_file muon-depos.npz)
+    usepkg util                 # so check_numpy_depos is in PATH
+
+    npz=$(input_file depos/muon.npz)
     [[ -n "$npz" ]]
 
     run check_numpy_depos "$npz"

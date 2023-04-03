@@ -5,9 +5,12 @@
 load ../../test/wct-bats.sh
 
 setup_file () {
+    skip_if_no_input
+
     cd_tmp file
 
-    local infile="$(test_data_file uboone/celltree/celltreeOVERLAY-event6501.tar.bz2)"
+    # was: uboone/celltree/celltreeOVERLAY-event6501.tar.bz2
+    local infile="$(input_file frames/celltreeOVERLAY-event6501.tar.bz2)"
     [[ -s "$infile" ]]
 
     local cfgfile="$(relative_path test-wct-uboone-img.jsonnet)"

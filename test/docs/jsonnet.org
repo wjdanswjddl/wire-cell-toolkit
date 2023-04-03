@@ -37,16 +37,3 @@ wcsonnet cfg/test/test_pgraph.jsonnet
 
 Jsonnet provides an ~assert~ function.  These should be sprinkled liberally throughout Jsonnet test code whenever it is possible to know what some intermediate data structure should be.  See ~test_graph.jsonnet~ for an example.
 
-* Variant tests
-
-Some Jsonnet files result in a top level function that accepts or requires "top-level arguments" (TLAs).  These arguments may be supplied in the registration of variant tests.  For example, ~cfg/wscript_build~:
-
-#+begin_example
-with bld.smplpkg('WireCellCfg', test_use='WireCellAppps') as p:
-
-    tuthigh = bld.path.find_resource("layers/tut-high.jsonnet")
-    for det in ["pdsp", "uboone"]:
-        p.rule('${WCSONNET} -A detector="+det+" ${SRC} > ${TGT}',
-               source=[tuthigh], target=[det + "-tut-hight.json"])
-#+end_example
-

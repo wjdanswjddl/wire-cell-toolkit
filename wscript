@@ -11,11 +11,11 @@ import os
 # fixme: move into waft/
 from waflib.Build import BuildContext
 from waflib.Logs import debug, info, error, warn
+import waflib.Utils
 
 TOP = '.'
 APPNAME = 'WireCell'
 VERSION = os.popen("git describe --tags").read().strip()
-
 
 # to avoid adding tooldir="waft" in all the load()'s
 import os
@@ -83,3 +83,7 @@ def build(bld):
 
 def dumpenv(bld):
     bld.load('wcb')
+
+def packrepo(bld):
+    import datarepo
+    datarepo.pakrepo(bld)

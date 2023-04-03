@@ -1,6 +1,7 @@
 load ../wct-bats.sh
 
-@test "usepkg" {
+@test "check usepkg" {
+
     usepkg cfg
     [[ -n "$cfg_src" ]]
     [[ -d "$cfg_src" ]]
@@ -77,16 +78,14 @@ load ../wct-bats.sh
     [[ -n "$wcsonnet" ]]
 }
 
+
 @test "have a test data file or skip" {
-    local name="pdsp/sim/sn/depos.tar.bz2"
+    local name="depos/many.tar.bz2"
 
-    skip_if_no_test_data "$name"
+    skip_if_no_input "$name"
 
-    [[ -n "$(test_data_dir)" ]]
-    [[ -d "$(test_data_dir)" ]]
-
-    [[ -n "$(test_data_file $name)" ]]
-    [[ -f "$(test_data_file $name)" ]]
+    local got=$(input_file $name)
+    [[ -s $got ]]
 }
 
 @test "relative path" {
@@ -161,16 +160,16 @@ load ../wct-bats.sh
         touch $dir/junk.txt
     done
 
-    declare -a got=( $(category_version_paths -p $test_data -c testing) )
+    declare -a got=( $(find_category_version_paths -c testing) )
     [[ ${#got[@]} -eq 1 ]]
     [[ ${got[0]} = "$test_data/testing/$release" ]]
 
-    got=( $(category_version_paths -p $test_data -c testing -d) )
+    got=( $(find_category_version_paths -c testing -d) )
     [[ ${#got[@]} -eq 2 ]]
     [[ ${got[0]} = "$test_data/testing/$release" ]]
     [[ ${got[1]} = "$test_data/testing/$dirty" ]]
 
-    got=( $(category_version_paths -c testing -d) )
+    got=( $(find_category_version_paths -c testing -d) )
     [[ ${#got[@]} -eq 2 ]]
     [[ ${got[0]} = "$test_data/testing/$release" ]]
     [[ ${got[1]} = "$test_data/testing/$dirty" ]]

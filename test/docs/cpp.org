@@ -2,31 +2,30 @@
 #+latex_header: \usepackage[margin=1in]{geometry}
 #+options: ':t toc:t
 
-WCT tests of small scope (near to "unit" tests) typically must be written in C++.  They are best written as *atomic tests* (see [[file:framework.org]]).  Atomic tests may also be used as *variant tests* if they accept all optional command line arguments.  Or, one may explicitly write variant tests in C++.
-
-In this document we walk though writing a particular atomic test that can also be used as a variant test.  
+WCT tests of small code coverage (ie "unit" tests) typically must be written in C++ as a small program (ie, provides ~main()~).  In this document we walk though writing a test.
 
 * The example test
 
-After reading [[file:writing.org]] to get a general understanding we pick a name ~idft~ and we place the source at
+After reading [[file:framework.org]] for an overview and [[file:writing.org]] to get a general understanding we decide to place our test in the "atomic" aka "test" category and pick a "name" ~idft~.  We place it here:
 
 #+begin_example
 aux/test/test_idft.cxx
 #+end_example
+See below for why ~aux~ was chosen.
 This tests various aspects of the ~IDFT~ interface implementations.  It
 can be run as an atomic test:
 
 #+begin_example
 ./build/aux/test_idft
 #+end_example
-Or as a variant test where we specify the ~IDFT~ implementation by its component name and the plugin that provides the component implementation:
+It can also be run in a variant form by giving optional command line argumetns:
 
 #+begin_example
 ./build/aux/test_idft FftwDFT WireCellAux
 ./build/aux/test_idft TorchDFT WireCellPytorch
 ./build/aux/test_idft cuFftDFT WireCellCuda
 #+end_example
-The first variant is actually identical to the atomic call.  The latter two require that WCT is build with support for PyTorch and CUDA, respectively.
+The first variant is actually identical to the atomic call.  The latter two require that WCT is build with support for PyTorch and CUDA, respectively.  An atomic test for each of the latter two variants can be found in their respective packages.
 
 Note, C++ tests require particular attention to dependencies.  The ~test_idft~ is a little special in that it only has build-time dependency on the ~iface~ sub package yet it is placed in the ~aux~ package and can have run-time dependency on other higher-level packages via WCT's plugin and component factory mechanisms.  In its default calling, it relies on the ~FftwDFT~ component being available.  This component is provided the ~WireCellAux~ plugin library (from the ~aux~ sub package) and so this minimal run-time dependency is satisfied by placing the test in the ~aux~ sub package.  Depending on the variant form, it must be run in a context with either the ~WireCellPytorch~ or ~WireCellCuda~ plugins available.  We will show how to register these variants so they are run when these optional sub packages are built.
 
@@ -145,7 +144,7 @@ int main(int argc, char* argv[])
 }
 #+end_example
 
-See ~util/test/test_wireschema.cxx~ for an example.  An example of registering this program as a variant test can be found in ~util/test/wscript_build~ and described more in [[file:variant.org]].
+See ~util/test/test_wireschema.cxx~ for an example.  
 
 For this kind of file to be found the user *must* define ~WIRECELL_PATH~ to include a directory holding the contents of ~wire-cell-data~.
 

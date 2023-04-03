@@ -40,6 +40,7 @@ Extended for wcb:
 - reindent (sorry tab lovers)
 - add timing to test execution and summary
 - flip default to not tests and option names --notests to --tests.
+- include management of test data files
 """
 
 import os, shlex, sys
@@ -48,8 +49,8 @@ from waflib import Utils, Task, Logs, Options
 from waflib.Tools import ccroot
 import waflib.Build
 
-waflib.Build.wcb_unit_test_data = dict()
-waflib.Build.SAVED_ATTRS.append("wcb_unit_test_data")
+waflib.Build.wcb_unit_test_cache = dict()
+waflib.Build.SAVED_ATTRS.append("wcb_unit_test_cache")
 
 testlock = Utils.threading.Lock()
 
@@ -195,7 +196,7 @@ class utest(Task.Task):
 
         maxdur = getattr(self.env, 'TEST_DURATION', None)
         if ret == Task.RUN_ME and maxdur:
-            dur = self.generator.bld.wcb_unit_test_data.get(str(self), None)
+            dur = self.generator.bld.wcb_unit_test_cache.get(str(self), None)
             if dur is not None:
                 if dur > maxdur:
                     Logs.debug("wut: skip presumed slow (%.3f s > %.3f s) test %s" % (dur, maxdur, self))
@@ -252,7 +253,7 @@ class utest(Task.Task):
             stderr=Utils.subprocess.PIPE, stdout=Utils.subprocess.PIPE, shell=isinstance(cmd,str))
         (stdout, stderr) = proc.communicate()
         t2 = timer.now()
-        self.generator.bld.wcb_unit_test_data[str(self)] = t2-t1
+        self.generator.bld.wcb_unit_test_cache[str(self)] = t2-t1
 
         self.wcb_unit_test_results = tup = (self.inputs[0].abspath(), proc.returncode, stdout, stderr, str(timer))
         testlock.acquire()
@@ -324,8 +325,6 @@ def options(opt):
                    help="Activate tests [default: off]")
     opt.add_option('--test-duration', type="float", action='store',
                    help="Skip tests that may take longer than this many seconds [default: ignored]")
-    opt.add_option('--test-data', type=str, default=None,
-                   help="A :-separated path list to locate test data files [defalt: none]")
     tgs=','.join(test_group_sequence)
     opt.add_option('--test-group', default=None,
                    choices=test_group_sequence+["all"],
@@ -360,17 +359,17 @@ def intern_test_options(ctx, force=False):
         else:
             ctx.env.TEST_GROUP = ctx.options.test_group
 
-    if force or ctx.options.test_data is not None:
-        if ctx.options.test_data:
-            tdpath=list()
-            for one in ctx.options.test_data.split(":"):
-                wctd = ctx.root.find_dir(one)
-                if wctd:
-                    tdpath.append(wctd.abspath())
-            ctx.env.TEST_DATA = ':'.join(tdpath)
 
 def configure(cfg):
     intern_test_options(cfg, True)
+
+try:
+    from urllib import request
+except ImportError:
+    from urllib import urlopen
+else:
+    urlopen = request.urlopen
+
 
 def build(bld):
     intern_test_options(bld, False)

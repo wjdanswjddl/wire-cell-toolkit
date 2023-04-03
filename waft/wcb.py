@@ -6,6 +6,7 @@ import os.path as osp
 from waflib.Utils import to_list
 from waflib.Logs import debug, info, error, warn
 from waflib.Build import BuildContext
+from waflib.Configure import conf
 
 # Use our own "wcsonnet" command instead of plain "jsonnet".
 from smplpkgs import ValidationContext
@@ -77,7 +78,6 @@ def find_submodules(ctx):
 
 def configure(cfg):
     info ('Compile options: %s' % cfg.options.build_debug)
-
     cfg.load('boost')
     cfg.load('smplpkgs')
 
@@ -174,6 +174,16 @@ def configure(cfg):
     cfg.find_program("pandoc", var="PANDOC", mandatory=False)
 
     debug("dump: " + str(cfg.env))
+
+
+# helper used in various tools
+@conf
+def cycle_group(bld, gname):
+    if gname in bld.group_names:
+        bld.set_group(gname)
+    else:
+        bld.add_group(gname)
+
 
 def build(bld):
     bld.load('smplpkgs')

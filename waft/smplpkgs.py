@@ -70,11 +70,12 @@ _tooldir = os.path.dirname(os.path.abspath(__file__))
 def options(opt):
     opt.load('compiler_cxx')
     opt.load('wcb_unit_test') # adds --tests
-
+    opt.load("datarepo")
 
 def configure(cfg):
     cfg.load('compiler_cxx')
     cfg.load('wcb_unit_test')
+    cfg.load('datarepo')
     cfg.load('rpathify')
 
     cfg.env.append_unique('CXXFLAGS',['-std=c++17'])
@@ -94,16 +95,10 @@ def configure(cfg):
 
 def build(bld):
     bld.load('wcb_unit_test')
+    bld.load('datarepo')
 
 
 from wcb_unit_test import test_group_sequence
-
-@conf
-def cycle_group(bld, gname):
-    if gname in bld.group_names:
-        bld.set_group(gname)
-    else:
-        bld.add_group(gname)
 
 # A "fake" waf context (but real Python context manager) which will
 # return the Waf "group" to "libraries" on exit and which provides
@@ -162,7 +157,7 @@ class ValidationContext:
 
             for ext in self.compiled_extensions:
                 pat = match_pat % (prefix, ext)
-                for one in self.bld.path.ant_glob(match_pat % (prefix, ext)):
+                for one in self.bld.path.ant_glob(pat):
                     debug("tests: (%s) %s" %(features, one))
                     self.program(one, features)
 
@@ -170,9 +165,10 @@ class ValidationContext:
                 continue
 
             for ext in self.script_templates:
-                for prefix in prefixes:
-                    for one in self.bld.path.ant_glob(match_pat % (prefix, ext)):
-                        self.script(one)
+                pat = match_pat % (prefix, ext)
+                for one in self.bld.path.ant_glob(pat):
+                    debug(f"tests: ({group}) script: {one}")
+                    self.script(one)
         
 
 

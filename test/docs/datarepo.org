@@ -1,2 +1,105 @@
 #+title: Wire-Cell test data repository
 
+* Overview
+
+The WCT test framework data repository (repo) provides files for the purpose of:
+- providing known input to tests.
+- providing expected output for comparison to test output.
+- accepting and retaining files for historical comparison across software versions.
+
+Developers of tests must assure:
+
+- files are placed in the repository according to the naming conventions.
+- guidelines for adding files are followed.
+
+* Naming convention
+
+With the exception of the "input" category, all files are located in the repository with a path pattern matching:
+#+begin_example
+<category>/<version>/<prefix-and-name>/<files>
+#+end_example
+
+** Categories
+
+A ~<category>~ sub directory takes its name from an enumerated set of labels.  The label indicates a particular intention for the subsequent use of the file.  The categories include:
+
+- ~input~ are for files used by tests as input to some tests.  It has a special layout convention as described below.
+- ~output~ are for files that test developers think are important enough to be retained beyond the temporary working directory context of the test but are otherwise uncategorized including data files.
+- ~plots~ are likewise but for files that are specifically figures (PDF, PNG, SVG, etc).
+- ~history~ are for files, usually data, specifically intended for further processing by a historical test.
+- ~reports~ are for files, usually figures, specifically intended for further processing by a report test.
+
+** Versions
+
+The ~<version>~ sub directory must match the output of
+#+begin_example
+wire-cell --version
+#+end_example
+
+** Prefix and names
+
+The ~<prefix-and-name>~ is should match the test program name without the file name extension.
+
+Developers of tests with the same source file names must assure that any output from the tests are mutually compatible.
+
+** Files
+
+File names must NOT
+- include any ~<version>~ information.
+- otherwise change between different runs of a test.
+
+** Input
+
+The ~input~ category does not include ~<version>~ but instead has sub-categories describing the general file content.
+
+- ~<depos>~ files holding ~IDepo~ data
+- ~<frames>~ files holding ~IFrame~ data
+
+Test developers are strongly urged to consider use existing input files before introducing new input files.
+
+Once introduced, an input file may neither be removed nor renamed until all tests requiring an input put are no longer in any past releases of historical interest.
+
+
+* Working directory
+
+The repo working directory is nominally located under the build directory, matching this path
+
+#+begin_example
+build/tests/input/
+build/tests/<category>/<version>/<prefix-and-name>/
+#+end_example
+
+* Preparing a repo
+
+The ~input~ and a number of ~history~ category versions can be installed as:
+
+#+begin_example
+./wcb fillrepo --test-data-releases 0.20.0,0.21.0,0.22.0,0.23.0,0.24.1
+#+end_example
+
+* Distributing repository contents
+
+Archive files for all history versions can be produced with:
+
+#+begin_example
+./wcb packrepo
+#+end_example
+
+Or, archives for specific releases may be produced with:
+
+#+begin_example
+./wcb packrepo --test-data-releases 0.20.0,0.21.0,0.22.0,0.23.0,0.24.1
+#+end_example
+
+* Reinventing history
+
+It is expected that new historical tests will be developed to consume historical files that were not produced for past software releases.  Perhaps the test producing the history file did not even exist in past versions.  To support these new historical tests we must:
+
+- run the new test that produces the required historical files
+- add these files to our repo under the proper history version sub directory
+- repackage that history category for future use
+- run the historical test that consumes the files across the required versions.
+
+These steps can be performed manually by checking out the required code version, building and running tests as usual followed by explicitly running the new test in the new version but in the environment of the old version.
+
+An example of automating this procedure can be found in [[file:../bv-generate-history-haiku]].

@@ -24,46 +24,13 @@ load ../wct-bats.sh
 #
 # - A common patter to name and extract "human interesting" products of the test, such as the PDFs.
 
+base="$(basename ${BATS_TEST_FILENAME} .bats)"
 
-function waveform_figure () {
-    dat="$1" ; shift
-    [[ -n "$dat" ]]
-    [[ -f "$dat" ]]
-    fig="$1"; shift
-    [[ -n "$fig" ]]
+setup_file () {
 
-    if [ -f "$fig" ] ; then
-        warn "Reusing existing $fig"
-    else
-        run wirecell-plot frame -n wave "$dat" "$fig"
-        echo "$output"
-        [[ "$status" -eq 0 ]]
-        [[ -s "$fig" ]]
-        saveout -c plots "$fig"
-    fi
-}
+    skip_if_no_input
 
-    
-function channel_figure () {
-    local chan="$1"; shift
-    local old_dat="$1"; shift
-    local new_dat="$1"; shift
-    local fig="$1"; shift
-
-    if [ -f "$fig" ] ; then
-        warn "Reusing existing $fig"
-    else
-        run wirecell-plot comp1d -c $chan $old_dat $new_dat $fig
-        echo "$output"
-        [[ "$status" -eq 0 ]]
-        [[ -s "$fig" ]]
-        saveout -c bplots "$fig"
-    fi
-}
-
-@test "check pdsp signal" {
-
-    skip_if_no_test_data
+    cd_tmp file
 
     # Assume we run from build/.
     cfgfile="$(relative_path pdsp-depos-simsn-frames.jsonnet)"
@@ -72,14 +39,15 @@ function channel_figure () {
     [[ -f "$cfgfile" ]]
 
     # Assure input file
-    infile="$(test_data_file pdsp/sim/sn/depos.tar.bz2)"
+    # was pdsp/sim/sn/depos.tar.bz
+    infile="$(input_file depos/many.tar.bz2)"
     echo "infile: $infile"
     [[ -f "$infile" ]]
 
     cd_tmp
 
-    logfile="${BATS_TEST_NAME}.log"
-    outfile="${BATS_TEST_NAME}_frames.tar.gz"
+    logfile="${base}.log"
+    outfile="${base}_frames.tar.gz"
     if [ -f "$logfile" -a -f "$outfile" ] ; then
         warn "Reusing existing output of wire-cell on $cfgfile"
     else
@@ -93,25 +61,91 @@ function channel_figure () {
     [[ -s "$logfile" ]]
     [[ -f "$outfile" ]]
     [[ -s "$outfile" ]]
+    saveout -c history "$outfile"
+}
+
+
+
+function waveform_figure () {
+    local dat="$1" ; shift
+    [[ -n "$dat" ]]
+    [[ -f "$dat" ]]
+    local fig="$1"; shift
+    [[ -n "$fig" ]]
+
+    if [ -f "$fig" ] ; then
+        warn "Reusing existing $fig"
+        return
+    fi
+
+    local wcplot=$(wcb_env_value WCPLOT)
+
+    # yell "$wcplot frame -s -n wave $dat $fig"
+    run $wcplot frame -s -n wave "$dat" "$fig"
+    pwd
+    echo "$output"
+    echo "status: $status"
+    echo "status okay"
+    [[ "$status" -eq 0 ]]
+    echo "no fig: $fig"
+    ls -l *.png
+    [[ -s "$fig" ]]
+
+    saveout -c plots "$fig"
+}
+
     
+function channel_figure () {
+    local chan="$1"; shift
+    local old_dat="$1"; shift
+    local new_dat="$1"; shift
+    local fig="$1"; shift
+
+    if [ -f "$fig" ] ; then
+        warn "Reusing existing $fig"
+    fi
+    local wcplot=$(wcb_env_value WCPLOT)
+    # yell "$wcplot comp1d -c $chan $old_dat $new_dat $fig"
+
+    run $wcplot comp1d -s -c $chan $old_dat $new_dat $fig
+    echo "$output"
+    [[ "$status" -eq 0 ]]
+    [[ -s "$fig" ]]
+    saveout -c plots "$fig"
+}
+
+
+@test "plot pdsp signal" {
+
+    skip_if_no_input
+
+    cd_tmp file
+
+    outfile="${base}_frames.tar.gz"
 
     # make figures
-    local fmt="pdf"
+    local fmt="png"
 
     # make waveform figures for new data and old ("blessed") data.
     local new_dat="$outfile"
-    local new_fig="${BATS_TEST_NAME}_frame_new.$fmt"
+    local new_fig="${base}_frame_new.$fmt"
     waveform_figure $new_dat $new_fig
 
-    local old_dat="$(test_data_file pdsp/sim/sn/frames-expected.tar.bz2)"
+    # was pdsp/sim/sn/frames-expected.tar.bz2
+    local old_dat="$(input_file frames/pdsp-signal-noise.tar.bz2)"
     [[ -n "$old_dat" ]]
-    local old_fig="${BATS_TEST_NAME}_frame_old.$fmt"
+    local old_fig="${base}_frame_old.$fmt"
     waveform_figure $old_dat $old_fig
 
-    wirecell-plot comp1d --chmin 0 --chmax 800 -n wave --transform median -o check-pdsp-signal-wave.png -s $old_dat $new_dat
-    wirecell-plot comp1d --chmin 0 --chmax 800 -n spec --transform median -o check-pdsp-signal-spec.png -s $old_dat $new_dat
+    local wcplot=$(wcb_env_value WCPLOT)
+    for plot in wave spec
+    do
+        local fig="check-pdsp-signal-${plot}.png"
+        $wcplot comp1d -s --chmin 0 --chmax 800 \
+                -n $plot --transform ac \
+                -o $fig -s $old_dat $new_dat
+        [[ -s $fig ]]
+        saveout -c plots $fig
+    done
 }
 
-## waiting on https://www.phy.bnl.gov/~yuhw/wct-ci/gen/check_pdsp_noise.jsonnet
-# @test "check pdsp nosie" {
-# }

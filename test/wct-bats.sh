@@ -127,6 +127,39 @@ function saveout () {
     done
 }
 
+# Skip test if no input 
+function skip_if_no_input () {
+    local paths=( $@ )
+    if [ -z "$paths" ] ; then
+        paths=( "." )
+    fi
+    for path in ${paths[@]}
+    do
+        local input="$(blddir)/tests/input/$path"
+        if [ ! -d "$input" ] ; then
+            skip "no input test data at %input"
+        fi
+    done
+}
+
+# Return full paths given relative paths in input category
+function input_file () {
+    local input="$(blddir)/tests/input"
+    if [ ! -d "$input" ] ; then
+        die "no input data"
+    fi
+
+    for path in $@
+    do
+        full="$input/$path"
+        if [ -f "$full" ] ; then
+            echo "$full"
+            continue
+        fi
+        die "no such file or directory: $full"
+    done
+}
+
 # Return the download cache directory
 function downloads () {
     local d="$(topdir)/downloads"
@@ -142,6 +175,23 @@ function wcb () {
     cd "$here"
 }
 
+function wcb_env_dump () {
+    # Keep a cache if running in bats.
+    if [ -n "${BATS_RUN_TMPDIR}" ] ; then
+        local cache="${BATS_RUN_TMPDIR:-/tmp}/wcb_env.txt"
+        if [ ! -f $cache ] ; then
+            wcb dumpenv | grep 'wcb: ' | sed -e 's/^wcb: '// | sort > $cache
+        fi
+        cat $cache
+        return
+    fi
+
+    # otherwise, do not keep cache as there is no good way to
+    # invalidate it.  This suffers about 100ms per call.
+    wcb dumpenv | grep 'wcb: ' | sed -e 's/^wcb: '// | sort
+}    
+    
+
 # Return key=var lines from wcb' Waf build variables.
 # With no arguments, all are returned.
 # Otherwise keys may be specified and onlytheir key=var lines are returned.
@@ -154,17 +204,13 @@ function wcb () {
 # echo "wire cell version: "
 # wcb_env_vars WIRECELL_VERSION
 function wcb_env_vars () {
-    # we keep a cache to save a whole 100 ms....
-    local cache="${BATS_RUN_TMPDIR:-/tmp}/wcb_env.txt"
-    if [ ! -f "$cache" ] ; then
-        wcb dumpenv | grep 'wcb: ' | sed -e 's/^wcb: '// | sort > $cache
-    fi
+    # Keep a cache if running in bats.
     if [ -z "$1" ] ; then
-        cat "$cache"
+        wcb_env_dump
     fi
     for one in $@
     do
-        grep "^${one}=" "$cache"
+        grep "^${one}=" <(wcb_env_dump)
     done
 }
 
@@ -320,11 +366,17 @@ function tmpdir () {
     fi
 
     local loc="${1:-test}"
+    local ret=""
     case $loc in
-        run) echo "$BATS_RUN_TMPDIR";;
-        file) echo "$BATS_FILE_TMPDIR";;
-        *) echo "$BATS_TEST_TMPDIR";;
+        run) ret="$BATS_RUN_TMPDIR";;
+        file) ret="$BATS_FILE_TMPDIR";;
+        *) ret="$BATS_TEST_TMPDIR";;
     esac
+    if [ -z "ret" ] ; then
+        ret="$(mktemp -d /tmp/wct-bats.XXXXX)"
+        warn "Not running under bats, will not remove tempdir: $ret"
+    fi
+    echo $ret
 }
 
 # Change to the context temporary directory.
@@ -449,29 +501,27 @@ function config_path () {
 # - any path lists given on function command line
 # - $(topdir)/test/data/
 # - $(topdir)/
-# - $(topdir)/build/output/
+# - $(topdir)/build/tests/
 # - $WIRECELL_PATH
-# - TEST_DATA (from "./wcb --test-data" option)
-# - $WCTEST_DATA_PATH
 #
 # See resolve_path to resolve paths in a policy-free manner.
 #
 # See relative_path to resolve paths relative to bats test file.
 #
+# See category_path to resovle paths against specific data repo category.
 function resolve_file () {
     local want="$1" ; shift
 
-    local test_data="$(wcb_env_value TEST_DATA)"
     local mydir="$(dirname ${BATS_TEST_FILENAME})"
     local t="$(topdir)"
-    local paths=$(resolve_pathlist "$t/test/data" "$t" ${WIRECELL_PATH} ${test_data} ${WCTEST_DATA_PATH})
+    local paths=$(resolve_pathlist "$t/test/data" "$t" "$t/build/tests" ${WIRECELL_PATH})
 
     if [ -f "$want" -o -d "$want" ] ; then
         realpath "$want"
         return
     fi
     
-    for $path in ${paths[*]}
+    for path in ${paths[*]}
     do
         local maybe=$path/$want
         if [ -f "$maybe" -o -d "$maybe" ] ; then
@@ -482,97 +532,163 @@ function resolve_file () {
     die "No such file or directory: $want"
 }
 
+
+
 # Emit all versions paths found for category.
 #
 # usage:
-# category_version_paths [-c/--category <cat>] [-d/--dirty] [-p|--pathlist <pathlist>]
+# category_version_paths [-c/--category <cat>] [-d/--dirty]
 #
-# Default category is "output".
+# Default category is "history".
 # 
 # Default matches only release versions, -d/--dirty will also match locally modified versions
 #
-# -p/--pathlist gives a ":"-separated path list to check prior to checking $(blddir)/tests and WCTEST_DATA_PATH.
-#
-# The path lists are checked for <category>/<version>/
-function category_version_paths () {
-    local category="output"
+# Results are emitted in lexical order of version string.
+function find_category_version_paths () {
+    local category="history"
     # match "git describe --tags" 
     local matcher='+([0-9])\.+([0-9])\.+([x0-9])'
     local dirty=""
-    declare -a pathlist
     while [[ $# -gt 0 ]] ; do
         case $1 in
             -c|--category) category="$2"; shift 2;;
             -d|--dirty) dirty="${matcher}-*"; shift;;
-            -p|--pathlist) pathlist+=( "$2" ); shift 2;;
             *) break;;          # leave others args in place
         esac
     done
 
-    pathlist=( $(resolve_pathlist ${pathlist[*]} $(blddir)/tests ${WCTEST_DATA_PATH}) )
+    local catdir="$(blddir)/tests/$category"
 
-    declare -a ret
+    declare -a vers
+    declare -A paths
 
-    for path in ${pathlist[*]}
+    for one in $(echo $catdir/$matcher)
     do
-        for one in $(echo $path/$category/$matcher)
-        do
-            if [ -d "$one" ] ; then
-                ret+=( $one )
-            fi
-        done
-        if [ -z "$dirty" ] ; then
-            continue
+        if [ -d "$one" ] ; then
+            local ver=$(basename $one)
+            vers+=( $ver )
+            paths[$ver]=$one
         fi
-        for one in $(echo $path/$category/$dirty)
+    done
+    if [ -n "$dirty" ] ; then
+        for one in $(echo $catdir/$dirty)
         do
             if [ -d "$one" ] ; then
-                ret+=( $one )
+                local ver=$(basename $one)
+                vers+=( $ver )
+                paths[$ver]=$one
             fi
         done
+    fi
+    for ver in $(printf '%s\n' ${vers[@]} | sort -u)
+    do
+        echo ${paths[$ver]}
     done
-    echo ${ret[*]}
+}
+
+ # Same as category_version_paths but emit only version string.
+function find_category_versions () {
+    for one in $(category_version_paths $@)
+    do
+        basename $one
+    done
 }
 
 # Emit the category path for the version
-# usage:
-# category_path [-c/--category <cat>] [-d/--dirty] [-p|--pathlist <pathlist>] <version>
 #
-# See category_version_paths for details.
+# usage:
+# category_path [-c/--category <cat>] [-v/--version <version>] path [path ...]
+#
+# If no category given, "history" is assumed.
+# If no version given, current version used.
 function category_path () {
-    declare -a pdirs=( $(category_version_paths $@) )
-    echo "pdirs: ${pdirs[*]}" 1>&2
-    echo "left: $@" 1>&2
-    local ver="$1" ; shift
+    local cat="history"
+    local ver=$(version)
+    declare -a paths
+    while [[ $# -gt 0 ]] ; do
+        case $1 in
+            -v|--version) ver="$2"; shift 2;;
+            -c|--category) cat="$2"; shift 2;;
+            -*) die "unknown argument: $1";;
+            *) paths+=( "$1" ); shift;;
+        esac
+    done
+            
+    local catdir="$(blddir)/tests/$cat/$ver"
 
-
-    for maybe in ${pdirs[*]}
-    do 
-        echo "maybe: $maybe" 1>&2
-        if [ "$ver" = "$(basename $maybe)" ] ; then
-            echo $maybe
-            return
+    for path in ${paths[*]}
+    do
+        if [ -f "$catdir/$path" -o -d "$catdir/$path" ] ; then
+            echo "$catdir/$path"
+        else
+            die "No such file or directory: $catdir/$path"
         fi
     done
-    die "no category path for version $ver"
 }
     
+
+# Emit the versions for which there are known historical files.
+#
+function historical_versions () {
+    local tdv=$(wcb_env_value TEST_DATA_VERSIONS)
+    printf '%s\n' $tdv
+}
+
+# Emit full paths to the files for a relative path across known history
+#
+# usage:
+# historical_files [-v/--version <version>] [-l/--last <number>] <path> [<path> ...]
+#
+# One or more -v/--version options can add versions to the list of historical versions.
+#
+# A -l/--last number will return only the more recent versions (lexical sort)  
+function historical_files () {
+    local versions=( $(historical_versions) )
+    local last=""
+    declare -a paths
+    while [[ $# -gt 0 ]] ; do
+        case $1 in
+            -l|--last) last="$2"; shift 2;;
+            -v|--version) versions+=( $2 ); shift 2;;
+            -*) die "unknown option $1" ;;
+            *) paths+=( $1 ); shift;;
+        esac
+    done
     
-# build/tests/history/<ver>/test-addnoise/test-addnoise-empno-6000.tar.gz
-
-
-# Echo the test data directory, if it exists
-function test_data_dir () {
-    wcb_env_value TEST_DATA
+    versions=( $(printf '%s\n' ${versions[@]} | sort -u) )
+    if [ -n "$last" ] ; then
+        versions=( $(printf '%s\n' ${versions[@]} | tail -n $last ) )
+    fi
+    for ver in ${versions[@]}
+    do
+        # yell "historical files: $ver $@"
+        category_path -c history -v $ver ${paths[@]}
+    done
 }
 
-
-# Resolve relative path to a test data file.  This ONLY looks in the
-# directory given by "./wcb --test-data".
-function test_data_file () {
-    resolve_path $1 $(test_data_dir)
+# Skip test if category is missing.
+#
+# usage:
+# skip_if_no_category [-v/version <version>] <category>
+#
+# If no version given, use current version.
+# If not category given, use "history"
+function skip_if_no_category () {
+    local ver=$(version)
+    local cat="history"
+    while [[ $# -gt 0 ]] ; do
+        case $1 in
+            -v|--version) version="$2"; shift 2;;
+            *) category="$1"; shift;;
+        esac
+    done
+    cdir="$(blddir)/tests/$cat/$ver"
+    if [ -d "$cdir" ] ; then
+        skip "no category: $cat/$ver"
+    fi
 }
 
+    
 
 # Download a file from a URL.
 #
@@ -597,23 +713,3 @@ function download_file () {
     echo "$path"
 }
 
-
-# skip test if there is no test data repo
-function skip_if_no_test_data () {
-    local path="$1"             # may require specific path
-
-    tdd="$(test_data_dir)"
-    if [ -n "${tdd}" ] ; then
-        if [ -d "$tdd" ] ; then
-            if [ -z "$path" ] ; then
-                return
-            fi
-            path="$(test_data_file $path)"
-            if [ -f "${path}" ] ; then
-                return
-            fi
-        fi
-    fi
-
-    skip "Test data missing"
-}

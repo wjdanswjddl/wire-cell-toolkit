@@ -50,7 +50,7 @@ The test groups names are:
 
 - check :: simply compile a program but do not run.
 - atomic :: is a basic test.  It may also have a ~<prefix>~ of ~test~.
-- history :: intended to run after all atomic tests and potentially consume data from prior campaigns and/or produce data for future campaigns.  See section [[Data repository]].
+- history :: intended to run after all atomic tests and potentially consume data from prior campaigns and/or produce data for future campaigns.  See document [[file:datarepo.org]].
 - report :: intended as a final stage to produce material for human inspection.
 
 * Executing tests
@@ -135,33 +135,5 @@ The supported file extensions include:
 The links above may be consulted for details of how to write tests in any of the supported languages.  The remainder of this document provides general information about executing tests.
 
 
-* Data repository
-
-Caveat: this is a work in progress.
-
-The WCT test framework includes data file management for the following purposes:
-- Provide known input.
-- Provide expected output for comparison.
-- Accept and retain files for historical comparison across software versions.
-For now, the data repository mechanism is simple and requires somewhat manual curation.  It exists as a number of directory trees in one of two categories:
-
-- An *external* directory tree is one that is manually curated.
-- An *internal* directory tree is one that is populated by the execution of a test program.
-Tests locate *external* files by the user providing paths to external trees via a ~wcb~ command line:
-#+begin_example
-  wcb --tests --test-data=/path/to/external/tree1:/path/to/external/tree2
-  # or
-  wcb configure --test-data=/path/to/external/tree1:/path/to/external/tree2
-  wcb --tests
-  # or
-  export WCTEST_DATA_PATH=/path/to/external/tree1:/path/to/external/tree2
-#+end_example
-Tests locate *internal* files by sharing a convention for a file tree structure under the build directory:
-
-#+begin_example
-build/tests/<group>/<version>/<prefix-and-name>/<content>
-#+end_example
-
-Where ~<version>~ is the WCT version (~wire-cell --version~) of the software that produced the ~<content>~.  The file names of the ~<content>~ must omit any ~<version>~ string.
 
 
