@@ -1,10 +1,8 @@
-#+title: Writing WCT tests
-#+latex_header: \usepackage[margin=1in]{geometry}
-#+options: ':t toc:t
+*  Writing tests
 
-This provides general information on how to write WCT tests.  See the top [[file:../README.org][README]] for links to other documents describing how to write particular tsts.
+This section provides general information on how to write WCT tests.  See section [[Test implementation languages]] for starting points to details on writing tests in different support programming languages.
 
-* Determine the scope of the test
+** Determine the scope of the test
 
 When considering to develop a test, consider what should be tested and then ask yourself:
 
@@ -12,7 +10,7 @@ When considering to develop a test, consider what should be tested and then ask 
 - What *code* must a test depend on?  Can it be reduced?
 - What *data* must a test depend on?  Can it be reduced, removed or hard-coded?
   
-* Location of test source
+** Location of test source
 
 The source file for a test should be placed under one of the
 directories:
@@ -29,7 +27,7 @@ It is allowed for the dependency tree for test programs to be different than the
 
 For example, if a test of code in ~WireCellGen~ requires ROOT, that test should go into ~WireCellRoot~ (under ~root/test/*~ and not ~gen/test/*~).
 
-* Name the test
+** Name the test
 
 As described in [[file:framework.org]] a test must have a source file name that matches the pattern:
 
@@ -65,27 +63,3 @@ providing configuration, they should be included as a sibling to the
 test file.  Take caution not to name them starting with a ~<category>~
 label unless they themselves are meant to be run directly.  
 
-* Test source content
-
-The main requirement of all tests is that when they are executed they have a zero return code when successfully (test passes) and non-zero when an error occurs (test fails).
-
-The WCT test framework supports tests written in a number of languages and a guide for each is provided:
-
-- [[file:cpp.org][Compiled C++]]
-- [[file:jsonnet.org][Jsonnet]]
-- [[file:python.org][Python]]
-- [[file:shell.org][Shell]]
-- [[file:bats.org][BATS]]
-Additional forms may be added in the future.
-
-* Test data files
-
-Data files may be used to provide a test input.  Other "blessed" files
-may be provided so that the test may attempt to reproduce them exactly
-or statistically.
-
-Files should be collected in the WCT test data repository and reuse of
-files between tests is encouraged.  For more information see the
-document [[file:datarepo.org]].  See also the document [[file:bats.org]] for
-ways to access test data repo and other files in the context of BATS
-tests.

@@ -1,9 +1,15 @@
 #+title: Wire-Cell Toolkit Testing
-
+#+latex_header: \usepackage[margin=1in]{geometry}
+#+options: ':t toc:t
+#+SETUPFILE: https://fniessen.github.io/org-html-themes/org/theme-readtheorg.setup
 
 The Wire-Cell Toolkit (WCT) includes a large number of tests.  Developers and users are strongly encouraged to contribute even more.  Although the tests are built and run by default, typically, "normal users" are okay to suppress them (~./wcb --notests~) in order to reduce build time.  Tests are most needed by developers as they create and fix bugs, release managers preparing a release and users that are porting WCT to new platforms.
 
 The following documents describe the WCT test sub package and the test framework.  These should be read prior to moving on to reading one or more of the "howto" guides.  The first "How to write tests" gives a general introduction and the remaining describe how to write tests of a particular type and language.
+
+#+include: docs/testing.org
+
+* Links to more docs :noexport:
 
 - [[file:docs/this.org][Description of the test sub package]]
 - [[file:docs/framework.org][WCT test framework]]

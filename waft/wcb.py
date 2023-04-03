@@ -172,6 +172,7 @@ def configure(cfg):
         cfg.find_program(cmd, var=var, mandatory=False)
 
     cfg.find_program("pandoc", var="PANDOC", mandatory=False)
+    cfg.find_program("emacs", var="EMACS", mandatory=False)
 
     debug("dump: " + str(cfg.env))
 

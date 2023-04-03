@@ -1,10 +1,8 @@
-#+title: Wire-Cell Toolkit Testing Framework
-#+latex_header: \usepackage[margin=1in]{geometry}
-#+options: ':t toc:t
+* Framework
 
-This document describes the WCT test framework.
+This describes the WCT test framework.
 
-* Overview
+** Overview
 
 WCT provides a large and growing suite of self-tests.  When they pass, they assure a variety of correct or at least expected behavior.  Examples of the behavior tested:
 
@@ -20,7 +18,7 @@ WCT provides a large and growing suite of self-tests.  When they pass, they assu
 
 Tests are developed in the WCT testing framework as described in this document.
 
-* Basic test requirements
+** Test requirements
 
 The source file for a test program must found as:
 
@@ -50,14 +48,14 @@ The test groups names are:
 
 - check :: simply compile a program but do not run.
 - atomic :: is a basic test.  It may also have a ~<prefix>~ of ~test~.
-- history :: intended to run after all atomic tests and potentially consume data from prior campaigns and/or produce data for future campaigns.  See document [[file:datarepo.org]].
+- history :: intended to run after all atomic tests and potentially consume data from prior campaigns and/or produce data for future campaigns.  See section [[Data repository]].
 - report :: intended as a final stage to produce material for human inspection.
 
-* Executing tests
+** Executing tests
 
 The user executed tests in three different ways.
 
-** Automated campaign
+*** Automated campaign
 
 By default, *no tests are executed*.  To execute tests the ~--tests~ option may be given at configure time:
 #+begin_example
@@ -81,14 +79,14 @@ The values given at configure time may be viewed with:
   wcb dumpenv|grep 'wcb: TEST'
 #+end_example
 
-*** Skip long tests
+**** Skip long tests
 
 Some tests take many minutes to complete.  Each time they are run, their run time is recorded.  Subsequent testing campaigns may exclude all test that are expected to require more time than a given test duration:
 #+begin_example
   wcb --test-duration=<seconds>
 #+end_example
 
-** Targeted execution
+*** Targeted execution
 
 Assuming the build was configured with ~--test~, an individual test may be run explicitly via ~wcb~ by giving its "target name":
 #+begin_example
@@ -105,7 +103,7 @@ To force a particular test to be rerun after it has been run once:
 #+end_example
 If the build was not configured with the ~--test~ option, this option must be added to the above examples to enable them to actually operate on tests.
 
-** Direct execution
+*** Direct execution
 
 A test program may be executed directly from the shell command line.  Compiled tests are found under ~build/<pkg>/<prefix-and-name>~.  Interpreted test files are left in-place in the source trees and must be run with an appropriate interpreter.  Here are some examples of directly running tests:
 
@@ -115,9 +113,9 @@ wcsonnet cfg/test/test_wirecell.jsonnet
 bats test/test/test_bats.bats
 #+end_example
 
-* Test source
+** Test source
 
-A test source file must be located as described in Section [[Basic test requirements]].
+A test source file must be located as described in Section [[Test requirements]].
 Some examples:
 #+begin_example
 util/test/test_testing.cxx
@@ -125,15 +123,7 @@ gen/test/test-addnoise.bats
 util/test/check_act2viz.cxx
 #+end_example
 
-The supported file extensions include:
-
-- ~cxx~ :: a C++ program (see [[file:cpp.org]])
-- ~bats~ :: a Bash Automated Test System file (see [[file:bats.org]])
-- ~py~ :: a Python program (see [[file:python.org]])
-- ~sh~ :: a shell script (see [[file:shell.org]])
-- ~jsonnet~ :: a Jsonnet structure (see [[file:jsonnet.org]])
-The links above may be consulted for details of how to write tests in any of the supported languages.  The remainder of this document provides general information about executing tests.
-
+The supported source languages for WCT tests are described in section [[Test implementation languages]].
 
 
 

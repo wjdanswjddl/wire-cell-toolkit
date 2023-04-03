@@ -1,4 +1,7 @@
 #+title: Wire-Cell CUDA
+#+latex_header: \usepackage[margin=1in]{geometry}
+#+options: ':t toc:t
+#+SETUPFILE: https://fniessen.github.io/org-html-themes/org/theme-readtheorg.setup
 
 This package is a mostly empty place holder for now.  In the future it
 may provide Wire-Cell Toolkit components that depend on CUDA.

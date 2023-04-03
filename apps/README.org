@@ -1,0 +1,17 @@
+#+title: Wire Cell Toolkit Apps
+#+latex_header: \usepackage[margin=1in]{geometry}
+#+options: ':t toc:t
+#+SETUPFILE: https://fniessen.github.io/org-html-themes/org/theme-readtheorg.setup
+
+* Overview
+
+This package provides toolkit layers at the top of an application
+stack.  This includes
+
+- main command line programs, in particular ~wire-cell~.
+
+- a ~Main~ class used in CLI and other application interfaces (such as /art/).
+
+- a few so called "apps" which are WCT components that provide a
+  high-level execution policy.  See also ~TbbFlow~ in sub package ~tbb~
+  and ~Pgrapher~ in

@@ -359,6 +359,23 @@ def get_rpath(bld, uselst, local=True):
     ret.sort()
     return ret
 
+
+def org_export(task):
+    onode = task.inputs[0]
+    enode = task.outputs[0]
+    tmp = onode.abspath().replace('.org',enode.suffix())
+
+    if enode.name.endswith("pdf"):
+        func = "org-latex-export-to-pdf"
+    if enode.name.endswith("html"):
+        func = "org-html-export-to-html"
+    emacs="emacs %s --batch -f %s" % (onode.abspath(), func)
+    move="mv %s %s" % (tmp, enode.abspath())
+    cmd = "%s && %s" % (emacs, move)
+    info(cmd)
+    return task.exec_command(cmd, shell=True)
+
+
 @conf
 def smplpkg(bld, name, use='', app_use='', test_use=''):
 
@@ -451,15 +468,26 @@ def smplpkg(bld, name, use='', app_use='', test_use=''):
             keyname = appbin.name.upper().replace("-","_")
             validation_envs[keyname] = appbin.abspath()
                           
-    bld.cycle_group("documentation")
-    if docdir and "PANDOC" in bld.env:
-        for docsrc in docdir.ant_glob("*.org"):
-            docname = docsrc.name.replace('.org','')
-            if docname.startswith("setup"):
-                continue
-            docpdf = bld.path.find_or_declare(docname + ".pdf")
-            bld(rule="pandoc -o ${TGT[0].abspath()} ${SRC[0].abspath()}",
-                source = [docsrc], target = [docpdf])
+    readme = bld.path.find_resource("README.org")
+    if docdir and readme and "EMACS" in bld.env:  # pandoc sucks for org
+        bld.cycle_group("documentation")
+
+        # Note to authors of README.org you should add:
+        #
+        #   #+SETUPFILE: https://fniessen.github.io/org-html-themes/org/theme-readtheorg.setup
+
+        pdf  = bld.path.find_or_declare(bld.path.name + ".pdf")
+        html = bld.path.find_or_declare("index.html")
+
+        bld(rule=org_export,
+            name=bld.path.name+"_readme_pdf",
+            source=[readme], target=[pdf])
+        bld(rule=org_export,
+            name=bld.path.name+"_readme_html",
+            source=[readme], target=[html])
+        bld.install_files('${PREFIX}/share/doc', pdf)
+        bld.install_files('${PREFIX}/share/doc', html)
+
 
     bld.cycle_group("validations")
     for key,val in validation_envs.items():

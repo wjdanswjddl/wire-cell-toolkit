@@ -1,7 +1,6 @@
-#+title: Wire-Cell Zio
+#+title: Wire-Cell Toolkit Testing 
 #+latex_header: \usepackage[margin=1in]{geometry}
 #+options: ':t toc:t
 #+SETUPFILE: https://fniessen.github.io/org-html-themes/org/theme-readtheorg.setup
-
-This optional package interfaces WCT to [[https://brettviren.github.io/zio/][ZIO]].
-
+#+EXPORT_FILE_NAME: testing
+#+include: testing.org

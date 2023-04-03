@@ -1,12 +1,10 @@
-#+title: WCT C++ tests
-#+latex_header: \usepackage[margin=1in]{geometry}
-#+options: ':t toc:t
+* C++
 
 WCT tests of small code coverage (ie "unit" tests) typically must be written in C++ as a small program (ie, provides ~main()~).  In this document we walk though writing a test.
 
-* The example test
+** The example test
 
-After reading [[file:framework.org]] for an overview and [[file:writing.org]] to get a general understanding we decide to place our test in the "atomic" aka "test" category and pick a "name" ~idft~.  We place it here:
+After reading section [[Framework]]]] for an overview and [[Writing tests]] to get a general understanding we decide to place our test in the "atomic" aka "test" category and pick a "name" ~idft~.  We place it here:
 
 #+begin_example
 aux/test/test_idft.cxx
@@ -29,7 +27,7 @@ The first variant is actually identical to the atomic call.  The latter two requ
 
 Note, C++ tests require particular attention to dependencies.  The ~test_idft~ is a little special in that it only has build-time dependency on the ~iface~ sub package yet it is placed in the ~aux~ package and can have run-time dependency on other higher-level packages via WCT's plugin and component factory mechanisms.  In its default calling, it relies on the ~FftwDFT~ component being available.  This component is provided the ~WireCellAux~ plugin library (from the ~aux~ sub package) and so this minimal run-time dependency is satisfied by placing the test in the ~aux~ sub package.  Depending on the variant form, it must be run in a context with either the ~WireCellPytorch~ or ~WireCellCuda~ plugins available.  We will show how to register these variants so they are run when these optional sub packages are built.
 
-* Getting started
+** Getting started
 
 We start with an initial do nothing test that always succeeds:
 
@@ -46,7 +44,7 @@ We may build (which auto-runs) and manually run it with:
 #+end_example
 We use ~--target~ to avoid building/running the other tests.
 
-* Fleshing out
+** Fleshing out
 
 We may start by writing some test code directly in ~main()~.  As that grows we look for refactoring so we can easily expand coverage with minimal coding.  We end up with many ~test_xxx()~ functions which are static or templated:
 
@@ -71,7 +69,7 @@ int main(int argc, char* argv[])
 }
 #+end_example
 
-* Failing tests
+** Failing tests
 
 A test is successful if it completes with a return status code of zero.  A failed test can be indicated in a number of ways:
 
@@ -82,7 +80,7 @@ A test is successful if it completes with a return status code of zero.  A faile
 
 The test developer is free to use any or a mix of these methods and is strongly urged to use them pervasively throughout the test code.  
 
-* WCT C++ testing support
+** WCT C++ testing support
 
 As introduced above, WCT provides some support for testing.  The first are simple wrappers around ~assert()~ and one that will print a message if the assertion fails:
 
@@ -111,7 +109,7 @@ int main()
 
 See ~test_timekeeper.cxx~, ~test_memusage.cxx~ and ~test_execmon.cxx~, respectively, in ~util/test/~.
 
-* Output diagnostic files
+** Output diagnostic files
 
 By definition, an *atomic test* may not produce any files that are known to ~wcb~.  However, such a test is still free to produce files.  A typical reason for this is to produce diagnostic plots or other files for later examination by experts.  Here is the convention that should be followed in naming those output files.
 
@@ -128,7 +126,7 @@ int main(int argc, char* argv[])
 
 This will produce files under ~build/~ which are siblings to the program itself.  
 
-* Found input files
+** Found input files
 
 Likewise, an atomic test must not expect any input files specified by the caller.  However, it may load files that can be found from the environment.  A common example is to find a WCT "wires" file or others provided by ~wire-cell-data~.  Here is a C++ pattern do that in a way that naturally allows an atomic test to also be called in a variant manner.
 

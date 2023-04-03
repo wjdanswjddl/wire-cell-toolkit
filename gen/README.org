@@ -1,4 +1,7 @@
 #+title: Wire-Cell Gen
+#+latex_header: \usepackage[margin=1in]{geometry}
+#+options: ':t toc:t
+#+SETUPFILE: https://fniessen.github.io/org-html-themes/org/theme-readtheorg.setup
 
 This is the Wire-Cell "gen" sub-package.  It provides components
 related to generating simulated data.  In particular:
