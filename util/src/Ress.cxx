@@ -15,10 +15,11 @@ Ress::vector_t Ress::solve(Ress::matrix_t matrix, Ress::vector_t measured, const
         if (initial.size()) {
             model.Setbeta(initial);
         }
+        // FIXME: SetData overwrites SetLambdaWeight
+        model.SetData(matrix, measured);
         if (weights.size()) {
             model.SetLambdaWeight(weights);
         }
-        model.SetData(matrix, measured);
         model.Fit();
         return model.Getbeta();
     }
