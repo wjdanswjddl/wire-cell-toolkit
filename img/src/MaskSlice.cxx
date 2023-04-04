@@ -136,13 +136,13 @@ bool Img::MaskSliceBase::thresholding(const WireCell::ITrace::ChargeSequence& wi
                                    const double threshold, const int tick_span, const bool verbose)
 {
     const auto q_wiener = wiener_charge[qind];
+    const auto q_gauss = gauss_charge[qind];
     if (q_wiener > threshold) {
         if (verbose == true) {
-            log->debug("wiener: {} threshold: {} active: {}", q_wiener, threshold, true);
+            log->debug("wiener: {} gauss: {} threshold: {} active: {}", q_wiener, q_gauss, threshold, true);
         }
         return true;
     }
-    const auto q_gauss = gauss_charge[qind];
     const auto nq = gauss_charge.size();
     const int sbin = qind / tick_span;
     const int sbin_next = sbin + 1;
@@ -266,10 +266,13 @@ void Img::MaskSliceBase::slice(const IFrame::pointer& in, slice_map_t& svcmap)
                 threshold = m_default_threshold[planeid.index()];
             }
             bool verbose = false;
-            if (tbin + qind == 7100 && ich->ident() == 5508) {
-                log->debug("tick: {} channel: {}", tbin + qind, ich->ident());
-                verbose = true;
-            }
+            // TODO: remove debug code
+            // if ( (tbin + qind == 824 && ich->ident() == 5575) ||
+            // (tbin + qind == 1132 && ich->ident() == 5526)
+            // ) {
+            //     log->debug("tick: {} channel: {}", tbin + qind, ich->ident());
+            //     verbose = true;
+            // }
             if (thresholding(wiener_charge, charge, qind, threshold, m_tick_span, verbose) != true) continue;
             size_t slicebin = (tbin + qind) / m_tick_span;
             auto s = svcmap[slicebin];
