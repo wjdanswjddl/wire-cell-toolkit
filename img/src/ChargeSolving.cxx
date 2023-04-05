@@ -42,6 +42,7 @@ WireCell::Configuration Img::ChargeSolving::default_configuration() const
     for (const auto& one : m_weighting_strategies) {
         cfg["weighting_strategies"].append(one);
     }
+    cfg["solve_config"] = m_solve_config;
     cfg["whiten"] = m_whiten;
 
     return cfg;
@@ -56,7 +57,7 @@ void blob_weight_uniform(const cluster_graph_t& /*cgraph*/, graph_t& csg)
         if (vtx.kind != node_t::blob) {
             continue;
         }
-        vtx.value.uncertainty(1.0);
+        vtx.value.uncertainty(9.0);
     }
 }
 
@@ -85,13 +86,67 @@ void blob_weight_simple(const cluster_graph_t& cgraph, graph_t& csg)
 }
 // fixme: implement distance.
 
+
+void blob_weight_uboone(const cluster_graph_t& cgraph, graph_t& csg)
+{
+    int nblobs = 0;
+    for (auto desc : vertex_range(csg)) {
+        auto& vtx = csg[desc];
+        if (vtx.kind != node_t::blob) {
+            continue;
+        }
+        ++nblobs;
+        // check if blob is connected to other blobs in other slices
+        // connection | weight
+        // non | 9
+        // one | 3
+        // both| 1
+        auto cent_time = (int)csg[boost::graph_bundle].islice->start();
+        bool prev_con = false;
+        bool next_con = false;
+        for (auto edge : mir(boost::out_edges(vtx.orig_desc, cgraph)))
+        {
+            vdesc_t ndesc = boost::target(edge, cgraph);
+            const auto& nnode = cgraph[ndesc];
+            if (nnode.code() == 'b') {
+                auto time = (int)get<blob_t>(nnode.ptr)->slice()->start();
+                if (time > cent_time) {
+                    next_con = true;
+                }
+                if (time < cent_time) {
+                    prev_con = true;
+                }
+            }
+        }
+        double weight = 9.;
+        if (next_con) {
+            weight /= 3.;
+        }
+        if (prev_con) {
+            weight /= 3.;
+        }
+        vtx.value.uncertainty((float) weight);
+        // TODO remove this
+        // std::cout << String::format("cent_time: %f next_con: %d, prev_con: %d, weight: %d", cent_time, next_con, prev_con, weight) << std::endl;
+    }
+    // TODO remove this
+    // std::cout << String::format("nblobs: %d", nblobs) << std::endl;
+}
+
 // Weighting function lookup
 using blob_weighting_f = std::function<void(const cluster_graph_t& cgraph, graph_t& csg)>;
 using blob_weighting_lut = std::unordered_map<std::string, blob_weighting_f>;
 static blob_weighting_lut gStrategies{
     {"uniform", blob_weight_uniform},
     {"simple", blob_weight_simple},
+    {"uboone", blob_weight_uboone},
     // distance....
+};
+
+
+static std::unordered_map<std::string, SolveParams::Config> gSolveParamsConfigMap{
+    {"simple", SolveParams::simple},
+    {"uboone", SolveParams::uboone},
 };
 
 // this depends on gStrategies.
@@ -116,6 +171,14 @@ void Img::ChargeSolving::configure(const WireCell::Configuration& cfg)
             THROW(ValueError() << errmsg{"Unknown weighting strategy: " + strat});
         }
     }
+    for (auto strategy : m_weighting_strategies) {
+        log->debug("weighting strategy: {}", strategy);
+    }
+    m_solve_config = get<std::string>(cfg, "solve_config", m_solve_config);
+    if (gSolveParamsConfigMap.find(m_solve_config) == gSolveParamsConfigMap.end()) {
+        THROW(ValueError() << errmsg{"Unknown SolveParams::Config: " + m_solve_config});
+    }
+    log->debug("SolveParams::Config: {}", m_solve_config);
     m_whiten = get<bool>(cfg, "whiten", m_whiten);
 }
 
@@ -207,13 +270,25 @@ bool Img::ChargeSolving::operator()(const input_pointer& in, output_pointer& out
 
     std::vector<float> blob_threshold(nstrats, m_blob_thresh.value());
 
-    SolveParams sparams{Ress::Params{Ress::lasso}, 1000, m_whiten};
+    SolveParams sparams{gSolveParamsConfigMap[m_solve_config], 1000, m_whiten};
     for (size_t ind = 0; ind < nstrats; ++ind) {
         const auto& strategy = m_weighting_strategies[ind];
         log->debug("cluster: {} strategy={}",
                    in->ident(), strategy);
 
         auto& blob_weighter = gStrategies[strategy];
+
+        // TODO: remove debug code
+        // for (auto& sg : sgs) {
+        //     auto gprop = sg[boost::graph_bundle];
+        //     int start_tick = std::round(gprop.islice->start()/(0.5*WireCell::units::us));
+        //     if (start_tick==2132) {
+        //         log->debug("start: {}", start_tick);
+        //         dump_sg(sg, log);
+        //         blob_weighter(in_graph, sg);
+        //         solve(sg, sparams, true);
+        //     }
+        // }
 
         std::transform(sgs.begin(), sgs.end(), sgs.begin(),
                        [&](graph_t& sg) {

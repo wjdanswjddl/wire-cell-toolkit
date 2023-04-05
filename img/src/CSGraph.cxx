@@ -1,5 +1,6 @@
 #include "WireCellImg/CSGraph.h"
 
+#include "WireCellUtil/String.h"
 #include "WireCellUtil/Exceptions.h"
 #include "WireCellAux/SimpleBlob.h"
 
@@ -25,7 +26,7 @@ indexed_vdescs_t CS::select_ordered(const graph_t& csg,
     return indexed_vdescs_t(ret);
 }
 
-graph_t CS::solve(const graph_t& csg, const SolveParams& params)
+graph_t CS::solve(const graph_t& csg, const SolveParams& params, const bool verbose)
 {
     graph_t csg_out;
 
@@ -67,7 +68,7 @@ graph_t CS::solve(const graph_t& csg, const SolveParams& params)
         const auto& meas_in = csg[meas_descs.collection[mind]];
         const auto valerr = meas_in.value;
         measure(mind) = valerr.value();
-        mcov(mind, mind) = valerr.uncertainty();
+        mcov(mind, mind) = valerr.uncertainty()*valerr.uncertainty();
 
         auto desc_out = boost::add_vertex(meas_in, csg_out);
         meas_descs_out(desc_out);        
@@ -78,7 +79,7 @@ graph_t CS::solve(const graph_t& csg, const SolveParams& params)
     }
 
     // special case of one blob
-    if (blob_descs.size() == 1) {
+    if (params.config == SolveParams::simple && blob_descs.size() == 1) {
         auto nbdesc = blob_descs_out.collection[0];
         value_t val;
         for (size_t mind=0; mind < nmeas; ++mind) {
@@ -122,6 +123,26 @@ graph_t CS::solve(const graph_t& csg, const SolveParams& params)
     double_vector_t m_vec = measure;
     double_matrix_t R_mat = A;
 
+    if (params.config != SolveParams::uboone && params.config != SolveParams::simple) {
+        THROW(ValueError() << errmsg{String::format("SolveParams config %s not defined", params.config)});
+    }
+    auto rparams = Ress::Params{Ress::lasso}; // SolveParams::simple
+    if (params.config == SolveParams::uboone) {
+        double total_wire_charge = m_vec.sum(); // before scale
+        double lambda = 3./total_wire_charge/2.*params.scale;
+        double tolerance = total_wire_charge/3./params.scale/R_mat.cols()*0.005;
+        rparams = Ress::Params{Ress::lasso, lambda, 100000, tolerance, true};
+    }
+    // if (verbose) {
+    //     std::cout << "CS params: " << params.scale << ", " << params.whiten << std::endl;
+    //     std::cout << "ress params: " << rparams.lambda << ", " << rparams.tolerance << std::endl;
+    //     std::cout << "mcov: \n" << mcov << std::endl;
+    //     std::cout << "R_mat: \n" << R_mat << std::endl;
+    //     std::cout << "m_vec: \n" << m_vec << std::endl;
+    //     std::cout << "source: \n" << source << std::endl;
+    //     std::cout << "weight: \n" << weight << std::endl;
+    // }
+
     if (params.whiten) {
 
         // std::cerr << "A:\n" << A << "\nmcov:\n" << mcov << "\nmcovinv:\n" << mcov.inverse() << std::endl;
@@ -130,27 +151,37 @@ graph_t CS::solve(const graph_t& csg, const SolveParams& params)
         // std::cerr << "U:\n" << U << std::endl;
  
         // The measure vector in a "whitened" basis
-        m_vec = params.scale*U*measure;
+        m_vec = U*measure;
 
         // The blob-measure association in "whitened" basis (becomes
         // the "reasponse" matrix in ress solving).
-        R_mat = U * A;
+        R_mat = params.scale*U*A;
     }
-
+    if (verbose) {
+        std::cout << "CS params: " << params.scale << ", " << params.whiten << std::endl;
+        std::cout << "ress params: " << rparams.lambda << ", " << rparams.tolerance << std::endl;
+        std::cout << "R_mat: \n" << R_mat << std::endl;
+        std::cout << "m_vec: \n" << m_vec << std::endl;
+        std::cout << "source: \n" << source << std::endl;
+        std::cout << "weight: \n" << weight.size() << ", " << weight[0] << std::endl;
+    }
     // std::cerr << "R:\n" << R_mat << "\nm:\n" << m_vec << std::endl;
-    auto solution = Ress::solve(R_mat, m_vec, params.ress,
+    auto solution = Ress::solve(R_mat, m_vec, rparams,
                                 source, weight);
+    if (verbose) {
+        std::cout << "solution: \n" << solution << std::endl;
+    }
     auto predicted = Ress::predict(R_mat, solution);
 
     auto& gp_out = csg_out[boost::graph_bundle];
     gp_out.chi2_base = Ress::chi2_base(m_vec, predicted);
-    gp_out.chi2_l1 = Ress::chi2_l1(m_vec, solution, params.ress.lambda);
+    gp_out.chi2_l1 = Ress::chi2_l1(m_vec, solution, rparams.lambda);
 
     // Update outgoing blob nodes with their solution
     for (size_t ind=0; ind<nblob; ++ind) {
         auto& bvalue = csg_out[blob_descs_out.collection[ind]];
         //bvalue.value.value(solution[ind]);
-        bvalue.value = solution[ind]; // drops weight
+        bvalue.value = solution[ind]*params.scale; // drops weight
     }
     return csg_out;
 }
