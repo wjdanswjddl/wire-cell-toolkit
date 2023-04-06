@@ -136,7 +136,7 @@ void blob_weight_uboone(const cluster_graph_t& cgraph, graph_t& csg)
 // Weighting function lookup
 using blob_weighting_f = std::function<void(const cluster_graph_t& cgraph, graph_t& csg)>;
 using blob_weighting_lut = std::unordered_map<std::string, blob_weighting_f>;
-static blob_weighting_lut gStrategies{
+static const blob_weighting_lut gStrategies{
     {"uniform", blob_weight_uniform},
     {"simple", blob_weight_simple},
     {"uboone", blob_weight_uboone},
@@ -144,7 +144,7 @@ static blob_weighting_lut gStrategies{
 };
 
 
-static std::unordered_map<std::string, SolveParams::Config> gSolveParamsConfigMap{
+static const std::unordered_map<std::string, SolveParams::Config> gSolveParamsConfigMap{
     {"simple", SolveParams::simple},
     {"uboone", SolveParams::uboone},
 };
@@ -270,13 +270,13 @@ bool Img::ChargeSolving::operator()(const input_pointer& in, output_pointer& out
 
     std::vector<float> blob_threshold(nstrats, m_blob_thresh.value());
 
-    SolveParams sparams{gSolveParamsConfigMap[m_solve_config], 1000, m_whiten};
+    SolveParams sparams{gSolveParamsConfigMap.at(m_solve_config), 1000, m_whiten};
     for (size_t ind = 0; ind < nstrats; ++ind) {
         const auto& strategy = m_weighting_strategies[ind];
         log->debug("cluster: {} strategy={}",
                    in->ident(), strategy);
 
-        auto& blob_weighter = gStrategies[strategy];
+        auto& blob_weighter = gStrategies.at(strategy);
 
         // TODO: remove debug code
         // for (auto& sg : sgs) {
