@@ -18,8 +18,6 @@ using namespace WireCell;
 
 Img::MaskSliceBase::MaskSliceBase()
     : Aux::Logger("MaskSlice", "img")
-    , m_tick_span(4)
-    , m_tag("")
 {
 }
 Img::MaskSliceBase::~MaskSliceBase() {}
@@ -36,10 +34,13 @@ WireCell::Configuration Img::MaskSliceBase::default_configuration() const
     // Number of ticks over which each output slice should sum
     cfg["tick_span"] = m_tick_span;
 
-    // If given, use tagged traces.  Otherwise use all traces.
-    cfg["tag"] = m_tag;
+    // Used to judge active or not
+    cfg["wiener_tag"] = m_wiener_tag;
 
-    // use these traces for error
+    // Assign charge for activities
+    cfg["charge_tag"] = m_charge_tag;
+
+    // use these traces for activity error
     cfg["error_tag"] = m_error_tag;
 
     // 0, 1, 2 for U, V, W
@@ -59,6 +60,14 @@ WireCell::Configuration Img::MaskSliceBase::default_configuration() const
     cfg["dummy_error"] = m_dummy_error;
     cfg["masked_charge"] = m_masked_charge;
     cfg["masked_error"] = m_masked_error;
+
+    cfg["nthreshold"][0] = m_nthreshold[0];
+    cfg["nthreshold"][1] = m_nthreshold[1];
+    cfg["nthreshold"][2] = m_nthreshold[2];
+    cfg["default_threshold"][0] = m_default_threshold[0];
+    cfg["default_threshold"][1] = m_default_threshold[1];
+    cfg["default_threshold"][2] = m_default_threshold[2];
+
     // if both are zero, (default) determine tbin range from input
     // frame.
     cfg["min_tbin"] = m_min_tbin;
@@ -71,12 +80,14 @@ void Img::MaskSliceBase::configure(const WireCell::Configuration& cfg)
 {
     m_anode = Factory::find_tn<IAnodePlane>(cfg["anode"].asString());  // throws
     m_tick_span = get(cfg, "tick_span", m_tick_span);
-    m_tag = get<std::string>(cfg, "tag", m_tag);
+    m_wiener_tag = get<std::string>(cfg, "wiener_tag", m_wiener_tag);
+    m_charge_tag = get<std::string>(cfg, "charge_tag", m_charge_tag);
     m_error_tag = get<std::string>(cfg, "error_tag", m_error_tag);
-    m_dummy_charge = get<float>(cfg, "dummy_charge", m_dummy_charge);
-    m_dummy_error = get<float>(cfg, "dummy_error", m_dummy_error);
-    m_masked_charge = get<float>(cfg, "masked_charge", m_masked_charge);
-    m_masked_error = get<float>(cfg, "masked_error", m_masked_error);
+    m_dummy_charge = get<double>(cfg, "dummy_charge", m_dummy_charge);
+    m_dummy_error = get<double>(cfg, "dummy_error", m_dummy_error);
+    log->debug("double dummy_error = {}", m_dummy_error);
+    m_masked_charge = get<double>(cfg, "masked_charge", m_masked_charge);
+    m_masked_error = get<double>(cfg, "masked_error", m_masked_error);
     m_min_tbin = get<int>(cfg, "min_tbin", m_min_tbin);
     m_max_tbin = get<int>(cfg, "max_tbin", m_max_tbin);
     if (cfg.isMember("active_planes")) {
@@ -106,6 +117,63 @@ void Img::MaskSliceBase::configure(const WireCell::Configuration& cfg)
     for (auto id : m_masked_planes) {
         log->debug("masked planes: {}", id);
     }
+    if (cfg.isMember("nthreshold")) {
+        m_nthreshold.clear();
+        for (auto var : cfg["nthreshold"]) {
+            m_nthreshold.push_back(var.asDouble());
+        }
+    }
+    if (cfg.isMember("default_threshold")) {
+        m_default_threshold.clear();
+        for (auto var : cfg["default_threshold"]) {
+            m_default_threshold.push_back(var.asDouble());
+        }
+    }
+}
+
+bool Img::MaskSliceBase::thresholding(const WireCell::ITrace::ChargeSequence& wiener_charge,
+                                   const WireCell::ITrace::ChargeSequence& gauss_charge, const size_t qind,
+                                   const double threshold, const int tick_span, const bool verbose)
+{
+    const auto q_wiener = wiener_charge[qind];
+    const auto q_gauss = gauss_charge[qind];
+    if (q_wiener > threshold) {
+        if (verbose == true) {
+            log->debug("wiener: {} gauss: {} threshold: {} active: {}", q_wiener, q_gauss, threshold, true);
+        }
+        return true;
+    }
+    const auto nq = gauss_charge.size();
+    const int sbin = qind / tick_span;
+    const int sbin_next = sbin + 1;
+    const int sbin_prev = sbin - 1;
+    double q_next = 0;
+    double q_prev = 0;
+    if (sbin_next * 4 > 0 && sbin_next * 4 < nq) {
+        size_t count = 0;
+        for (size_t i = sbin_next * 4; i < (sbin_next + 1) * 4 && i < nq; ++i) {
+            q_next += wiener_charge[i];
+            ++count;
+        }
+        q_next /= count;
+    }
+    if (sbin_prev * 4 > 0 && sbin_prev * 4 < nq) {
+        size_t count = 0;
+        for (size_t i = sbin_prev * 4; i < (sbin_prev + 1) * 4 && i < nq; ++i) {
+            q_prev += wiener_charge[i];
+            ++count;
+        }
+        q_prev /= count;
+    }
+    bool is_active = false;
+    if ((q_gauss > q_next / 3. && q_next > threshold) || (q_gauss > q_prev / 3. && q_prev > threshold)) {
+        is_active =  true;
+    }
+    if (verbose == true) {
+        log->debug("gauss: {} wiener: {} prev: {} next: {} threshold: {} active: {}", q_gauss, q_wiener, q_prev, q_next, threshold,
+                   is_active);
+    }
+    return is_active;
 }
 
 void Img::MaskSliceBase::slice(const IFrame::pointer& in, slice_map_t& svcmap)
@@ -113,15 +181,16 @@ void Img::MaskSliceBase::slice(const IFrame::pointer& in, slice_map_t& svcmap)
     const double tick = in->tick();
     const double span = tick * m_tick_span;
 
-    // active slices
-    auto charge_traces = Aux::tagged_traces(in, m_tag);
+    // get charge traces
+    auto charge_traces = Aux::tagged_traces(in, m_charge_tag);
     const size_t ntraces = charge_traces.size();
 
     if (!ntraces) {
-        log->debug("no traces {} from frame {}", m_tag, in->ident());
+        log->debug("no traces {} from frame {}", m_charge_tag, in->ident());
         return;
     }
 
+    // min_max tbin from charge trace
     int min_tbin = m_min_tbin;
     int max_tbin = m_max_tbin;
     if (min_tbin == 0 and max_tbin == 0) {
@@ -135,17 +204,39 @@ void Img::MaskSliceBase::slice(const IFrame::pointer& in, slice_map_t& svcmap)
         max_tbin = *std::max_element(tends.begin(), tends.end());
     }
 
+    // get wiener traces
+    auto wiener_traces = Aux::tagged_traces(in, m_wiener_tag);
+    if(charge_traces.size()!=wiener_traces.size()) {
+        log->error("trace size mismatch: {}: {} and {}: {}",
+                   m_charge_tag, charge_traces.size(), m_wiener_tag, wiener_traces.size());
+        THROW(RuntimeError() << errmsg{"charge_traces.size()!=wiener_traces.size()"});
+    }
+
+    // get RMS for traces
+    auto const& summary = in->trace_summary(m_wiener_tag);
+    if (summary.size()!=wiener_traces.size()) {
+        log->error("size un-matched for tag \"{}\", trace: {}, summary: {}. needed for threshold calc.", m_wiener_tag, wiener_traces.size(), summary.size());
+        THROW(RuntimeError() << errmsg{"size un-matched"});
+    }
+
+    // get charge error traces
     auto charge_err_traces = Aux::tagged_traces(in, m_error_tag);
     if(charge_traces.size()!=charge_err_traces.size()) {
         log->error("trace size mismatch: {}: {} and {}: {}",
-                   m_tag, charge_traces.size(), m_error_tag, charge_err_traces.size());
+                   m_charge_tag, charge_traces.size(), m_error_tag, charge_err_traces.size());
         THROW(RuntimeError() << errmsg{"charge_traces.size()!=charge_err_traces.size()"});
     }
+
+    // process active planes 
     for (size_t idx=0; idx < charge_traces.size(); ++idx) {
         auto trace = charge_traces[idx];
+        auto wiener_trace = wiener_traces[idx];
         auto err_trace = charge_err_traces[idx];
         const int tbin = trace->tbin();
         const int chid = trace->channel();
+        if (tbin != wiener_trace->tbin() || chid != wiener_trace->channel()) {
+            THROW(RuntimeError() << errmsg{"tbin != wiener_trace->tbin() || chid != wiener_trace->channel()"});
+        }
         if (tbin != err_trace->tbin() || chid != err_trace->channel()) {
             THROW(RuntimeError() << errmsg{"tbin != err_trace->tbin() || chid != err_trace->channel()"});
         }
@@ -155,7 +246,11 @@ void Img::MaskSliceBase::slice(const IFrame::pointer& in, slice_map_t& svcmap)
             continue;
         }
         const auto& charge = trace->charge();
+        const auto& wiener_charge = wiener_trace->charge();
         const auto& error = err_trace->charge();
+        if (charge.size() != wiener_charge.size() || charge.size() != error.size()) {
+            THROW(RuntimeError() << errmsg{"charge.size() != wiener_charge.size() || charge.size() != error.size()"});
+        }
         const size_t nq = charge.size();
         for (size_t qind = 0; qind != nq; ++qind) {
             if ((tbin + (int) qind) < min_tbin || (tbin + (int) qind) >= max_tbin) {
@@ -165,10 +260,20 @@ void Img::MaskSliceBase::slice(const IFrame::pointer& in, slice_map_t& svcmap)
             }
             const auto q = charge[qind];
             const auto e = error[qind];
-            // TODO: do we want this?
-            if (q == 0.0) {
-                continue;
+            // threshold
+            double threshold = m_nthreshold[planeid.index()] * summary[idx];
+            if (threshold == 0) {
+                threshold = m_default_threshold[planeid.index()];
             }
+            bool verbose = false;
+            // TODO: remove debug code
+            // if ( (tbin + qind == 824 && ich->ident() == 5575) ||
+            // (tbin + qind == 1132 && ich->ident() == 5526)
+            // ) {
+            //     log->debug("tick: {} channel: {}", tbin + qind, ich->ident());
+            //     verbose = true;
+            // }
+            if (thresholding(wiener_charge, charge, qind, threshold, m_tick_span, verbose) != true) continue;
             size_t slicebin = (tbin + qind) / m_tick_span;
             auto s = svcmap[slicebin];
             if (!s) {
@@ -178,10 +283,10 @@ void Img::MaskSliceBase::slice(const IFrame::pointer& in, slice_map_t& svcmap)
             }
             // TODO: how to handle error?
             s->sum(ich, {q, e});
-            if (chid == 0) {
-                log->trace("chid: {} slicebin: {} charge: {} error {}", chid, slicebin, s->activity()[ich].value(),
-                           s->activity()[ich].uncertainty());
-            }
+            // if (tbin+qind == 0 && chid > 1517 && chid < 1523) {
+            //     log->debug("chid: {} slicebin: {} charge: {} error {}", chid, slicebin, s->activity()[ich].value(),
+            //                s->activity()[ich].uncertainty());
+            // }
         }
     }
 

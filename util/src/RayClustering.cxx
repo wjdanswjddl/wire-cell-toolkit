@@ -34,20 +34,26 @@ WireCell::RayGrid::blobvec_t WireCell::RayGrid::select(const blobproj_t& proj, g
 }
 
 WireCell::RayGrid::blobvec_t WireCell::RayGrid::overlap(const blobref_t& blob, const blobproj_t& proj,
-                                                        layer_index_t layer)
+                                                        layer_index_t layer, grid_index_t tolerance, const bool verbose)
 {
     const auto& strip = blob->strips()[layer];
-    auto blobs = select(proj, strip.bounds);
+    auto lbound = std::max(0,strip.bounds.first-tolerance);
+    auto hbound = std::min(proj.size(), (size_t)strip.bounds.second+tolerance);
+    if (verbose) {
+        std::cout << "bound: {" << lbound << ", " << hbound << "}" << std::endl;
+        std::cout << blob->as_string() << std::endl;
+    }
+    auto blobs = select(proj, {lbound, hbound});
     if (blobs.empty()) {
         return blobs;
     }
-    if (layer == 0) {
+    if (layer == 2) {
         return blobs;
     }
 
     --layer;
     auto newproj = projection(blobs, layer);
-    return overlap(blob, newproj, layer);
+    return overlap(blob, newproj, layer, tolerance, verbose);
 }
 
 WireCell::RayGrid::blobvec_t WireCell::RayGrid::references(const blobs_t& blobs)
@@ -85,7 +91,7 @@ bool WireCell::RayGrid::surrounding(const blobref_t& a, const blobref_t& b)
     return false;
 }
 
-void WireCell::RayGrid::associate(const blobs_t& one, const blobs_t& two, associator_t func)
+void WireCell::RayGrid::associate(const blobs_t& one, const blobs_t& two, associator_t func, overlap_t ol)
 {
     if (one.empty() or two.empty()) {
         return;
@@ -94,7 +100,7 @@ void WireCell::RayGrid::associate(const blobs_t& one, const blobs_t& two, associ
     const size_t ilayer = nlayers - 1;
     const auto proj = projection(references(two), ilayer);
     for (blobref_t blob = one.begin(); blob != one.end(); ++blob) {
-        auto assoc = overlap(blob, proj, ilayer);  // recursive call
+        auto assoc = ol(blob, proj, ilayer);  // recursive call
         for (blobref_t other : assoc) {
             func(blob, other);
         }

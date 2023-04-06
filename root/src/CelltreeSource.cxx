@@ -48,7 +48,7 @@ WireCell::Configuration Root::CelltreeSource::default_configuration() const
     // branch name, raw: orig, calibGaussian: gauss, calibWiener, wiener
     cfg["out_trace_tags"][0] = "orig";
 
-    // only wiener has threshold for now, channelThreshold
+    // FIXME: is "channelThreshold" for both wiener and gauss?
     cfg["in_branch_thresholds"][0] = "";
 
     cfg["time_scale"] = 4;
@@ -124,7 +124,7 @@ bool Root::CelltreeSource::read_traces(ITrace::vector& all_traces,
         tagged_traces[frametag].push_back(index);
         // std::cout<<"CelltreeSource: charges.size() "<<charges.size()<<"\n";
         all_traces.push_back(std::make_shared<Aux::SimpleTrace>(channel_number, 0, charges));
-        if(trace_has_threshold) tagged_threshold[frametag].push_back(channel_threshold->at(ind));
+        if(trace_has_threshold) tagged_threshold[frametag].push_back(channel_threshold->at(ind)/time_scale);
     }
 
     tfile->Close();
