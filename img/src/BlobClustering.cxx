@@ -4,6 +4,8 @@
 
 #include "WireCellUtil/RayClustering.h"
 #include "WireCellUtil/NamedFactory.h"
+#include "WireCellUtil/Exceptions.h"
+#include "WireCellUtil/String.h"
 
 #include "WireCellUtil/IndexedGraph.h"
 
@@ -25,6 +27,9 @@ void Img::BlobClustering::configure(const WireCell::Configuration& cfg)
 {
     // m_spans = get(cfg, "spans", m_spans);
     m_policy = get(cfg, "policy", m_policy);
+    if (m_policy != "simple" and m_policy != "uboone") {
+        THROW(ValueError() << errmsg{String::format("policy %s not implemented!", m_policy)});
+    }
 }
 
 WireCell::Configuration Img::BlobClustering::default_configuration() const
