@@ -4,6 +4,8 @@
 #include "WireCellUtil/Exceptions.h"
 #include "WireCellAux/SimpleBlob.h"
 
+#include "spdlog/spdlog.h"
+
 using namespace WireCell;
 using namespace WireCell::Img;
 using namespace WireCell::Img::CS;
@@ -134,13 +136,12 @@ graph_t CS::solve(const graph_t& csg, const SolveParams& params, const bool verb
         rparams = Ress::Params{Ress::lasso, lambda, 100000, tolerance, true};
     }
     // if (verbose) {
-    //     std::cout << "CS params: " << params.scale << ", " << params.whiten << std::endl;
-    //     std::cout << "ress params: " << rparams.lambda << ", " << rparams.tolerance << std::endl;
-    //     std::cout << "mcov: \n" << mcov << std::endl;
-    //     std::cout << "R_mat: \n" << R_mat << std::endl;
-    //     std::cout << "m_vec: \n" << m_vec << std::endl;
-    //     std::cout << "source: \n" << source << std::endl;
-    //     std::cout << "weight: \n" << weight << std::endl;
+        // SPDLOG_INFO("CS params {} {}", params.scale, params.whiten);
+        // SPDLOG_INFO("ress param {} {}", rparams.lambda, rparams.tolerance);
+        // SPDLOG_INFO("R_mat {}", String::stringify(R_mat));
+        // SPDLOG_INFO("m_vec {}", String::stringify(m_vec));
+        // SPDLOG_INFO("source {}", String::stringify(source));
+        // SPDLOG_INFO("weight {} {}", weight.size(), weight[0]);
     // }
 
     if (params.whiten) {
@@ -158,18 +159,18 @@ graph_t CS::solve(const graph_t& csg, const SolveParams& params, const bool verb
         R_mat = params.scale*U*A;
     }
     if (verbose) {
-        std::cout << "CS params: " << params.scale << ", " << params.whiten << std::endl;
-        std::cout << "ress params: " << rparams.lambda << ", " << rparams.tolerance << std::endl;
-        std::cout << "R_mat: \n" << R_mat << std::endl;
-        std::cout << "m_vec: \n" << m_vec << std::endl;
-        std::cout << "source: \n" << source << std::endl;
-        std::cout << "weight: \n" << weight.size() << ", " << weight[0] << std::endl;
+        SPDLOG_INFO("CS params {} {}", params.scale, params.whiten);
+        SPDLOG_INFO("ress param {} {}", rparams.lambda, rparams.tolerance);
+        SPDLOG_INFO("R_mat {}", String::stringify(R_mat));
+        SPDLOG_INFO("m_vec {}", String::stringify(m_vec));
+        SPDLOG_INFO("source {}", String::stringify(source));
+        SPDLOG_INFO("weight {} {}", weight.size(), weight[0]);
     }
     // std::cerr << "R:\n" << R_mat << "\nm:\n" << m_vec << std::endl;
     auto solution = Ress::solve(R_mat, m_vec, rparams,
                                 source, weight);
     if (verbose) {
-        std::cout << "solution: \n" << solution << std::endl;
+        SPDLOG_INFO("solution {}", String::stringify(solution));
     }
     auto predicted = Ress::predict(R_mat, solution);
 
