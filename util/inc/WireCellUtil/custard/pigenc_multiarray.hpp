@@ -59,14 +59,14 @@ namespace pigenc::multiarray {
         if (ndims != ArrayType::dimensionality) {
             return false;
         }
-        auto stoord = boost::c_storage_order();
         if (head.fortran_order()) {
-            stoord = boost::fortran_storage_order();
-        }
-        if (stoord != array.storage_order()) {
+            if (array.storage_order() != boost::fortran_storage_order()) {
+                return false;
+           }
+        } else if (array.storage_order() != boost::c_storage_order()) {
             return false;
         }
-        array = ArrayType(dat, shape, stoord);
+        array = ArrayType(dat, shape, array.storage_order());
         return true;
     }
 

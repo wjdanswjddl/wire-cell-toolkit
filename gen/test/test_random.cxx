@@ -98,7 +98,7 @@ void test_repeat()
     }
 }
 
-void test_speed_iface(size_t ndraws)
+double test_speed_iface(size_t ndraws)
 {
     auto rng = Factory::lookup<IRandom>("Random");
 
@@ -106,6 +106,7 @@ void test_speed_iface(size_t ndraws)
     for (size_t ind=0; ind<ndraws; ++ind) {
         x += rng->normal(0, 1);
     }
+    return x;
 }
 
 // before implementing closure in Random:
@@ -115,7 +116,7 @@ void test_speed_iface(size_t ndraws)
 // TICK: 560 ms (this: 464 ms) test_speed_iface
 // TICK: 800 ms (this: 240 ms) test_speed_closure
 
-void test_speed_closure(size_t ndraws)
+double test_speed_closure(size_t ndraws)
 {
     auto rng = Factory::lookup<IRandom>("Random");
     auto norm = rng->make_normal(0,1);
@@ -124,12 +125,12 @@ void test_speed_closure(size_t ndraws)
     for (size_t ind=0; ind<ndraws; ++ind) {
         x += norm();
     }
-
+    return x;
 }
 
 
 #include <random>
-void test_speed_direct(size_t ndraws)
+double test_speed_direct(size_t ndraws)
 {
     std::default_random_engine rng(42);
     std::normal_distribution<double> distribution(0, 1);
@@ -137,6 +138,7 @@ void test_speed_direct(size_t ndraws)
     for (size_t ind=0; ind<ndraws; ++ind) {
         x +=  distribution(rng);
     }
+    return x;
 }
 
 #include <limits>
@@ -163,7 +165,7 @@ struct Xorsh {
         return z;
     }
 };
-void test_speed_custom(size_t ndraws)
+double test_speed_custom(size_t ndraws)
 {
     Xorsh rng;
     std::normal_distribution<double> distribution(0, 1);
@@ -171,6 +173,7 @@ void test_speed_custom(size_t ndraws)
     for (size_t ind=0; ind<ndraws; ++ind) {
         x +=  distribution(rng);
     }
+    return x;
 }
 
 

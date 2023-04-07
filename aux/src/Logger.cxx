@@ -1,5 +1,6 @@
 #include "WireCellAux/Logger.h"
 
+#include <sstream>
 #include <iomanip>
 
 using namespace WireCell;

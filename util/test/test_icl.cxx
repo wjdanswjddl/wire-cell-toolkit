@@ -43,7 +43,8 @@ void doit_map(bool common)
         ++count;
         if (common) --count;
     }
-    std::cerr << im << std::endl;
+    // this causes compilation errors with gcc 12 and clang 14.
+    // std::cerr << im << std::endl;
 }
 
 template<typename Key>

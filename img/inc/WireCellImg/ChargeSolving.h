@@ -81,7 +81,11 @@ namespace WireCell {
             // strategy followed by a selection based on
             // m_minimum_charge.
             //std::vector<std::string> m_weighting_strategies{"uniform", "simple"};
-            std::vector<std::string> m_weighting_strategies{"uniform"};
+            std::vector<std::string> m_weighting_strategies{"uboone"};
+            
+            // controls ress param choice and one blob graph solving
+            // uboone, simple
+            std::string m_solve_config{"uboone"};
 
             // Config: if false, any measurement uncertainty is
             // ignored.  If true, the measurement covariance matrix is

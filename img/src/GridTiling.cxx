@@ -141,6 +141,17 @@ bool Img::GridTiling::operator()(const input_pointer& slice, output_pointer& out
     // SPDLOG_LOGGER_TRACE(log, "anode={} face={} slice={} making blobs",
     //                     anodeid, faceid, slice->ident());
     auto blobs = make_blobs(m_face->raygrid(), activities, m_nudge);
+    // TODO: remove debug code
+    // int start_tick = std::round(slice->start()/(0.5*WireCell::units::us));
+    // if (start_tick == 1024) {
+    //     std::cout << "GridTiling: " << std::endl;
+    //     for (auto activity : activities) {
+    //         std::cout << activity.as_string() << std::endl;
+    //     }
+    //     for (auto blob : blobs) {
+    //         std::cout << blob.as_string();
+    //     }
+    // }
 
     const float blob_value = 0.0;  // tiling doesn't consider particular charge
     for (const auto& blob : blobs) {

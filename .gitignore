@@ -72,3 +72,7 @@ tmp
 *.tar
 *.md
 README.tex
+larsoft-cfg
+*.dot
+configure
+
