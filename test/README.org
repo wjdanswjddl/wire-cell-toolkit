@@ -1,7 +1,5 @@
 #+title: Wire-Cell Toolkit Testing
-#+latex_header: \usepackage[margin=1in]{geometry}
-#+options: ':t toc:t
-#+SETUPFILE: https://fniessen.github.io/org-html-themes/org/theme-readtheorg.setup
+#+SETUPFILE: ../setup-readme.org
 
 The Wire-Cell Toolkit (WCT) includes a large number of tests.  Developers and users are strongly encouraged to contribute even more.
 

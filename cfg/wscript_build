@@ -12,4 +12,4 @@ if exps:
                           bld.path.ant_glob("pgrapher/experiment/%s/**/*.fcl" % exp),
                           relative_trick=True)
 
-bld.smplpkg('WireCellCfg', test_use='WireCellAppps')
+bld.smplpkg('WireCellCfg')

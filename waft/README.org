@@ -1,7 +1,5 @@
 #+title: Wire-Cell Builder Waf Tools
-#+latex_header: \usepackage[margin=1in]{geometry}
-#+options: ':t toc:t
-#+SETUPFILE: https://fniessen.github.io/org-html-themes/org/theme-readtheorg.setup
+#+SETUPFILE: ../setup-readme.org
 
 This repository holds some [[https://waf.io][Waf]] tools to help build the [[https://wirecell.bnl.gov][Wire-Cell Toolkit]] (or other) software.
 

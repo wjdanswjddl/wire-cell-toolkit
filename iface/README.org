@@ -1,7 +1,5 @@
 #+title:  Wire Cell Interfaces
-#+latex_header: \usepackage[margin=1in]{geometry}
-#+options: ':t toc:t
-#+SETUPFILE: https://fniessen.github.io/org-html-themes/org/theme-readtheorg.setup
+#+SETUPFILE: ../setup-readme.org
 
 This package provides a set of abstract base classes aka interface
 classes.  In general, there should be no implementation code in this

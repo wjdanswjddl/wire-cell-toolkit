@@ -5,5 +5,5 @@ bld.install_files('${PREFIX}/include',
 
 # util is the base WC library and must not "use" other WC libraries.
 bld.smplpkg('WireCellUtil',
-            use='SPDLOG BOOST FFTW EIGEN DYNAMO JSONCPP JSONNET ZLIB',
-            test_use='WireCellApps')
+            use='SPDLOG BOOST FFTW EIGEN DYNAMO JSONCPP JSONNET ZLIB')
+

@@ -1,7 +1,5 @@
 #+title: Wire Cell Interface to TBB flow graph
-#+latex_header: \usepackage[margin=1in]{geometry}
-#+options: ':t toc:t
-#+SETUPFILE: https://fniessen.github.io/org-html-themes/org/theme-readtheorg.setup
+#+SETUPFILE: ../setup-readme.org
 
 Note, TBB docs seem to be under constant churn so expect links here to become dead.
 

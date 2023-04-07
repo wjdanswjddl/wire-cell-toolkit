@@ -202,6 +202,31 @@ def build(bld):
         debug ("wcb: writing wct-depos.dot")
         bld.path.make_node("wct-deps.dot").write(str(bld.smplpkg_graph))
 
+    readme = bld.path.find_resource("README.org")
+    if readme:
+        bld.cycle_group("documentation")
+
+        # An HTML export of the READMEs
+        if "org2html" in bld.env.DOCS:
+            debug(f'wcb: org2html {readme}')
+            # fixme: For now we build HTML in-source and do not
+            # install.  This is dubious, but many org files link to
+            # other files in the source tree.
+            #
+            # fixme: A convention needs to be established to allow
+            # links to absolute paths.  For example, to find served
+            # readtheorg and bigblow themes and to allow integration
+            # between README, manual, blog and source.
+            html = readme.parent.make_node("README.html")
+            bld(features="org2html", source=readme, target=html, name="wct-readme-html")
+
+        # A PDF export fo the READMEs
+        if "org2pdf" in bld.env.DOCS:
+            debug(f'wcb: org2pdf {readme}')
+            pdf  = bld.path.find_or_declare(f'wct-readme.pdf')
+            bld(features="org2pdf", source=readme, target=pdf, name="wct-readme-pdf")
+            bld.install_files('${PREFIX}/share/doc', pdf)
+
 def dumpenv(bld):
     'dump build environment to stdout'
 

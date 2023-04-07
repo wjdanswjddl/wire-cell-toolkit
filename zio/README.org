@@ -1,7 +1,5 @@
 #+title: Wire-Cell Zio
-#+latex_header: \usepackage[margin=1in]{geometry}
-#+options: ':t toc:t
-#+SETUPFILE: https://fniessen.github.io/org-html-themes/org/theme-readtheorg.setup
+#+SETUPFILE: ../setup-readme.org
 
 This optional package interfaces WCT to [[https://brettviren.github.io/zio/][ZIO]].
 
