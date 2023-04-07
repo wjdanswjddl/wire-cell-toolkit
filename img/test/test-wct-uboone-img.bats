@@ -2,7 +2,7 @@
 
 # Run tests related to applying imaging to a rich uboone event.
 
-load ../../test/wct-bats.sh
+bats_load_library wct-bats.sh
 
 setup_file () {
     skip_if_no_input

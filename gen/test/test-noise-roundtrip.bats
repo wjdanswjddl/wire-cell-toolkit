@@ -4,7 +4,7 @@
 
 # bats file_tags=topic:noise
 
-load ../../test/wct-bats.sh
+bats_load_library wct-bats.sh
 
 setup_file () {
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env bats
 
-load "../../test/wct-bats.sh"
+bats_load_library wct-bats.sh
 
 setup_file () {
     [[ "$(divine_context)" == "file" ]]

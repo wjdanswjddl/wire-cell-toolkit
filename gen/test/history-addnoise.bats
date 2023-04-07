@@ -6,7 +6,7 @@
 # producing historical files.  O.w. collect one or more history/
 # directories and add their parent locations to WCTEST_DATA_PATH.
 
-load ../../test/wct-bats.sh
+bats_load_library wct-bats.sh
 
 # bats test_tags=time:1
 

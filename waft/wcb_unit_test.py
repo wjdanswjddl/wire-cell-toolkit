@@ -102,6 +102,7 @@ def make_interpreted_test(self):
         self.ut_env = env
     else:
         self.ut_env = dict(os.environ)
+    Logs.debug("wut: bats lib path: " + self.ut_env.get("BATS_LIB_PATH", "none"))
 
     paths = getattr(self, 'test_scripts_paths', {})
     for (k,v) in paths.items():

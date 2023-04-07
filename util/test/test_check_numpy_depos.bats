@@ -1,6 +1,6 @@
 #!/usr/bin/env bats
 
-load ../../test/wct-bats.sh
+bats_load_library wct-bats.sh
 
 @test "check muon depos" {
     skip_if_no_input

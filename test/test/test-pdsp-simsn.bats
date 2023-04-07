@@ -7,7 +7,7 @@
 
 # Some tests for https://github.com/WireCell/wire-cell-toolkit/pull/195
 
-load ../wct-bats.sh
+bats_load_library wct-bats.sh
 
 # FIXME: this test provides use cases for the test system
 #

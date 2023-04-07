@@ -1,41 +1,38 @@
 #+title: Wire-Cell Builder Waf Tools
 #+SETUPFILE: ../setup-readme.org
 
-This repository holds some [[https://waf.io][Waf]] tools to help build the [[https://wirecell.bnl.gov][Wire-Cell Toolkit]] (or other) software.
+* Overview
 
-Historically, WCT provided a command ~wcb~ which was ~waf~ + some extra tools from Waf plus the WCT specific build tools in the ~wirecell/waf-tools~ repository.  That repository has been copied to here, the `wire-cell-toolkit/waft/`  sub-package.  The ~wcb~ command may still be built from the contents here and used to build WCT itself or any Wire-Cell "user package".  In addition, the plain ~waf~ command may be used to build WCT.
+This repository holds [[https://waf.io][Waf]] tools used to build the [[https://wirecell.bnl.gov][Wire-Cell Toolkit]]
+(and some other) software projects.  These tools are designed to
+minimize the amount of "build system work" required from a developer.
+Instead, the developer must provide source code files that follow some
+simple naming conventions.  See section [[Conventions]].
 
-The rest of this document describes how to remake the ~wcb~ command, how to use it and describes some of the tools customized for WCT.
-
-* Packing ~wcb~
-
-The ~wcb~ command is a packed version of ~waf~ with extra tools.  A script is provided to automate rebuilding ~wcb~:
-
-#+begin_example
-  $ ./waft/refresh-wcb -o wcb
-#+end_example
-
-Be sure to do this *before* making a release of WCT if ~waft/~ has changed.
+WCT source ships with a program called ~wcb~ found in the top level
+directory.  Historically, ~wcb = waf + waft~.  However starting around
+version 0.25.0, WCT split ~waft~ out to this sub-package and made ~wcb~ be
+merely a copy of ~waf~.  Users are free to use their own ~waf~.  Wherever
+you may see reference to ~wcb~ in WCT documentation, unless any specific
+words to the contrary, ~wcb~ and ~waf~ refer to the same program.
 
 * Using ~wcb~ 
-
-for these instructions, when building WCT itself, you may substitute ~waf~ with ~./wcb~.
 
 On well-provisioned systems, ~wcb~ builds the software automatically:
 
 #+begin_example
-  (1)$ ./wcb configure --prefix=/path/to/install
+  (1)$ ./wcb configure --prefix=/path/to/install [...]
   (2)$ ./wcb 
   (3)$ ./wcb install
-  (4)$ ./wcb test
-  (5)$ ./wcb check
+  (4)$ ./wcb --tests
+  (4)$ ./wcb --docs=org2html,org2pdf,doxy
 #+end_example
 
 1. A one-time step so that dependencies may be located.
 2. Build the project (output goes to ~./build/~).
-3. Install elements of the build.
-4. Build and execute "unit tests".
-5. Build and execute integration/validation "checks".
+3. Install elements of the build to the prefix.
+4. Build and execute many tests.
+%. Build documentation.
 
 In some environments, ~wcb~ may need help to find dependencies.  Hints can be given with ~--with-*~ type flags.  To see available flags use the online help:
 
@@ -65,7 +62,7 @@ Packages can be included, excluded and located with the various ~--with-NAME*~ f
 
 When in doubt, explicitly include ~--with-NAME*~ flags.
 
-* Using the =smplpkgs= tool to build suites of packages
+* Conventions
 
 The =smplpkgs= tool included in =waf-tools= provides a simple way to build a suite of software packages that have interdependencies without you, the developer, having to care much about the build system.
 
@@ -124,133 +121,51 @@ Test and application programs are allowed to have additional dependencies declar
   bld.smplpkg('MyPackage', use='YourPackage YourOtherPackage', test_use='ROOTSYS')
 #+END_SRC
 
-* Tests
+** Tests
 
-For more information on WCT testing see ~wire-cell-toolkit/tests/README.org~.  What follows is a brief introduction to the support here in ~wire-cell-toolkit/waft/~.
-
-Atomic unit tests may be provided as:
-
-#+begin_example
-<pkg>/test/test*.<ext>
-#+end_example
-
-Depending on ~<ext>~ of:
-
-- ~cxx~ or ~kokkos~ :: the source file will be compiled into a program of the same name (less ~.<ext>~).
-
-- ~py sh bats jsonnet~ :: the source will be interpreted by a corresponding interpreter.
-
-Atomic tests will also be run automatically unless suppressed with:
-
-#+begin_example
-waf --notests [...]
-#+end_example
-
-A "check" program with source found as:
-
-#+begin_example
-<pkg>/test/check_*.<ext>
-#+end_example
-
-Will be compiled but not run if the ~<ext>~ is compilable as above.
-
-Arbitrary *variant tests* can be registered with Waf by registering their rule and inputs/outputs in
-
-#+begin_example
-<pkg>/wscript_build
-#+end_example
-
-For example,
-
-#+begin_src python
-  with bld.smplpkg('MyPackage', use='YourPackage YourOtherPackage') as p:
-    p.rule("${WCSONNET} > ${TGT} 2>&1", target="wcsonnet-help.log")
-#+end_src
-
-Additional higher level methods are also provided:
-
-- ~get_file(remote,local)~ :: download a remote file to a local one in the build via ~http://~, ~https://~ and ~scp:~.
-- ~script(file)~ :: explicitly register a script (ie, one lacking a ~test_*.<ext>~ spelling)
-- ~diff(one,two)~ :: do a diff on two files
-
-See ~wire-cell-toolkit/util/wscript_build~ for examples.
-
-** BATS tests
-
-A file:
-
-#+begin_example
-<pkg>/test_*.bats
-#+end_example
-
-Will be run as an atomic unit test but may internally provide one ore BATS tests.
-
+The ~waft~ tools provides substantial support for running various types
+tests.  Details are provided in the document [[file:../tests/README.org]].
+By default tests are not run but are activated with ~--tests~.
 
 * Using ~wcb~ in your own project
 
-The ~wcb~ command is designed to build Wire-Cell Toolkit and is not a
-general purpose build tool.  However, it may be used to build packages
-that are providing WCT plugin libraries or other derived packages.
+WCT source layout has a flexible design based on the composition of
+"sub packages".  In the WCT repository, a sub packages is simply a sub
+directory with a ~wscript_build~.  A sub package may also exist in a
+separate repository and be built separately against WCT.  They may be
+built with any build system but in particular can utilize ~wcb~.  Such a
+sub package is called a Wire-Cell user package (WCUP).
 
-To use it follow these steps:
+There are at least two options to build a WCUP,
 
-1) copy WCT's [[https://github.com/WireCell/wire-cell-toolkit/blob/master/wscript][wscript]] and [[https://github.com/WireCell/wire-cell-toolkit/blob/master/wcb][wcb]] to your package directory.
+1) Copy the ~waft~ directory into the WCUP and use ~waf~.
 
-2) create directory layout (see below)
+2) Dump ~waf+waft~ into a ~wcb~ and copy this single file to the WCUP.  See section [[Packing waft]] 
 
-3) possibly modify ~wscript~ (see below)
+The first method is preferred if development of the WCUP requires development of ~waft~ itself.  For example, if dependencies are needed by the WCUP that are not required by WCT.  OTOH, the second method will keep the WCUP source more "tidy" as there is only a single file (~wcb~) to carry.  Neither ~waft~ nor ~waf/wcb~ need to be committed to the WCUP repository.
 
-4) follow normal ~wcb~ build instructions
+You may create a WCUP that itself has many sub packages like WCT
+itself in which case you should mimic WCT source layout including
+placing a ~wscript_build~ file in each sub directory.
 
-An example package is available at 
+More simply, a WCUP can represent a single sub package adn so will
+have, eg, ~inc/~, ~src/~ and ~test/~ directories at top level.
 
-
-
-** Directory layout options
-
-You may create a package with one or more subpackages like WCT itself
-in which case each subpackage should have a ~wscript_build~ file as
-described above.  
-
-Or, a simple package may be created with ~inc/~, ~src/~, etc directly in
-the top-level directory.  Simply put the contents of a ~wscript_build~
-file in the main ~wscript~ file in the ~build()~ function.  For example:
+Assuming the package name is ~WireCellUser~, the main ~wscript~ file will
+largely be comprised of:
 
 #+begin_src python
 def build(bld):
     bld.load('wcb')
-    bld.smplpkg('WireCellJunk', use='WireCellUtil')
+    bld.smplpkg('WireCellUser', use='WireCellUtil')
 #+end_src
 
-** Modify ~wscript~
+* Packing waft 
 
-The ~wcb~ tool is created to find WCT's dependencies but not WCT itself.
-Nor does it predict new dependencies your own package may need.
-However, it has a simple mechanism to extend the method to search for
-dependencies.  In the ~wscript~ file, at top level the following code
-extends ~wcb~ to find WCT itself.
+As mentioned above, today ~wcb~ provided by WCT is simply a copy of ~waf~ and the tools are read from the ~waft~ "tooldir".  It is possible to "dump" these tools so that ~wcb = waf + waft~.  This can be done simply as:
 
-#+begin_src python
-from waflib.extras import wcb
-wcb.package_descriptions["WCT"] = dict(
-    incs=["WireCellUtil/Units.h"],
-    libs=["WireCellUtil"], 
-    mandatory=True)
-#+end_src
-
-
-** The top-level =wscript= file
-
-The ~wscript~ file is Waf's equivalent to a venerable ~Makefile~.  Almost
-all functionality is bundled into ~wcb~ so the ~wscript~ is relatively
-empty.  Refer to WCT's:
-
-
-
-* Internals
-
-The ~wcb.py~ file holds what might otherwise be in a top-level ~wscript~ file.  It's main thing is to list externals that can be handled in a generic way (see next para) and also doing any non-generic configuration.  It also enacts some dependency analysis to avoid building some sub-packages.  It holds things rather specific to Wire-Cell.
-
-The ~generic.py~ file provides a ~configure()~ method used to find most externals.  It results in defining ~HAVE_<name>_LIB~ and ~HAVE_<name>_INC~ when libs or includes are successfully checked for a given package.  These end up in ~config.h~ for use in C++ code.
-
-The building of WCT packages themselves is governed by ~smplpkg.py~.  This file implements WCT sub-package build policy but omits information about specific WCT targets (~wcb.py~ holds that).  It thus may be used by non-WCT projects.
+#+begin_example
+  $ ./waft/refresh-wcb -o /path/to/my/WCUP/wcb
+  $ cd /path/to/my/WCUP
+  $ ./wcb --help
+#+end_example

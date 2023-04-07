@@ -10,64 +10,66 @@ A BATS file is essentially a Bash shell script with a number of "special" functi
 
 With very little additional effort compared to plain shell scripts, a BATS test then provides added benefits such as:
 
-- standard forms to run a suite of tests and select individual
-- standard test protocol
-- stdout/stderr management
-- simple ways to run commands and check for success
+- standard forms to run a suite of tests and select individual tests.
+- standard test protocol.
+- stdout/stderr management.
+- simple ways to run commands and check for success.
 
-One major thing BATS does *not* provide is a way in which to connect different tests into a DAG.  However, by registering them as variant tests with ~wcb~, this can be accomplished.
+* BATS in WCT
 
-** BATS in WCT
+WCT provides a copy of BATS as the version coming with many operating systems is not up to date.    It will be used by the build system.  When running BATS tests directly the user should assure:
 
-WCT provides a copy of BATS.  It will be used automatically by ~wcb~.  For interactive use, the user may define a convenient alias: 
 #+begin_example
-  $ alias bats=/path/to/my/wire-cell-toolkit/test/bats/bin/bats
+  $ PATH=/path/to/my/wire-cell-toolkit/test/bats/bin:$PATH
+  $ export BATS_LIB_PATH=/path/to/my/wire-cell-toolkit/test
 #+end_example
 
-WCT provides a BATS library file at ~test/wct-bats.sh~.  It should be used by every BATS test.  It is loaded by a path relative to the parent directory of the BATS test file.  For example from ~apps/test/test_apps.bats~:
+* My first BATS test
 
 #+begin_example
-  $ cat test/test/test_bats.bats
-  #!/usr/bin/env bats
-  
-  load "../../test/wct-bats.sh"
-  
-  @test "test wire-cell help" {
+  bats_load_library wct-bats.sh
 
-      # Run wire-cell via the wct function in the wct-bats.sh lib.
-      run wct --help
-  
-      # Bats will only show this if test fails.
-      echo "$output"
-  
-      # Assert no error status code
-      [[ "$status" -eq 0 ]]
-  
-      # Assert expected info
-      [[ -n "$(echo $output | grep 'Wire-Cell Toolkit')" ]]
+  @test "check wire-cell version" {
+      wct --version
+
+      # Will fail one day when WCT v1 is released!
+      [[ -n $(echo $output | grep '^0' ) ]] 
+  }
+
+  @test "check wcsonnet help" {
+      local wcs=$(wcb_env_value WCSONNET)
+      run $wcs --help
+      echo $output    # shown only on error
+      [[ $status -eq 0 ]]
   }
 #+end_example
-The ~wct-bats.sh~ file is heavily commented and it is best to read this file to learn what functions it provides. 
 
-** Running BATS tests
+The command ~wct~ is actually a function from ~wct-bats.sh~ that runs ~wire-cell~ and instruments some default checking.
+The ~wcsonnet~ is not so wrapped but is available as a ~wcb~ variable.  The ~run~ command is a BATS helper to fill ~$output~ and ~$status~, which we check.
+
+* Running BATS tests
 
 A BATS test should run from anywhere:
 
 #+begin_example
-bats test/test/test_bats.bats
+bats test/test/test_my_first_bats.bats
 #+end_example
-As in this example, all ~@test~ functions in a BATS file will be executed sequentially.  A subset of tests with names that match a filter can be selected for running.
+As in this example, all ~@test~ functions in a BATS file will be executed sequentially.  A subset of tests with names that match a filter can be selected for running.  Using above example:
 
 #+begin_example
-bats -f "test wct bats" test/test/test_bats.bats
+bats -f "wire-cell" test/test/test_my_first_bats.bats
 #+end_example
 
-** Create a BATS test file
+* Creating a BATS test
+
+Here we give some detailed guidance on making a BATS test. 
+
+** Naming the BATS test file
 
 See section [[Framework]] and [[Writing tests]] for general guidance on writing WCT tests.  
 Start by creating a BATS file.  Here, we pick the "test" aka "atomic" category:
 #+begin_example
-<pkg>/test/test_<name>.bats
+<pkg>/test/<category><sep><name>.bats
 #+end_example
 As with all tests, the category and name should be unique.  If more than one test shares the same file name, though perhaps different packages or file name extensions, it is the duty of the developers to assure these tests are mutually compatible in their execution and any file production.
 

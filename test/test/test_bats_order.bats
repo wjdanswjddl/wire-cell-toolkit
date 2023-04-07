@@ -1,6 +1,6 @@
 #!/usr/bin/env bats
 
-load ../wct-bats.sh
+bats_load_library wct-bats.sh
 
 @test "ZZZ" {
     yell ZZZ

@@ -137,7 +137,7 @@ int main(int argc, char* argv[])
 As the C++ test executable is found ~build/<pkg>/<prefix><sep><name>~, these output files will be found there as siblings.  
 
 #+begin_tip
-See also the use of the [[Data repository]] for special files to per persisted beyond the local ~build/~ area.
+See also the use of the data repository in section [[Data repository]] for special files to per persisted beyond the local ~build/~ area.
 #+end_tip
 
 ** Found input files
@@ -163,5 +163,5 @@ For this kind of file to be found the user *must* define ~WIRECELL_PATH~ to incl
 In principle the path in ~argv[0]~ may also be used to locate the top of the ~wire-cell-toolkit~ source in order to locate files provided by the source and use them as input.
 
 #+begin_tip
-The [[Data repository]] also provides a set of known files for input.
+The data repository also provides a set of known files for input.
 #+end_tip

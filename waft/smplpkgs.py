@@ -126,6 +126,8 @@ class ValidationContext:
         # Explicitly force bats to run serially
         '.bats':'${BATS} --jobs 1 ${SCRIPT}',
         '.jsonnet':'${JSONNET} ${SCRIPT}'}
+    # A script may need extra environment.
+    script_environ = {}
 
     extra_prefixes = dict(atomic=("test",))
 
@@ -135,6 +137,9 @@ class ValidationContext:
         '''
         self.bld = bld
         self.uses = to_list(uses)
+
+        # fixme: ugly layer-busting hack.
+        self.script_environ['.bats'] = dict(BATS_LIB_PATH=bld.path.parent.find_dir("test").abspath())
 
         if not self.bld.env.TESTS:
             debug("smplpkgs: tests suppressed for " + self.bld.path.name)
@@ -266,11 +271,15 @@ class ValidationContext:
             warn(f'skipping script with no found interpreter: {source}')
             return
 
+        tsenv = dict(os.environ)
+        tsenv.update(self.script_environ.get(ext, {}))
+
         # debug('script: ' + cli)
         self.bld(features="test_scripts",
                  name=name + '_' + os.path.basename(interp),
                  ut_cwd   = self.bld.path, 
                  use = self.uses, 
+                 test_scripts_env = tsenv,
                  test_scripts_source = source,
                  test_scripts_template = templ,
                  target = [outnode])

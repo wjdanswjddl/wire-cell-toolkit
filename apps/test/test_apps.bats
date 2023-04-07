@@ -1,6 +1,6 @@
 #!/usr/bin/env bats
 
-load "../../test/wct-bats.sh"
+bats_load_library wct-bats.sh
 
 @test "test wct bats in apps" {
     usepkg util apps

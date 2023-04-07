@@ -1,4 +1,4 @@
-load ../wct-bats.sh
+bats_load_library wct-bats.sh
 
 @test "check usepkg" {
 

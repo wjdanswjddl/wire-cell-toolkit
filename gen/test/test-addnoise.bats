@@ -12,7 +12,7 @@
 
 # bats file_tags=noise,history
 
-load ../../test/wct-bats.sh
+bats_load_library wct-bats.sh
 
 # The intention is to run this test in multiple releases and compare across releases.
 # bats test_tags=history,plots,implicit

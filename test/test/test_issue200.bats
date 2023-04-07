@@ -5,7 +5,7 @@
 # Here, we pretend we build against WCT and make sure the build config
 # header is found.
 
-load ../wct-bats.sh
+bats_load_library wct-bats.sh
 
 @test "assure build config built" {
     wcb_env

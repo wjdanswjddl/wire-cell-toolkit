@@ -2,7 +2,7 @@
 
 # Targetted test for tiling with check_act2viz using microboone wires
 
-load ../../test/wct-bats.sh
+bats_load_library wct-bats.sh
 
 setup_file () {
     usepkg util

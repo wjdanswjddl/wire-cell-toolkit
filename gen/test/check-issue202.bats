@@ -41,7 +41,7 @@
 # "smlbug" and "bigbug" must be deleted.
 declare -A bugmean=( [nobug]=0.0 [smlbug]=0.04 [bigbug]=0.08 )
 
-load ../../test/wct-bats.sh
+bats_load_library wct-bats.sh
 
 # Policy helpers
 #

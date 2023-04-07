@@ -2,7 +2,7 @@
 
 # Test some main jsonnet that are expected to compile w/out args
 
-load ../../test/wct-bats.sh
+bats_load_library wct-bats.sh
 
 @test "compile various main configs" {
 
