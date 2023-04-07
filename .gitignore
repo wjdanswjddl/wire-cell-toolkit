@@ -66,8 +66,9 @@ ltximg
 auto
 latexmk-out
 *.tex
-
 svg-inkscape
 *.html
 tmp
 *.tar
+*.md
+README.tex

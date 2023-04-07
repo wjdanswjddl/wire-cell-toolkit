@@ -69,14 +69,18 @@ _tooldir = os.path.dirname(os.path.abspath(__file__))
 
 def options(opt):
     opt.load('compiler_cxx')
-    opt.load('wcb_unit_test') # adds --tests
     opt.load("datarepo")
+    opt.load('wcb_unit_test') # adds --tests
+
+    opt.add_option("--docs", default="",
+                   help="comma separated list of docs to generate.  eg: 'org2hml,org2pdf,doxy'.  default:none")
 
 def configure(cfg):
     cfg.load('compiler_cxx')
-    cfg.load('wcb_unit_test')
     cfg.load('datarepo')
+    cfg.load('wcb_unit_test')
     cfg.load('rpathify')
+    cfg.load('org')
 
     cfg.env.append_unique('CXXFLAGS',['-std=c++17'])
 
@@ -92,11 +96,15 @@ def configure(cfg):
     # For testing
     cfg.find_program('diff', var='DIFF', mandatory=True)
 
+    cfg.env.DOCS = cfg.options.docs.split(",")
+
 
 def build(bld):
     bld.load('wcb_unit_test')
     bld.load('datarepo')
+    bld.load('org')
 
+    bld.env.append_unique('DOCS', bld.options.docs.split(","))
 
 from wcb_unit_test import test_group_sequence
 
@@ -360,22 +368,6 @@ def get_rpath(bld, uselst, local=True):
     return ret
 
 
-def org_export(task):
-    onode = task.inputs[0]
-    enode = task.outputs[0]
-    tmp = onode.abspath().replace('.org',enode.suffix())
-
-    if enode.name.endswith("pdf"):
-        func = "org-latex-export-to-pdf"
-    if enode.name.endswith("html"):
-        func = "org-html-export-to-html"
-    emacs="emacs %s --batch -f %s" % (onode.abspath(), func)
-    move="mv %s %s" % (tmp, enode.abspath())
-    cmd = "%s && %s" % (emacs, move)
-    info(cmd)
-    return task.exec_command(cmd, shell=True)
-
-
 @conf
 def smplpkg(bld, name, use='', app_use='', test_use=''):
 
@@ -466,36 +458,43 @@ def smplpkg(bld, name, use='', app_use='', test_use=''):
                         #rpath = bld.get_rpath(app_use + [name], local=False),
                         use = app_use + [name])
             keyname = appbin.name.upper().replace("-","_")
-            validation_envs[keyname] = appbin.abspath()
-                          
+            # validation_envs[keyname] = appbin.abspath()
+            bld.env[keyname] = appbin.abspath()
+
+    # bld.cycle_group("validations")
+    # for key,val in validation_envs.items():
+    #     bld.env[key] = val
+
+    # bld.cycle_group("libraries")
+
+    vc = ValidationContext(bld, test_use + [name])
+
+    # Put this group after validations to avoid upsetting their group.
     readme = bld.path.find_resource("README.org")
-    if docdir and readme and "EMACS" in bld.env:  # pandoc sucks for org
+    if readme:
         bld.cycle_group("documentation")
 
-        # Note to authors of README.org you should add:
-        #
-        #   #+SETUPFILE: https://fniessen.github.io/org-html-themes/org/theme-readtheorg.setup
+        # An HTML export of the READMEs
+        if "org2html" in bld.env.DOCS:
+            debug(f'smplpkgs: org2html {readme}')
+            # fixme: For now we build HTML in-source and do not
+            # install.  This is dubious, but many org files link to
+            # other files in the source tree.
+            #
+            # fixme: A convention needs to be established to allow
+            # links to absolute paths.  For example, to find served
+            # readtheorg and bigblow themes and to allow integration
+            # between README, manual, blog and source.
+            html = readme.parent.make_node("README.html")
+            bld(features="org2html", source=readme, target=html)
 
-        pdf  = bld.path.find_or_declare(bld.path.name + ".pdf")
-        html = bld.path.find_or_declare("index.html")
-
-        bld(rule=org_export,
-            name=bld.path.name+"_readme_pdf",
-            source=[readme], target=[pdf])
-        bld(rule=org_export,
-            name=bld.path.name+"_readme_html",
-            source=[readme], target=[html])
-        bld.install_files('${PREFIX}/share/doc', pdf)
-        bld.install_files('${PREFIX}/share/doc', html)
-
-
-    bld.cycle_group("validations")
-    for key,val in validation_envs.items():
-        bld.env[key] = val
-
-    bld.cycle_group("libraries")
+        # A PDF export fo the READMEs
+        if "org2pdf" in bld.env.DOCS:
+            debug(f'smplpkgs: org2pdf {readme}')
+            pdf  = bld.path.find_or_declare(f'wct-readme-{bld.path.name}.pdf')
+            bld(features="org2pdf", source=readme, target=pdf)
+            bld.install_files('${PREFIX}/share/doc', pdf)
 
     # Return even if we are no tests so as to not break code in
     # wscript_build that uses this return to define "variant" tests.
-    return ValidationContext(bld, test_use + [name])
-
+    return vc
