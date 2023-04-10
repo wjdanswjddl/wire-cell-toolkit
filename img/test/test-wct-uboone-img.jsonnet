@@ -195,14 +195,14 @@ local img = {
         // ret: bc,
     }.ret,
 
-    dump(outfile) :: {
+    dump(outfile, fmt="json") :: {
 
         local cs = pg.pnode({
             type: "ClusterFileSink",
             name: outfile,
             data: {
                 outname: outfile,
-                format: "json",
+                format: fmt,
             }
         }, nin=1, nout=0),
         ret: cs
@@ -342,7 +342,8 @@ local masked_planes = [[],[2],[0],[1]];
 // single, multi, active, masked
 function(infile="celltreeOVERLAY-event6501.tar.bz2",
          outfile="clusters-event6501.tar.gz",
-         slicing = "single")
+         slicing = "single",
+         fmt = "json")
 
     local multi_slicing = slicing;
 local imgpipe =
@@ -379,13 +380,13 @@ local imgpipe =
 local graph = pg.pipeline([
     filesource(infile, tags=["gauss","wiener"]),
     // frame_quality_tagging, // event level tagging
-    // cmm_mod, // CMM modification
-    // frame_masking, // apply CMM
+    cmm_mod, // CMM modification
+    frame_masking, // apply CMM
     charge_err, // calculate charge error
     // magdecon, // magnify out
     // dumpframes,
     imgpipe,
-    img.dump(outfile),
+    img.dump(outfile, fmt),
 ], "main");
 
 local app = {
