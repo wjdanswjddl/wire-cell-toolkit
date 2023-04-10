@@ -78,7 +78,6 @@ bool FrameFileSource::matches(const std::string& tag)
         if (maybe == tag) {
             return true;
         }
-        log->debug("read unmatched tag: {} != ", tag, maybe);
     }
     return false;    
 }
@@ -117,7 +116,7 @@ IFrame::pointer FrameFileSource::load()
     // Collect portions of the frame data;
     using trace_array_t = Eigen::Array<float, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>;
     struct framelet_t { 
-        std::vector<double> tickinfo;
+        std::vector<double> tickinfo, summary;
         std::vector<int> channels;
         trace_array_t trace_array;
         std::string tag{""};
@@ -130,8 +129,10 @@ IFrame::pointer FrameFileSource::load()
             const size_t oldsize = framelets.size();
             framelet_indices[tag] = oldsize;
             framelets.resize(oldsize+1);
+            log->trace("call={}, make framelet for \"{}\" -> {}", m_count, tag, oldsize);
             return framelets.back();
         }
+        log->trace("call={}, get framelet for \"{}\" -> {}", m_count, tag, it->second);
         return framelets[it->second];
     };
 
@@ -145,20 +146,22 @@ IFrame::pointer FrameFileSource::load()
         // Read next element if current cursor is empty
         if (m_cur.fsize == 0) {
             this->read();
+            log->trace("call={}, read fsize={} ident={}, okay={}", m_count, m_cur.fsize, m_cur.ident, m_cur.okay);
 
             if (m_cur.fsize == 0) {
                 // zero read means EOF
+                log->trace("call={}, zero read.  EOS", m_count);
                 break;
             }
 
             if (!m_in) {
                 log->error("call={}, bad pig read with file={}", m_count, m_inname);
-                return nullptr;
+                THROW(IOError() << errmsg{"bad pig read with file " + m_inname});
             }
             if (!m_cur.okay) {
                 log->error("call={}, failed to parse npy file name {} in file={}",
                            m_count, m_cur.fname, m_inname);
-                return nullptr;
+                THROW(IOError() << errmsg{"numpy parse error with file " + m_inname});
             }
         }
 
@@ -168,8 +171,12 @@ IFrame::pointer FrameFileSource::load()
         }
         if (ident != m_cur.ident) {
             // we see next frame, done with this current
+            log->trace("call={}, found next frame: {} != {}", m_count, ident, m_cur.ident);
             break;       
         }
+
+        log->trace("call={}, loading type \"{}\", tag \"{}\"",
+                   m_count, m_cur.type, m_cur.tag);
 
         if (m_cur.type == "chanmask") {
             Eigen::Array<int, Eigen::Dynamic, Eigen::Dynamic> cmsarr;
@@ -177,13 +184,13 @@ IFrame::pointer FrameFileSource::load()
             if (!ok) {
                 log->error("call={}, cmm load failed tag=\"{}\" file={}",
                            m_count, m_cur.tag, m_inname);
-                return nullptr;
+                THROW(IOError() << errmsg{"numpy parse error of chanmask with file " + m_inname});
             }
             const int ncols = cmsarr.cols();
             if (ncols != 3) {
                 log->error("call={}, cmm wrong size nrows={}!=3 tag=\"{}\" file={}",
                            m_count, ncols, m_cur.tag, m_inname);
-                return nullptr;
+                THROW(IOError() << errmsg{"wrong size chanmask with file " + m_inname});
             }
             ChannelMasks cms;
             int nrows = cmsarr.rows();
@@ -192,14 +199,15 @@ IFrame::pointer FrameFileSource::load()
                 cms[row[0]].push_back(std::make_pair(row[1], row[2]));
             }
             cmm[m_cur.tag] = cms;
-
+            log->debug("call={}, add chanmask of size {} for tag \"{}\"",
+                       m_count, cms.size(), m_cur.tag);
             clear();
             continue;
         }
     
 
         if (! matches(m_cur.tag)) {
-            log->debug("call={}, skipping unmatched tag=\"{}\" file={}",
+            log->trace("call={}, skipping unmatched tag=\"{}\" file={}",
                        m_count, m_cur.tag, m_inname);
             clear();
             continue;
@@ -215,7 +223,7 @@ IFrame::pointer FrameFileSource::load()
                 if (!ok) {
                     log->error("call={}, short load failed tag=\"{}\" file={}",
                                m_count, m_cur.tag, m_inname);
-                    return nullptr;
+                    THROW(IOError() << errmsg{"int frame read error with file " + m_inname});
                 }
                 framelet.trace_array = sarr.cast<float>();
             }
@@ -224,9 +232,11 @@ IFrame::pointer FrameFileSource::load()
                 if (!ok) {
                     log->error("call={}, float load failed tag=\"{}\" file={}",
                                m_count, m_cur.tag, m_inname);
-                    return nullptr;
+                    THROW(IOError() << errmsg{"float frame read error with file " + m_inname});
                 }
             }        
+            log->trace("call={}, load {} traces in frame with tag=\"{}\" have {}",
+                       m_count, framelet.trace_array.rows(), m_cur.tag, framelets.size());
             clear();
             continue;
         }
@@ -237,8 +247,10 @@ IFrame::pointer FrameFileSource::load()
             if (!ok) {
                 log->error("call={}, channel load failed tag=\"{}\" file={}",
                            m_count, m_cur.tag, m_inname);
-                return nullptr;
+                THROW(IOError() << errmsg{"channel load error with file " + m_inname});
             }
+            log->trace("call={}, load {} channels with tag=\"{}\" have {}",
+                       m_count, framelet.channels.size(), m_cur.tag, framelets.size());
             clear();
             continue;
         }
@@ -249,21 +261,36 @@ IFrame::pointer FrameFileSource::load()
             if (!ok) {
                 log->error("call={}, tickinfo load failed tag=\"{}\" file={}",
                            m_count, m_cur.tag, m_inname);
-                return nullptr;
+                THROW(IOError() << errmsg{"tickinfo load error with file " + m_inname});
             }
+            log->trace("call={}, load tickinfo with tag=\"{}\" have {}",
+                       m_count, m_cur.tag, framelets.size());
             clear();
             continue;
         }
 
-        log->warn("call={} skipping unsupported input: {}", m_count, m_cur.fname);
+        if (m_cur.type == "summary") {
+            auto& framelet = get_framelet(m_cur.tag);
+            bool ok = pigenc::stl::load(m_cur.pig, framelet.summary);
+            if (!ok) {
+                log->error("call={}, summary load failed tag=\"{}\" file={}",
+                           m_count, m_cur.tag, m_inname);
+                THROW(IOError() << errmsg{"summary load error with file " + m_inname});
+            }
+            log->trace("call={}, load trace with tag=\"{}\" have {}",
+                       m_count, m_cur.tag, framelets.size());
+            clear();
+            continue;
+        }
+
+        log->warn("call={} skipping unsupported input: {}",
+                  m_count, m_cur.fname);
         clear();
         continue;
 
     } // loading loop
 
     if (framelets.empty()) {
-        log->error("call={}, no frame arrays loaded ident={} file={}",
-                   m_count, ident, m_inname);
         return nullptr;
     }
 
@@ -277,7 +304,7 @@ IFrame::pointer FrameFileSource::load()
         if (nrows != framelet.channels.size()) {
             log->error("call={}, mismatch in frame and channel array sizes ident={} file={}",
                        m_count, ident, m_inname);
-            return nullptr;
+            THROW(IOError() << errmsg{"frame channel mismatch with file " + m_inname});
         }
 
         const int tbin0 = (int)framelet.tickinfo[2];
@@ -289,25 +316,37 @@ IFrame::pointer FrameFileSource::load()
             auto itrace = std::make_shared<Aux::SimpleTrace>(chid, tbin0, charges);
             all_traces.push_back(itrace);
         }
+        log->trace("call={}, add {} traces to total {}", m_count, nrows, all_traces.size());
     }
 
     const double time = framelets[0].tickinfo[0];
     const double tick = framelets[0].tickinfo[1];
 
-    auto sframe = std::make_shared<Aux::SimpleFrame>(ident, time, all_traces, tick);
+    auto sframe = std::make_shared<Aux::SimpleFrame>(ident, time, all_traces, tick, cmm);
     for (auto ftag : m_frame_tags) {
         sframe->tag_frame(ftag);
     }
 
     // Tag traces of each framelet
     size_t last_index=0;
-    for (auto& framelet : framelets) {
+    for (const auto& tag : m_tags) {
+        auto& framelet = get_framelet(tag);
         const size_t size = framelet.channels.size();
         std::vector<size_t> inds(size);
         std::iota(inds.begin(), inds.end(), last_index);
         last_index += size;
-        sframe->tag_traces(m_cur.tag, inds);
+        if (framelet.summary.empty()) {
+            sframe->tag_traces(tag, inds);
+        }
+        else {
+            sframe->tag_traces(tag, inds, framelet.summary);
+        }
+        log->trace("call={}, tag {} traces with \"{}\"", m_count, size, tag);
     }        
+
+    log->trace("call={}, loaded frame with {} tags, {} traces",
+               m_count, framelets.size(), all_traces.size());
+
     return sframe;
 }
 
@@ -323,12 +362,20 @@ bool FrameFileSource::operator()(IFrame::pointer& frame)
     if (m_eos_sent) {
         return false;
     }
-    frame = load();
+
+    try {
+        frame = load();
+    }
+    catch (IOError& err) {
+        log->error("call={}: {}", m_count++, err.what());
+        return false;
+    }
+
     if (frame) {
-        log->debug("load frame call={}", m_count ++);
+        log->debug("call={} load frame: {}", m_count++, Aux::taginfo(frame));
     }
     else {
-        log->debug("EOS at call={}", m_count ++);
+        log->debug("EOS at call={}", m_count++);
         m_eos_sent = true;
     }
     
