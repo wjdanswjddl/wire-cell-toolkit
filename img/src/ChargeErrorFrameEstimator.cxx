@@ -112,11 +112,6 @@ void ChargeErrorFrameEstimator::configure(const WireCell::Configuration& cfg)
 	  log->error("Rebin {} does not match with Error Data period length {} with tick length {}", m_rebin, wf->waveform_period(), tick);
 	// warn, inform, debug
     }
-
-
-    
-
-
 }
 
 ITrace::vector ChargeErrorFrameEstimator::error_traces(const ITrace::vector& intraces) const {
@@ -193,11 +188,6 @@ bool ChargeErrorFrameEstimator::operator()(const input_pointer& in, output_point
     ITrace::vector in_traces = Aux::tagged_traces(in, m_intag);
     ITrace::vector err_traces = error_traces(in_traces);
 
-    log->debug("input: {}, got {}: {} signal traces, made {}: {} err traces",
-               Aux::taginfo(in), m_intag, in_traces.size(),
-               m_outtag, err_traces.size());
-
-
     // make a copy of all input trace pointers
     ITrace::vector out_traces(*in->traces());
 
@@ -222,11 +212,17 @@ bool ChargeErrorFrameEstimator::operator()(const input_pointer& in, output_point
     for (auto inttag : in->trace_tags()) {
         const auto& traces = in->tagged_traces(inttag);
         const auto& summary = in->trace_summary(inttag);
+        if (traces.empty()) {
+            log->warn("no traces for requested tag \"{}\"", inttag);
+            continue;
+        }
         sfout->tag_traces(inttag, traces, summary);
     };
 
     out = IFrame::pointer(sfout);
-    log->debug("out: {}", Aux::taginfo(out));
+
+    log->debug("input : {}", Aux::taginfo(in));
+    log->debug("output: {}", Aux::taginfo(out));
 
     return true;
 }

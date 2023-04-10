@@ -461,7 +461,8 @@ svggpp::xml_t WireCell::RaySvg::g_blob_areas(const Geom& geom, const RayGrid::bl
         }
 
         bbb(pts.begin(), pts.end());
-        bbb.pad_rel(0.1);
+        // bbb.pad_rel(0.1);
+        bbb.pad_rel(3.0);
 
         std::string bname = format("blob%d", count);
 

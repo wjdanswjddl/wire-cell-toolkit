@@ -64,6 +64,8 @@ namespace WireCell {
 	    int m_dead_org{0};
 	    std::vector<int> m_dead_org_llimit{0};
 	    std::vector<int> m_dead_org_hlimit{0};
+
+            size_t m_count{0};
         };
     }  // namespace Img
 }  // namespace WireCell

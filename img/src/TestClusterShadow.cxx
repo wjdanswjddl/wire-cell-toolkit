@@ -109,20 +109,12 @@ bool Img::TestClusterShadow::operator()(const input_pointer& in, output_pointer&
             counters["nblobs_filter"] += 1;
         }
         ClusterShadow::blob_cluster_map_t clusters_tmp;
-        auto nclust = boost::connected_components(bcg, boost::make_assoc_property_map(clusters_tmp));
-        for (const auto& b : clusters_tmp) {
-            counters["nblobs_clusters_tmp"] += 1;
-        }
+        boost::connected_components(bcg, boost::make_assoc_property_map(clusters_tmp));
+        counters["nblobs_clusters_tmp"] += clusters_tmp.size();
     }
-    for (const auto& bs_vertex : GraphTools::mir(boost::vertices(bsgraph))) {
-        counters["nblobs"] += 1;
-    }
-    for (const auto& b : clusters) {
-        counters["nblobs_clusters"] += 1;
-    }
-    for (const auto& cs_vertex : GraphTools::mir(boost::vertices(cs_graph))) {
-        counters["cs_vertices"] += 1;
-    }
+    counters["nblobs"] += boost::num_vertices(bsgraph);
+    counters["nblobs_clusters"] += clusters.size();
+    counters["cs_vertices"] += boost::num_vertices(cs_graph);
     std::ofstream fout("TestClusterShadow.log");
     for (const auto& cs_edge : GraphTools::mir(boost::edges(cs_graph))) {
         counters["cs_edges"] += 1;
