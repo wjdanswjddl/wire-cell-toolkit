@@ -1,16 +1,8 @@
 #!/usr/bin/env bats
 
-# A test to run on current, past and future releases to check for any
-# unexepcted change in noise simulation.
-#
-# The test is meant to be self locating so that one can do:
-#
-# cd ~/path/to/new-wct/
-# alias bats-$(realpath test/bats/bin/bats)
-# cd ~/path/to/old/release
-# bats ~/path/to/new-wct/gen/test/test-addnoise.bats
+# composited check for sim and sigproc using PDSP
 
-# bats file_tags=noise,history
+# bats file_tags=sim,sigproc,PDSP,history
 
 bats_load_library wct-bats.sh
 

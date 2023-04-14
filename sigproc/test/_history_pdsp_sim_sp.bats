@@ -1,10 +1,6 @@
 #!/usr/bin/env bats
 
-# This test consumes historical files produced by test-addnoise.bats
-#
-# See eg bv-generate-history-haiku for example how to automate
-# producing historical files.  O.w. collect one or more history/
-# directories and add their parent locations to WCTEST_DATA_PATH.
+# This test consumes historical files produced by check_pdsp_sim_sp.bats
 
 bats_load_library wct-bats.sh
 
