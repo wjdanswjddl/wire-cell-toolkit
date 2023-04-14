@@ -184,11 +184,13 @@ local img = {
             edges=[pg.edge(cs0,lcbr), pg.edge(lcbr,cs1)],
             name="chargesolving-" + aname),
         local solver = cs0,
-        ret: pg.intern(
+        local full = pg.intern(
             innodes=[bc], outnodes=[solver], centernodes=[bg],
             edges=[pg.edge(bc,bg), pg.edge(bg,solver)],
             name="solving-" + aname),
-        // ret: bc,
+        local nosolve = pg.pipeline([bc,bg]),
+        ret: full,
+
     }.ret,
 
     dump(outfile, fmt="json") :: {

@@ -124,8 +124,8 @@ setup_file () {
         logs[$fmt]="$log"
 
         local dat="${base}.tar.gz"
-        echo "$wcimg inspect -o $log $dat"
-        run $wcimg inspect -o "$log" "$dat"
+        echo "$wcimg inspect --verbose -o $log $dat"
+        run $wcimg inspect --verbose -o "$log" "$dat"
         echo "$output"
         [[ "$status" -eq 0 ]]
         [[ -s "$log" ]]
@@ -152,8 +152,17 @@ setup_file () {
         [[ -s "${base}.dump" ]] 
     done
 
-    diff -u <(head -20 $(base_name json).dump) <(head -20 $(base_name numpy).dump)
-    local delta="$(diff -u <(head -20 $(base_name json).dump) <(head -20 $(base_name numpy).dump))"
+    run diff -u $(base_name json).dump $(base_name numpy).dump
+    echo "$output"
+    [[ "$status" -eq 0 ]]
     [[ -z "$delta" ]]
 }
     
+@test "at least one multi-blob measure" {
+    local fname="$(base_name numpy).inspect"
+    echo $fname
+
+    local got=$(grep 'nn for m' "${fname}" | grep -v 'b=1\b')
+    echo "$got"
+    [[ -n "$got" ]]
+}
