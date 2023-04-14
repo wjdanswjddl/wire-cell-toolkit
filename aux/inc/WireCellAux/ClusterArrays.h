@@ -55,12 +55,15 @@ namespace WireCell::Aux {
         /// Return the edge array for the given pair of node type
         /// codes.
         const edge_array_t& edge_array(edge_code_t ec) const;
+        edge_array_t& edge_array(edge_code_t ec);
 
         // Each node type produces a 2D array of doubles.
         using node_array_t = boost::multi_array<double, 2>;
 
         /// Return the node array of the given node type code.
         const node_array_t& node_array(node_code_t nc) const;
+        node_array_t& node_array(node_code_t nc);
+
 
       private:
         using node_store_t = std::unordered_map<node_code_t, node_array_t>;
@@ -79,11 +82,17 @@ namespace WireCell::Aux {
 
         using node_row_t = node_array_t::array_view<1>::type;
         node_row_t node_row(cluster_vertex_t vtx);
-        
-        // heavy lifters
+        store_address_t vertex_address(cluster_vertex_t vtx);
+            
+        // make degenerate cnodes unique.
+        void bodge_channel_slice(cluster_graph_t& graph);
+
+        // Process one seed node of a type
+        void init_slice(const cluster_graph_t& graph, cluster_vertex_t vtx);
         void init_blob(const cluster_graph_t& graph, cluster_vertex_t vtx);
         void init_wire(const cluster_graph_t& graph, cluster_vertex_t vtx);
-        void init_signals(const cluster_graph_t& graph, cluster_vertex_t vtx);
+        void init_measure(const cluster_graph_t& graph, cluster_vertex_t vtx);
+
 
     };
 }

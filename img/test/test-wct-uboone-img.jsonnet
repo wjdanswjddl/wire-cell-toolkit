@@ -7,24 +7,20 @@
 // 1) Produces a top-level function with all default TLAs
 //
 // 2) Reads a WCT tar stream file with a single event instead of the
-// "celltreeOVERLAY.root" ROOT file with 100 events.
-//
-// The default WCT tar stream file used was produced with:
-//
-// wire-cell -A infile=celltreeOVERLAY.root \
-//           -A outfile=celltreeOVERLAY-event6501.tar.bz2 \
-//           root/test/test-celltree-to-framefile.jsonnet
-//
-// This file is provided by the wire-cell-test-data repo.
-//
+//    "celltreeOVERLAY.root" ROOT file with 100 events.  See
+//    tests/scripts/celltree-excerpt script for how to produce this
+//    single event file.
+// 
 // 3) The ancillary img.jsonnet file at the URL above is incporated
-// directly into this file.
+//    directly into this file.
 //
-// 4) Some previous options-set-via-commenting are exposed as TLAs.
+// 4) Some previous options set via commenting are exposed as TLAs.
 //
 // 5) Some unused code is deleted.
 //
-// 6) Slight variable rename.
+// 6) Some variable renaming.
+//
+// 7) Outputs both a JSON and a Numpy cluster file format.
 
 
 local wc = import "wirecell.jsonnet";
@@ -341,7 +337,7 @@ local active_planes = [[0,1,2],[0,1],[1,2],[0,2],];
 local masked_planes = [[],[2],[0],[1]];
 // single, multi, active, masked
 function(infile="celltreeOVERLAY-event6501.tar.bz2",
-         outfile="clusters-event6501.tar.gz",
+         outpat="clusters-event6501-%s.tar.gz",
          slicing = "single",
          fmt = "json")
 
@@ -386,7 +382,8 @@ local graph = pg.pipeline([
     // magdecon, // magnify out
     // dumpframes,
     imgpipe,
-    img.dump(outfile, fmt),
+    pg.fan.fanout("ClusterFanout", [img.dump(outpat%"json", "json"),img.dump(outpat%"numpy", "numpy")], "")
+//    img.dump(outfile, fmt),
 ], "main");
 
 local app = {

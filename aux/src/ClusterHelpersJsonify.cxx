@@ -128,15 +128,19 @@ Json::Value slice_jsoner(const cluster_node_t& n)
     ret["start"] = islice->start();
     ret["span"] = islice->span();
 
+    double sigtot = 0;
+
     // note: used to be SOA, now AOS.
     Json::Value jsig = Json::objectValue;
     for (const auto& it : islice->activity()) {
         std::string ind = String::format("%d", it.first->ident());
-        jsig[ind]["val"] = it.second.value();
-        jsig[ind]["unc"] = it.second.uncertainty();
+        const double val = it.second.value();
+        jsig[ind]["val"] = val;
+        sigtot += val;
+        const double unc = it.second.uncertainty();
+        jsig[ind]["unc"] = unc;
     }
     ret["signal"] = jsig;
-
     return ret;
 }
 
