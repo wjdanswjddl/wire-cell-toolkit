@@ -1,54 +1,6 @@
-#+title: Wire-Cell Toolkit Noise
-#+options: ':t
-#+latex_header: \usepackage[margin=1in]{geometry}
-#+LaTeX_HEADER: \lstloadlanguages{[ISO]C++}
-#+LaTeX_HEADER: \definecolor{background}{RGB}{255,255,255}
-#+LaTeX_HEADER: \definecolor{delim}{RGB}{20,105,176}
-#+LaTeX_HEADER: \definecolor{keyword}{RGB}{20,105,176}
-#+LaTeX_HEADER: \definecolor{comment}{RGB}{20,200,10}
-#+LaTeX_HEADER: \lstdefinelanguage{jsonnet}{
-#+LaTeX_HEADER:    basicstyle=\normalfont\ttfamily,
-#+LaTeX_HEADER:    numbers=left,
-#+LaTeX_HEADER:    numberstyle=\scriptsize,
-#+LaTeX_HEADER:    stepnumber=1,
-#+LaTeX_HEADER:    numbersep=8pt,
-#+LaTeX_HEADER:    showstringspaces=false,
-#+LaTeX_HEADER:    breaklines=true,
-#+LaTeX_HEADER:    frame=lines,
-#+LaTeX_HEADER:    backgroundcolor=\color{background},
-#+LaTeX_HEADER:    keywords = {$},
-#+LaTeX_HEADER:    keywords = [2]{self, import, local, true, false, null, function},
-#+LaTeX_HEADER:    keywordstyle=[2]\color{keyword},
-#+LaTeX_HEADER:    comment=[l]{//},
-#+LaTeX_HEADER:    commentstyle=\color{comment}\ttfamily,
-#+LaTeX_HEADER:    stringstyle=\color{blue}\ttfamily,
-#+LaTeX_HEADER:    morestring=[b]',
-#+LaTeX_HEADER:    morestring=[b]",
-#+LaTeX_HEADER:    otherkeywords={:, =, ==}
-#+LaTeX_HEADER: }
-#+LaTeX_HEADER: \lstloadlanguages{Jsonnet}
-#+LaTeX_HEADER: \lstdefinestyle{note}{
-#+LaTeX_HEADER:     basicstyle=\normalfont\ttfamily,
-#+LaTeX_HEADER:     numbers=none,
-#+LaTeX_HEADER:     numberstyle=\scriptsize,
-#+LaTeX_HEADER:     stepnumber=1,
-#+LaTeX_HEADER:     numbersep=8pt,
-#+LaTeX_HEADER:     showstringspaces=false,
-#+LaTeX_HEADER:     breaklines=true,
-#+LaTeX_HEADER:     frame=lines,
-#+LaTeX_HEADER:     backgroundcolor=\color{background},
-#+LaTeX_HEADER:     keywords = [2]{include, if, for, const, typedef, using, public, private, virtual, class, return, void},
-#+LaTeX_HEADER:     keywordstyle=[2]\color{keyword},
-#+LaTeX_HEADER:     comment=[l]{//},
-#+LaTeX_HEADER:     commentstyle=\color{comment}\ttfamily,
-#+LaTeX_HEADER:     stringstyle=\color{blue}\ttfamily,
-#+LaTeX_HEADER:     morestring=[b]',
-#+LaTeX_HEADER:     morestring=[b]",
-#+LaTeX_HEADER:     otherkeywords={:, =, ==, ::}
-#+LaTeX_HEADER: }
-#+LaTeX_HEADER: \lstset{style=note}
+* Noise
 
-* Overview
+** Overview
 
 WCT provides support for "noise" in various sub-packages:
 
@@ -64,13 +16,13 @@ WCT provides support for "noise" in various sub-packages:
 
 See also this presentation: [[file:noise-presentation.org][org]], [[file:noise-presentation.pdf][pdf]]
 
-* WCT Noise Spectra
+** WCT Noise Spectra
 
 WCT *noise spectra* defines a dataset describing mean spectral amplitudes and related metadata.  They are provided to WCT C++ code as objects following a schema defined here.  The datasets are provided via WCT configuration mechanism either directly as Jsonnet configuration data or by naming stand-alone data files (usually as compressed JSON but Jsonnet may also be provided).
 
 WCT *noise spectra* are in the form of an array of *spectrum objects*.  Each *spectrum object* follows a schema describing what attributes it must or may have.  The attributes are categorized as *required*, *optional* or *undefined*.  A spectrum object *must* contain all *required attributes*.  A consumer of a WCT noise file *must* ignore *undefined attributes*.  An *optional attribute* is one that is *required* for some consumers and *undefined* for others.  Consumers of optional attributes *may* provide default values for use if the attribute is unspecified.
 
-** Required attributes
+*** Required attributes
 
 A WCT *spectral object* *must* provide these attributes:
 
@@ -82,7 +34,7 @@ A WCT *spectral object* *must* provide these attributes:
 
 - ~amps~ :: an array of floating-point numbers providing an estimate of a mean spectral amplitude in units of [voltage] in the WCT system of units.  Note that here "amps" an abbreviation of "amplitude" and not "amperage".  The value of an element of ~amps~ may be derived from some sub-sampling or interpolation of an original distribution of DFT coefficients.  That is, an element of ~amps~ is the an average $\langle|X_k|\rangle,\ k\in [0,N^{(fft)}-1]$ with $N^{(fft)} \ge$ ~nsamples~, over some number of waveforms of size ~nsamples~.  The inequality is typically due to zero-padding of the waveform prior to taking the DFT.  Note: in preparing ~amps~ the user is recommended to provide a number of waveforms approximately equal to ~nsamples~ in order to co-optimize spectral resolution and statistical stability.  User is also recommended to utilize ~NoiseTools::Collector~ for low-level noise modeling code or execute a job using ~NoiseModeler~ for a high-level development.
 
-** Optional attributes required by ~EmpiricalNoiseModel~
+*** Optional attributes required by ~EmpiricalNoiseModel~
 
 The ~EmpiricalNoiseModel~ component requires these optional attributes:
 
@@ -96,13 +48,13 @@ The ~EmpiricalNoiseModel~ component requires these optional attributes:
 
 - ~wirelen~ :: a floating-point number giving a wire length expressed in the WCT system of units for [length].  This value should be representative of (eg, binned over) wires for which the associated spectrum applies.
 
-** Optional attributes required by ~GroupNoiseModel~
+*** Optional attributes required by ~GroupNoiseModel~
 
 The ~GroupNoiseModel~ provides a model interface for both coherent and incoherent noise where spectra are grouped in some manner.  It requires this optional attribute:
 
 - ~group~ :: an integer identifying an abstract group to which channels may be associated.  The association to channels may be provided by a WCT *channel groups* array.  The use of ~groupID~ as this attribute name is deprecated.
   
-* WCT channel groups
+** WCT channel groups
 
 The ~GroupNoiseModel~ and potentially other components require information on how to collect channels into distinct groups.  The user provides this information in the form of WCT *channel-groups* data structures.  These are in the form of an array of WCT *channel-group* objects, each of which has these *required* attributes:
 
@@ -110,7 +62,7 @@ The ~GroupNoiseModel~ and potentially other components require information on ho
 
 - ~channels~ :: an array of integer values providing the channel ID numbers to associate as a group.  The channel IDs are as used in the WCT *wire object* configuration provided and described elsewhere.
 
-* Providing the above data
+** Providing the above data
 
 WCT *noise spectra* and *channel group* datasets are sometimes highly structured, even algorithmically generated, and sometimes unstructured and voluminous such as when they are derived from some external analysis.
 
@@ -132,7 +84,7 @@ Developers of WCT components can provide the user this flexibility with just a f
   }
 #+end_src
 
-* Round-trip Validation
+** Round-trip Validation
 
 The WCT noise code supports both modeling and simulating noise.  Each is effectively the inverses of the other and so we may check that we get out what we put in.  The "round-trip" check consists of these steps:
 
@@ -147,7 +99,7 @@ The WCT noise code supports both modeling and simulating noise.  Each is effecti
   - Finally, the grouped spectra are saved to a WCT *noise spectra* file.
 - Plots are made    .
 
-** Input spectra
+*** Input spectra
 
 The input spectra can be viewed with:
 
@@ -172,7 +124,7 @@ It's arguments are as listed:
 
 See below for guidance on how to provide meaningful values for ~peak~ and ~rms~.
 
-** Model details
+*** Model details
 
 The user requires some understanding of the noise spectral model that is used in this test in order to provide proper values.  The spectral shape in the frequency domain is chosen to follow the Rayleigh distribution,
 \[R(x;\sigma) = \frac{x}{\sigma^2}e^{-x^2/(2\sigma^2)},\ x \ge 0\]
@@ -202,7 +154,7 @@ Thus the ~rms~ parameter is identified as providing the desired value of the $\s
 
 See ~test-noise-roundtrip.sh~ for exact command.  The commands to reproduce such plots are described next.
 
-** Visualize the model
+*** Visualize the model
 
 The above plot was made with a command like the following:
 #+begin_example
@@ -222,7 +174,7 @@ For comparison, an example of a spectrum modeling real-world noise from the Prot
 
 The noise in PDSP is about 4 ADC RMS and its 12 bit ADC sees voltage in the range of 200 to 1600 mV and so expects about 1.3 mV RMS of noise measured in voltage input to the ADC.  As a reminder, the simple model above has ~rms =~ 1 mV and achieves a smilar peak of 200 mV in amplitude for similar ~peak~ and same ~nsamples~.
 
-** Performing the round-trip
+*** Performing the round-trip
 
 A main configuration file for ~wire-cell~ is provided that uses the same ~test-noise-spectra.jsonnet~ described above to provide the input to the round-trip.  The round-trip job can be exercised with default parameters like:
 

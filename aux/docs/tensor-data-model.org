@@ -1,7 +1,7 @@
-#+title: Wire-Cell Toolkit Tensor Set Data Model
-#+setupfile: ../../util/docs/setup-note.org
+* Tensor Set Data Model
 
-* Introduction
+
+** Introduction
 
 This document defines the Wire-Cell Toolkit (WCT) /tensor data model/.
 It factors into two layers: "generic" and "specific".
@@ -18,9 +18,9 @@ generic tensor data model.
 The next two sections define the generic and specific tensor data
 models and are written in rfc2119 language.
 
-* Generic tensor data model
+** Generic tensor data model
 
-** Tensor
+*** Tensor
 
 A *tensor* shall be composed of two conceptual parts: an *array* part and
 a *metadata* (MD) part.
@@ -62,12 +62,12 @@ JSON type object but otherwise this tensor data model places no
 requirements on its contents.  The tensor set MD must be faithfully
 passed through any tensor set converter round trip.
 
-* Specific tensor data model
+** Specific tensor data model
 
 The specific tensor data model defines a number of complex specific
 data types in terms of the generic tensor data model.  
 
-** Common metadata conventions
+*** Common metadata conventions
 
 A tensor MD shall have an attribute named *datapath* of type string that
 identifies the tensor in a logical hierarchical structure of multiple
@@ -90,7 +90,7 @@ Complex data types may be represented as an *aggregation* of multiple
 tensors.  These shall be defined on a per data type basis below as a
 set of MD attributes providing *datapath* values.
 
-** Overview of specific types
+*** Overview of specific types
 
 The following specific types are mapped to the basic tensor data
 model.  Each item in the list gives the *datatype* MD attribute value
@@ -109,14 +109,14 @@ The specific requirements for each data type are given in the
 following sections in terms of their tensor array and metadata and in
 some cases in terms of other types defined previously.
 
-** pcarray
+*** pcarray
 
 The *datatype* of *pcarray* indicates a tensor representing one
 ~PointCloud::Array~.
 The tensor array information shall map directly to that of ~Array~.
 A *pcarray* places no additional requirements on its tensor MD.
 
-** pcdataset
+*** pcdataset
 
 The *datatype* of *pcdataset* indicates a tensor representing on
 ~PointCloud::Dataset~.
@@ -129,7 +129,7 @@ The tensor MD shall have the following attributes:
 Additional user application ~Dataset~ metadata may reside in the tensor
 MD.
 
-** pcgraph
+*** pcgraph
 
 The *datatype* of *pcgraph* indicates a tensor representing a "point cloud
 graph".  This extends a point cloud to include relationships between
@@ -147,7 +147,7 @@ shall provide indices into the *nodes* point cloud representing the tail
 and head endpoint of graph edges.  A node or edge dataset may be
 shared between different *pcgraph* instances.
 
-** trace
+*** trace
 
 The *datatype* of *trace* indicates a tensor representing a single ~ITrace~
 or a collection of ~ITrace~ which have been combined.
@@ -169,7 +169,7 @@ The tensor MD may include the attribute *tbin* with integer value and
 providing the number of sample periods (ticks) between the frame
 reference time and the first sample (column) in the array.
 
-** tracedata
+*** tracedata
 
 The *datatype* of *tracedata* provides per-trace information for a subset
 of.  It is similar to a *pcdataset* and in fact may carry that value as
@@ -194,7 +194,7 @@ and neither *index* nor *summary* is recognized.  If the *tracedata* has a
 may provide a *chid* array each corresponding to the traces identified
 by *index*.
 
-** frame
+*** frame
 
 The *datatype* of *frame* represents an ~IFrame~.
 
@@ -223,22 +223,22 @@ truncated to *type* ~"i2"~.
 A frame tensor of type ~"i2"~ shall have its sample values inflated to
 type ~float~ when converted to an ~IFrame~.
 
-** cluster
+*** cluster
 
 A ~cluster~ is a ~pcgraph~ with convention for how to serialize each of
 its node types as described here.
 
-*** wire
+**** wire
 
-*** channel
+**** channel
 
-*** measure
+**** measure
 
-*** blob
+**** blob
 
-*** slice
+**** slice
 
-* Similarity to HDF5
+** Similarity to HDF5
 
 The data model is intentionally similar to HDF5 abstract data model
 and there is a conceptual mapping between the two:

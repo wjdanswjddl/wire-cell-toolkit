@@ -154,7 +154,8 @@ local wc = import "wirecell.jsonnet";
     celltree_file_source :: function(filename, recid, 
                                      branches = ["calibWiener", "calibGaussian"],
                                      frame_tags=["gauss"],
-                                     trace_tags = ["wiener", "gauss"])
+                                     trace_tags = ["wiener", "gauss"],
+                                     extra_params = {})
         pg.pnode({
             type: "CelltreeSource",
             name: filename,
@@ -164,7 +165,7 @@ local wc = import "wirecell.jsonnet";
                 frames: frame_tags,
                 "in_branch_base_names": branches,
                 "out_trace_tags": trace_tags,
-            },
+            } + extra_params,
         }, nin=0, nout=1),
 
 

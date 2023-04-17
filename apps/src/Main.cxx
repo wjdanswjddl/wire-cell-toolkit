@@ -104,8 +104,13 @@ int Main::cmdline(int argc, char* argv[])
     po::notify(opts);
 
 
-    if (opts.count("help")) {
+    if (argc == 1 or opts.count("help")) {
         std::cout << desc << "\n";
+        return 1;
+    }
+
+    if (opts.count("version")) {
+        std::cout << version() << std::endl;
         return 1;
     }
 
@@ -194,10 +199,6 @@ int Main::cmdline(int argc, char* argv[])
         m_threads = opts["threads"].as<int>();
     }
 #endif
-
-    if (opts.count("version")) {
-        std::cout << version() << std::endl;
-    }
 
     return 0;
 }

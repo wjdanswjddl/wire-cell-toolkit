@@ -1,4 +1,5 @@
 #+title: Wire-Cell Gen
+#+SETUPFILE: ../setup-readme.org
 
 This is the Wire-Cell "gen" sub-package.  It provides components
 related to generating simulated data.  In particular:

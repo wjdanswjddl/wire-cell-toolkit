@@ -1,0 +1,28 @@
+[16:03:33.619] D [  img   ] <GridTiling:tiling-uboone-face0> <activity L0 1 strips over pind:[0,1]>
+	<strip L0 pind:[0,1]>
+
+[16:03:33.619] D [  img   ] <GridTiling:tiling-uboone-face0> <activity L1 1 strips over pind:[0,1]>
+	<strip L1 pind:[0,1]>
+
+[16:03:33.619] D [  img   ] <GridTiling:tiling-uboone-face0> <activity L2 7 strips over pind:[334,1796]>
+	<strip L2 pind:[334,336]>
+	<strip L2 pind:[338,340]>
+	<strip L2 pind:[341,343]>
+	<strip L2 pind:[352,353]>
+	<strip L2 pind:[364,368]>
+	<strip L2 pind:[681,685]>
+	<strip L2 pind:[1790,1796]>
+
+[16:03:33.619] D [  img   ] <GridTiling:tiling-uboone-face0> <activity L3 6 strips over pind:[988,2129]>
+	<strip L3 pind:[988,990]>
+	<strip L3 pind:[1000,1001]>
+	<strip L3 pind:[1002,1003]>
+	<strip L3 pind:[1004,1005]>
+	<strip L3 pind:[1141,1145]>
+	<strip L3 pind:[2125,2129]>
+
+[16:03:33.619] D [  img   ] <GridTiling:tiling-uboone-face0> <activity L4 4 strips over pind:[669,3251]>
+	<strip L4 pind:[669,672]>
+	<strip L4 pind:[682,686]>
+	<strip L4 pind:[1153,1158]>
+	<strip L4 pind:[3246,3251]>

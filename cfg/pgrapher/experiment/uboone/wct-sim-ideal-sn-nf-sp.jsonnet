@@ -13,7 +13,8 @@
 local wc = import "wirecell.jsonnet";
 local g = import "pgraph.jsonnet";
 
-local io = import "pgrapher/common/fileio.jsonnet";
+//local io = import "pgrapher/common/fileio.jsonnet";
+local io = import "layers/high/fileio.jsonnet";
 local params = import "pgrapher/experiment/uboone/simparams.jsonnet";
 local tools_maker = import "pgrapher/common/tools.jsonnet";
 
@@ -50,7 +51,7 @@ local sim = sim_maker(params, tools);
 //                             [sim.ar39(), sim.tracks(tracklist)]);
 local depos = sim.tracks(tracklist);
 
-local deposio = io.numpy.depos(output);
+// local deposio = io.numpy.depos(output);
 
 local drifter = sim.drifter;
 
@@ -62,7 +63,11 @@ local noise_model = sim.make_noise_model(anode, sim.miscfg_csdb);
 local noise = sim.add_noise(noise_model);
 
 local digitizer = sim.digitizer(anode, tag="orig");
-local sim_frameio = io.numpy.frames(output, "simframeio", tags="orig");
+//local sim_frameio = io.numpy.frames(output, "simframeio", tags="orig");
+local sim_frameio = io.tap('FrameFanout',
+                           io.frame_file_sink(output, tags=["raw"]),
+                           name="sim");
+
 local magnifio = g.pnode({
     type: "MagnifySink",
     data: {
@@ -102,14 +107,18 @@ local noise_epoch = "perfect";
 //local noise_epoch = "after";
 local chndb = chndb_maker(params, tools).wct(noise_epoch);
 local nf = nf_maker(params, tools, chndb);
-local nf_frameio = io.numpy.frames(output, "nfframeio", tags="raw");
+local nf_frameio = io.tap('FrameFanout',
+                          io.frame_file_sink(output, tags=["raw"]),
+                          name="nf");
 
 local sp = sp_maker(params, tools);
-local sp_frameio = io.numpy.frames(output, "spframeio", tags="gauss");
+local sp_frameio = io.tap('FrameFanout',
+                          io.frame_file_sink(output, tags=["gauss"]),
+                          name="sp");
 
 local sink = sim.frame_sink;
 
-local graph = g.pipeline([depos, deposio, drifter, signal,
+local graph = g.pipeline([depos, drifter, signal,
                           miscon,
                           noise, digitizer,
                           sim_frameio, magnifio,

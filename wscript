@@ -11,11 +11,16 @@ import os
 # fixme: move into waft/
 from waflib.Build import BuildContext
 from waflib.Logs import debug, info, error, warn
+import waflib.Utils
 
 TOP = '.'
 APPNAME = 'WireCell'
 VERSION = os.popen("git describe --tags").read().strip()
 
+# to avoid adding tooldir="waft" in all the load()'s
+import os
+import sys
+sys.path.insert(0, os.path.realpath("./waft"))
 
 def options(opt):
     opt.load("wcb")
@@ -29,8 +34,9 @@ def options(opt):
                    help="Def is true, set to false if your spdlog is not compiled (not recomended)")
 
 def configure(cfg):
-    # get this into config.h
+    # Save to BuildConfig.h and env
     cfg.define("WIRECELL_VERSION", VERSION)
+    cfg.env.VERSION = VERSION
 
     # See comments at top of Exceptions.h for context.
     cfg.load('compiler_cxx')
@@ -54,9 +60,6 @@ int main(int argc,const char *argv[])
                   mandatory=False)
 
 
-    # fixme: should go into wcb.py
-    cfg.find_program("jsonnet", var='JSONNET')
-
     # boost 1.59 uses auto_ptr and GCC 5 deprecates it vociferously.
     cfg.env.CXXFLAGS += ['-Wno-deprecated-declarations']
     cfg.env.CXXFLAGS += ['-Wall', '-Wno-unused-local-typedefs', '-Wno-unused-function']
@@ -72,28 +75,15 @@ int main(int argc,const char *argv[])
 
     cfg.env.CXXFLAGS += ['-I.']
 
-    print("Configured version", VERSION)
-#    print(cfg.env)
+    info("Configured version %s" % VERSION)
+
 
 def build(bld):
     bld.load('wcb')
 
-
-
-## fixme: move into waft
 def dumpenv(bld):
-    'print build environment'
-    for key in bld.env:
-        val = bld.env[key]
-        if isinstance(val, list):
-            val = ' '.join(val)
-        if "-" in key:
-            warn("replace '-' with '_' in: %s" % key)
-            key = key.replace("-","_")
-        print('%s="%s"' % (key, val))
+    bld.load('wcb')
 
-
-class DumpenvContext(BuildContext):
-    cmd = 'dumpenv'
-    fun = 'dumpenv'
-
+def packrepo(bld):
+    import datarepo
+    datarepo.pakrepo(bld)

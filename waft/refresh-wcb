@@ -1,0 +1,112 @@
+#!/bin/bash
+
+# This script will recreate the "wcb" Waf script used to build the
+# Wire Cell Toolkit.  Normally only developers exercise it.  
+
+output="$(pwd)/wcb"
+wafurl="https://gitlab.com/ita1024/waf.git"
+waftag="waf-2.0.25"
+wafdir="/tmp/wcb/$waftag"
+
+
+tooldir="$(dirname $BASH_SOURCE)"
+# these are copied from waf
+# tools="doxygen boost bjam"
+# add any in cwd, assuming we are sitting in waf-tools
+tools="$(cd $tooldir && echo *.py | sed 's/.py//g')"
+echo $tools
+
+
+usage () {
+    echo "refresh-wcb [options] [tools]"
+    echo "Default tools: $tools"
+    echo "Likely call:"
+    echo "./refresh-wcb -o /path/to/wire-cell-toolkit/wcb"
+    exit 1;
+}
+
+while getopts "v:w:t:o:W:T:" opt; do
+    case "$opt" in
+        v)
+            waftag="waf-$OPTARG"
+            ;;
+	w)
+	    wafdir="$(readlink -f $OPTARG)"
+	    ;;
+	t)
+	    tooldir="$(readlink -f $OPTARG)"
+	    ;;
+	o)
+	    output=$OPTARG
+	    ;;
+	W)
+	    wafurl=$OPTARG
+	    ;;
+	*)
+	    usage
+	    ;;
+    esac
+done
+shift $((OPTIND-1))
+[ "$1" = "--" ] && shift
+if [ -n "$1" ] ; then
+    tools="$@"
+fi
+
+if [ -d "$wafdir" ] ; then
+    pushd $wafdir
+    git fetch
+    git checkout $waftag
+    popd
+else
+    git clone "$wafurl" "$wafdir"
+    pushd $wafdir
+    git checkout $waftag
+    popd
+fi
+echo "using waf in $wafdir"
+if [ ! -d "$tooldir" ] ; then
+    echo "This script must exist in the wire-cell-toolkit/waft/ directory"
+    exit 1
+fi
+if [ ! -f "$tooldir/boost.py" ] ; then
+    echo "Tooldir does not look correct: $tooldir"
+    exit 1
+fi
+
+#toolflags="compat15"
+toolflags=""
+for tool in $tools ;
+do
+    maybe="$tooldir/${tool}.py"
+    if [ -f $maybe ] ; then
+	toolflags="$toolflags,$maybe"
+	continue
+    fi
+    maybe="$wafdir/waflib/Tools/${tool}.py"
+    if [ -f $maybe ] ; then
+	toolflags="$toolflags,$tool"
+	continue
+    fi
+    maybe="$wafdir/waflib/extras/${tool}.py"
+    if [ -f $maybe ] ; then
+	toolflags="$toolflags,$tool"
+	continue
+    fi
+    
+    echo "Failed to find tool $tool"
+    exit 1
+done
+
+pushd "$wafdir" > /dev/null
+#python waf-light --python=python2 --tools=$toolflags
+#python2 ./waf-light configure build --tools=$toolflags
+## python2 is dead, get over it
+python ./waf-light configure build --tools=$toolflags
+popd > /dev/null
+echo "built waf with tools: $toolflags"
+# echo 'WARNING: forcing python2.  See GitHub Issue #8'
+# sed -i -e 's,/usr/bin/env python$,/usr/bin/env python2,' "$wafdir/waf"
+mv "$wafdir/waf" $output
+
+echo "$output"

@@ -1,7 +1,6 @@
-#+title: Frame representions
-#+setupfile: ../../util/docs/setup-note.org
+* Frame files
 
-* Intro
+** Intro
 
 A WCT "frame" provides a simple representation of data from different
 types of "readout" of a LArTPC detector with some additional concepts
@@ -32,7 +31,7 @@ array spanning the channels and ticks of the readout.
 
 
 
-* Frame files
+** Frame files
 
 WCT ~sio~ subpackage provides support for reading and writing /frame
 files/.  The format is actually a stream or archive of Numpy ~.npy~
@@ -80,7 +79,7 @@ Despite the limitations of being both info-lossy and potentially
 data-inflating, this format is convenient for producing per-tag dense
 arrays for quick debugging using Python/Numpy.  
 
-* Frame tensor files
+** Frame tensor files
 
 A second format called /frame tensor files/ improves on the above by
 mapping the frame data model to the one supported by
@@ -145,7 +144,7 @@ A reading is simlar but reversed
 file -> [TensorFileSource] -> (ITensorSet) -> [TensorFrame] -> (IFrame)
 #+end_example
 
-** Set-level 
+*** Set-level 
 
 The ~ITensorSet~ class and its metadata accepts frame information which
 is not dependent on trace-level information.  To start with, the
@@ -168,7 +167,7 @@ are expected to hold tensors and must be contiguous in the stream but
 otherwise their order is not defined.  These tensors are described in
 the remaining sections.
 
-** Tensors
+*** Tensors
 
 An ~ITensor~ represents some aspect of an ~IFrame~ not already represented
 in the set-level metadata.  Each tensor provides at least these two
@@ -186,7 +185,7 @@ information are assumed to take the forms, respectively
 
 The remaining sections describe each accepted type of tensor.
 
-** Trace 
+*** Trace 
 
 A trace tensor provides waveform samples from a number of channels.
 Its array spans a single or an ordered collection of channels.  A
@@ -211,7 +210,7 @@ appended to this collection.  This allows sparse or dense or a hybrid
 mix of trace information.  It also allows a collection of tagged
 traces to have their associated waveforms represented together.
 
-** Index 
+*** Index 
 
 A subset of traces held by the frame is identified by a string ("trace
 tag") and its associated collection of indices into the full and final
@@ -220,7 +219,7 @@ collection of traces.
 - ~tag="tag"~ :: a unique string ("trace tag") identifying this subset
 
 
-** Summary 
+*** Summary 
 
 A trace summary tensor provides values associated to indexed (tagged)
 traces.  The tensor array elements are assumed to map one-to-one with

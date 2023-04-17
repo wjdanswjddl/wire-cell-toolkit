@@ -1,0 +1,167 @@
+* C++
+
+WCT tests of small code coverage (ie "unit" tests) typically must be written in C++ as a small program (ie, provides ~main()~).  In this document we walk though writing a test.
+
+** The example test
+
+After reading section [[Framework]] for an overview and section [[Writing tests]] to get a general understanding we decide to place our test in the "atomic" aka "test" group and pick a "name" ~idft~.  We place it here:
+
+#+begin_example
+aux/test/test_idft.cxx
+#+end_example
+See below for why ~aux~ was chosen for this particular test.
+This tests various aspects of the ~IDFT~ interface implementations.  It
+can be run as an atomic test:
+
+#+begin_example
+./build/aux/test_idft
+#+end_example
+It can also be run in a variant form by giving optional command line argumetns:
+
+#+begin_example
+./build/aux/test_idft FftwDFT WireCellAux
+./build/aux/test_idft TorchDFT WireCellPytorch
+./build/aux/test_idft cuFftDFT WireCellCuda
+#+end_example
+The first variant is actually identical to the atomic call.  The latter two require that WCT is build with support for PyTorch and CUDA, respectively.  An atomic test for each of the latter two variants can be found in their respective packages.
+
+#+begin_note
+C++ tests require particular attention to dependencies.  The ~test_idft~ is a little special in that it only has build-time dependency on the ~iface~ sub package yet it is placed in the ~aux~ package and can have run-time dependency on other higher-level packages via WCT's plugin and component factory mechanisms.  In its default calling, it relies on the ~FftwDFT~ component being available.  This component is provided the ~WireCellAux~ plugin library (from the ~aux~ sub package) and so this minimal run-time dependency is satisfied by placing the test in the ~aux~ sub package.  Depending on the variant form, it must be run in a context with either the ~WireCellPytorch~ or ~WireCellCuda~ plugins available.  We will show how to register these variants so they are run when these optional sub packages are built.
+#+end_note
+
+** Getting started
+
+We start with an initial "do nothing" test that always succeeds:
+
+#+begin_example
+int main(int argc, char* argv[]) {
+    return 0;
+}
+#+end_example
+Since we work with tests we configure the build to remember ~--tests~.  We may then build our test, which will also run it, and we may manually run it with:
+#+begin_example
+waf configure --tests [...]
+waf --target=test_idft
+./build/aux/test_idft
+#+end_example
+We use ~--target~ to avoid building/running the other tests.  It will rebuild and rerun each time we change the source.  To rerun otherwise a ~waf --alltests~ is needed.
+
+** Fleshing out
+
+We now add some "real" testing code.  Perhaps we start by adding it directly in the ~main()~ function.  As that grows it becomes awkward and confusing.  So, we eventually end up with many ~test_xxx()~ functions which are static or templated:
+
+#+begin_example
+static
+void test_2d_threads(IDFT::pointer dft, int nthreads, int nloops, int size = 1024)
+{
+    // ...
+}
+template<typename ValueType>
+void test_2d_transpose(IDFT::pointer dft, int nrows, int ncols)
+{
+   // ...
+}
+
+int main(int argc, char* argv[])
+{
+    // ...
+    test_2d_transpose<IDFT::scalar_t>(idft, 2, 8);
+    // ...
+    return 0;
+}
+#+end_example
+
+Note, there is no special C++ testing framework so the choice to name the functions with a ~test_~ prefix is purely an aesthetic one.
+
+** Failing tests
+
+A test is successful if it completes with a return status code of zero.  A failed test can be indicated in a number of ways:
+
+- return non-zero status code
+- ~throw~ an uncaught C++ exception 
+- call ~assert()~ or ~abort()~
+- call WCT's ~Assert()~ or ~AssertMsg()~.
+
+The test developer is free to use any or a mix of these methods and is strongly urged to use them pervasively throughout the test code.
+
+#+begin_note
+Do not write tests that lack any forms of actual error exit.  Otherwise they are not actually testing anything!
+#+end_note
+
+** WCT C++ testing support
+
+As introduced above, WCT provides some support for testing.  The first are simple wrappers around ~assert()~ and one that will print a message if the assertion fails:
+
+#+begin_example
+#include "WireCellUtil/Testing.h"
+
+int main()
+{
+    int x = 42;
+    Assert(x == 42);
+    AssertMsg(x == 0, "Not the right answer");
+    return 0;
+}
+#+end_example
+
+In addition, WCT provides facilities for reporting simple performance
+statistics, specifically CPU time and memory usage.
+
+#+begin_example
+#include "WireCellUtil/TimeKeeper.h"
+#include "WireCellUtil/MemUsage.h"
+#include "WireCellUtil/ExecMon.h"
+#+end_example
+
+- ~TimeKeeper~ :: a "stopwatch" to record time along with a message for various steps in a test
+- ~MemUsage~ :: similar but to record memory usage
+- ~ExecMon~ :: combine the two.
+
+See ~test_timekeeper.cxx~, ~test_memusage.cxx~ and ~test_execmon.cxx~, respectively, in ~util/test/~.
+
+** Output diagnostic files
+
+Tests may produce files, even atomic tests that may have no files governing ~waf~ task dependencies.  These files can be useful to persist beyond the test job.  The ideal location for these files is the ~build/~ directory and as sibling to the C++ test executable.  C++ has a simple pattern to achieve this:
+
+#+begin_example
+int main(int argc, char* argv[])
+{
+    std::string name = argv[0];
+    std::string outname = name + ".ext";
+    std::string outname2 = name + "_other.ext";
+    // open and write to outname and outname 2....
+    return 0;
+}
+#+end_example
+
+As the C++ test executable is found ~build/<pkg>/<prefix><sep><name>~, these output files will be found there as siblings.  
+
+#+begin_tip
+See also the use of the data repository in section [[Data repository]] for special files to per persisted beyond the local ~build/~ area.
+#+end_tip
+
+** Found input files
+
+Likewise, an atomic test must not expect any input files specified by the caller.  However, it may load files that can be found from the environment.  A common example is to find a WCT "wires" file or others provided by ~wire-cell-data~.  Here is a C++ pattern do that in a way that naturally allows an atomic test to also be called in a variant manner.
+
+#+begin_example
+int main(int argc, char* argv[])
+{
+    const char* filename = "microboone-celltree-wires-v2.1.json.bz2";
+    if (argc > 1) {
+        filename = argv[1];
+    }
+    // use filename...
+    return 0;
+}
+#+end_example
+
+See ~util/test/test_wireschema.cxx~ for an example.  
+
+For this kind of file to be found the user *must* define ~WIRECELL_PATH~ to include a directory holding the contents of ~wire-cell-data~.
+
+In principle the path in ~argv[0]~ may also be used to locate the top of the ~wire-cell-toolkit~ source in order to locate files provided by the source and use them as input.
+
+#+begin_tip
+The data repository also provides a set of known files for input.
+#+end_tip

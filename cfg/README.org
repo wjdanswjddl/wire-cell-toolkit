@@ -1,4 +1,5 @@
-#+TITLE: Wire Cell Toolkit Configuration
+#+title: Wire Cell Toolkit Configuration
+#+SETUPFILE: ../setup-readme.org
 
 * What is here
 
@@ -39,17 +40,17 @@ date with the reality on the ground.
 Files at top level provide general support and utilities.  Primarily
 there is the file:
 
-- [[./wirecell.jsonnet]] 
+- [[file:wirecell.jsonnet]] 
 
 This holds a Jsonnet version of the WCT /system of units/ (which is
 essentially identical to CLHEP's).  It also includes a number of
 Jsonnet functions to form some common configuration data structures.
 
-- [[./vector.jsonnet]] 
+- [[file:vector.jsonnet]] 
 
 This holds some functions to assist in doing vector arithmetic in Jsonnet.
 
-- [[./pgraph.jsonnet]]
+- [[file:pgraph.jsonnet]]
 
 This holds functions to support building a processing graph for use by
 the ~Pgrapher~ WCT app component.  Some details are [[https://wirecell.github.io/news/posts/pgrapher-configuration-improvements/][here]].
@@ -60,13 +61,13 @@ Across all types of *detectors* and *jobs* which are supported by WCT we
 define a layered configuration structure.  The top layer is most
 generic and the bottom most specific.  An Jsonnet API is defined for
 each layer.  Users defining new "main" Jsonnet files, or improving
-legacy forms, should read the document [[layers/README.org]].
+legacy forms, should read the document [[file:layers/README.org]].
 
 ** Legacy forms
 
 The original configuration structure which does not allow for
 detector-independent job configuration definition is held under
-[[./pgrapher/]].  See [[./pgrapher/README.org][it's README]] for more info on the conventions it
+[[file:pgrapher/]].  See [[file:pgrapher/README.org][it's README]] for more info on the conventions it
 follows.  New detector configuration should follow the *structured
 layers* form introduced above.  In some cases, legacy detector
 configuration may used in an adapter that provides *structured layers*
@@ -76,7 +77,7 @@ forms.
 
 Configuration can become obsolete when the C++ changes or when new
 paradigms of configuration organization are adopted.  That
-configuration may be moved to [[./obsolete/]] for some time before being
+configuration may be moved to [[file:obsolete/]] for some time before being
 dropped from the tip of the master branch.
 
 * Tests

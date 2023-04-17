@@ -1,0 +1,332 @@
+* BATS
+
+A BATS file is essentially a Bash shell script with a number of "special" functions that look like the following:
+
+#+begin_example
+@test "description of test" {
+  # ... body of test
+}  
+#+end_example
+
+With very little additional effort compared to plain shell scripts, a BATS test then provides added benefits such as:
+
+- standard forms to run a suite of tests and select individual tests.
+- standard test protocol.
+- stdout/stderr management.
+- simple ways to run commands and check for success.
+
+* BATS in WCT
+
+WCT provides a copy of BATS as the version coming with many operating systems is not up to date.    It will be used by the build system.  When running BATS tests directly the user should assure:
+
+#+begin_example
+  $ PATH=/path/to/my/wire-cell-toolkit/test/bats/bin:$PATH
+  $ export BATS_LIB_PATH=/path/to/my/wire-cell-toolkit/test
+#+end_example
+
+* My first BATS test
+
+#+begin_example
+  bats_load_library wct-bats.sh
+
+  @test "check wire-cell version" {
+      wct --version
+
+      # Will fail one day when WCT v1 is released!
+      [[ -n $(echo $output | grep '^0' ) ]] 
+  }
+
+  @test "check wcsonnet help" {
+      local wcs=$(wcb_env_value WCSONNET)
+      run $wcs --help
+      echo $output    # shown only on error
+      [[ $status -eq 0 ]]
+  }
+#+end_example
+
+The command ~wct~ is actually a function from ~wct-bats.sh~ that runs ~wire-cell~ and instruments some default checking.
+The ~wcsonnet~ is not so wrapped but is available as a ~wcb~ variable.  The ~run~ command is a BATS helper to fill ~$output~ and ~$status~, which we check.
+
+* Running BATS tests
+
+A BATS test should run from anywhere:
+
+#+begin_example
+bats test/test/test_my_first_bats.bats
+#+end_example
+As in this example, all ~@test~ functions in a BATS file will be executed sequentially.  A subset of tests with names that match a filter can be selected for running.  Using above example:
+
+#+begin_example
+bats -f "wire-cell" test/test/test_my_first_bats.bats
+#+end_example
+
+* Creating a BATS test
+
+Here we give some detailed guidance on making a BATS test. 
+
+** Naming the BATS test file
+
+See section [[Framework]] and [[Writing tests]] for general guidance on writing WCT tests.  
+Start by creating a BATS file.  Here, we pick the "test" aka "atomic" category:
+#+begin_example
+<pkg>/test/<category><sep><name>.bats
+#+end_example
+As with all tests, the category and name should be unique.  If more than one test shares the same file name, though perhaps different packages or file name extensions, it is the duty of the developers to assure these tests are mutually compatible in their execution and any file production.
+
+If the test relates to an issue on GitHub (and ideally there is a test for every issue) then this is an excellent pattern:
+
+#+begin_example
+<pkg>/test/test_issueNNNN.bats
+#+end_example
+
+BATS tests should be placed in a ~<pkg>~ which best provides the run-time dependencies.  For example, if PyTorch is required they should be placed in the ~<pytorch>~ sub package. 
+
+** First steps
+
+Edit the ~.bats~ file, add the ~@test~ function:
+
+#+begin_example
+  #!/usr/bin/env bats
+  
+  load ../../test/wct-bats.sh
+  
+  # bats test_tags=tag1,tag2
+  @test "assure the frob correctly kerplunks" {
+      echo "nothing yet"
+  }
+#+end_example
+Pick a test description that describes a positive test outcome.
+Check that the test works:
+
+#+begin_example
+  $ bats <pkg>/test/test_issueNNNN.bats
+#+end_example
+
+So far, it can't fail.  Below we progressively add more tests constraints.  It is recomended to build up tests in this way as you hunt a bug or develop a new feature.  That is, don't fix the bug or make the feature first.  Rather, write the tests and fix the bug / make the feature so that the initially failing tests then succeed.
+
+** Basic elements of a test
+
+Typically an ~@test~ will consist of one or more stanzas with the following four lines:
+
+#+begin_example
+  run some_command             # (1)
+  echo "$output"               # (2)
+  [[ "$status" -eq 0 ]]        # (3)
+                               # (4)
+  [[ -n "$(echo "$output" | grep 'required thing') ]]
+  [[ -z "$(echo "$output" | grep 'verboten thing') ]]
+#+end_example
+We explain each:
+1. Use Bats ~run~ to run some command under test.
+2. The ~run~ will stuff command output to ~$output~ which we echo.  We will only see this output on the terminal if the overall test fails.  (see logging below).
+3. Assert that the command exited with a success status code (~0~).
+4. Perform some checks on the stdout in ~$output~ and/or on any files produced by ~some_command~.
+
+** Start up and tear down
+
+In addition to the special ~@test "" {}~ function forms, BATS supports two functions that are called once per file.  The first is called prior to any ~@test~ and the second called after all ~@test~.
+
+#+begin_example
+function setup_file () {
+  # startup code
+}
+function teardown_file () {
+  # shutdown code
+}
+#+end_example
+One example for using ~setup_file~ is to run any long-running programs that produce output required by more than one ~@test~.
+
+** Input and output files
+
+*** Temporary files
+
+BATS has a concept of a context-dependent temporary working directory.  The contexts are:
+
+- ~test~ :: a single ~@test~ function.
+
+- ~file~ :: a ~.bats~ test file, such as in ~setup_file()~ or ~teardown()~ functions.
+
+- ~run~ :: an invocation of the ~bats~ command.
+
+Typically, ~run~ is not used.  The ~wct-bats.sh~ library provides some helpers to work with temporary areas:
+
+#+begin_example
+  cd_tmp      (1)
+  cd_tmp file (2)
+#+end_example
+Where:
+1. The shell will change to the temporary directory for the current context.   In ~setup_file()~ this is the ~file~ context.
+2. Explicitly change to the ~file~ context.  This is typical to use in a ~@test~ function to utilize files produced in this scope.
+
+By default ~bats~ will delete all temporary directories after completion of the test run.  When tests fail it can be useful to examine what was placed in the temporary directories.  To allow this run the test like:
+
+#+begin_example
+  $ bats --no-tempdir-cleanup path/to/test_foo.bats
+#+end_example
+The temporary directory will be printed to the terminal. 
+
+Alternatively, ~wct-bats.sh~  overrules default temporary directories, combines them and does not delete them when ~WCTEST_TMPDIR~ is defined.  This can be useful while developing and debugging tests, particularly in combination with writing long running tests in an idempotent fashion.  Do *not* define this variable in any test but instead in your interactive shell session:
+#+begin_example
+  $ WCTEST_TMPDIR=$HOME/my-wct-tmp-dir bats [...]
+#+end_example
+
+
+*** Persistent files
+
+Some BATS tests may use or create files that persist beyond the temporary context via the WCT test data repository (see section [[Data repository]]).  The ~wct-bats.org~ library provides some functions to help work with such files.
+
+For a test that produces historical files, they may be saved to the "history" category of the repo with:
+#+begin_example
+saveout -c history my-file-for-history.npz
+#+end_example
+
+A known input file may be resolved as:
+
+#+begin_example
+local myinput=$(input_file relative/path/data.ext)
+#+end_example
+
+A file from a version of a category is resolved:
+
+#+begin_example
+  # from current version of history category
+  local myfile=$(category_path relative/path/data.ext)
+  # from specific version of plots category
+  local plot20=$(category_path -c plots -v 0.20.0 relative/path/data.png)
+#+end_example
+
+All released versions of a the ~history~ category directory and all versions of the ~plots~ category:
+
+#+begin_example
+local myhistpaths_released=( category_version_paths )
+local myhistpaths_plus_dirty=( category_version_paths -c plots --dirty )
+#+end_example
+
+Likewise, but just the version strings
+
+#+begin_example
+local myhistvers_released=( category_versions )
+#+end_example
+
+
+*** Idempotent tests
+
+Some tests are long running and multi stage.  As just described, a test should run in a per-test temporary directory by calling ~cd_tmp~.  When developing tests or investigating failures, it can be very painful to run and re-run the same test many times.  By setting ~WCTEST_TMPDIR~ we can control where the test runs, but we must still write the tests to be *idempotent* to allow us to quickly run and re-run them and not repeat the portions that pass. 
+
+Adding idempotency to tests simply comes down to adding test for command output files and only running the command if the file is missing.  An example:
+
+#+begin_example
+  @test "an idempotent test" {
+    myout="myoutput.txt"
+    if [ -f "$myout" ] ; then
+      echo "reusing $myout"
+    else
+      date > $myout
+    fi
+    # ...
+  }
+#+end_example
+Here the ~date~ command stands in for a "long running" program.  The ~echo~ is not seen on the terminal unless the test later fails.   That's it.  Now when running and re-running the test with ~WCTEST_TMPDIR~ set it will only call the "slow" ~date~ program once.
+
+Another common pattern is one initial, long-running command followed by many faster tests that utilize the results of that first command.  This pattern is well served by using the Bats ~setup_file~ function to run the command in the temporary directory at "file scope" via ~cd_tmp file~.  As default scope is per-test, each subsequent test must locate that file-scope temp.
+
+#+begin_example
+  function setup_file -o output.dat () {
+    cd_tmp file
+    run my_slow_command
+    [[ "$status" -eq 0 ]]
+  }
+
+  @test "A test running in file temp dir" {
+    cd_tmp file
+    [[ -s output.dat ]]
+  }
+
+  @test "A in test temp dir using file temp dir" {
+    local ft="$(tmpdir file)"
+    cd_tmp
+    [[ -s "$ft/output.dat" ]]
+  }
+#+end_example
+
+
+** Test tags
+
+As shown in the [[First steps]] one can assert [[https://bats-core.readthedocs.io/en/stable/writing-tests.html#tagging-tests][test tags]] above a ~@test~.  One can also have file-level tags.
+
+#+begin_example
+# bats file_tags=issue:202
+
+# bats test_tags=topic:noise
+@test "test noise spectra for issue 202" {
+  ...
+}
+#+end_example
+
+Tag name conventions are defined here:
+
+- ~implicit~ :: The test only performs implicit tests ("it ran and didn't crash") and side effects (report, history).
+- ~report~ :: The test produces a "report" of files saved to output (see [[Reports]])
+- ~history~ :: The test produces results relevant to multiple released versions (see [[Historical tests]]).
+- ~issue:<number>~ :: The test is relevant to GitHub issue of the given number.
+- ~pkg:<name>~ :: The test is part of package named ~<name>~ (~gen~, ~util~, etc)
+- ~topic:<name>~ :: The test relates to topic named ~<name>~ (~wires~, ~response~, etc)
+- ~time:N~ :: The test requires on order $10^N$ seconds to run, limited to $N \in [1, 2, 3]$.
+By default, all tests are run.  The user may explicitly include or exclude tests.  For example, to run tests tagged as being related to ~wires~ and that take a few minutes or less to run and explicitly those in the ~util/~ sub package: 
+
+#+begin_example
+bats --filter-tags 'topic:wires,!time:3' util/test/test*.bats
+#+end_example
+See also the ~wcb --test-duration=<seconds>~ options described in section [[Framework]].
+
+
+** Test logging
+
+BATS uses the [[https://testanything.org/]["test anything protocol"]] to combine multiple tests in a coherent way.  We need not be overly concerned with the details but it does mean that BATS captures ~stdout~ and ~stderr~ from the individual tests.  When the user wishes to see diagnostic messages directly this causes annoyance.  But, no worry as there are three mechanisms to emit and view such user diagonstics.
+
+*** Logging on failure
+
+By default, ~bats~ will show ~stdout~ for a test that fails so simply ~echo~ or otherwise send to ~stdout~ as usual
+
+#+begin_example
+  @test "chirp and fail" {
+      echo "hello world"
+      exit 1
+  }
+#+end_example
+Running ~bats~ on this test will fail and print ~hello world~.
+
+*** Logging on success
+
+The output of successful tests can also be shown.
+
+#+begin_example
+  @test "chirp and succeed" {
+      echo "goodbye world"
+  }
+#+end_example
+Running ~bats~ as:
+
+#+begin_example
+  $ bats --show-output-of-passing-tests chirp.bats
+#+end_example
+will show ~goodbye world~.
+
+*** File descriptor 3.
+
+Output to the special file descriptor ~3~ will always lead to that output to the terminal.  
+
+#+begin_example
+  @test "chirp no matter what" {
+      echo "Ahhhhhhhh" 1>&3
+  }
+#+end_example
+Please avoid using this except in special, temporary cases, as it leads to very "noisy" tests.
+
+
+** Reports
+
+Tests may produce reports in the form of PDF or web (HTML, PNG, JPG, etc).
+
+
+

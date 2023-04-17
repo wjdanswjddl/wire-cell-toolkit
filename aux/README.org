@@ -1,5 +1,7 @@
-
 #+title: Wire-Cell Toolkit Auxiliary 
+#+SETUPFILE: ../setup-readme.org
+
+* Overview
 
 This core WCT package enjoys a special position in the dependency
 tree.  It depends on ~WireCellIface~ as do other "implementation"
@@ -13,6 +15,9 @@ Some categories of code appropriate for ~aux~:
 - ~INode~ implementations that provide general purpose data converters (eg, ~ITensorSet <--> IFrame~)
 - general utility code that operate on interfaces (eg, ~FrameTools~)
 
+#+include: docs/aux.org
+
+* Links to more docs :noexport:
 
 When describing a class or code outgrows what can easily be expressed
 in comments a file in [[./docs][docs/]] may be provided.
