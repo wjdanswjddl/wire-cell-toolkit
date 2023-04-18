@@ -165,6 +165,10 @@ bool Gen::Digitizer::operator()(const input_pointer& vframe, output_pointer& adc
     log->debug("call={} traces={} frame={} totadc={} outtag=\"{}\"",
                m_count,
                adctraces.size(), vframe->ident(), totadc, m_frame_tag);
+
+    log->debug("input : {}", Aux::taginfo(vframe));
+    log->debug("output: {}", Aux::taginfo(adcframe));
+
     ++m_count;
     return true;
 }
