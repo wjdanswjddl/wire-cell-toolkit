@@ -69,16 +69,16 @@ _tooldir = os.path.dirname(os.path.abspath(__file__))
 
 def options(opt):
     opt.load('compiler_cxx')
-    opt.load("datarepo")
     opt.load('wcb_unit_test') # adds --tests
+    opt.load("datarepo")
 
     opt.add_option("--docs", default="",
                    help="comma separated list of docs to generate.  eg: 'org2hml,org2pdf,doxy'.  default:none")
 
 def configure(cfg):
     cfg.load('compiler_cxx')
-    cfg.load('datarepo')
     cfg.load('wcb_unit_test')
+    cfg.load('datarepo')
     cfg.load('rpathify')
     cfg.load('org')
 

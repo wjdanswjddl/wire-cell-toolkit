@@ -183,6 +183,9 @@ def build(bld):
     '''
     Download and unpack archived data repo files.
     '''
+    if not bld.env.TESTS:
+        return
+
     bld(features="datarepo", name='datarepo_input')
     for ver in bld.env.TEST_DATA_VERSIONS:
         name = 'datarepo_history_' + ver.replace('.','_')
