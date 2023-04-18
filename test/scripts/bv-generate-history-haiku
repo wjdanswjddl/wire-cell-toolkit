@@ -51,6 +51,8 @@ function mrun () {
 
 mrun wire-cell --version
 # mrun ./wcb install --notests -p
-mrun $topdir/test/bats/bin/bats $topdir/gen/test/test-addnoise.bats
-mrun $topdir/test/bats/bin/bats -f 'make history' $topdir/test/test/test-pdsp-simsn.bats
+
+# It would be nice to run this in parallel but something gets messed up.
+mrun $topdir/test/bats/bin/bats --filter-tags history $topdir/*/test/test*.bats
+
 

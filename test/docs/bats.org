@@ -15,7 +15,7 @@ With very little additional effort compared to plain shell scripts, a BATS test 
 - stdout/stderr management.
 - simple ways to run commands and check for success.
 
-* BATS in WCT
+** BATS in WCT
 
 WCT provides a copy of BATS as the version coming with many operating systems is not up to date.    It will be used by the build system.  When running BATS tests directly the user should assure:
 
@@ -24,7 +24,7 @@ WCT provides a copy of BATS as the version coming with many operating systems is
   $ export BATS_LIB_PATH=/path/to/my/wire-cell-toolkit/test
 #+end_example
 
-* My first BATS test
+** My first BATS test
 
 #+begin_example
   bats_load_library wct-bats.sh
@@ -47,7 +47,7 @@ WCT provides a copy of BATS as the version coming with many operating systems is
 The command ~wct~ is actually a function from ~wct-bats.sh~ that runs ~wire-cell~ and instruments some default checking.
 The ~wcsonnet~ is not so wrapped but is available as a ~wcb~ variable.  The ~run~ command is a BATS helper to fill ~$output~ and ~$status~, which we check.
 
-* Running BATS tests
+** Running BATS tests
 
 A BATS test should run from anywhere:
 
@@ -60,7 +60,7 @@ As in this example, all ~@test~ functions in a BATS file will be executed sequen
 bats -f "wire-cell" test/test/test_my_first_bats.bats
 #+end_example
 
-* Creating a BATS test
+The* Creating a BATS test
 
 Here we give some detailed guidance on making a BATS test. 
 
@@ -136,9 +136,7 @@ function teardown_file () {
 #+end_example
 One example for using ~setup_file~ is to run any long-running programs that produce output required by more than one ~@test~.
 
-** Input and output files
-
-*** Temporary files
+** Temporary files
 
 BATS has a concept of a context-dependent temporary working directory.  The contexts are:
 
@@ -170,15 +168,22 @@ Alternatively, ~wct-bats.sh~  overrules default temporary directories, combines 
   $ WCTEST_TMPDIR=$HOME/my-wct-tmp-dir bats [...]
 #+end_example
 
-
-*** Persistent files
+** Persistent files
 
 Some BATS tests may use or create files that persist beyond the temporary context via the WCT test data repository (see section [[Data repository]]).  The ~wct-bats.org~ library provides some functions to help work with such files.
 
-For a test that produces historical files, they may be saved to the "history" category of the repo with:
+For a test that produces *historical files*, they may be saved to the "history" category of the repo with:
 #+begin_example
-saveout -c history my-file-for-history.npz
+  # bats test_tags=history
+  @test "make history" {
+    # ...
+    saveout -c history my-file-for-history.npz
+  }
 #+end_example
+#+begin_note
+Only place the ~history~ tag on tests that save history files.  History can then be quickly refreshed by running ~bats --filter-tags history */test/test*.bats~ and this command can be run in a number of software build environments to refresh past history after some new historical tests are added.
+#+end_note
+
 
 A known input file may be resolved as:
 
@@ -270,13 +275,19 @@ As shown in the [[First steps]] one can assert [[https://bats-core.readthedocs.i
 @test "test noise spectra for issue 202" {
   ...
 }
+# bats test_tags=history
+@test "make history" {
+  ...
+  saveout -c history somefile.npz
+}
+
 #+end_example
 
 Tag name conventions are defined here:
 
 - ~implicit~ :: The test only performs implicit tests ("it ran and didn't crash") and side effects (report, history).
 - ~report~ :: The test produces a "report" of files saved to output (see [[Reports]])
-- ~history~ :: The test produces results relevant to multiple released versions (see [[Historical tests]]).
+- ~history~ :: The test produces results relevant to multiple released versions (see [[Historical tests]]).  *Only place this tag on tests that produce history files*
 - ~issue:<number>~ :: The test is relevant to GitHub issue of the given number.
 - ~pkg:<name>~ :: The test is part of package named ~<name>~ (~gen~, ~util~, etc)
 - ~topic:<name>~ :: The test relates to topic named ~<name>~ (~wires~, ~response~, etc)
@@ -287,7 +298,6 @@ By default, all tests are run.  The user may explicitly include or exclude tests
 bats --filter-tags 'topic:wires,!time:3' util/test/test*.bats
 #+end_example
 See also the ~wcb --test-duration=<seconds>~ options described in section [[Framework]].
-
 
 ** Test logging
 
@@ -331,12 +341,5 @@ Output to the special file descriptor ~3~ will always lead to that output to the
   }
 #+end_example
 Please avoid using this except in special, temporary cases, as it leads to very "noisy" tests.
-
-
-* Reports
-
-Tests may produce reports in the form of PDF or web (HTML, PNG, JPG, etc).
-
-
 
 

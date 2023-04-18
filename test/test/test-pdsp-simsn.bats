@@ -3,7 +3,7 @@
 # Run signal and noise simulation on PDSP APA0.
 
 # Produces plots and history files
-# bats file_tags=plots,history
+# bats file_tags=plots
 
 # Started for https://github.com/WireCell/wire-cell-toolkit/pull/195
 
@@ -32,24 +32,24 @@ setup_file () {
     echo "in file: $in_file"
     [[ -f "$in_file" ]]
 
-    adc_file="$(realpath $adc_file)"
-    sig_file="$(realpath $sig_file)"
-
     run_idempotently -s $cfg_file -t $dag_file -- \
                      compile_jsonnet $cfg_file $dag_file \
                      -A input="$in_file" -A sigoutput="$sig_file" -A adcoutput="$adc_file"
+    # run compile_jsonnet $cfg_file $dag_file \
+    #                  -A input="$in_file" -A sigoutput="$sig_file" -A adcoutput="$adc_file"
+    [[ -s "$dag_file" ]]
 
     run_idempotently -s $dag_file -s $in_file -t $sig_file -t $adc_file -t $log_file -- \
                      wct -l $log_file -L debug -c $dag_file
-
     [[ -s "$log_file" ]]
+
     file_larger_than "$sig_file" 32  # assure non-empty .tar.gz
     file_larger_than "$adc_file" 32  # assure non-empty .tar.gz
 
     [[ -z "$(grep ' E ' $log_file)" ]]
-
 }
 
+# bats test_tags=history
 @test "make history" {
     cd_tmp file
 
@@ -90,10 +90,10 @@ function plotframe () {
 }
 
 @test "plot frame adc wave new" {
-    plotframe current adc wave "$(realpath $adc_file)"
+    plotframe current adc wave "$adc_file"
 }
 @test "plot frame sig wave new" {
-    plotframe current sig wave "$(realpath $sig_file)"
+    plotframe current sig wave "$sig_file"
 }
 @test "plot frame adc wave old" {
     plotframe blessed adc wave "$(input_file frames/pdsp-signal-noise.tar.bz2)"
@@ -107,7 +107,7 @@ function comp1d () {
     [[ -n "$plot" ]]
     
     local wcplot=$(wcb_env_value WCPLOT)
-    local new_dat="$(realpath $adc_file)"
+    local new_dat="$adc_file"
     [[ -s "$new_dat" ]]
     local old_dat="$(input_file frames/pdsp-signal-noise.tar.bz2)"
     [[ -s "$old_dat" ]]

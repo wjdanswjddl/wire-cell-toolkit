@@ -92,6 +92,7 @@ function run_idempotently () {
     fi
 
     echo "running: $@"
+    # yell "running: $@" 
     run "$@"
     [[ "$status" -eq 0 ]]
 }
@@ -357,6 +358,7 @@ function compile_jsonnet () {
     [[ -n "$cmd" ]]
 
     echo "$cmd"                 # for output on failure
+    # yell "$cmd"
     run $cmd
     echo "$output"
     [[ "$status" -eq 0 ]]

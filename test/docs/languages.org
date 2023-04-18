@@ -12,9 +12,9 @@ fast rules but the following guidelines may be considered:
 It is also possible to write WCT tests in Python and plain shell.  However, these are not well supported nor currently recommended.  However,  developers are encouraged to consider adding functionality that is useful for tests into the various command Python modules and Click line interfaces in ~wire-cell-python~.  These may then be easily used from a BATS test.
 #+end_note
 
-The remainder of this sections gives details of WCT testing framework support specific to the recommended languages.
+The remainder of this document gives details of WCT testing framework support specific to the recommended languages.
 
-#+include: cpp.org
-#+include: bats.org
-#+include: jsonnet.org
+#+include: cpp.org :minlevel 1
+#+include: bats.org :minlevel 1
+#+include: jsonnet.org :minlevel 1
 

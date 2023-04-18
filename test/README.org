@@ -1,5 +1,6 @@
 #+title: Wire-Cell Toolkit Testing
 #+SETUPFILE: ../setup-readme.org
+#+options: broken-links:t
 
 The Wire-Cell Toolkit (WCT) includes a large number of tests.  Developers and users are strongly encouraged to contribute even more.
 

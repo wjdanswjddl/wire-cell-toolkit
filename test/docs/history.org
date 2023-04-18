@@ -30,7 +30,4 @@ Historical tests should only assume versions in this list but may also include t
 
 ** Support
 
-See section [[BATS]] for description of support for historical tests written as BATS files.
-
-
-
+See section [[BATS]] for description of support for historical tests written as BATS files.  
