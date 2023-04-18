@@ -1,151 +1,137 @@
 #!/usr/bin/env bats
 
-# fixme: add asserts
-# fixme: use history mechanism
+# Run signal and noise simulation on PDSP APA0.
 
-# bats file_tags=implicit,plots
+# Produces plots and history files
+# bats file_tags=plots,history
 
-# Some tests for https://github.com/WireCell/wire-cell-toolkit/pull/195
+# Started for https://github.com/WireCell/wire-cell-toolkit/pull/195
 
 bats_load_library wct-bats.sh
 
-# FIXME: this test provides use cases for the test system
-#
-# - [x] A systematic way to run a bats test in a pre-created directory
-#   under build/tests/<test-name>/ to keep build tidy.  --> cd_tmp
-#   
-# 
-# - [x] A "test data repository" with files for input and expected
-#   output. --> ./wcb --test-data=/...  and wct-bats.sh helpers
-#
-# - This test implements the commands from the README.md in above URL.  It produces PDFs which clearly show a problem, but require a human.  In addition to the PDFs, this test should compare data at the "frames" file level.  This likely needs a "wirecell-util diff-array" command to be written.
-#
-# - This test is laboriously written to be idempotent.  Perhaps the common patterns can be abstracted.  
-#
-# - A common patter to name and extract "human interesting" products of the test, such as the PDFs.
+log_file="wire-cell.log"
+sig_file="frames-sig.tar.gz"
+adc_file="frames-adc.tar.gz"
+dag_file="dag.json"
 
-base="$(basename ${BATS_TEST_FILENAME} .bats)"
-
+# Compile Jsonnet to dag.json and run wire-cell.
 setup_file () {
 
     skip_if_no_input
 
     cd_tmp file
 
-    # Assume we run from build/.
-    cfgfile="$(relative_path pdsp-depos-simsn-frames.jsonnet)"
-    echo "using config: $cfgfile"
-    [[ -n "$cfgfile" ]]
-    [[ -f "$cfgfile" ]]
+    local cfg_file="$(relative_path pdsp-depos-simsn-frames.jsonnet)"
+    echo "using config: $cfg_file"
+    [[ -n "$cfg_file" ]]
+    [[ -f "$cfg_file" ]]
 
     # Assure input file
     # was pdsp/sim/sn/depos.tar.bz
-    infile="$(input_file depos/many.tar.bz2)"
-    echo "infile: $infile"
-    [[ -f "$infile" ]]
+    local in_file="$(input_file depos/many.tar.bz2)"
+    echo "in file: $in_file"
+    [[ -f "$in_file" ]]
 
-    cd_tmp
+    adc_file="$(realpath $adc_file)"
+    sig_file="$(realpath $sig_file)"
 
-    logfile="${base}.log"
-    outfile="${base}_frames.tar.gz"
-    if [ -f "$logfile" -a -f "$outfile" ] ; then
-        warn "Reusing existing output of wire-cell on $cfgfile"
-    else
-        echo "Running wire-cell on $cfgfile"
-        wct -l "$logfile" -L debug \
-            -A input="$infile" \
-            -A output="$outfile" \
-            -c "$cfgfile"
-    fi
-    [[ -f "$logfile" ]]
-    [[ -s "$logfile" ]]
-    [[ -f "$outfile" ]]
-    [[ -s "$outfile" ]]
-    saveout -c history "$outfile"
+    run_idempotently -s $cfg_file -t $dag_file -- \
+                     compile_jsonnet $cfg_file $dag_file \
+                     -A input="$in_file" -A sigoutput="$sig_file" -A adcoutput="$adc_file"
+
+    run_idempotently -s $dag_file -s $in_file -t $sig_file -t $adc_file -t $log_file -- \
+                     wct -l $log_file -L debug -c $dag_file
+
+    [[ -s "$log_file" ]]
+    file_larger_than "$sig_file" 32  # assure non-empty .tar.gz
+    file_larger_than "$adc_file" 32  # assure non-empty .tar.gz
+
+    [[ -z "$(grep ' E ' $log_file)" ]]
+
+}
+
+@test "make history" {
+    cd_tmp file
+
+    [[ -s "$dag_file" ]]
+    [[ -s "$sig_file" ]]
+    [[ -s "$adc_file" ]]
+    saveout -c history "$dag_file" 
+    saveout -c history "$sig_file" 
+    saveout -c history "$adc_file" 
 }
 
 
-
-function waveform_figure () {
-    local dat="$1" ; shift
-    [[ -n "$dat" ]]
-    [[ -f "$dat" ]]
-    local fig="$1"; shift
-    [[ -n "$fig" ]]
-
-    if [ -f "$fig" ] ; then
-        warn "Reusing existing $fig"
-        return
-    fi
-
-    local wcplot=$(wcb_env_value WCPLOT)
-
-    # yell "$wcplot frame -s -n wave $dat $fig"
-    run $wcplot frame -s -n wave "$dat" "$fig"
-    pwd
-    echo "$output"
-    echo "status: $status"
-    echo "status okay"
-    [[ "$status" -eq 0 ]]
-    echo "no fig: $fig"
-    ls -l *.png
-    [[ -s "$fig" ]]
-
-    saveout -c plots "$fig"
-}
-
-    
-function channel_figure () {
-    local chan="$1"; shift
-    local old_dat="$1"; shift
-    local new_dat="$1"; shift
-    local fig="$1"; shift
-
-    if [ -f "$fig" ] ; then
-        warn "Reusing existing $fig"
-    fi
-    local wcplot=$(wcb_env_value WCPLOT)
-    # yell "$wcplot comp1d -c $chan $old_dat $new_dat $fig"
-
-    run $wcplot comp1d -s -c $chan $old_dat $new_dat $fig
-    echo "$output"
-    [[ "$status" -eq 0 ]]
-    [[ -s "$fig" ]]
-    saveout -c plots "$fig"
-}
-
-
-@test "plot pdsp signal" {
-
+function plotframe () {
     skip_if_no_input
 
     cd_tmp file
 
-    outfile="${base}_frames.tar.gz"
-
-    # make figures
-    local fmt="png"
-
-    # make waveform figures for new data and old ("blessed") data.
-    local new_dat="$outfile"
-    local new_fig="${base}_frame_new.$fmt"
-    waveform_figure $new_dat $new_fig
-
-    # was pdsp/sim/sn/frames-expected.tar.bz2
-    local old_dat="$(input_file frames/pdsp-signal-noise.tar.bz2)"
-    [[ -n "$old_dat" ]]
-    local old_fig="${base}_frame_old.$fmt"
-    waveform_figure $old_dat $old_fig
+    local name="$1"; shift
+    local tier="$1" ; shift
+    local type="$1"; shift
+    local dat="$1"; shift
+    local fig="${name}-${tier}-${type}.png"
+    local tag='orig'
+    declare -a args
+    if [ "$tier" = "sig" ] ; then
+        args=(-u 'millivolt' -r 10)
+        local tag='*'
+    fi
 
     local wcplot=$(wcb_env_value WCPLOT)
-    for plot in wave spec
-    do
-        local fig="check-pdsp-signal-${plot}.png"
-        $wcplot comp1d -s --chmin 0 --chmax 800 \
-                -n $plot --transform ac \
-                -o $fig -s $old_dat $new_dat
-        [[ -s $fig ]]
-        saveout -c plots $fig
-    done
+    [[ -n "$wcplot" ]]
+    [[ -x "$wcplot" ]]
+
+    run_idempotently -s $dat -t $fig -- \
+                     $wcplot frame ${args[@]} -t "$tag" -s -n $type "$dat" "$fig"
+    [[ -s "$fig" ]]
+    saveout -c plots $fig
 }
 
+@test "plot frame adc wave new" {
+    plotframe current adc wave "$(realpath $adc_file)"
+}
+@test "plot frame sig wave new" {
+    plotframe current sig wave "$(realpath $sig_file)"
+}
+@test "plot frame adc wave old" {
+    plotframe blessed adc wave "$(input_file frames/pdsp-signal-noise.tar.bz2)"
+}
+
+function comp1d () {
+    skip_if_no_input
+    cd_tmp file
+
+    plot=$1
+    [[ -n "$plot" ]]
+    
+    local wcplot=$(wcb_env_value WCPLOT)
+    local new_dat="$(realpath $adc_file)"
+    [[ -s "$new_dat" ]]
+    local old_dat="$(input_file frames/pdsp-signal-noise.tar.bz2)"
+    [[ -s "$old_dat" ]]
+
+    local fig="${plot}.png"
+
+    run_idempotently -s $new_dat -s $old_dat -t $fig -- \
+                     $wcplot comp1d -s --chmin 0 --chmax 800 \
+                     -n $plot --transform ac \
+                     -o $fig $old_dat $new_dat
+    [[ -s "$fig" ]]
+
+    saveout -c plots $fig
+}
+
+@test "plot comp1d wave" {
+    comp1d wave
+}
+@test "plot comp1d spec" {
+    comp1d spec
+}
+
+
+@test "dag viz" {
+    cd_tmp file
+    dotify_graph $dag_file dag.svg
+}
