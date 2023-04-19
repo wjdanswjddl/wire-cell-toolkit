@@ -98,6 +98,7 @@ function run_idempotently () {
         yell "running: $@"
     fi
     run "$@"
+    echo "$output"
     [[ "$status" -eq 0 ]]
 }
 
