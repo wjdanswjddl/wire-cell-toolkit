@@ -34,9 +34,8 @@ setup_file () {
 
     run_idempotently -s $cfg_file -t $dag_file -- \
                      compile_jsonnet $cfg_file $dag_file \
-                     -A input="$in_file" -A sigoutput="$sig_file" -A adcoutput="$adc_file"
-    # run compile_jsonnet $cfg_file $dag_file \
-    #                  -A input="$in_file" -A sigoutput="$sig_file" -A adcoutput="$adc_file"
+                     -A input="$in_file" -A sigoutput="$sig_file" \
+                     -A adcoutput="$adc_file"
     [[ -s "$dag_file" ]]
 
     run_idempotently -s $dag_file -s $in_file -t $sig_file -t $adc_file -t $log_file -- \
