@@ -11,7 +11,6 @@ TEST_DATA_VERSIONS='0.20.0,0.21.0,0.22.0,0.23.0,0.24.1'
 
 import io
 from waflib.Logs import debug, info, error, warn
-import waflib.Utils
 from waflib.Task import Task
 try:
     from urllib import request
@@ -206,40 +205,3 @@ def build(bld):
     #         source = tdir.find_or_declare(f'history-{ver}.url'))
 
 
-        
-def packrepo(bld):
-    '''
-    Pack existing test data repo to archive files.
-    '''
-    indir=bld.path.find_dir("build/tests/input")
-    if indir.exists():
-        cmd = "tar -C %s -cf input.tar input" % (indir.parent.abspath())
-        info(cmd)
-        rc = waflib.Utils.subprocess.call(cmd, shell=True)
-        if rc != 0:
-            warn("archive failed")
-    else:
-        warn("no input files found")
-
-
-    
-    rels = bld.options.test_data_releases
-    if rels:
-        rels = [r.strip() for r in rels.split(",") if r.strip()]
-
-    hdir = bld.path.find_dir("build/tests/history")
-    # print(hdir)
-    hdirs = hdir.ant_glob("*")  # this finds children but doesn't return them?
-    # print(hdirs)
-    # hdir.mkdir()
-    # print(hdir.children)
-    for vdir in hdir.children:
-        if rels and vdir not in rels:
-            continue
-        cmd = "tar -C %s -cf history-%s.tar history/%s" % (
-            hdir.parent.abspath(), vdir, vdir)
-        info(cmd)
-        rc = waflib.Utils.subprocess.call(cmd, shell=True)
-        if rc != 0:
-            warn("archive failed")
-        

@@ -3,7 +3,7 @@
 
 import generic
 import os.path as osp
-from waflib.Utils import to_list
+from waflib.Utils import to_list, subprocess
 from waflib.Logs import debug, info, error, warn
 from waflib.Build import BuildContext
 from waflib.Configure import conf
@@ -247,3 +247,40 @@ def dumpenv(bld):
 class DumpenvContext(BuildContext):
     cmd = 'dumpenv'
     fun = 'dumpenv'
+        
+def packrepo(bld):
+    '''
+    Pack existing test data repo to archive files.
+    '''
+    indir=bld.path.find_dir("build/tests/input")
+    if indir.exists():
+        cmd = "tar -C %s -cf input.tar input" % (indir.parent.abspath())
+        info(cmd)
+        rc = subprocess.call(cmd, shell=True)
+        if rc != 0:
+            warn("archive failed")
+    else:
+        warn("no input files found")
+    
+    rels = bld.env.TEST_DATA_VERSIONS
+
+    hdir = bld.path.find_dir("build/tests/history")
+    hdirs = hdir.ant_glob("*")
+
+    for vdir in hdir.children:
+        if rels and vdir not in rels:
+            continue
+        cmd = "tar -C %s -cf history-%s.tar history/%s" % (
+            hdir.parent.abspath(), vdir, vdir)
+        info(cmd)
+        rc = subprocess.call(cmd, shell=True)
+        if rc != 0:
+            warn("archive failed")
+        
+class PackrepoenvContext(BuildContext):
+    cmd = 'packrepo'
+    fun = 'packrepo'
+    def recurse(self, sd):
+        # why is this needed?
+        debug(f"wcb: not recurring into {sd}") 
+        return

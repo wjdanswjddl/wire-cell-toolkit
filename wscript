@@ -85,5 +85,5 @@ def dumpenv(bld):
     bld.load('wcb')
 
 def packrepo(bld):
-    import datarepo
-    datarepo.pakrepo(bld)
+    bld.load('wcb')
+    bld.packrepo()
