@@ -4,12 +4,13 @@
 
 #include "WireCellIface/IFrameSource.h"
 #include "WireCellIface/IConfigurable.h"
+#include "WireCellAux/Logger.h"
 
 #include <unordered_map>
 
 namespace WireCell {
     namespace Root {
-        class CelltreeSource : public IFrameSource, public IConfigurable {
+        class CelltreeSource : public Aux::Logger, public IFrameSource, public IConfigurable {
            public:
             CelltreeSource();
             virtual ~CelltreeSource();

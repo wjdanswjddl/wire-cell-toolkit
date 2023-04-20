@@ -128,7 +128,7 @@ layer_projection_map_t WireCell::Img::Projection2D::get_2D_projection(
             }
             auto slice = std::get<slice_t>(cg[slice_descs.front()].ptr);
             int start = int(slice->start() / (500 * units::nanosecond));
-            int span = int(slice->span() / (500 * units::nanosecond));
+            // int span = int(slice->span() / (500 * units::nanosecond));
             auto activity = slice->activity();
             const auto wire_descs = neighbors_oftype<wire_t>(cg, blob_desc);
             // std::cout << " #wire " << wire_descs.size();

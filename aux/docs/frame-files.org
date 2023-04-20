@@ -48,6 +48,7 @@ file names might look like:
 frame_<tagA>_<ident1>.npy
 channels_<tagA>_<ident1>.npy
 tickinfo_<tagA>_<ident1>.npy
+summary_<tagA>_<ident1>.npy
 frame_<tagB>_<ident1>.npy
 channels_<tagB>_<ident1>.npy
 tickinfo_<tagB>_<ident1>.npy
@@ -57,11 +58,12 @@ chanmask_<cmtagD>_<ident1>.npy
 #+end_example
 
 We will call "framelet" the trio of arrays of type ~frame~, ~channels~ and
-~tickinfo~ with the same ~<tag>~ and frame ~<ident>~.  To be valid, the size
-of the 1D ~channels~ array must be the same as the number of rows in the
-~frame~ array.  The first two entries (~time~ and ~tick~) of all ~tickinfo~
-are expected to be identical but their third (~tbin0~) may differ for
-each framelet.
+~tickinfo~ and an optional fourth ~summary~ array that carry the same
+~<tag>~ and frame ~<ident>~.  To be valid, the size of the 1D ~channels~
+array, and the summary array if present, must be the same as the
+number of (channel) rows in the ~frame~ array.  The first two entries
+(~time~ and ~tick~) of all ~tickinfo~ are expected to be identical but their
+third (~tbin0~) may differ for each framelet.
 
 The rows of the ~frame~ and ~channel~ arrays are added to the ~IFrame~
 traces collection in the order they are encountered in the file.

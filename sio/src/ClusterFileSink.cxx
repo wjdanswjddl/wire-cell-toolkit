@@ -122,6 +122,7 @@ void Sio::ClusterFileSink::numpify(const ICluster& cluster)
         name += "edges";
         write_numpy(ea, fn(name));
     }
+
 }
 
 void Sio::ClusterFileSink::configure(const WireCell::Configuration& cfg)

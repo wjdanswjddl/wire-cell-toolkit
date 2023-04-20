@@ -77,14 +77,14 @@ void Log::add_file(std::string filename, std::string level)
 void Log::add_stdout(bool color, std::string level)
 {
     if (color) {
-        typed_sink<spdlog::sinks::stdout_color_sink_mt> m;
+        typed_sink<spdlog::sinks::stdout_color_sink_mt> m{level};
         wct_base_logger()->sinks().push_back(m());
         common_sink_makers.push_back(m);
         // auto s = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
         // Log::add_sink(s, level);
     }
     else {
-        typed_sink<spdlog::sinks::stdout_sink_mt> m;
+        typed_sink<spdlog::sinks::stdout_sink_mt> m{level};
         wct_base_logger()->sinks().push_back(m());
         common_sink_makers.push_back(m);
         // auto s = std::make_shared<spdlog::sinks::stdout_sink_mt>();
@@ -94,14 +94,14 @@ void Log::add_stdout(bool color, std::string level)
 void Log::add_stderr(bool color, std::string level)
 {
     if (color) {
-        typed_sink<spdlog::sinks::stderr_color_sink_mt> m;
+        typed_sink<spdlog::sinks::stderr_color_sink_mt> m{level};
         wct_base_logger()->sinks().push_back(m());
         common_sink_makers.push_back(m);
         // auto s = std::make_shared<spdlog::sinks::stderr_color_sink_mt>();
         // Log::add_sink(s, level);
     }
     else {
-        typed_sink<spdlog::sinks::stderr_sink_mt> m;
+        typed_sink<spdlog::sinks::stderr_sink_mt> m{level};
         wct_base_logger()->sinks().push_back(m());
         common_sink_makers.push_back(m);
         // auto s = std::make_shared<spdlog::sinks::stderr_sink_mt>();

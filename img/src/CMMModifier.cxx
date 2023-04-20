@@ -139,11 +139,15 @@ void CMMModifier::configure(const WireCell::Configuration& cfg)
 
 bool CMMModifier::operator()(const input_pointer& in, output_pointer& out)
 {
+    ++ m_count;
+
     out = nullptr;
     if (!in) {
-        log->debug("see EOS");
+        log->debug("see EOS at call={}", m_count-1);
         return true;  // eos
     }
+
+    log->debug("call={} input frame: {}", m_count-1, Aux::taginfo(in));
 
     // copy a CMM from input frame
     auto cmm = in->masks();
@@ -314,6 +318,7 @@ bool CMMModifier::operator()(const input_pointer& in, output_pointer& out)
     out = IFrame::pointer(sfout);
 
     log->debug("output: {} size: {}", m_cm_tag, out->masks()[m_cm_tag].size());
+    log->debug("call={} output frame: {}", m_count-1, Aux::taginfo(out));
 
     return true;
 }

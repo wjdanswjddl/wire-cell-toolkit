@@ -46,6 +46,7 @@ a stream of arrays with file names like:
 frame_<tag1>_<ident>.npy
 channels_<tag1>_<ident>.npy
 tickinfo_<tag1>_<ident>.npy
+summary_<tag1>_<ident>.npy  (optional)
 #+end_example
 
 In deciding what to write, the ~FrameFileSink~ matches each tag in the

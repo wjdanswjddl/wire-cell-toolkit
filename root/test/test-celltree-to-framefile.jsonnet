@@ -2,9 +2,8 @@
 local high = import "layers/high.jsonnet";
 
 // This perhaps only works on uboone.
-function(infile="celltree.root", outfile="frames.npz",
-         eventid="6501", 
-         detector="uboone", variant="nominal")
+function(infile="celltree.root", outfile="frames.npz", eventid="6501")
+         // detector="uboone", variant="nominal")
 
     local trace_tags = ["wiener", "gauss"];
 
@@ -12,7 +11,8 @@ function(infile="celltree.root", outfile="frames.npz",
         infile, eventid,
         branches = ["calibWiener", "calibGaussian"],
         frame_tags = ["gauss","weiner"],
-        trace_tags = trace_tags);
+        trace_tags = trace_tags,
+        extra_params = {in_branch_thresholds: ["channelThreshold", "channelThreshold"]});
 
     local target = high.fio.frame_file_sink(outfile, trace_tags);
         
