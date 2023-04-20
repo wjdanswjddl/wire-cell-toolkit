@@ -117,8 +117,8 @@ local sp_maker = import 'pgrapher/experiment/sbnd/sp.jsonnet';
 local sp = sp_maker(params, tools);
 local sp_pipes = [sp.make_sigproc(a) for a in tools.anodes];
 local rng = tools.random;
-local wcls_simchannel_sink = g.pnode({
-  type: 'wclsSimChannelSink',
+local wcls_deposetsimchannel_sink = g.pnode({
+  type: 'wclsDepoSetSimChannelSink',
   name: 'postdrift',
   data: {
     artlabel: 'simpleSC',  // where to save in art::Event
@@ -174,9 +174,9 @@ local retagger = g.pnode({
 }, nin=1, nout=1);
 //local frameio = io.numpy.frames(output);
 local sink = sim.frame_sink;
-local graph = g.pipeline([wcls_input.depos, drifter, wcls_simchannel_sink, bagger, bi_manifold, retagger, wcls_output.sim_digits, sink]); //<- standard SimDepoSource source and Drifter
+local graph = g.pipeline([wcls_input.deposet, setdrifter, wcls_deposetsimchannel_sink, bi_manifold, retagger, wcls_output.sim_digits, sink]); //<- SimDepoSetSource and DepoSetDrifter
 local app = {
-  type: 'Pgrapher', 
+  type: 'TbbFlow', //TbbFlow Pgrapher changed Ewerton 2023-03-14
   data: {
     edges: g.edges(graph),
   },

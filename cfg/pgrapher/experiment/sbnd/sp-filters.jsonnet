@@ -82,7 +82,7 @@ local wf(name, data={}) = {
   lf('ROI_loose_lf', { tau: 0.002 * wc.megahertz }),  // 0.0025 
 
   hf('Gaus_tight'),
-  hf('Gaus_wide', { sigma: 0.12 * wc.megahertz }), 
+  hf('Gaus_wide', { sigma: 0.10 * wc.megahertz }), 
 
 
   hf('Wiener_tight_U', {
@@ -110,6 +110,6 @@ local wf(name, data={}) = {
     power: 4.37928,
   }),
 
-  wf('Wire_ind', { sigma: 1.0 / wc.sqrtpi * 0.75 }), 
-  wf('Wire_col', { sigma: 1.0 / wc.sqrtpi * 3.0 }),
+  wf('Wire_ind', { sigma: 1.0 / wc.sqrtpi * 1.05 }), 
+  wf('Wire_col', { sigma: 1.0 / wc.sqrtpi * 3.60 }),
 ]
