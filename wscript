@@ -86,4 +86,3 @@ def dumpenv(bld):
 
 def packrepo(bld):
     bld.load('wcb')
-    bld.packrepo()

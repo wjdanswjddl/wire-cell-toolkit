@@ -252,6 +252,7 @@ def packrepo(bld):
     '''
     Pack existing test data repo to archive files.
     '''
+
     indir=bld.path.find_dir("build/tests/input")
     if indir.exists():
         cmd = "tar -C %s -cf input.tar input" % (indir.parent.abspath())
@@ -269,6 +270,7 @@ def packrepo(bld):
 
     for vdir in hdir.children:
         if rels and vdir not in rels:
+            info(f"skip {vdir}, not in releases")
             continue
         cmd = "tar -C %s -cf history-%s.tar history/%s" % (
             hdir.parent.abspath(), vdir, vdir)
@@ -280,7 +282,3 @@ def packrepo(bld):
 class PackrepoenvContext(BuildContext):
     cmd = 'packrepo'
     fun = 'packrepo'
-    def recurse(self, sd):
-        # why is this needed?
-        debug(f"wcb: not recurring into {sd}") 
-        return
