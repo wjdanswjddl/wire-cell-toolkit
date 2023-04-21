@@ -7,6 +7,7 @@
 
 #include "WireCellAux/SimpleFrame.h"
 #include "WireCellAux/SimpleTrace.h"
+#include "WireCellAux/FrameTools.h"
 
 #include "WireCellIface/IFieldResponse.h"
 #include "WireCellIface/IFilterWaveform.h"
@@ -1444,6 +1445,8 @@ bool OmnibusSigProc::operator()(const input_pointer& in, output_pointer& out)
         ++m_count;
         return true;
     }
+    log->debug("call={} input frame: {}", m_count, Aux::taginfo(in));
+
     const size_t ntraces = in->traces()->size();
     if (!ntraces) {
         out = std::make_shared<Aux::SimpleFrame>(in->ident(), in->time(), std::make_shared<ITrace::vector>(), in->tick());
@@ -1707,6 +1710,9 @@ bool OmnibusSigProc::operator()(const input_pointer& in, output_pointer& out)
                m_frame_tag);
 
     out = IFrame::pointer(sframe);
+
+    log->debug("call={} output frame: {}", m_count, Aux::taginfo(in));
+
     ++m_count;
 
     return true;
