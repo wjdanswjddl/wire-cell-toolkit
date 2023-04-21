@@ -75,7 +75,7 @@ do
         files+=( $topdir/gen/test/test-addnoise.bats )
         echo "ADDING test-addnoise.bats" 1>&2
         rels+=( $rel )
-        files+=( $topdir/test/test/test-pdsp-simsn.bats )
+        files+=( $topdir/test/test/test-pdsp-simsn-nfsp.bats )
         echo "ADDING test-pdsp-simsn.bats" 1>&2
     fi
     if [[ $ver > 0.24.1 ]] ; then

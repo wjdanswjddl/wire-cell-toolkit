@@ -14,7 +14,7 @@ dag_file="dag.json"
 tiers=(vlt adc nf sp)
 function frame_file () {
     local tier="$1"; shift
-    echo "frames-$tier.npz"
+    echo "frames-$tier.tar.gz"
 }
 
 # Compile Jsonnet to dag.json and run wire-cell.
@@ -123,7 +123,7 @@ function plotframe () {
     plotframe current sp wave "$(frame_file sp)"
 }
 @test "plot frame adc wave old" {
-    plotframe blessed adc wave "$(input_file frames/pdsp-signal-noise.npz)"
+    plotframe blessed adc wave "$(input_file frames/pdsp-signal-noise.tar.gz)"
 }
 
 function comp1d () {
@@ -137,7 +137,7 @@ function comp1d () {
     local wcplot=$(wcb_env_value WCPLOT)
     local new_dat="$(realpath $(frame_file $tier))"
     [[ -s "$new_dat" ]]
-    local old_dat="$(input_file frames/pdsp-signal-noise.npz)"
+    local old_dat="$(input_file frames/pdsp-signal-noise.tar.gz)"
     [[ -s "$old_dat" ]]
 
     local fig="${plot}.png"
