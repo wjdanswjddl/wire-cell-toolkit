@@ -29,9 +29,9 @@ local tools = tools_maker(params);
 local anode = tools.anodes[0];
 local pirs = tools.pirs[0];
 
-/// Try to make as much locally defined and not define on external Jsonnet.
-// local sim_maker = import 'pgrapher/experiment/pdsp/sim.jsonnet';
-// local sim = sim_maker(params, tools);
+//
+// Simulation
+//
 local sim_maker = import "pgrapher/common/sim/nodes.jsonnet";
 local sim = sim_maker(params, tools);
 
@@ -99,11 +99,38 @@ local digitizer = pg.pnode({
     name: "",
     data : params.adc {
         anode: wc.tn(anode),
-        frame_tag: "orig",
+        frame_tag: "orig0",
     }
 }, nin=1, nout=1, uses=[anode]);
 
+// Break up pipeline between signal voltage and adding noise so we can
+// save out individual.
+local vlt = pg.pipeline([setdrifter, transform, reframer]);
+local noi = pg.pipeline([addnoise, digitizer]);
 
+
+//
+// Noise Filter
+//
+local perfect = import 'pgrapher/experiment/pdsp/chndb-perfect.jsonnet';
+local chndb = {
+  type: 'OmniChannelNoiseDB',
+  name: '',
+    data: perfect(params, anode, tools.field, 0){
+        dft:wc.tn(tools.dft)
+    },
+  uses: [anode, tools.field, tools.dft]};
+
+local nf_maker = import 'pgrapher/experiment/pdsp/nf.jsonnet';
+local nf = nf_maker(params, anode, chndb, 0, "");
+
+//
+// Signal Processing
+//
+local sp_maker = import 'pgrapher/experiment/pdsp/sp.jsonnet';
+local sp = sp_maker(params, tools).make_sigproc(anode);
+
+// I/O
 
 local depo_source(input)  = pg.pnode({
     type: 'DepoFileSource',
@@ -121,21 +148,21 @@ local sio_sink(output, tags=[]) = pg.pnode({
     },
 }, nin=1, nout=0);
 
-local sio_tap(output) = pg.fan.tap('FrameFanout', sio_sink(output), wc.basename(output));
+local sio_tap(output, tags=[]) = pg.fan.tap('FrameFanout', sio_sink(output, tags), wc.basename(output));
 
-// signal plus noise pipelines
-// local sn_pipes = sim.signal_pipelines;
-// local sn_pipes = sim.splusn_pipelines;
-local sig = pg.pipeline([setdrifter, transform, reframer]);
-local noi = pg.pipeline([addnoise, digitizer]);
-
-
-local make_graph(input, sigoutput, adcoutput) =
-    pg.pipeline([depo_source(input), sig, sio_tap(sigoutput), noi, sio_sink(adcoutput, ["orig"])]);
 local plugins = [ "WireCellSio", "WireCellGen", "WireCellSigProc","WireCellApps", "WireCellPgraph", "WireCellTbb", "WireCellRoot"];
 
-function(input, sigoutput, adcoutput) 
-    local graph = make_graph(input, sigoutput, adcoutput);
+function(input="input.npz",
+         vltoutput="frames-vlt.npz", adcoutput="frames-adc.npz",
+         nfoutput="frames-nf.npz", spoutput="frames-sp.npz")
+
+    local graph = pg.pipeline([depo_source(input),
+                               vlt, sio_tap(vltoutput),
+                               noi, sio_tap(adcoutput, ["orig0"]),
+                               nf, sio_tap(nfoutput, ["raw0"]),
+                               sp, sio_sink(spoutput, ["gauss0","wiener0"])
+                              ]);
+
     // Pgrapher or TbbFlow
     local engine = "Pgrapher";
     local app = {

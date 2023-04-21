@@ -21,7 +21,6 @@ setup_file () {
     local cfg_file="$(relative_path test-wct-uboone-img.jsonnet)"
     [[ -s "$cfg_file" ]]
 
-
     run_idempotently -s "$cfg_file" -t "$dag_file" -- \
                      compile_jsonnet "$cfg_file" "$dag_file" \
                      -A infile="$infile" -A outpat="clusters-%s.tar.gz" -A formats="json,numpy"
@@ -75,7 +74,7 @@ function do_blobs () {
         logs[$fmt]="$log"
 
         local dat="clusters-${fmt}.tar.gz"
-        echo $wcimg $what "${args[@]}" -o "$log" "$dat" 1>&3
+        echo $wcimg $what "${args[@]}" -o "$log" "$dat"
         run $wcimg $what "${args[@]}" -o "$log" "$dat"
         echo "$output"
         [[ "$status" -eq 0 ]]
@@ -100,4 +99,13 @@ function do_blobs () {
     local got=$(grep 'nn for m' inspect-numpy.log | grep -v 'b=1\b')
     echo "$got"
     [[ -n "$got" ]]
+}
+
+# bats test_tags=plots
+@test "plot blobs" {
+    cd_tmp file
+
+    local wcimg=$(wcb_env_value WCIMG)
+    run $wcimg plot-blobs --single --plot views clusters-numpy.tar.gz blob-views.png
+
 }
