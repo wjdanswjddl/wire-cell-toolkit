@@ -129,7 +129,15 @@ class ValidationContext:
     # A script may need extra environment.
     script_environ = {}
 
+    # We impose a series of groups to assure coarse grained dependency
+    # with a source naming convention to separate different
+    # intentions.  Map scope name to source file name prefix.
     extra_prefixes = dict(atomic=("test",))
+
+    # What things look like a test source
+    def source_glob(self, prefix, ext):
+        return 'test/{prefix}*{ext}'.format(prefix=prefix, ext=ext)
+
 
     def __init__(self, bld, uses):
         '''
@@ -145,14 +153,6 @@ class ValidationContext:
             debug("smplpkgs: tests suppressed for " + self.bld.path.name)
             return
 
-        # We impose a series of groups to assure coarse grained
-        # dependency with a source naming convention to separate
-        # different intentions.  Map scope name to source file name
-        # prefix.
-        extra_prefixes = dict(atomic=("test",))
-
-        match_pat = 'test/%s*%s' #  (prefix, ext)
-
         for group in test_group_sequence:
             self.do_group(group)
             if group == bld.env.TEST_GROUP:
@@ -164,12 +164,11 @@ class ValidationContext:
 
         prefixes = [group]
         prefixes += self.extra_prefixes.get(group, [])
-        match_pat = 'test/%s*%s' #  (prefix, ext)
 
         for prefix in prefixes:
 
             for ext in self.compiled_extensions:
-                pat = match_pat % (prefix, ext)
+                pat = self.source_glob(prefix, ext)
                 for one in self.bld.path.ant_glob(pat):
                     debug("tests: (%s) %s" %(features, one))
                     self.program(one, features)
@@ -178,11 +177,11 @@ class ValidationContext:
                 continue
 
             for ext in self.script_templates:
-                pat = match_pat % (prefix, ext)
+                pat = self.source_glob(prefix, ext)
                 for one in self.bld.path.ant_glob(pat):
                     debug(f"tests: ({group}) script: {one}")
                     self.script(one)
-        
+        return
 
 
     def __enter__(self):
@@ -404,6 +403,7 @@ def smplpkg(bld, name, use='', app_use='', test_use=''):
     dictdir = bld.path.find_dir('dict')
     appsdir = bld.path.find_dir('apps')
     docdir = bld.path.find_dir('docs')
+    testdir = bld.path.find_dir('test')
 
     bld.cycle_group("libraries")
 
@@ -454,6 +454,36 @@ def smplpkg(bld, name, use='', app_use='', test_use=''):
             use = use)            
 
     bld.cycle_group("applications")
+
+    def write_doctest_main(tsk):
+        out = tsk.outputs[0]
+        info(f'generating doctest main: {out}')
+        text = '''
+#define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
+#include "WireCellUtil/doctest.h"
+        '''
+        out.write(text)
+        return
+
+    if testdir:
+        dtsrcs = testdir.ant_glob('doctest*.cxx')
+        if dtsrcs:
+            pkgname = testdir.parent.name
+            mainbin = testdir.find_or_declare(f'wcdoctest-{pkgname}')
+            mainsrc = testdir.find_or_declare(f'wcdoctest-{pkgname}.cxx')
+            dtsrcs.insert(0, mainsrc)
+            tmp="\n\t".join([str(s) for s in dtsrcs])
+            tname=f'make_wcdoctest_{pkgname}_source'
+            bld(name=tname,
+                rule = write_doctest_main, target = mainsrc)
+            bld.program(features='cxx cxxprogram test',
+                        name=f'wcdoctest-{pkgname}',
+                        source = dtsrcs,
+                        target = mainbin,
+                        rpath = bld.get_rpath(test_use + [name]),
+                        includes = includes,
+                        use = test_use + [name, tname]
+                        )
 
     # hack in to the env entries for the apps we build
     validation_envs = dict()
