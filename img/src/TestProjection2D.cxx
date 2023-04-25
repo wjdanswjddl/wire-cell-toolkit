@@ -125,6 +125,7 @@ bool Img::TestProjection2D::operator()(const input_pointer& in, output_pointer& 
         return true;
     }
     const auto in_graph = in->graph();
+    log->debug("in_graph:");
     dump_cg(in_graph, log);
     auto time_start = std::chrono::high_resolution_clock::now();
     auto time_stop = std::chrono::high_resolution_clock::now();
@@ -225,27 +226,30 @@ bool Img::TestProjection2D::operator()(const input_pointer& in, output_pointer& 
                                     log->debug("tar: {{{},{}}} => {}", tar_id, layer, dump(tar_proj,true));
                                 }
                             }
+                            // dump specific clusters
                             if (true) {
                                 if (ref_id == 1 && tar_id == 3 && layer == kVlayer) {
                                     write(ref_proj, String::format("ref_%d.tar.gz",ref_id));
                                     write(tar_proj, String::format("tar_%d.tar.gz",tar_id));
                                 }
                             }
+                            // dump specific clusters
                             if (true) {
                                 std::stringstream ss;
                                 ss << ref_id << " {";
                                 for (auto& b : id2cluster[ref_id]) {
                                     ss << b << " ";
-                                    // bs_keep.insert(b);
+                                    bs_keep.insert(b);
                                 }
                                 ss << "} " << layer << "-> ";
                                 ss << tar_id << " {";
                                 for (auto& b : id2cluster[tar_id]) {
                                     ss << b << " ";
-                                    bs_keep.insert(b);
+                                    // bs_keep.insert(b); // ref and tar are switched, one would be enough
                                 }
-                                ss << "} \n";
+                                ss << "} cov: " << coverage << std::endl;
                                 fout << ss.str();
+                                // return;
                             }
                         }
                         layer_checked_pairs[layer].insert({ref_id, tar_id});
@@ -297,9 +301,12 @@ bool Img::TestProjection2D::operator()(const input_pointer& in, output_pointer& 
             log->debug("{} : {} ", c.first, c.second);
         }
     }
-
+    // only keep some blobs
+    log->debug("in_graph:");
+    dump_cg(in_graph, log);
     auto out_graph = remove_blobs(in_graph,bs_keep,false);
     // auto& out_graph = in_graph;
+    log->debug("out_graph:");
     dump_cg(out_graph, log);
     out = std::make_shared<Aux::SimpleCluster>(out_graph, in->ident());
     return true;
