@@ -44,6 +44,7 @@
 #include "WireCellAux/SimpleTrace.h"
 #include "WireCellAux/SimpleFrame.h"
 #include "WireCellAux/DepoTools.h"
+#include "WireCellAux/FrameTools.h"
 
 #include "WireCellIface/IAnodePlane.h"
 
@@ -205,8 +206,9 @@ bool Gen::DepoTransform::operator()(const input_pointer& in, output_pointer& out
     }
 
     auto frame = make_shared<SimpleFrame>(m_frame_count, m_start_time, traces, m_tick);
-    log->debug("call={} frame={} ndepos_in={} ndepos_used={} ntraces={}",
-               m_count, m_frame_count, depos->size(), ndepos_used, traces.size());
+    log->debug("call={} count={} ndepos_in={} ndepos_used={}",
+               m_count, m_frame_count, depos->size(), ndepos_used);
+    log->debug("output: {}", Aux::taginfo(frame));
 
     ++m_frame_count;
     ++m_count;

@@ -772,7 +772,9 @@ WireCell::Waveform::ChannelMaskMap Protodune::OneChannelNoise::apply(int ch, sig
 
     if (!is_partial) {
         auto const& spec = m_noisedb->rcrc(ch);  // rc_layers set to 1 in channel noise db
-        WireCell::Waveform::shrink(spectrum, spec);
+        if (spec.size() == spectrum.size()) {
+            WireCell::Waveform::shrink(spectrum, spec);
+        }
     }
 
     // remove the "50kHz" noise in some collection channels

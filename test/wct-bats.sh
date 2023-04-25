@@ -31,6 +31,77 @@ function die () {
 }
 
 
+# Assure a file is larger than given number of bytes
+#
+# usage:
+# file_larger_than <filename> <nbytes>
+function file_larger_than () {
+    local filename=$1 ; shift
+    local minsize=$1; shift
+    [[ -f "$filename" ]]
+    [[ -n "$minsize" ]]
+   [[ "$(stat -c '%s' $filename)" -gt "$minsize" ]]
+}
+
+
+# Run command if any target file is missing or older than any source file.
+#
+# usage:
+#   run_idempotently [-v/--verbose] [-s/--source <srcfile>] [-t/--target <dstfile>] -- <command line>
+#
+# May give multiple -s or -t args
+function run_idempotently () {
+
+    declare -a src
+    declare -a tgt
+    local verbose="no"
+    while [[ $# -gt 0 ]] ; do
+        case $1 in
+            -s|--source) src+=( $2 ) ; shift 2;;
+            -t|--target) tgt+=( $2 ) ; shift 2;;
+            -v|--verbose) verbose="yes"; shift;;
+            --) shift; break;
+        esac
+    done
+
+    local need_to_run="no"
+    if [ -z "$src" -o -z "$tgt" ] ; then
+        # Always run if sink, source or atomic.
+        need_to_run="yes"
+    fi
+    if [ "$need_to_run" = "no" ] ; then
+        # Run if missing any targets
+        for one in "${tgt[@]}"  
+        do
+            if [ ! -f "$one" ] ; then
+                need_to_run="yes"
+            fi
+        done
+    fi
+    if [ "$need_to_run" = "no" ] ; then
+        # Run if any source is newer than any targeta
+        local src_newest="$(ls -t ${src[@]} | head -1)"
+        local tgt_oldest="$(ls -t ${tgt[@]} | tail -1)"
+
+        if [ "$src_newest" -nt "$tgt_oldest" ] ; then
+            need_to_run="yes"
+        fi
+    fi
+    
+    if [ "$need_to_run" = "no" ] ; then
+        yell "target newer than source not running: $@"
+        return
+    fi
+
+    echo "running: $@"
+    if [ "$verbose" = "yes" ] ; then
+        yell "running: $@"
+    fi
+    run "$@"
+    echo "$output"
+    [[ "$status" -eq 0 ]]
+}
+
 # Return shell environment
 function dumpenv () {
     env | grep = | sort
@@ -55,7 +126,15 @@ function tojson () {
 
 # Return the top level source directory based on this file.
 function topdir () {
-    dirname $(dirname $(realpath $BASH_SOURCE))
+    local name=$BASH_SOURCE
+    [[ -n "$name" ]]
+    name="$(realpath $name)"
+    [[ -n "$name" ]]
+    name="$(dirname $name)"
+    [[ -n "$name" ]]
+    name="$(dirname $name)"
+    [[ -n "$name" ]]
+    echo "$name"
 }    
 
 # Return the build directory.
@@ -92,6 +171,7 @@ function srcdir () {
 # - <version> is the current wire-cell version
 # - <test-name> is from BATS_TEST_FILENAME without the extension.
 function saveout () {
+
     declare -a src=()
     subdir="output"
     tgt=""
@@ -177,8 +257,8 @@ function wcb () {
 
 function wcb_env_dump () {
     # Keep a cache if running in bats.
-    if [ -n "${BATS_RUN_TMPDIR}" ] ; then
-        local cache="${BATS_RUN_TMPDIR:-/tmp}/wcb_env.txt"
+    if [ -n "${BATS_FILE_TMPDIR}" ] ; then
+        local cache="${BATS_FILE_TMPDIR}/wcb_env.txt"
         if [ ! -f $cache ] ; then
             wcb dumpenv | grep 'wcb: ' | sed -e 's/^wcb: '// | sort > $cache
         fi
@@ -257,34 +337,43 @@ function usepkg () {
 # usage:
 # compile_jsonnet file.jsonnet file.json [-A/-V etc options, no -J/-P]
 function compile_jsonnet () {
-    local ifile=$1 ; shift
-    local ofile=$1 ; shift
+    local ifile="$1" ; shift
+    local ofile="$1" ; shift
     local cfgdir="$(topdir)/cfg"
 
     local orig_wcpath=$WIRECELL_PATH
     WIRECELL_PATH=""
 
-    cmd=$(wcb_env_value WCSONNET)
-    if [ -n "$cmd" -a -x "$cmd" ] ; then
-        ## switch to this when wcsonnet gets "-o"
-        # cmd="$cmd -P $cfgdir -o $ofile $@ $ifile"
-        ## until then
-        cmd="$cmd -o $ofile -P $cfgdir $@ $ifile"
+    local wcsonnet=$(wcb_env_value WCSONNET)
+    [[ -n "$wcsonnet" ]]
+    if [ -z "$wcsonnet" ] ; then
+        yell "Failed to get WCSONNET!  Cache problem?"
+        exit 1
     fi
-    if [ -z "$cmd" ] ; then
-        cmd=$(wcb_env_value JSONNET)
-        if [ -z "cmd" ] ; then
-            cmd="jsonnet"       # hail mary
-        fi
-        if [ -n "$cmd" -a -x "$cmd" ] ; then        
-            cmd="$cmd -o $ofile -J $cfgdir $@ $ifile"
-        fi
-    fi
-    [[ -n "$cmd" ]]
-    echo "$cmd"
-    run $cmd
+    declare -a cmd=( "$wcsonnet" -o "$ofile" -P "$cfgdir" "$@" "$ifile" )
+
+    # cmd=( $(wcb_env_value WCSONNET) )
+    # if [ -n "$cmd" -a -x "$cmd" ] ; then
+    #     ## switch to this when wcsonnet gets "-o"
+    #     # cmd="$cmd -P $cfgdir -o $ofile $@ $ifile"
+    #     ## until then
+    #     cmd+=(-o "$ofile" -P "$cfgdir" "$@" "$ifile")
+    # fi
+    # if [ -z "$cmd" ] ; then
+    #     cmd=$(wcb_env_value JSONNET)
+    #     if [ -z "cmd" ] ; then
+    #         cmd="jsonnet"       # hail mary
+    #     fi
+    #     if [ -n "$cmd" -a -x "$cmd" ] ; then        
+    #         cmd="$cmd -o $ofile -J $cfgdir $@ $ifile"
+    #     fi
+    # fi
+    # [[ -n "$cmd" ]]
+
+    run "${cmd[@]}"
     echo "$output"
     [[ "$status" -eq 0 ]]
+    [[ -s "$ofile" ]]
     WIRECELL_PATH="$orig_wcpath"
 }
 
@@ -298,6 +387,7 @@ function wct () {
     [[ -n "$cli" ]]
     [[ -x "$cli" ]]
 
+    echo "$cli $@"              # for output on failure
     run $cli $@
     echo "$output"
     [[ "$status" -eq 0 ]]    
@@ -305,7 +395,10 @@ function wct () {
 
 # Emit version string
 function version() {
-    wct --version
+    cli=$(wcb_env_value WIRE_CELL)
+    [[ -n "$cli" ]]
+    [[ -x "$cli" ]]
+    $cli --version
 }
 
 # Execute the "wirecell-pgraph dotify" program under Bats "run".
@@ -402,6 +495,7 @@ function cd_tmp () {
 # local mycfg=$(relative_path my-cfg-jsonnet)
 function relative_path () {
     local want="$1"; shift
+    [[ -n "$BATS_TEST_FILENAME" ]]
     realpath "$(dirname $BATS_TEST_FILENAME)/$want"
 }
 
@@ -512,6 +606,7 @@ function config_path () {
 function resolve_file () {
     local want="$1" ; shift
 
+    [[ -n "$BATS_TEST_FILENAME" ]]
     local mydir="$(dirname ${BATS_TEST_FILENAME})"
     local t="$(topdir)"
     local paths=$(resolve_pathlist "$t/test/data" "$t" "$t/build/tests" ${WIRECELL_PATH})
@@ -642,6 +737,8 @@ function historical_versions () {
 # One or more -v/--version options can add versions to the list of historical versions.
 #
 # A -l/--last number will return only the more recent versions (lexical sort)  
+#
+# A -c/--current will include the current software version
 function historical_files () {
     local versions=( $(historical_versions) )
     local last=""
@@ -650,6 +747,7 @@ function historical_files () {
         case $1 in
             -l|--last) last="$2"; shift 2;;
             -v|--version) versions+=( $2 ); shift 2;;
+            -c|--current) versions+=( $(version) ); shift;;
             -*) die "unknown option $1" ;;
             *) paths+=( $1 ); shift;;
         esac
@@ -678,7 +776,7 @@ function skip_if_no_category () {
     local cat="history"
     while [[ $# -gt 0 ]] ; do
         case $1 in
-            -v|--version) version="$2"; shift 2;;
+            -v|--version) ver="$2"; shift 2;;
             *) category="$1"; shift;;
         esac
     done

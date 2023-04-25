@@ -341,7 +341,7 @@ local masked_planes = [[],[2],[0],[1]];
 function(infile="celltreeOVERLAY-event6501.tar.bz2",
          outpat="clusters-event6501-%s.tar.gz",
          slicing = "single",
-         fmt = "json")
+         formats = "json,numpy")
 
     local multi_slicing = slicing;
 local imgpipe =
@@ -384,7 +384,7 @@ local graph = pg.pipeline([
     // magdecon, // magnify out
     // dumpframes,
     imgpipe,
-    pg.fan.fanout("ClusterFanout", [img.dump(outpat%"json", "json"),img.dump(outpat%"numpy", "numpy")], "")
+    pg.fan.fanout("ClusterFanout", [img.dump(outpat%fmt, fmt) for fmt in std.split(formats, ',')], "")
 //    img.dump(outfile, fmt),
 ], "main");
 

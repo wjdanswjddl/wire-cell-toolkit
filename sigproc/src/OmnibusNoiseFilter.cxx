@@ -102,6 +102,7 @@ bool OmnibusNoiseFilter::operator()(const input_pointer& inframe, output_pointer
         ++m_count;
         return true;
     }
+    log->debug("call={} input frame: {}", m_count, Aux::taginfo(inframe));
 
     auto traces = Aux::tagged_traces(inframe, m_intag);
     if (traces.empty()) {
@@ -245,6 +246,7 @@ bool OmnibusNoiseFilter::operator()(const input_pointer& inframe, output_pointer
     sframe->tag_frame("noisefilter");
     outframe = IFrame::pointer(sframe);
 
+    log->debug("call={} output frame: {}", m_count, Aux::taginfo(outframe));
     log->debug("call={}, frame={}, ntraces={}, nticks={} intag={} outtag={}",
                m_count,
                sframe->ident(), itraces.size(), m_nticks,

@@ -186,3 +186,35 @@ bats_load_library wct-bats.sh
     
 
 }
+
+@test "run idempotently" {
+    cd_tmp
+
+    for f in file1.txt file2.txt
+    do
+        rm -f $f
+        # unconditinally run
+        run_idempotently -- touch $f
+        [[ -f $f ]]
+    done
+    
+    rm -f file3.txt
+    run_idempotently -s file1.txt -t file3.txt -- cp file1.txt file3.txt
+    [[ -f file3.txt ]]
+
+    sync     # can run fast enough that file3.txt isn't fully created?
+    touch timestamp.txt   # make this just to mark the time for later.
+
+    # this should not update file3.txt
+    run_idempotently -s file1.txt -t file3.txt -- cp file1.txt file3.txt
+    [[ -f file3.txt ]]
+    [[ file3.txt -ot timestamp.txt ]]
+    [[ timestamp.txt -nt file3.txt ]]
+
+    # this should update file3
+    run_idempotently -s timestamp.txt -t file3.txt -- cp file1.txt file3.txt
+    [[ -f file3.txt ]]
+    [[ file1.txt -ot file3.txt ]]
+    [[ file3.txt -nt file1.txt ]]
+
+}
