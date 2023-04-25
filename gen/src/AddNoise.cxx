@@ -5,6 +5,7 @@
 
 #include "WireCellAux/SimpleTrace.h"
 #include "WireCellAux/SimpleFrame.h"
+#include "WireCellAux/FrameTools.h"
 
 
 #include <unordered_map>
@@ -116,6 +117,10 @@ bool Gen::IncoherentAddNoise::operator()(const input_pointer& inframe, output_po
     outframe = make_shared<SimpleFrame>(inframe->ident(), inframe->time(), outtraces, inframe->tick());
     log->debug("call={} frame={} {} traces",
                m_count, inframe->ident(), outtraces.size());
+
+    log->debug("input : {}", Aux::taginfo(inframe));
+    log->debug("output: {}", Aux::taginfo(outframe));
+
     ++m_count;
     return true;
 }
@@ -194,10 +199,11 @@ bool Gen::CoherentAddNoise::operator()(const input_pointer& inframe, output_poin
         outtraces.push_back(trace);
     }
     outframe = make_shared<SimpleFrame>(inframe->ident(), inframe->time(), outtraces, inframe->tick());
-    log->debug("call={} frame={} {} traces",
-               m_count, inframe->ident(), outtraces.size());
+
+    log->debug("input : {}", Aux::taginfo(inframe));
+    log->debug("output: {}", Aux::taginfo(outframe));
+
     ++m_count;
     return true;
-
 }
 

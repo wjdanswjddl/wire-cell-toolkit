@@ -10,39 +10,58 @@
 # cd ~/path/to/old/release
 # bats ~/path/to/new-wct/gen/test/test-addnoise.bats
 
-# bats file_tags=noise,history
+# bats file_tags=noise
 
 bats_load_library wct-bats.sh
 
-# The intention is to run this test in multiple releases and compare across releases.
-# bats test_tags=history,plots,implicit
-@test "generate simple noise for comparison with older releases" {
+log_file="wire-cell.log"
+adc_file="frames-adc.tar.gz"
+dag_file="dag.json"
 
+setup_file () {
     cd_tmp
 
     local nsamples=6000
     local noise=empno
-    local name="test-addnoise-${noise}-${nsamples}"
-    local adcfile="${name}.tar.gz" # format with support going back the longest
-    local cfgfile="${BATS_TEST_FILENAME%.bats}.jsonnet"
+    local cfg_file="${BATS_TEST_FILENAME%.bats}.jsonnet"
 
-    run wire-cell -l "$logfile" -L debug \
-        -A nsamples=$nsamples -A noise=$noise -A outfile="$adcfile" \
-        -c "$cfgfile"
-    echo "$output"
-    [[ "$status" -eq 0 ]]
-    [[ -s "$adcfile" ]]
-    saveout -c history "$adcfile"
+    run_idempotently -s $cfg_file -t $dag_file -- \
+                     compile_jsonnet $cfg_file $dag_file \
+                     -A nsamples=$nsamples -A noise=$noise -A outfile="$adc_file"
+
+    run_idempotently -s $dag_file -t $adc_file -t $log_file -- \
+                     wct -l $log_file -L debug -c $dag_file
+
+
+    # run wire-cell -l "$logfile" -L debug \
+    #     -A nsamples=$nsamples -A noise=$noise -A outfile="$adc_file" \
+    #     -c "$cfgfile"
+}
+
+# bats test_tags=history
+@test "make history" {
+    cd_tmp file
+    [[ -s "$dag_file" ]]
+    [[ -s "$adc_file" ]]
+    saveout -c history "$dag_file"
+    saveout -c history "$adc_file"
+}
+
+# The intention is to run this test in multiple releases and compare across releases.
+# bats test_tags=plots,implicit
+@test "generate simple noise for comparison with older releases" {
+
+    cd_tmp file
 
     local wcplot=$(wcb_env_value WCPLOT)
     for what in spec wave
     do
-        local pout="${name}-comp1d-${what}.png"
+        local pout="comp1d-${what}.png"
         $wcplot comp1d \
                 -o $pout \
                 -t '*' -n $what \
                 --chmin 0 --chmax 800 -s --transform ac \
-                "${adcfile}"
+                "${adc_file}"
         echo "$output"
         [[ "$status" -eq 0 ]]
         [[ -s "$pout" ]]

@@ -1,0 +1,101 @@
+#!/bin/bash
+
+usage () {
+    cat <<EOF
+
+Run tests in one or more software installations.
+
+A software installation environment MUST be configured with direnv.
+
+Usage:
+
+  multi-direnv-testing [options] [/path/to/release ...]
+ 
+Options:
+
+  -t|--tag give a BATS tag on which to filter [default=history]
+  -n|--dry-run will only print the commands
+
+Multiple -t|--tags may be given.
+
+If no release directories are given, the current environment is used.
+
+Example for bv@haiku:
+
+  ./test/scripts/multi-release-testing ~/wrk/wct/rel2? (pwd)
+
+EOF
+    exit 1
+}
+
+SHELL=bash
+
+
+declare -a releases
+declare -a tags
+faker=""
+while [[ $# -gt 0 ]] ; do
+    case $1 in
+        -t|--tag) tags+=( "$2" ); shift 2;;
+        -n|--dry-run) faker="echo"; shift;;
+        -*) usage;;
+        *) releases+=( "$2" ); shift ;;
+    esac
+done
+
+# echo "RELEASES: ${releases[@]}"
+
+scrdir="$(realpath $(dirname $BASH_SOURCE))"
+topdir="$(realpath ${scrdir}/../..)"
+cd $topdir
+
+if [ -z "$releases" ] ; then
+    releases=( $topdir )
+fi
+if [ -z "$tags" ] ; then
+    tags=( "history" )
+fi
+
+declare -a tag_args
+for tag in ${tags[@]}
+do
+    tag_args+=( --filter-tags $tag )
+done
+
+
+# Build a pair of linked lists of release directories and tests
+declare -a rels
+declare -a files
+for rel in ${releases[@]}
+do
+    ver=$( $scrdir/run-in-direnv $rel wire-cell --version )
+    echo "CONSIDERING release $ver in $rel" 1>&2
+    if [[ $ver > 0.20 ]] ; then
+        rels+=( $rel )
+        files+=( $topdir/gen/test/test-addnoise.bats )
+        echo "ADDING test-addnoise.bats" 1>&2
+        rels+=( $rel )
+        files+=( $topdir/test/test/test-pdsp-simsn-nfsp.bats )
+        echo "ADDING test-pdsp-simsn.bats" 1>&2
+    fi
+    if [[ $ver > 0.24.1 ]] ; then
+        rels+=( $rel )
+        files+=( $topdir/img/test/test-wct-uboone-img.bats )
+        echo "ADDING test-wct-uboone-img.bats" 1>&2
+    fi
+done
+
+
+# Starting with 0.25:
+# history_tests+=( img/test/test-wct-uboone-img.bats )
+
+# echo -- \
+parallel --link \
+         $faker $scrdir/run-in-direnv {1} $topdir/test/bats/bin/bats ${tag_args[@]} {2} \
+         ::: ${rels[@]} \
+         ::: ${files[@]}
+
+
+
+
+

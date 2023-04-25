@@ -3,6 +3,7 @@
 
 #include "WireCellAux/SimpleFrame.h"
 #include "WireCellAux/SimpleTrace.h"
+#include "WireCellAux/FrameTools.h"
 
 #include "WireCellUtil/NamedFactory.h"
 
@@ -150,6 +151,9 @@ bool Gen::Reframer::operator()(const input_pointer& inframe, output_pointer& out
     }
 
     outframe = sframe;
+
+    log->debug("input : {}", Aux::taginfo(inframe));
+    log->debug("output: {}", Aux::taginfo(outframe));
 
     report << "out tag: \"" << m_frame_tag << "\"";
     log->debug(report.str());

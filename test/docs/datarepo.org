@@ -16,13 +16,14 @@ Developers of tests that will add to the repository must assure:
 
 ** Naming convention
 
-With the exception of the "input" category, all files are located in
-the repository with a path pattern matching a file "category", a
-software version string and the source file name (see section [[Test
-source]]):
+The repository is composed of a files housed in directories named according to the following pattern:
+
 #+begin_example
 <category>/<version>/<prefix><sep><name>/<files>
 #+end_example
+The ~<prefix><sep><name>~ is the test name as described more in section [[Test source]].
+
+One exception to this pattern is the "input" category.  This and other categories as well as other details are described in the remaining sub sections.
 
 *** Categories
 
@@ -79,16 +80,11 @@ Tests may add files to the test data repo following these guidelines:
 
 Special care should be given to the ~input~ and ~history~ categories.
 
-The repo is *not* meant as a replacement for saving out otherwise
-ephemeral files from a temporary directory.  If such files are needed,
-a user may always re-run the test with the temporary directory
-retained.
+The repo is *not* meant as a replacement for saving out otherwise ephemeral files from a temporary directory.  If such files are needed, a user may always re-run the test with the temporary directory retained.
 
 ** Working directory
 
-When a repo is in used in the context of a WCT software build it is
-simply a directory under the ~build/~ directory.  The ~input~ and other
-categories are fund matching these paths:
+When a repo is in used in the context of a WCT software build it is simply a directory under the ~build/~ directory.  The ~input~ and other categories are fund matching these paths:
 
 #+begin_example
 build/tests/input/
@@ -97,16 +93,13 @@ build/tests/<category>/<version>/<prefix><sep><name>/
 
 ** Preparing a repo
 
-The working directory is prepared as part of the normal build when
-tests are enabled.  This requires HTTP access.
+The working directory is prepared as part of the normal build when tests are enabled.  This requires HTTP access to the repo server.
 
 #+begin_example
-waf 
+waf --tests
 #+end_example
 
-Each release of WCT has a hard-wired list of past releases for which
-the current release can use historical files.  Normally, users need
-not set this but if required this list may be overridden:
+Each release of WCT has a hard-wired list of past releases for which the current release can use historical files.  Normally, users need not set this but if required this list may be overridden:
 
 #+begin_example
 waf configure --tests --test-data-releases 0.23.0,0.24.1 [...]
@@ -115,8 +108,7 @@ waf
 
 ** Distributing repository contents
 
-Archive files for all history versions present in the working
-directory may be produced.
+Archive files for all history versions present in the working directory may be produced.
 
 #+begin_example
 waf packrepo
@@ -128,10 +120,7 @@ Or, archives for specific releases may be produced with:
 waf packrepo --test-data-releases 0.20.0,0.21.0,0.22.0,0.23.0,0.24.1
 #+end_example
 
-Normal users need not perform this and experts may perform this as
-part of the release.  To get the correct version path, the local
-working repo and the packing should be run in a clean, release
-checkout.  Use ~wire-cell --version~ to check what you will get.
+Normal users need not perform this and experts may perform this as part of the release.  To get the correct version path, the local working repo and the packing should be run in a clean, release checkout.  Use ~wire-cell --version~ to check what you will get.
 
 ** Reinventing history
 
@@ -144,4 +133,4 @@ It is expected that new historical tests will be developed to consume historical
 
 These steps can be performed manually by checking out the required code version, building and running tests as usual followed by explicitly running the new test in the new version but in the environment of the old version.
 
-An example of automating this procedure can be found in ~test/scriptsbv-generate-history-haiku~.
+An example of automating this procedure can be found in ~test/scripts/bv-generate-history-haiku~.
