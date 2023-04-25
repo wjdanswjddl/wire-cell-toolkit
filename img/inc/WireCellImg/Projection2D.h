@@ -64,9 +64,9 @@ namespace WireCell {
             //
             // std::vector<int> calc_coverage(const Projection2D& ref, const Projection2D& tar);
 
-            // 1: tar is part of ref; 2: tar is equal to ref; -1: ref is part of tar; ref and tar do not overlap
+            // see .cxx for more details
             int judge_coverage(const Projection2D& ref, const Projection2D& tar);
-            // int judge_coverage_alt(const Projection2D& ref, const Projection2D& tar);
+            int judge_coverage_alt(const Projection2D& ref, const Projection2D& tar);
 
         }  // namespace Projection2D
     }  // namespace Img
