@@ -482,7 +482,6 @@ namespace WireCell::PointCloud {
     };                          // Dataset
     
 
-
 }
 
 #endif

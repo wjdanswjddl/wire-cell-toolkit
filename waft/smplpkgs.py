@@ -459,9 +459,17 @@ def smplpkg(bld, name, use='', app_use='', test_use=''):
         out = tsk.outputs[0]
         info(f'generating doctest main: {out}')
         text = '''
-#define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
+#define DOCTEST_CONFIG_IMPLEMENT
 #include "WireCellUtil/doctest.h"
-        '''
+#include "spdlog/spdlog.h"
+#include "spdlog/cfg/env.h"
+int main(int argc, char** argv) {
+    spdlog::cfg::load_env_levels();
+    doctest::Context context;
+    context.applyCommandLine(argc, argv);
+    return context.run();
+
+}'''
         out.write(text)
         return
 
@@ -469,13 +477,14 @@ def smplpkg(bld, name, use='', app_use='', test_use=''):
         dtsrcs = testdir.ant_glob('doctest*.cxx')
         if dtsrcs:
             pkgname = testdir.parent.name
-            mainbin = testdir.find_or_declare(f'wcdoctest-{pkgname}')
-            mainsrc = testdir.find_or_declare(f'wcdoctest-{pkgname}.cxx')
+            mainbin = bld.path.find_or_declare(f'wcdoctest-{pkgname}')
+            mainsrc = bld.path.find_or_declare(f'wcdoctest-{pkgname}.cxx')
             dtsrcs.insert(0, mainsrc)
             tmp="\n\t".join([str(s) for s in dtsrcs])
             tname=f'make_wcdoctest_{pkgname}_source'
             bld(name=tname,
                 rule = write_doctest_main, target = mainsrc)
+            debug(f'smplpkgs: {dtsrcs} --> {mainbin}')
             bld.program(features='cxx cxxprogram test',
                         name=f'wcdoctest-{pkgname}',
                         source = dtsrcs,

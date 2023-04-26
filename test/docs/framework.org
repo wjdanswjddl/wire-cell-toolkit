@@ -109,6 +109,8 @@ gen/test/test-addnoise.bats
 util/test/check_act2viz.cxx
 #+end_example
 
+** Test groups
+
 All tests in a test /group/ are executed independently and each group is executed in sequence.  A test in one group may depend on programs or their results from a prior group.
 
 The test groups names are listed.  Their ~<prefix>~ matches the group name or in some cases aliases are checked.
