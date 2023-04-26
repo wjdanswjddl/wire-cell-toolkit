@@ -1,5 +1,6 @@
 #include "WireCellImg/Projection2D.h"
 #include "WireCellUtil/Exceptions.h"
+#include "WireCellUtil/GraphTools.h"
 #include "WireCellUtil/Array.h"
 #include "WireCellUtil/Stream.h"
 #include "WireCellUtil/String.h"
@@ -11,45 +12,52 @@
 using namespace WireCell;
 using namespace WireCell::Img::Projection2D;
 
+// Here, "node" implies a cluster graph vertex payload object.
+using channel_t = cluster_node_t::channel_t;
+using wire_t = cluster_node_t::wire_t;
+using blob_t = cluster_node_t::blob_t;
+using slice_t = cluster_node_t::slice_t;
+using meas_t = cluster_node_t::meas_t;
 
-template <typename It> boost::iterator_range<It> mir(std::pair<It, It> const& p) {
-    return boost::make_iterator_range(p.first, p.second);
-}
-template <typename It> boost::iterator_range<It> mir(It b, It e) {
-    return boost::make_iterator_range(b, e);
-}
 
-std::vector<vdesc_t> WireCell::Img::Projection2D::neighbors(const WireCell::cluster_graph_t& cg, const vdesc_t& vd)
+// template <typename It> boost::iterator_range<It> mir(std::pair<It, It> const& p) {
+//     return boost::make_iterator_range(p.first, p.second);
+// }
+// template <typename It> boost::iterator_range<It> mir(It b, It e) {
+//     return boost::make_iterator_range(b, e);
+// }
+
+// std::vector<cluster_vertex_t> WireCell::Img::Projection2D::neighbors(const WireCell::cluster_graph_t& cg, const cluster_vertex_t& vd)
+// {
+//     std::vector<cluster_vertex_t> ret;
+//     for (auto edge : boost::make_iterator_range(boost::out_edges(vd, cg))) {
+//         cluster_vertex_t neigh = boost::target(edge, cg);
+//         ret.push_back(neigh);
+//     }
+//     return ret;
+// }
+
+// template <typename Type>
+// std::vector<cluster_vertex_t> WireCell::Img::Projection2D::neighbors_oftype(const WireCell::cluster_graph_t& cg, const cluster_vertex_t& vd)
+// {
+//     std::vector<cluster_vertex_t> ret;
+//     for (const auto& vp : neighbors(cg, vd)) {
+//         if (std::holds_alternative<Type>(cg[vp].ptr)) {
+//             ret.push_back(vp);
+//         }
+//     }
+//     return ret;
+// }
+
+std::unordered_map<int, std::set<cluster_vertex_t> > WireCell::Img::Projection2D::get_geom_clusters(const WireCell::cluster_graph_t& cg)
 {
-    std::vector<vdesc_t> ret;
-    for (auto edge : boost::make_iterator_range(boost::out_edges(vd, cg))) {
-        vdesc_t neigh = boost::target(edge, cg);
-        ret.push_back(neigh);
-    }
-    return ret;
-}
-
-template <typename Type>
-std::vector<vdesc_t> WireCell::Img::Projection2D::neighbors_oftype(const WireCell::cluster_graph_t& cg, const vdesc_t& vd)
-{
-    std::vector<vdesc_t> ret;
-    for (const auto& vp : neighbors(cg, vd)) {
-        if (std::holds_alternative<Type>(cg[vp].ptr)) {
-            ret.push_back(vp);
-        }
-    }
-    return ret;
-}
-
-std::unordered_map<int, std::set<vdesc_t> > WireCell::Img::Projection2D::get_geom_clusters(const WireCell::cluster_graph_t& cg)
-{
-    std::unordered_map<int, std::set<vdesc_t> > groups;
+    std::unordered_map<int, std::set<cluster_vertex_t> > groups;
     cluster_graph_t cg_blob;
     
     size_t nblobs = 0;
     std::unordered_map<cluster_vertex_t, cluster_vertex_t> old2new;
     std::unordered_map<cluster_vertex_t, cluster_vertex_t> new2old;
-    for (const auto& vtx : mir(boost::vertices(cg))) {
+    for (const auto& vtx : GraphTools::mir(boost::vertices(cg))) {
         const auto& node = cg[vtx];
         if (node.code() == 'b') {
             ++nblobs;
@@ -65,7 +73,7 @@ std::unordered_map<int, std::set<vdesc_t> > WireCell::Img::Projection2D::get_geo
         return groups;
     }
 
-    for (auto edge : mir(boost::edges(cg))) {
+    for (auto edge : GraphTools::mir(boost::edges(cg))) {
         auto old_tail = boost::source(edge, cg);
         auto old_head = boost::target(edge, cg);
 
@@ -85,12 +93,12 @@ std::unordered_map<int, std::set<vdesc_t> > WireCell::Img::Projection2D::get_geo
     }
 
     // for debugging, return as one group
-    // for (const auto& desc : mir(boost::vertices(cg_blob))) {
+    // for (const auto& desc : GraphTools::mir(boost::vertices(cg_blob))) {
     //     groups[0].insert(new2old[desc]);
     // }
     // return groups;
 
-    std::unordered_map<vdesc_t, int> desc2id;
+    std::unordered_map<cluster_vertex_t, int> desc2id;
     boost::connected_components(cg_blob, boost::make_assoc_property_map(desc2id));
     for (auto& [desc,id] : desc2id) {  // invert
         groups[id].insert(new2old[desc]);
@@ -110,7 +118,7 @@ std::unordered_map<int, std::set<vdesc_t> > WireCell::Img::Projection2D::get_geo
 
     return groups;
 }
- 
+
 struct pair_hash
 {
     template <class T1, class T2>
@@ -122,14 +130,15 @@ struct pair_hash
     }
 };
 
-layer_projection_map_t WireCell::Img::Projection2D::get_2D_projection(
-    const WireCell::cluster_graph_t& cg, std::set<vdesc_t> group)
+LayerProjection2DMap WireCell::Img::Projection2D::get_projection(
+    const WireCell::cluster_graph_t& cg, const std::set<cluster_vertex_t>& group, const size_t nchan, const size_t nslice)
 {
     using triplet_t = Eigen::Triplet<scaler_t>;
     using triplet_vec_t = std::vector<triplet_t>;
     std::unordered_map<WirePlaneLayer_t, triplet_vec_t> lcoeff;
     std::unordered_set<std::pair<int, int>, pair_hash> filled;
-    layer_projection_map_t ret;
+    // layer_projection_map_t ret;
+    LayerProjection2DMap ret;
 
     // assumes one blob linked to one slice
     // use b-w-c to find all channels linked to the blob
@@ -179,10 +188,11 @@ layer_projection_map_t WireCell::Img::Projection2D::get_2D_projection(
                         << " charge: " << charge
                         << std::endl;
                     }
-                    if (index < std::get<0>(ret[layer].m_bound)) std::get<0>(ret[layer].m_bound) = index;
-                    if (index > std::get<1>(ret[layer].m_bound)) std::get<1>(ret[layer].m_bound) = index;
-                    if (start < std::get<2>(ret[layer].m_bound)) std::get<2>(ret[layer].m_bound) = start;
-                    if (start > std::get<3>(ret[layer].m_bound)) std::get<3>(ret[layer].m_bound) = start;
+                    // auto& bound = ret.m_layer_proj[layer].m_bound;
+                    // if (index < std::get<0>(bound)) std::get<0>(bound) = index;
+                    // if (index > std::get<1>(bound)) std::get<1>(bound) = index;
+                    // if (start < std::get<2>(bound)) std::get<2>(bound) = start;
+                    // if (start > std::get<3>(bound)) std::get<3>(bound) = start;
                 }
             }
             // std::cout << std::endl;
@@ -192,20 +202,22 @@ layer_projection_map_t WireCell::Img::Projection2D::get_2D_projection(
     for (auto lc : lcoeff) {
         auto l = lc.first;
         auto c = lc.second;
-        ret[l].m_proj = sparse_mat_t(8256,9592);
-        ret[l].m_proj.setFromTriplets(c.begin(), c.end());
+        if(ret.m_layer_proj.find(l)==ret.m_layer_proj.end()) {
+            ret.m_layer_proj.insert({l, Projection2D(nchan, nslice)});
+        }
+        ret.m_layer_proj[l].m_proj.setFromTriplets(c.begin(), c.end());
     }
     return ret;
 }
 
 std::string WireCell::Img::Projection2D::dump(const Projection2D& proj2d, bool verbose) {
     std::stringstream ss;
-    ss << "Projection2D:"
-    << " {" << std::get<0>(proj2d.m_bound)
-    << "," << std::get<1>(proj2d.m_bound)
-    << "," << std::get<2>(proj2d.m_bound)
-    << "," << std::get<3>(proj2d.m_bound)
-    << "}";
+    ss << "Projection2D:";
+    // << " {" << std::get<0>(proj2d.m_bound)
+    // << "," << std::get<1>(proj2d.m_bound)
+    // << "," << std::get<2>(proj2d.m_bound)
+    // << "," << std::get<3>(proj2d.m_bound)
+    // << "}";
 
     auto ctq = proj2d.m_proj;
     size_t counter = 0;
