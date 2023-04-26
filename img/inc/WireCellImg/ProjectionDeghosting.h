@@ -23,9 +23,9 @@ namespace WireCell {
             virtual bool operator()(const input_pointer& in, output_pointer& out);
 
           private:
-            bool m_compare_brute_force{false};
-            bool m_compare_rectangle{true};
             bool m_verbose{false};
+            size_t m_nchan{8256};
+            size_t m_nslice{9592};
         };
 
     }  // namespace Img
