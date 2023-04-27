@@ -175,19 +175,19 @@ LayerProjection2DMap WireCell::Img::Projection2D::get_projection(
                     // TODO: validate this
                     lcoeff[layer].push_back({index, start, charge});
                     filled.insert({index,start});
-                    // DEBUG
-                    if(index == 6486 && start == 8066) {
-                        IBlob::pointer blob = std::get<blob_t>(node.ptr);
-                        std::cout
-                        << " blob_desc: " << blob_desc
-                        << " blob->ident(): " << blob->ident()
-                        << " blob->shape(): " << blob->shape().as_string()
-                        << " slice->ident(): " << slice->ident()
-                        << " index: " << index
-                        << " start: " << start
-                        << " charge: " << charge
-                        << std::endl;
-                    }
+                    // DEBUGONLY
+                    // if(index == 6486 && start == 8066) {
+                    //     IBlob::pointer blob = std::get<blob_t>(node.ptr);
+                    //     std::cout
+                    //     << " blob_desc: " << blob_desc
+                    //     << " blob->ident(): " << blob->ident()
+                    //     << " blob->shape(): " << blob->shape().as_string()
+                    //     << " slice->ident(): " << slice->ident()
+                    //     << " index: " << index
+                    //     << " start: " << start
+                    //     << " charge: " << charge
+                    //     << std::endl;
+                    // }
                     // auto& bound = ret.m_layer_proj[layer].m_bound;
                     // if (index < std::get<0>(bound)) std::get<0>(bound) = index;
                     // if (index > std::get<1>(bound)) std::get<1>(bound) = index;
