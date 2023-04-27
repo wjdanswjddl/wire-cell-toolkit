@@ -206,8 +206,8 @@ bool Img::ProjectionDeghosting::operator()(const input_pointer& in, output_point
         // log->debug("layer: {}, compared.size(): {}, tail: {}, head: {}", layer, compared.size(), tail, head);
         auto b_tail = c2b[tail];
         auto b_head = c2b[head];
-
         log->debug("layer: {}, tail: {}, head: {}", layer, tail, head);
+
         Projection2D::LayerProjection2DMap& proj_tail =
             get_projection(id2lproj, tail, in_graph, b_tail, m_nchan, m_nslice);
         Projection2D::LayerProjection2DMap& proj_head =
@@ -217,7 +217,24 @@ bool Img::ProjectionDeghosting::operator()(const input_pointer& in, output_point
         Projection2D::Projection2D& ref_proj = proj_tail.m_layer_proj[layer];
         Projection2D::Projection2D& tar_proj = proj_head.m_layer_proj[layer];
         int coverage = Projection2D::judge_coverage(ref_proj, tar_proj);
-        log->debug("coverage: {}", coverage);
+        int coverage_alt = Projection2D::judge_coverage_alt(ref_proj, tar_proj);
+        log->debug("coverage: {} alt: {}", coverage, coverage_alt);
+
+        // DEBUGONLY
+        coverage = coverage_alt;
+
+        // DEBUGONLY
+        // if (head == 7 || head == 9) {
+        //     for (auto& b : b_head) {
+        //         tagged_bs.insert(b);
+        //     }
+        //     for (auto& b : b_tail) {
+        //         tagged_bs.insert(b);
+        //     }
+        //     break;
+        // } else {
+        //     continue;
+        // }
         
         // tail contains head, remove blobs in head
         if (coverage == 1) {
@@ -248,9 +265,6 @@ bool Img::ProjectionDeghosting::operator()(const input_pointer& in, output_point
         ss << "} cov: " << coverage << std::endl;
         fout << ss.str();
         std::cout << ss.str();
-
-        // DEBUGONLY
-        // break;
     }
     fout.close();
     for (auto c : counters) {
@@ -258,9 +272,10 @@ bool Img::ProjectionDeghosting::operator()(const input_pointer& in, output_point
     }
 
     // true: remove tagged_bs; false: only keep tagged_bs
-    auto out_graph = remove_blobs(in_graph,tagged_bs,true);
+    auto out_graph = remove_blobs(in_graph,tagged_bs,false);
 
     // debug info
+    log->debug("tagged_bs.size(): {}",tagged_bs.size());
     log->debug("in_graph:");
     dump_cg(in_graph, log);
     log->debug("out_graph:");
