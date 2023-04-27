@@ -224,6 +224,23 @@ bool Img::ProjectionDeghosting::operator()(const input_pointer& in, output_point
         coverage = coverage_alt;
 
         // DEBUGONLY
+        // std::stringstream ss;
+        // ss << tail << " {";
+        // for (auto& b : b_tail) {
+        //     auto bptr = std::get<cluster_node_t::blob_t>(in_graph[b].ptr);
+        //     ss << bptr->ident() << " ";
+        // }
+        // ss << "} " << layer << "-> ";
+        // ss << head << " {";
+        // for (auto& b : b_head) {
+        //     auto bptr = std::get<cluster_node_t::blob_t>(in_graph[b].ptr);
+        //     ss << bptr->ident() << " ";
+        // }
+        // ss << "} cov: " << coverage << std::endl;
+        // fout << ss.str();
+        // std::cout << ss.str();
+
+        // DEBUGONLY
         // if (head == 7 || head == 9) {
         //     for (auto& b : b_head) {
         //         tagged_bs.insert(b);
@@ -248,23 +265,6 @@ bool Img::ProjectionDeghosting::operator()(const input_pointer& in, output_point
                 tagged_bs.insert(b);
             }
         }
-
-        // DEBUGONLY
-        std::stringstream ss;
-        ss << tail << " {";
-        for (auto& b : b_tail) {
-            auto bptr = std::get<cluster_node_t::blob_t>(in_graph[b].ptr);
-            ss << bptr->ident() << " ";
-        }
-        ss << "} " << layer << "-> ";
-        ss << head << " {";
-        for (auto& b : b_head) {
-            auto bptr = std::get<cluster_node_t::blob_t>(in_graph[b].ptr);
-            ss << bptr->ident() << " ";
-        }
-        ss << "} cov: " << coverage << std::endl;
-        fout << ss.str();
-        std::cout << ss.str();
     }
     fout.close();
     for (auto c : counters) {
@@ -272,7 +272,7 @@ bool Img::ProjectionDeghosting::operator()(const input_pointer& in, output_point
     }
 
     // true: remove tagged_bs; false: only keep tagged_bs
-    auto out_graph = remove_blobs(in_graph,tagged_bs,false);
+    auto out_graph = remove_blobs(in_graph,tagged_bs,true);
 
     // debug info
     log->debug("tagged_bs.size(): {}",tagged_bs.size());
