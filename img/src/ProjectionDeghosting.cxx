@@ -34,6 +34,9 @@ WireCell::Configuration Img::ProjectionDeghosting::default_configuration() const
 {
     WireCell::Configuration cfg;
     cfg["verbose"] = m_verbose;
+    cfg["nchan"] = m_nchan;
+    cfg["nslice"] = m_nslice;
+    cfg["dryrun"] = m_dryrun;
 
     return cfg;
 }
@@ -41,7 +44,11 @@ WireCell::Configuration Img::ProjectionDeghosting::default_configuration() const
 void Img::ProjectionDeghosting::configure(const WireCell::Configuration& cfg)
 {
     m_verbose = get<bool>(cfg,"verbose", m_verbose);
-    log->debug("m_verbose: {}", m_verbose);
+    m_nchan = get<size_t>(cfg,"nchan", m_nchan);
+    m_nslice = get<size_t>(cfg,"nslice", m_nslice);
+    m_dryrun = get<bool>(cfg,"dryrun", m_dryrun);
+    Json::FastWriter jwriter;
+    log->debug("{}", jwriter.write(cfg));
 }
 
 
@@ -179,7 +186,7 @@ bool Img::ProjectionDeghosting::operator()(const input_pointer& in, output_point
     cluster_proj_t id2lproj;
 
     // TODO: figure out how to do this right
-    std::unordered_set<cluster_vertex_t> bs_keep;
+    std::unordered_set<cluster_vertex_t> tagged_bs;
 
     for (const auto& cs_edge : GraphTools::mir(boost::edges(cs_graph))) {
         counters["cs_edges"] += 1;
@@ -211,14 +218,18 @@ bool Img::ProjectionDeghosting::operator()(const input_pointer& in, output_point
         Projection2D::Projection2D& tar_proj = proj_head.m_layer_proj[layer];
         int coverage = Projection2D::judge_coverage(ref_proj, tar_proj);
         log->debug("coverage: {}", coverage);
-        if (coverage != -1) {
-            continue;
+        
+        // tail contains head, remove blobs in head
+        if (coverage == 1) {
+            for (auto& b : b_head) {
+                tagged_bs.insert(b);
+            }
         }
-        for (auto& b : b_tail) {
-            bs_keep.insert(b);
-        }
-        for (auto& b : b_head) {
-            bs_keep.insert(b);
+        // vice versa
+        if (coverage == -1) {
+            for (auto& b : b_tail) {
+                tagged_bs.insert(b);
+            }
         }
 
         // DEBUGONLY
@@ -246,14 +257,19 @@ bool Img::ProjectionDeghosting::operator()(const input_pointer& in, output_point
         log->debug("{} : {} ", c.first, c.second);
     }
 
-    // only keep some blobs
+    // true: remove tagged_bs; false: only keep tagged_bs
+    auto out_graph = remove_blobs(in_graph,tagged_bs,true);
+
+    // debug info
     log->debug("in_graph:");
     dump_cg(in_graph, log);
-    auto out_graph = remove_blobs(in_graph,bs_keep,false);
-    // auto& out_graph = in_graph;
     log->debug("out_graph:");
     dump_cg(out_graph, log);
+
     out = std::make_shared<Aux::SimpleCluster>(out_graph, in->ident());
+    if(m_dryrun) {
+        out = std::make_shared<Aux::SimpleCluster>(in_graph, in->ident());
+    }
     return true;
 }
 
