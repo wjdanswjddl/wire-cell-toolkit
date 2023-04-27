@@ -26,6 +26,9 @@ namespace WireCell {
             bool m_verbose{false};
             size_t m_nchan{8256};
             size_t m_nslice{9592};
+
+            // DEBUGONLY
+            bool m_dryrun{false};
         };
 
     }  // namespace Img
