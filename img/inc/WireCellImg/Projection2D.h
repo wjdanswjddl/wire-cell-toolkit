@@ -17,6 +17,13 @@
 namespace WireCell {
     namespace Img {
         namespace Projection2D {
+            enum Coverage {
+                REF_COVERS_TAR = 1,
+                TAR_COVERS_REF = -1,
+                REF_EQ_TAR = 2,
+                BOTH_EMPTY = -2,
+                OTHER = 0
+            };
 
             // For matrix representation of the graphs.
             using scaler_t = float;
@@ -37,7 +44,7 @@ namespace WireCell {
             struct LayerProjection2DMap {
                 using layer_projection2d_map_t = std::unordered_map<WirePlaneLayer_t, Projection2D>;
                 layer_projection2d_map_t m_layer_proj;
-                double m_estimated_charge {0};
+                double m_estimated_minimum_charge {0};
             };
             // returns layer ID -> channel-tick-charge matrix
             LayerProjection2DMap get_projection(const WireCell::cluster_graph_t& cg, const std::set<cluster_vertex_t>&, const size_t nchan, const size_t nslice);
@@ -49,8 +56,8 @@ namespace WireCell {
             // std::vector<int> calc_coverage(const Projection2D& ref, const Projection2D& tar);
 
             // see .cxx for more details
-            int judge_coverage(const Projection2D& ref, const Projection2D& tar);
-            int judge_coverage_alt(const Projection2D& ref, const Projection2D& tar);
+            Coverage judge_coverage(const Projection2D& ref, const Projection2D& tar);
+            Coverage judge_coverage_alt(const Projection2D& ref, const Projection2D& tar);
 
         }  // namespace Projection2D
     }  // namespace Img

@@ -8,8 +8,10 @@
 #include <fstream>
 #include <unordered_set>
 #include <utility>
+#include <algorithm>
 
 using namespace WireCell;
+using namespace WireCell::Img;
 using namespace WireCell::Img::Projection2D;
 
 // Here, "node" implies a cluster graph vertex payload object.
@@ -140,10 +142,15 @@ LayerProjection2DMap WireCell::Img::Projection2D::get_projection(
     // layer_projection_map_t ret;
     LayerProjection2DMap ret;
 
+    // blob_est_min_charge = min(u,v,w)
+    // cluster_est_min_charge = sum(blob_est_min_charge )
+    double estimated_minimum_charge = 0;
+
     // assumes one blob linked to one slice
     // use b-w-c to find all channels linked to the blob
     for (const auto& blob_desc : group) {
         const auto& node = cg[blob_desc];
+        std::unordered_map<WirePlaneLayer_t, double> layer_charge;
         if (node.code() == 'b') {
             const auto slice_descs = neighbors_oftype<slice_t>(cg, blob_desc);
             if (slice_descs.size() != 1) {
@@ -151,6 +158,7 @@ LayerProjection2DMap WireCell::Img::Projection2D::get_projection(
             }
             auto slice = std::get<slice_t>(cg[slice_descs.front()].ptr);
             // TODO: make this tick duration configurable
+            // FIXME: it only fills the start time bin for now
             int start = int(slice->start() / (500 * units::nanosecond));
             int span = int(slice->span() / (500 * units::nanosecond));
             auto activity = slice->activity();
@@ -165,9 +173,12 @@ LayerProjection2DMap WireCell::Img::Projection2D::get_projection(
                     auto val = activity[chan].value();
                     auto unc = activity[chan].uncertainty();
                     auto charge = val;
-                    if (unc > 1e10) { // TODO: make this configurable
-                        charge = 1e-12;
+                    // TODO: make this configurable and robust
+                    if (unc > 1e10) {
+                        charge = -1e12;
                     }
+                    // TODO: double check this
+                    layer_charge[layer] += charge;
                     // if filled, skip
                     if (filled.find({index,start})!=filled.end()) {
                         continue;
@@ -175,28 +186,12 @@ LayerProjection2DMap WireCell::Img::Projection2D::get_projection(
                     // TODO: validate this
                     lcoeff[layer].push_back({index, start, charge});
                     filled.insert({index,start});
-                    // DEBUGONLY
-                    // if(index == 6486 && start == 8066) {
-                    //     IBlob::pointer blob = std::get<blob_t>(node.ptr);
-                    //     std::cout
-                    //     << " blob_desc: " << blob_desc
-                    //     << " blob->ident(): " << blob->ident()
-                    //     << " blob->shape(): " << blob->shape().as_string()
-                    //     << " slice->ident(): " << slice->ident()
-                    //     << " index: " << index
-                    //     << " start: " << start
-                    //     << " charge: " << charge
-                    //     << std::endl;
-                    // }
-                    // auto& bound = ret.m_layer_proj[layer].m_bound;
-                    // if (index < std::get<0>(bound)) std::get<0>(bound) = index;
-                    // if (index > std::get<1>(bound)) std::get<1>(bound) = index;
-                    // if (start < std::get<2>(bound)) std::get<2>(bound) = start;
-                    // if (start > std::get<3>(bound)) std::get<3>(bound) = start;
                 }
             }
-            // std::cout << std::endl;
-        }
+        }  // for each blob
+        auto min_iter = std::min_element(layer_charge.begin(), layer_charge.end(),
+                                         [](const auto& a, const auto& b) { return a.second < b.second; });
+        estimated_minimum_charge += min_iter->second;
     }
 
     for (auto lc : lcoeff) {
@@ -207,17 +202,13 @@ LayerProjection2DMap WireCell::Img::Projection2D::get_projection(
         }
         ret.m_layer_proj[l].m_proj.setFromTriplets(c.begin(), c.end());
     }
+    ret.m_estimated_minimum_charge = estimated_minimum_charge;
     return ret;
 }
 
 std::string WireCell::Img::Projection2D::dump(const Projection2D& proj2d, bool verbose) {
     std::stringstream ss;
     ss << "Projection2D:";
-    // << " {" << std::get<0>(proj2d.m_bound)
-    // << "," << std::get<1>(proj2d.m_bound)
-    // << "," << std::get<2>(proj2d.m_bound)
-    // << "," << std::get<3>(proj2d.m_bound)
-    // << "}";
 
     auto ctq = proj2d.m_proj;
     size_t counter = 0;
@@ -250,42 +241,58 @@ bool WireCell::Img::Projection2D::write(const Projection2D& proj2d, const std::s
     return 0;
 }
 
-// return a sparse matrix mask for elements that are larger than th(reshold)
-sparse_mat_t mask (const sparse_mat_t& sm, const float th = 0) {
-    sparse_mat_t smm = sm;
-    for (int k=0; k<smm.outerSize(); ++k) {
-        for (sparse_mat_t::InnerIterator it(smm,k); it; ++it)
-        {
-            if (it.value() > th) {
-                it.valueRef() = 1;
+// some local utility functions
+namespace {
+
+    // return a sparse matrix mask for elements evaluate true for function f
+    sparse_mat_t mask (const sparse_mat_t& sm, std::function<bool(scaler_t)> f) {
+        sparse_mat_t smm = sm;
+        for (int k=0; k<smm.outerSize(); ++k) {
+            for (sparse_mat_t::InnerIterator it(smm,k); it; ++it)
+            {
+                if (f(it.value())) {
+                    it.valueRef() = 1;
+                }
             }
         }
+        return smm;
     }
-    return smm;
-}
 
-scaler_t loop_sum (const sparse_mat_t& sm, std::function<scaler_t(scaler_t)> f) {
-    scaler_t ret = 0;
-
-    for (int k=0; k<sm.outerSize(); ++k) {
-        for (sparse_mat_t::InnerIterator it(sm,k); it; ++it)
-        {
-            ret += f(it.value());
-        }
-    }
-    return ret;
-}
-
-bool loop_exist (const sparse_mat_t& sm, std::function<bool(scaler_t)> f) {
-    for (int k=0; k<sm.outerSize(); ++k) {
-        for (sparse_mat_t::InnerIterator it(sm,k); it; ++it)
-        {
-            if (f(it.value())) {
-                return true;
+    bool loop_exist (const sparse_mat_t& sm, std::function<bool(scaler_t)> f) {
+        for (int k=0; k<sm.outerSize(); ++k) {
+            for (sparse_mat_t::InnerIterator it(sm,k); it; ++it)
+            {
+                if (f(it.value())) {
+                    return true;
+                }
             }
         }
+        return false;
     }
-    return false;
+
+    int loop_count (const sparse_mat_t& sm, std::function<bool(scaler_t)> f) {
+        int ret = 0;
+        for (int k=0; k<sm.outerSize(); ++k) {
+            for (sparse_mat_t::InnerIterator it(sm,k); it; ++it)
+            {
+                if (f(it.value())) {
+                    ret += 1;
+                }
+            }
+        }
+        return ret;
+    }
+
+    scaler_t loop_sum (const sparse_mat_t& sm, std::function<scaler_t(scaler_t)> f) {
+        scaler_t ret = 0;
+        for (int k=0; k<sm.outerSize(); ++k) {
+            for (sparse_mat_t::InnerIterator it(sm,k); it; ++it)
+            {
+                ret += f(it.value());
+            }
+        }
+        return ret;
+    }
 }
 
 // 1: tar is part of ref
@@ -293,13 +300,13 @@ bool loop_exist (const sparse_mat_t& sm, std::function<bool(scaler_t)> f) {
 // 2: tar is equal to ref
 // -2: tar is equal to ref and both are empty
 // 0 ref and tar do not belong to each other
-int WireCell::Img::Projection2D::judge_coverage(const Projection2D& ref, const Projection2D& tar) {
+WireCell::Img::Projection2D::Coverage WireCell::Img::Projection2D::judge_coverage(const Projection2D& ref, const Projection2D& tar) {
     // ref * tar
     sparse_mat_t ref_t_tar = ref.m_proj.cwiseProduct(tar.m_proj);
 
     // non overlapping
     bool all_zero = !loop_exist(ref_t_tar, [](scaler_t x){return x!=0;});
-    if (all_zero) return 0;
+    if (all_zero) return OTHER;
 
     // ref - tar
     sparse_mat_t ref_m_tar = ref.m_proj - tar.m_proj;
@@ -308,7 +315,7 @@ int WireCell::Img::Projection2D::judge_coverage(const Projection2D& ref, const P
 
     // partial overlapping
     if (ref_m_tar_neg && ref_m_tar_pos) {
-        return 0;
+        return OTHER;
     }
 
     // no non-overlapping pixels
@@ -317,17 +324,17 @@ int WireCell::Img::Projection2D::judge_coverage(const Projection2D& ref, const P
 
     if (!ref_m_tar_neg && !ref_m_tar_pos) {
         if (ref_non_zero) {
-            return 2;
+            return REF_EQ_TAR;
         }
-        return -2;
+        return BOTH_EMPTY;
     }
 
     // ref > tar
     if (ref_m_tar_pos) {
-        return 1;
+        return REF_COVERS_TAR;
     }
 
-    return -1;
+    return TAR_COVERS_REF;
 }
 
 
@@ -335,7 +342,63 @@ int WireCell::Img::Projection2D::judge_coverage(const Projection2D& ref, const P
 // -1: ref is part of tar
 // 2: tar is equal to ref
 // 0 ref and tar do not belong to each other
-int WireCell::Img::Projection2D::judge_coverage_alt(const Projection2D& ref, const Projection2D& tar) {
-    // TODO: implement me!
-    return 0;
+WireCell::Img::Projection2D::Coverage WireCell::Img::Projection2D::judge_coverage_alt(const Projection2D& ref,
+                                                                                      const Projection2D& tar)
+{
+    // ref * tar
+    sparse_mat_t ref_t_tar = ref.m_proj.cwiseProduct(tar.m_proj);
+    sparse_mat_t inter_mask = mask(ref_t_tar, [](scaler_t x){return x>0;});
+    sparse_mat_t inter_proj = ref.m_proj.cwiseProduct(inter_mask);
+
+    int num_ref = loop_count(ref.m_proj, [](scaler_t x){return x>0;});
+    int num_tar = loop_count(tar.m_proj, [](scaler_t x){return x>0;});
+    int num_dead_ref = loop_count(ref.m_proj, [](scaler_t x){return x<-1e8;}); // -1e12 for dead pixels, TODO: make sure this is robust
+    int num_dead_tar = loop_count(tar.m_proj, [](scaler_t x){return x<-1e8;});
+    int num_inter  = loop_count(inter_proj, [](scaler_t x){return x>0;});
+    scaler_t charge_ref = loop_sum(ref.m_proj, [](scaler_t x){return (x>0)*x;});
+    scaler_t charge_tar = loop_sum(tar.m_proj, [](scaler_t x){return (x>0)*x;});
+    scaler_t charge_inter = loop_sum(inter_proj, [](scaler_t x){return (x>0)*x;});
+
+    if (num_ref == 0 && num_tar == 0) {
+        return BOTH_EMPTY;
+    }
+    else if (num_ref == num_tar && num_dead_ref == num_ref) {
+        return REF_EQ_TAR;
+    }
+    else if (num_dead_ref == num_ref) {
+        return TAR_COVERS_REF;
+    }
+    else if (num_dead_ref == num_tar) {
+        return REF_COVERS_TAR;
+    }
+    else {
+        Coverage value;
+
+        float small_counts;
+        float small_charge;
+        float dead_counts;
+        if (num_ref < num_tar) {
+            value = TAR_COVERS_REF;
+            small_counts = num_ref;
+            small_charge = charge_ref;
+            dead_counts = num_dead_ref;
+        }
+        else {
+            value = REF_COVERS_TAR;
+            small_counts = num_tar;
+            small_charge = charge_tar;
+            dead_counts = num_dead_tar;
+        }
+
+        float common_counts = num_inter;
+        float common_charge = charge_inter;
+
+        if ((1 - common_charge / small_charge) < std::min(0.05 * (small_counts + dead_counts) / small_counts, 0.33) &&
+            (1 - common_counts / small_counts) < std::min(0.15 * (small_counts + dead_counts) / small_counts, 0.33)) {
+            return value;
+        }
+        else {
+            return OTHER;
+        }
+    }
 }
