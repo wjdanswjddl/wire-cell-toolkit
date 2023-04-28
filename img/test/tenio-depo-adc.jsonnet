@@ -9,7 +9,7 @@ function(detector, variant="nominal",
          indepos=null,
          outdepos="depos-drifted.npz",
          outfiles="frames-adc-%(anode)s.npz",
-         frame_mode="sparse")
+         frame_mode="sparse", anode_iota=null)
 
     local mid = high.mid(detector, variant, options={sparse:false});
 
@@ -20,8 +20,7 @@ function(detector, variant="nominal",
     local drifter = mid.drifter();
 
     local anodes = mid.anodes();
-    local nanodes = std.length(anodes);
-    local anode_iota = std.range(0, nanodes-1);
+    local iota = if std.type(anode_iota) == "null" then std.range(0, std.length(anodes)-1) else anode_iota;
 
     local apipes = [
         local anode = anodes[aid];
@@ -33,7 +32,7 @@ function(detector, variant="nominal",
 
             high.fio.frame_tensor_file_sink(ofile,mode=frame_mode, digitize=true)
 
-        ]) for aid in anode_iota];
+        ]) for aid in iota];
 
     local body = pg.fan.fanout('DepoSetFanout', apipes, "work");
 

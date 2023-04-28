@@ -87,6 +87,7 @@ namespace WireCell {
         template<typename MatrixType=Eigen::MatrixXd>
         Eigen::SelfAdjointEigenSolver<MatrixType> pca(const MatrixType& mat) {
             MatrixType centered = mat.rowwise() - mat.colwise().mean();
+            // Note: many online PCA articles incorrectly omit the 1/(n-1) normalization or use 1/n.
             MatrixType cov = ( centered.adjoint() * centered ) / ((double)mat.rows() - 1.0);
             return Eigen::SelfAdjointEigenSolver<MatrixType>(cov);
         }

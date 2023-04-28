@@ -1,16 +1,48 @@
-/** Produce point cloud representation of blobs through application of
-    various sampling strategies.
- 
-    This produces a dataset with the following array names:
- 
-    - <prefix>x :: point X-position in the global coordinate system
-    - <prefix>y :: point Y-position in the global coordinate system
-    - <prefix>z :: point Z-position in the global coordinate system
-    - <prefix>strategy :: an integer count for the sampling strategy
-    - <prefix>blobid :: the blob ident
+/** Produce point cloud representation of a set of blobs.
 
-    The prefix "<prefix>" may be changed by setting the "prefix"
-    configuration parameter.  Default is empty string.
+    Points are produced by sampling.  Strategies are given by name
+    with the "strategy" configuration parameter which may be a string
+    (one strategy) or an array of string (multiple strategies).
+
+    The sampling results in a set of PC arrays consisting of a
+    "sampling" subset and an "extra" subset.  The content of the
+    "sampling" subset is not subject to configuration while the
+    content of the "extra" subset is subject to user configuration.
+
+    The names of the PC arrays are as "<prefix><suffix>" where the
+    suffix is fixed by this component and the prefix is provided by
+    user configuration with default being the empty string.
+
+    The "sampling" arrays, listed by their suffix, are:
+ 
+    - x_coord :: (double) point X-position in the global coordinate system
+    - y_coord :: (double) point Y-position in the global coordinate system
+    - z_coord :: (double) point Z-position in the global coordinate system
+    - t_coord :: (double) point time
+
+    Additional arrays may be include based on the value of the "extra"
+    configuration parameter which may be of type string or array of
+    string.  Each string is interpreted as a regex and compared
+    against the potential array suffix.  
+
+    - sample_strategy :: (int) the ID of the sampling strategy that produced the point.
+    - blob_ident :: (int) the blob ident number.
+    - blob_index :: (int) the index of the blob in the input vector.
+
+    - slice_ident :: (int) the slice 
+    - slice_start :: (double) the start time of the slice.
+    - slice_span :: (double) the time span of the slice.
+
+    - {u,v,w}wire_index :: (int) index of nearest wire in a plane (IWirePlane::wires() order)
+    - {u,v,w}pitch_coord :: (double) location of point along the pitch direction.
+    - {u,v,w}wire_coord :: (double) location of point along the wire direction.
+
+    - {u,v,w}channel_ident :: (int) the ident number of nearest channel (IChannel::ident()).
+    - {u,v,w}channel_attach :: (int) the attachment number of nearest channel (IChannel::index()).
+
+    - {u,v,w}charge_val :: (double) the charge value of nearest channel.
+    - {u,v,w}charge_unc :: (double) the charge uncertainty of nearest channel.
+
  */
 
 #ifndef WIRECELL_IMG_BLOBSAMPLER
@@ -20,6 +52,8 @@
 #include "WireCellIface/IConfigurable.h"
 #include "WireCellAux/Logger.h"
 #include "WireCellUtil/Binning.h"
+
+#include <regex>
 
 namespace WireCell::Img {
 
@@ -58,6 +92,10 @@ namespace WireCell::Img {
 
             /** Config: "tbins", "tmin" and "tmax" */
             Binning tbinning = Binning(1,0.0,1.0);
+
+            /** Config: "extra".  Match potential extra arrays to
+             * include in point cloud. */
+            std::vector<std::regex> extra_re = {};
 
         };
         CommonConfig m_cc;
@@ -147,6 +185,7 @@ namespace WireCell::Img {
 
 
         void add_strategy(Configuration cfg);
+        void add_extra(Configuration extra);
 
     };
 
