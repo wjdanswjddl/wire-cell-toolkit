@@ -46,48 +46,61 @@ mapped to these two node arrays by an array naming convention based on
 *array codes* and *edge codes*.
 
 Before listing these codes, one structural change must be understood.
-The ~ICluster~ graph construction schema described above holds implicit
-that /channel/ nodes (and /wire/ nodes) represent physical entities.  In
-particular, a given channel node may be reached by following an
-~s-b-m-c~ path from more than one slice.  On the other hand, the
-~ISlice::activity()~ method provides an direct mapping (external to the
-graph structure) betwen slice and channel and the amount of signal
-collected in the channel over the time slice.  It is this information
-that was used to initially from ~b-m-c~ paths.  Furthermore, the
-/activity map/ information is a superset of ~s-c~ relationship found by
-following ~s-b-m-c~ paths as some activity may not end up contributing
-to forming blobs.  As the activity map can not be coerced into a slice
-array column and because it is a redundant superset of channel node
-information, the ~ClusterArrays~ will rewrite the ~ICluster~ graph as
-illustrated with the /cluster array graph schema/:
+The ~ICluster~ graph connection schema described above treats /channel/
+(and /wire/ ) nodes as representing physical entities.  A given channel
+node may be reached through multiple ~s-b-m-c~ paths beginning from
+multiple slices.  The ~ICluster~ also holds internal to /slice/ nodes an
+~ISlice::activity()~.  This provides a the amount of signal in a channel
+that contributes to the slice.  Furthermore, this /activity map/
+information is a superset of ~s-c~ relationships that may be found by
+following ~s-b-m-c~ paths.  This is because some slice activity may not
+have contributed to forming blobs in the slice.  This activity map can
+not be coerced into an slice array column (it would be a "ragged
+array").
+
+In order to faithfully preserve the /activity map/ in the array format,
+the ~ClusterArrays~ schema *does not follow the cluster graph* schema
+shown above.  Instead, the cluster array type graph is:
 
 [[file:cluster-array-types.png]]
 
+Comparing these two type graph representations:
 
-Between these two type schema graph representations, all /cluster graph
-node types/ are mapped directly to /cluster array types/ except that
-/channel nodes/ are mapped to /activity arrays/ with an new edge from
-/activity/ to /slice/.  The array representation also includes two changes
-from the node representation which are implicit.  An activity is
-unique to a given slice and not all activities may share an edge with
-a measure.  In this way the ~ISlice::activity()~ map can be represented
-and from the set of cluster arrays the original cluster graph can be
-constructed.
+- /channel/ nodes are replaced by /activity/ nodes
+- /activity/ represents a channel in a slice (not just a physical channel)
+- /activity/ holds a signal value and uncertainty
+- a /channel-slice/ edge is added
 
-With that understood we define /node array codes/ as the ASCII value of
-the lower case initial letter of the node array names: /activity, blob,
-measure, slice/ and /wire/.  For example, an activity array will have a
-label ~anodes~.  The /edge array codes/ are the combination of two node
-array codes in alphabetical order.  For example, the edges between
-slice and activity are represented in an array with a name including
-the label ~asedges~.  Each array is held in a Numpy file named with a
-prefix ~cluster~ indicating array is in the format described in this
-document followed by the cluster identity number ~<ident>~ and the
-node/edge label just described.  For example a cluster 6501 is
-represented by the arrays
+The remaining vertex types and allowed edges are the same other as in
+the original cluster graph schema.  In particular, the /wire/ vertex
+type still represents a physical wire which is not specific to any
+particular slice.  All other vertices are per-slice.
+
+With this change stated, we define /node array codes/ as the ASCII value
+of the lower case initial letter of the node array names: /activity,
+blob, measure, slice/ and /wire/.  For example, an activity array will
+have a label ~anodes~.  The /edge array codes/ are the combination of two
+node array codes in alphabetical order.  For example, the edges
+between /slice/ and /activity/ vertices are represented in an array with a
+name that includes the label ~asedges~.  Each array is held in a Numpy file
+named with a prefix ~cluster~ (indicating array is in the format
+described in this document) followed by the cluster identity number
+~<ident>~ and the node/edge label just described.  For example a cluster
+6501 is represented by the arrays
 
 #+begin_example
-......
+ cluster_6501_wnodes.npy
+ cluster_6501_snodes.npy
+ cluster_6501_bnodes.npy
+ cluster_6501_mnodes.npy
+ cluster_6501_anodes.npy
+ cluster_6501_bsedges.npy
+ cluster_6501_bwedges.npy
+ cluster_6501_asedges.npy
+ cluster_6501_bbedges.npy
+ cluster_6501_bmedges.npy
+ cluster_6501_awedges.npy
+ cluster_6501_amedges.npy
 #+end_example
 
 The remainder of this section describes the columns that make up each
