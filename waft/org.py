@@ -1,3 +1,27 @@
+#! /usr/bin/env waf
+'''A waf tool to perform org export.
+
+By default it will execute an new instance of emacs for each export.
+This can be slow and the emacs may lack the desired configuration.  An
+alternative that address both of these is to use emacs daemon through
+emacsclient.
+
+  waf configure --emacs-daemon="NAME" [...]
+
+Where NAME is the daemon naem.  Eg when started as:
+
+  emacs --daemon=myemacs
+
+The --emacs-daemon="NAME" may also be given at build time:
+
+  waf --emacs-daemon="NAME" --target=my-export-html
+
+You may also run (server-start) inside a running emacs.  If so, the
+name should be "server".  Take caution, a large build may make the
+running emacs effectively unusable.
+
+'''
+
 import time
 from waflib.Utils import to_list, subst_vars
 from waflib.Task import Task, TaskSemaphore
@@ -52,8 +76,10 @@ class org_export(Task):
 
         debug(f"org: emacs will produce: {tmp}")
 
-        if 'EMACSCLIENT' in self.env:
-            cmd = """${EMACSCLIENT} -e '(progn (find-file "%s") (%s))'""" % (onode.abspath(), self.func)
+        if 'EMACSCLIENT' in self.env and 'EMACS_DAEMON' in self.env:
+            cmd = """${EMACSCLIENT} -s "${EMACS_DAEMON}" -e '(progn (find-file "%s") (%s))'""" % \
+                (onode.abspath(), self.func)
+            debug(f'org: EMACS: {cmd}')
         else:
             cmd = "${EMACS} %s --batch -f %s" % (onode.abspath(), self.func)
         if tmp != enode.abspath():
@@ -96,10 +122,18 @@ def process_org(tgen, node):
     tsk.inplace = 'inplace' in tgen.features
 
 
+def options(opt):
+    opt.add_option("--emacs-daemon", default=None, type=str,
+                   help="Given name of emacs daemon to use via emacsclient for org export.  If none, use emacs directly (which is slower and may not pick up your config) [default=None], Note default daemon is called 'server'")
+
 def configure(cfg):
     cfg.find_program("emacs", var="EMACS")
     cfg.find_program("emacsclient", var="EMACSCLIENT", mandatory=False)
 
+    cfg.env.EMACS_DAEMON = cfg.options.emacs_daemon
 
-def build(cfg):
+def build(bld):
+    emacsd = getattr(bld.options, 'emacs_daemon')
+    if emacsd is not None:
+        bld.env.EMACS_DAEMON = emacsd
     pass

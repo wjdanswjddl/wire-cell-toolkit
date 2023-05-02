@@ -71,6 +71,7 @@ def options(opt):
     opt.load('compiler_cxx')
     opt.load('wcb_unit_test') # adds --tests
     opt.load("datarepo")
+    opt.load('org')
 
     opt.add_option("--docs", default="",
                    help="comma separated list of docs to generate.  eg: 'org2hml,org2pdf,doxy'.  default:none")
