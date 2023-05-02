@@ -8,7 +8,8 @@ bats_load_library "wct-bats.sh"
 function make_dag () {
     local src=$1; shift
     local tgt=$1; shift
-    declare -a args=( -A "detector=pdsp" -S "anode_iota=[0]" )
+    #declare -a args=( -A "detector=pdsp" -S "anode_iota=[0]" )
+    declare -a args=( -A "detector=pdsp" )
     if [ "$src" != "depo" ] ; then
         args+=( -A "infiles=apa-%(anode)s-${src}.npz" )
     fi
@@ -52,9 +53,10 @@ function run_dag () {
     run_idempotently -s apa-0-${src}.npz -t apa-0-${tgt}.npz -- \
         wct -l dag-${tgt}.log -L debug dag-${tgt}.json
     local warnings=$(grep '\bW\b' dag-${tgt}.log)
-    echo "$warnings"
+    echo "$warnings" 1>&3
     local errors=$(grep '\bE\b' dag-${tgt}.log)
     [[ -z "$errors" ]]
+    file_larger_than apa-0-${tgt}.npz 22
 }
 
 @test "run wire-cell stage depo to adc" {

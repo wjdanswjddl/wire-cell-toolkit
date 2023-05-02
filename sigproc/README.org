@@ -1,5 +1,5 @@
 #+title: Wire Cell Signal Processing
-#+SETUPFILE: ../setup-readme.org
+#+include: ../docs/include-readme.org
 
 * Overview
 
@@ -10,4 +10,4 @@ The algorithm and performance of this package (0.6.2) have been summarized in [[
 
 See the main [[https://github.com/wirecell/wire-cell-toolkit][wire-cell-toolkit]] package for entry points to the toolkit.
 
-#+include: docs/field-response-data-file.org
+- [[file:docs/field-response-data-file.org][Field response data file]]

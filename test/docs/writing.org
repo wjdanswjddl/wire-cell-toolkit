@@ -1,8 +1,13 @@
-*  Writing tests
+#+title: Writing WCT tests
+#+include: ../../docs/include-topic.org
 
-This section provides general information on how to write WCT tests.  See section [[Test implementation languages]] for starting points to details on writing tests in different support programming languages.
+This section provides general information on how to write WCT tests.
+See the list of
+[[file:~/wrk/wct/imaging/toolkit/test/README.org::#languages][supported
+programming languages]] for tests.  for starting points to details on
+writing tests in different support programming languages.
 
-** Determine the scope of the test
+* Scope of a test
 
 When considering to develop a test, consider what should be tested and then ask yourself:
 
@@ -10,7 +15,7 @@ When considering to develop a test, consider what should be tested and then ask 
 - What *code* must a test depend on?  Can it be reduced?
 - What *data* must a test depend on?  Can it be reduced, removed or hard-coded?
   
-** Location of test source
+* Location of test source
 
 The source file for a test should be placed under one of the
 directories:
@@ -27,9 +32,9 @@ It is allowed for the dependency tree for test programs to be different than the
 
 For example, if a test of code in ~WireCellGen~ requires ROOT, that test should go into ~WireCellRoot~ (under ~root/test/*~ and not ~gen/test/*~).
 
-** Name the test
+* Name the test
 
-As described in [[file:framework.org]] a test must have a source file name that matches the pattern:
+As described in [[file:framework.org][the testing framework topic]] a test must have a source file name that matches the pattern:
 
 #+begin_example
 <pkg>/test/<prefix><sep><name>.<ext>

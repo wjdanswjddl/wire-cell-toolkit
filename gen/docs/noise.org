@@ -1,4 +1,5 @@
 #+title: Wire-Cell Noise Model
+#+include: ../../docs/include-topic.org
 
 * Overview
 

@@ -1,4 +1,5 @@
-* Point Cloud
+#+title: Point Cloud
+#+include: ../../docs/include-topic.org
 
 See also [[file:talks/point-cloud-presentation.pdf][these presentation materials (pdf)]].
 
@@ -12,7 +13,7 @@ awk "$re" "$file"
 grep -m1 -A$a "$re" "$file"
 #+end_src
 
-** Definition of terms:
+* Definition of terms:
 
 - point :: an abstract entity to which we may associate information
 - point data :: a unit of information associated to a point
@@ -29,14 +30,14 @@ grep -m1 -A$a "$re" "$file"
 - /kNN search/ :: locating /k/ (different $k$ than in "k-d tree") indices of points in a PC which have positions that are the nearest neighbors to a given position.
 - /radius search/ :: locate all indices of points in a PC which have positions within a fixed distance metric from a given position.  Note the radius is measured against a distance metric (thus using L2 the radius has units ~[(length)^2]~).
 
-** Comments
+* Comments
 
 - A point is not a position.  Rather, one or more positions, possibly of different dimension, may be associated with a point.
 - Point arrays in a dataset may have different shape as long as they all have identical sizes of /major axis/.  The major axis is the first index when written in the usual C++/Python manner.
 - A dataset identifies its arrays by name.
 - Each coordinate array is independent.  Thus, one may have a 3D position array composed of the coordinate arrays with names ("x","y","z") and a 2D position array representing some projection into "w", a linear combination of "y" and "z" with the set of coordinate arrays ("x","w").
 
-** WCT Implementation
+* WCT Implementation
 
 The wire-cell toolkit provides support for /point clouds/ via three inter-operating APIs.
 
@@ -46,7 +47,7 @@ The wire-cell toolkit provides support for /point clouds/ via three inter-operat
 
 The remainder of this note provides some detail of these API. 
 
-** ~PointCloud~ API
+* ~PointCloud~ API
 
 Quick taste of some code:
 
@@ -66,7 +67,7 @@ Quick taste of some code:
 #+end_src
 See ~util/test/test_pointcloud.cxx~ for more examples.  The rest of this section describes ~Array~ and ~Dataset~.
 
-*** ~Array~
+** ~Array~
 
 The ~PointCloud::Array~ is a simple container of array like data.  It's primary purpose:
 
@@ -145,7 +146,7 @@ And ~Array~ also carries but does not in any way use a /metadata object/ impleme
   md["foo"] = "bar";  
 #+end_src
 
-*** ~Dataset~
+** ~Dataset~
 
 A ~PointCloud::Dataset~ provides a collection of ~Array~ with minimal operations.  It's primary purposes:
 
@@ -193,11 +194,11 @@ Like ~Array~, ~Dataset~ carries but does not use a metadata object.
   md["foo"] = "baz";
 #+end_src
 
-** ~TensorTools~ API
+* ~TensorTools~ API
 
 The ~TensorTools~ API provides conversion functions between ~Array~ and ~ITensor~ and between ~Dataset~ and ~ITensorSet~.  This allows point cloud information to be sent between nodes of the WCT data flow graph and to be sent through I/O with files.  The ~ITensor~ representation is first described and the conversion functions.
 
-*** ~ITensor~ representation
+** ~ITensor~ representation
 
 A ~Dataset~ is mapped to an ~ITensorSet~ and each of its named ~Array~ items to an ~ITensor~ in the set.  The two representations are close, but not exact.
 
@@ -206,7 +207,7 @@ A ~Dataset~ is mapped to an ~ITensorSet~ and each of its named ~Array~ items to 
 - The ~ident~ value of the ~ITensorSet~ may be provided by an ~"ident"~ attribute of the ~Dataset~ metadata, else zero is stored.  In the reverse direction, the ~Dataset~ will be given an ~"ident"~ metadata attribute holding the value from the ~ITensorSet~.
 - Otherwise, all ~Array~ and ~Dataet~ metadata objects are pass unchanged to/from those of ~ITensor~ and ~ITensorSet~.
   
-*** Conversion functions
+** Conversion functions
 
 Each of the four possible conversions has a corresponding function.  Their interface is very simple and the ~WireCellAux/TensorTools.h~ header file gives the essentials:
 
@@ -249,7 +250,7 @@ Note that ~share~ may be passed as ~true~ to enable the optimization of zero-cop
 
 The ~aux/test/test_tensor_tools.cxx~ unit test contains more examples.
 
-** ~KDTree~ API
+* ~KDTree~ API
 
 The ~KDTree~ API provides a binding between a ~Dataset~ and the ~nanoflan~ library whic provides k-d tree data structure and /knn/ and /radius search/ operations.  The goals of ~KDTree~ is to simplify, regularize and hide the ~nanoflan~ API.  See the appendix below for notes that attempt to document ~nanoflann~.
 
@@ -323,7 +324,7 @@ Assuming ~knn~ and the context from the above example, here are some ways to do 
 
 
 
-** Appending
+* Appending
 
 As described above, two common additive operations are supported in
 ~Dataset~:
@@ -366,11 +367,11 @@ into a form that may also be registered to be called from the update
 hook.
 
 
-** nanoflann
+* nanoflann
 
 This section provides developer documentation for ~nanoflann~ as what that package provides is rather slim.  What info that is available is at the [[https://github.com/jlblancoc/nanoflann][repo readme]] and in the [[https://jlblancoc.github.io/nanoflann/][doxygen docs]].  The additional information given here is not required to use WCT PCs.
 
-*** Dataset
+** Dataset
 
 A ~nanoflann~ /dataset adaptor/ must be provided for each unique type of PC data.  One that makes use of Eigen3 arrays is provided by ~nanoflann~.  WCT provides one for ~boost::multi_array~ that comes from an ~ITensor~ as described above.  A dataset adaptor must provide two methods and may provide a third, optional method.  As copied from comments in the source and embelished these are:
 
@@ -410,11 +411,11 @@ A ~nanoflann~ /dataset adaptor/ must be provided for each unique type of PC data
 #+end_src
 
 
-*** Distance
+** Distance
 
 A distance metric must be provided to measure separation of points in the space.  L1, L2 and some other metrics are provided.  Note, the units of "distance" depend on the metric.  For example, when the L2 metric is used the distance is in units of length-squared.
 
-*** Index
+** Index
 
 A ~nanoflann~ /index adaptor/ provides the k-d tree query interface.  ~KDTreeSingleIndexAdaptor~ provides one implementation.  It is templated in terms of a /distance/ type, a /dataset adaptor/, the dimensionality and the index type.  It operates assuming the adapted dataset remains unchanged.
 
@@ -422,7 +423,7 @@ The ~KDTreeSingleIndexDynamicAdaptor~ is another which allows for points to be a
 
 The ~nanoflann~ library also defines an ~KDTreeEigenMatrixAdaptor~.  This class shears across both dataset adaptor and index adaptor design layers.  It provides a dataset adaptor for ~Eigen::Matrix~ and then internally creates an maintains a ~KDTreeSingleIndexAdaptor~ using itself as the dataset adaptor.
 
-*** Query methods
+** Query methods
 
 There are two primary query methods provided by ~KDTree*Index*Adaptor~ classes (and via the exposed ~KDTreeEigenMatrixAdaptor::index~ pointer to a ~KDTreeSingleIndexAdaptor~).
 

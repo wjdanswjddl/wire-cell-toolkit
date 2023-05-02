@@ -1,6 +1,5 @@
 #+title: Wire Schema and Conventions
-#+latex_header: \usepackage[margin=1in]{geometry}
-#+options: ':t
+#+include: ../../docs/include-topic.org
 
 * Introduction
 

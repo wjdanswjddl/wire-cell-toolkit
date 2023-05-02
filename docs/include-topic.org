@@ -1,0 +1,2 @@
+#+SETUPFILE: ../../docs/setup-topic.org
+#+subtitle: [[file:../../README.org][(top)]] [[file:../README.org][(pkg)]]

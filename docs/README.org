@@ -1,0 +1,65 @@
+#+title: Wire-Cell Toolkit Documentation Sub-package
+#+include: ../docs/include-readme.org
+
+
+* Overview
+
+The ~docs/~ sub package provides support for various forms of 
+documentation provided by the ~wire-cell-toolkit~ repository.
+It integrates with the ~wire-cell-docs~ repository.
+
+* Source
+
+Most of the documentation source file is written in [[https://orgmode.org/][org markup]].  Each
+file is expected to produce an associated export file (eg ~foo.org~
+produces ~foo.html~).  That is, authors should avoid use of ~#+include:~
+directives to aggregate files.  In some special cases, documentation
+source files may be aggregated for the purpose of producing a
+monolithic export.  Particular care is needed so that links resolve
+properly.
+
+* README
+
+At [[file:../README.org][top level]] and in every sub package in the WCT repo there is a
+~README.org~ file.  These files provide entry points into the
+documentation for their context (top or sub package).  They should be
+brief and delegate to other documents under the sibling directory
+~docs/~.
+
+Every ~README.org~ file must use the ~setup-readme.org~ setup file.  For
+those in a sub-package they must start with lines like:
+
+#+begin_example
+  ,#+title: Wire-Cell Toolkit <Package>
+  ,#+include: ../docs/include-readme.org
+#+end_example
+
+* Topic files
+
+The WCT /topics/ documents provide the bulk of the WCT in-source
+documentation.  They are placed under ~<pkg>/docs/~ and written to
+assume in-place export from that location (eg, for linking to or
+including source from other files).  A topic document must use the
+~setup-topic.org~ setup file by using initial lines such as:
+
+#+begin_example
+  ,#+title: Wire-Cell Toolkit Topic XYZ
+  ,#+include: ../../docs/include-topic.org
+#+end_example
+
+
+* HTML
+
+Each WCT documentation file may be exported in-place to an HTML file.
+Links should be relative.  However, CSS and javascript files are found
+using an absolute URL rooted at ~/~.  When the exported HTML is
+installed to the ~wirecell.github.io~ package and served from that
+domain or https://wirecell.bnl.gov/ this path will be assured.  When
+developing the documentation it is useful to run a local server such
+as with:
+
+#+begin_example
+$ pip install livereload
+$ livereload -p 5959 -t /path/to/wire-cell-toolkit
+#+end_example
+

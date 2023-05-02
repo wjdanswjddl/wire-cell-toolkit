@@ -1,5 +1,5 @@
 #+title:  Wire Cell Interfaces
-#+SETUPFILE: ../setup-readme.org
+#+include: ../docs/include-readme.org
 
 This package provides a set of abstract base classes aka interface
 classes.  In general, there should be no implementation code in this

@@ -1,4 +1,5 @@
-* Cluster Arrays
+#+title: Cluster Arrays
+#+include: ../../docs/include-topic.org
 
 Provides array representations of ~ICluster~.
 
@@ -11,20 +12,20 @@ internal and external structure to a set of arrays.  This document
 describes the ~ClusterArrays~ interface and provides guidance on how to
 use the arrays it produces.
 
-** Low-level array representation
+* Low-level array representation
 
 The API provides arrays in the form of [[https://www.boost.org/doc/libs/1_79_0/libs/multi_array/doc/user.html][Boost.MultiArray]] types.
 
-** Graph connection schema
+* Graph connection schema
 
 Production of an ~ICluster~ graph is described in detail in the Ray Grid
 document.  Its structure is summarized by the /type graph/ from that
 document.  This graph illustrates the five types of nodes and the
 allowed types of edges between node types.
 
-[[file:cluster-graph-types.png]]
+[[file:./cluster-graph-types.png]]
 
-** Array schema
+* Array schema
 
 The array schema closely matches that provided by the python-geometric
 ~HeteroData~ interface with the following simplification:
@@ -92,7 +93,7 @@ represented by the arrays
 The remainder of this section describes the columns that make up each
 type of array.
 
-*** Activity
+** Activity
 
 An /activity/ represents an amount of signal and its uncertainty
 collected from a channel over the duration of a time slice.
@@ -103,7 +104,7 @@ collected from a channel over the duration of a time slice.
 4. /index/, (int) the channel index
 5. /wpid/, (int) the wire plane id
 
-*** Wire
+** Wire
 
 The wire array represents the "geometric" information about physical
 wire segments.
@@ -120,7 +121,7 @@ wire segments.
 10. /heady/, the y coordinate of the head endpoint of the wire.
 11. /headz/, the z coordinate of the head endpoint of the wire.
 
-*** Blob
+** Blob
 
 A blob describes a volume in space bounded in the longitudinal
 direction by the duration of a time slice and in the transverse
@@ -143,7 +144,7 @@ associated amount of signal contained by the volume.
 14. /ncorners/, (int) the number of corners
 15. 24 columns holding /corners as (y,z) pairs/, 12 pairs, of which /ncorners/ are valid.
 
-*** Slice
+** Slice
 
 A slice represents a duration in drift/readout time.
 
@@ -154,7 +155,7 @@ A slice represents a duration in drift/readout time.
 5. /start/, the start time of the slice.
 6. /span/, the duration time of the slice.
 
-*** Measure
+** Measure
 
 A measure represents the collection of channels in a given plane
 connected to a set of wires that span one or more blobs overlapping in
@@ -166,7 +167,7 @@ sum of signals from the participating channels.
 3. /uncertainty/, the uncertainty in the value.
 4. /wpid/, the wire plane ID
 
-*** Edge
+** Edge
 
 An edge represents an association between a row in a tail array and a
 row in a head array.  Unlike node arrays above, edge arrays are of
@@ -176,7 +177,7 @@ integer value.
 2. /head/, index of a row in a head array   
 
 
-** Cluster archive files
+* Cluster archive files
 
 As described above, WCT ~ICluster~ graph may be represented by a number
 of arrays.  Each array is persisted in a Numpy file (/eg/ ~.npy~ file
@@ -194,7 +195,7 @@ in the archive and sets *should* be sequential in ascending ~<ident>~
 number.
 
 
-** Implementation
+* Implementation
 
 The ~ClusterArrays~ class will convert ~ICluster~ to cluster arrays
 following above schema.  See ~ClusterFileSink::numpify()~ for example

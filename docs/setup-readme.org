@@ -1,0 +1,3 @@
+#+options: ':t toc:t
+#+setupfile: styles/setup-readtheorg.org
+#+setupfile: setup-code.org

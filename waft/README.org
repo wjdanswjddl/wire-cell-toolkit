@@ -1,5 +1,5 @@
 #+title: Wire-Cell Builder Waf Tools
-#+SETUPFILE: ../setup-readme.org
+#+include: ../docs/include-readme.org
 
 * Overview
 

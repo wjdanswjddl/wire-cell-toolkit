@@ -1,5 +1,5 @@
 #+title: Wire-Cell Toolkit Utilities
-#+SETUPFILE: ../setup-readme.org
+#+include: ../docs/include-readme.org
 
 * Overview
 
@@ -16,12 +16,10 @@ rest of the toolkit is based.  Some foundational parts include:
 
 - *Testing ::* is some functions that facilitate writing tests such as ~Assert~.  Two more are ~TimeKeeper~ and ~MemUsage~ which are bundled together in ~ExecMon~.  As their names imply they help code measure how much time and memory it uses.
 
-#+include: docs/point-cloud.org :minlevel 1
-#+include: docs/rectangles.org :minlevel 1
 
-* Links to more docs :noexport:
+* Links to more docs
 
 
 - [[file:docs/point-cloud.org][Point Cloud]] :: a point-cloud data structure compatible with WCT tensor data model.
 
-- [[file:docs/rectangles.org]] :: a 2-D interval tree.  Similar to a sparse array of pixels but requiring no grid.
+- [[file:docs/rectangles.org][Rectangles]] :: a 2-D interval tree.  Similar to a sparse array of pixels but requiring no grid.

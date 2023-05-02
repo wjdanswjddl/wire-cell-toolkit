@@ -1,5 +1,5 @@
 #+title: Wire-Cell Zio
-#+SETUPFILE: ../setup-readme.org
+#+include: ../docs/include-readme.org
 
 This optional package interfaces WCT to [[https://brettviren.github.io/zio/][ZIO]].
 

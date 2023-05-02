@@ -178,6 +178,8 @@ bool Img::MaskSliceBase::thresholding(const WireCell::ITrace::ChargeSequence& wi
 
 void Img::MaskSliceBase::slice(const IFrame::pointer& in, slice_map_t& svcmap)
 {
+    log->debug("call={} input frame: {}", m_count++, Aux::taginfo(in));
+
     const double tick = in->tick();
     const double span = tick * m_tick_span;
 

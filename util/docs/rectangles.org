@@ -1,8 +1,9 @@
-* Rectangles - a 2D interval tree
+#+title: Rectangles - a 2D interval tree
+#+include: ../../docs/include-topic.org
 
 See also [[file:talks/rectangles-presentation.pdf][these presentation materials (pdf)]].
 
-** Intervals, trees, sets and maps.
+* Intervals, trees, sets and maps.
 
 An interval is a finite segment on some number line, 1D space.  It is
 defined by its two endpoint values and if those endpoints are
@@ -30,7 +31,7 @@ requires a way combined the data from the overlapping intervals.
 Either the data type must support combination operations or the data
 must be held in a container that does (eg a set).
 
-** Rectangle map and regions
+* Rectangle map and regions
 
 An interval is one dimensional.  The concepts described above can be
 extended to two or more orthogonal dimensions.  Here we stick with two
@@ -89,9 +90,9 @@ each only has a single datum because the gray square does not happen
 to overlap any regions formed from multiple elemental rectangles.
 
 
-** WCT implementation
+* WCT implementation
 
-*** Construction, inserting and iterating
+** Construction, inserting and iterating
 
 In brief pseudocode:
 
@@ -153,7 +154,7 @@ Comments:
 
 7. The user data ~std::set<char>~ is iterated.
 
-*** Queries
+** Queries
 
 Following the dimensional hierarchy the user is free to use the
 various [[https://www.boost.org/doc/libs/1_80_0/libs/icl/doc/html/boost_icl/interface/function_synopsis.html][~boost::icl~]] functions to perform various queries.  First on
@@ -177,7 +178,7 @@ Continuing the pseudocode example from above,
   
 #+end_src
 
-*** Tests
+** Tests
 
 There are several tests found at ~util/test/~:
 
@@ -203,7 +204,7 @@ display ./build/util/test_rectangles_find.svg
 #+end_example
 
 
-** See more
+* See more
 
 - https://www.boost.org/doc/libs/1_80_0/libs/icl/doc/html/index.html
 

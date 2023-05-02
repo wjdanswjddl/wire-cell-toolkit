@@ -1,10 +1,11 @@
 #+title: Wire-Cell Imaging
-#+SETUPFILE: ../setup-readme.org
-
-* Overeview
+#+include: ../docs/include-readme.org
 
 This sub-package holds Wire-Cell Toolkit 3D imaging components.
 
 An informal note on some of the algorithms is in [[https://www.phy.bnl.gov/~bviren/tmp/wctimg/raygrid.pdf][raygrid.pdf]]
 
-#+include: docs/BlobDepoFill.org
+Additional topics
+
+- [[file:docs/BlobDepoFill.org][blob depo fill]] gives "true" charge to blobs based on the depos that overlap their volumes.  See also a [[file:docs/talks/blob-depo-fill.org][presentation]].
+

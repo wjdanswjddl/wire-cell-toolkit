@@ -1,25 +1,27 @@
 #+TITLE: Wire-Cell Toolkit 
-#+SETUPFILE: setup-readme.org
+#+SETUPFILE: docs/setup-readme.org
+
 
 Welcome to the Wire-Cell Toolkit (WCT) source repository at https://github.com/wirecell/wire-cell-toolkit.
 
 * Overview
 
-The WCT is a multi-faceted, high performance software project developed for liquid argon time projection chamber (LArTPC) simulation and data processing.  Some features of wCT include:
+The WCT is a multi-faceted, high performance software project developed for liquid argon time projection chamber (LArTPC) simulation and data processing.  Some features of WCT include:
 
-- Layered tool design culminating in a modular execution policy and reference command-line interface program.
+- Layered tool design culminating in a reference command-line interface program.
 - A multi-threaded execution model constructed following the data flow programming paradigm.
 - Plugin, factory and configuration subsystems.
 - Components providing simulation, signal processing and physics reconstruction algorithms.
 - Suite of abstract interface classes.
 - Low level utility algorithms, data structures and streaming data I/O formats.
 
-Additional "README" information is available in the WCT sub packages:
+Additional ~README~ information is available in the WCT sub packages:
 
 - [[file:apps/README.org][apps]]
 - [[file:aux/README.org][aux]]
 - [[file:cfg/README.org][cfg]]
 - [[file:cuda/README.org][cuda]]
+- [[file:docs/README.org][docs]]
 - [[file:gen/README.org][gen]]
 - [[file:iface/README.org][iface]]
 - [[file:img/README.org][img]]

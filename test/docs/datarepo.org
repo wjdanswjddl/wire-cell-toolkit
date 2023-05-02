@@ -1,8 +1,9 @@
-* Data repository
+#+title: WCT Data Repository
+#+include: ../../docs/include-topic.org
 
 The WCT test framework includes a tests data file /repository/.
 
-** Overview
+* Overview
 
 The repository (repo) provides files for the purpose of:
 - providing known input to tests.
@@ -14,18 +15,18 @@ Developers of tests that will add to the repository must assure:
 - All files are placed in the repository according to the naming conventions (described next).
 - Guidelines for adding files are followed.
 
-** Naming convention
+* Naming convention
 
 The repository is composed of a files housed in directories named according to the following pattern:
 
 #+begin_example
 <category>/<version>/<prefix><sep><name>/<files>
 #+end_example
-The ~<prefix><sep><name>~ is the test name as described more in section [[Test source]].
+The ~<prefix><sep><name>~ is the test name as described more in [[file:framework.org::#source][the section of the framework document on test source]].
 
 One exception to this pattern is the "input" category.  This and other categories as well as other details are described in the remaining sub sections.
 
-*** Categories
+** Categories
 
 A ~<category>~ sub directory takes its name from an enumerated set of labels.  The label indicates a particular intention for the subsequent use of the file.  The categories include:
 
@@ -35,7 +36,7 @@ A ~<category>~ sub directory takes its name from an enumerated set of labels.  T
 - ~history~ are for files, usually data, specifically intended for further processing by a historical test.  No /historical file/ should be created unless a /historical test/ will consume it.
 - ~reports~ are for files, usually figures, specifically intended for further processing and final output to HTML or PDF reports. 
 
-*** Versions
+** Versions
 
 The ~<version>~ sub directory must match the "spelling" output by
 #+begin_example
@@ -45,19 +46,19 @@ Ultimately, that string comes from ~git describe --tags~.
 See below for ways to make versions of ~history~ category be available.
 Generally only a small number of past ~<version>~ will be supported.
 
-*** Prefix and names
+** Prefix and names
 
 The ~<prefix><sep><name>~ is should match the test program source file name with extension omitted.
 Developers of tests with the same source file names must assure that any output from the tests are mutually compatible.
 
-*** Files
+** Files
 
 File names must NOT:
 - include any ~<version>~ information.
 - change between different runs of a test.
 They may otherwise be chosen freely.  As they will reside in a unique category, version and test prefix and name, these strings need not be repeated.  As the intention of the repo is to share files between tests in different test groups, collusion is required by producer and consumer.  Once files are produced for a release, especially for ~input~ and ~history~ categories, files should not be renamed. 
 
-*** Input
+** Input
 
 The ~input~ category does not include ~<version>~ but instead has sub-categories describing the general file content.
 
@@ -69,7 +70,7 @@ Test developers are strongly urged to consider use existing input files before i
 Once introduced, an input file may neither be removed nor renamed until all tests requiring an input put are no longer in any past releases of historical interest.
 
 
-** Guidelines for files
+* Guidelines for files
 
 Tests may add files to the test data repo following these guidelines:
 - Only include files with an intended purpose.
@@ -82,7 +83,7 @@ Special care should be given to the ~input~ and ~history~ categories.
 
 The repo is *not* meant as a replacement for saving out otherwise ephemeral files from a temporary directory.  If such files are needed, a user may always re-run the test with the temporary directory retained.
 
-** Working directory
+* Working directory
 
 When a repo is in used in the context of a WCT software build it is simply a directory under the ~build/~ directory.  The ~input~ and other categories are fund matching these paths:
 
@@ -91,7 +92,7 @@ build/tests/input/
 build/tests/<category>/<version>/<prefix><sep><name>/
 #+end_example
 
-** Preparing a repo
+* Preparing a repo
 
 The working directory is prepared as part of the normal build when tests are enabled.  This requires HTTP access to the repo server.
 
@@ -106,7 +107,7 @@ waf configure --tests --test-data-releases 0.23.0,0.24.1 [...]
 waf
 #+end_example
 
-** Distributing repository contents
+* Distributing repository contents
 
 Archive files for all history versions present in the working directory may be produced.
 
@@ -122,7 +123,7 @@ waf packrepo --test-data-releases 0.20.0,0.21.0,0.22.0,0.23.0,0.24.1
 
 Normal users need not perform this and experts may perform this as part of the release.  To get the correct version path, the local working repo and the packing should be run in a clean, release checkout.  Use ~wire-cell --version~ to check what you will get.
 
-** Reinventing history
+* Reinventing history
 
 It is expected that new historical tests will be developed to consume historical files that were not produced for past software releases.  Perhaps the test producing the history file did not even exist in past versions.  To support these new historical tests we must:
 

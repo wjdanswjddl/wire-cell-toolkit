@@ -1,10 +1,12 @@
 #include "WireCellAux/FrameTensor.h"
+#include "WireCellAux/FrameTools.h"
 #include "WireCellAux/TensorDM.h"
 
 #include "WireCellUtil/String.h"
 #include "WireCellUtil/NamedFactory.h"
 
 WIRECELL_FACTORY(FrameTensor, WireCell::Aux::FrameTensor,
+                 WireCell::INamed,
                  WireCell::IFrameTensorSet,
                  WireCell::IConfigurable)
 
@@ -13,6 +15,7 @@ using namespace WireCell::Aux;
 using namespace WireCell::Aux::TensorDM;
 
 FrameTensor::FrameTensor()
+  : Aux::Logger("FrameTensor", "aux")
 {
 }
 FrameTensor::~FrameTensor()
@@ -27,6 +30,8 @@ bool FrameTensor::operator()(const input_pointer& frame, output_pointer& its)
         // eos
         return true;
     }
+
+    log->debug("call={} input frame: {}", m_count++, Aux::taginfo(frame));
 
     const int ident = frame->ident();
     std::string datapath = m_datapath;

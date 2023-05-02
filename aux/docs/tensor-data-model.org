@@ -1,49 +1,49 @@
-* Tensor Set Data Model
+#+title: Tensor Data Model
+#+include: ../../docs/include-topic.org
 
+* Introduction
 
-** Introduction
+On data model that the Wire-Cell Toolkit (WCT) supports is the /tensor
+data model/.  This model is factored into two layers:
 
-This document defines the Wire-Cell Toolkit (WCT) /tensor data model/.
-It factors into two layers: "generic" and "specific".
+- The *generic tensor data model* consists of a ordered collection (set)
+  of *tensor objects*.  A tensor object consists of a multi-dimensional,
+  *numeric array* and a structured *metadata object*.  The WCT data
+  interface classes ~ITensor~ and ~ITensorSet~ express these aspects.
 
-The /generic tensor data model/ defines a tensor as a numeric array with
-an associated metadata object and an ordered collection (set) of such
-tensor objects.  The WCT data interface classes ~ITensor~ and ~ITensorSet~
-embody these two aspects. 
+- The *specific tensor data model* defines conventions on the generic
+  tensor data model in order to map certain other data types to the
+  generic tensor data model.
 
-The /specific tensor data model/ defines conventions on the generic
-tensor data model in order to map certain other data types to the
-generic tensor data model. 
-
+#+begin_note
 The next two sections define the generic and specific tensor data
-models and are written in rfc2119 language.
+models and are written in rfc2119 language.  
+#+end_note
 
-** Generic tensor data model
-
-*** Tensor
+* Generic tensor data model
 
 A *tensor* shall be composed of two conceptual parts: an *array* part and
-a *metadata* (MD) part.
+a *metadata* part.
 
 The *array* part consists of a sequence of elements that shall be stored
-contiguously and associated with a *shape*, layout *order* and element
-*type* and *size*.
+contiguously and associated with a *shape*, layout *order* and array
+element *type* and *size*.
 
 The array *shape* shall be represented as a vector of integer type with
 each element corresponding to the number of elements spanned by the
-corresponding dimension.
-The array layout *order* shall be represented as a vector which stores
-the majority of the dimensions or it shall be empty indicating "C"
-layout.  A "C" layout should be used.
-The array element *type* shall be represented as a string with values
-following Numpy [[https://numpy.org/doc/stable/reference/arrays.interface.html#arrays-interface][array interface]] ~typestr~ specification.  This typically
-means a letter followed by a number giving the size in bytes of the
-type.
-The array element *size* shall be represented as an integer providing
-the size of one element measured in bytes.
+corresponding dimension.  The array layout *order* shall be represented
+as a vector which stores the majority of the dimensions or it shall be
+empty indicating "C" layout (conventional array layout for the C
+programming language).  A "C" layout should be used.  The array
+element *type* shall be represented as a string with values following
+Numpy [[https://numpy.org/doc/stable/reference/arrays.interface.html#arrays-interface][array interface]] ~typestr~ specification.  This typically means a
+letter followed by a number giving the size in bytes of the type.  The
+array element *size* shall be represented as an integer providing the
+size of one element measured in bytes.
 
 A tensor *metadata* (MD) part shall follow the JSON data model and be of
-JSON type /object/.  The model reserves the following attributes names.
+JSON type /object/.  The MD model reserves the following attributes
+names.
 
 - array :: optional and when existing it is an object providing array
   specifications using keyword names given in bold above (*shape*, etc).
@@ -62,18 +62,18 @@ JSON type object but otherwise this tensor data model places no
 requirements on its contents.  The tensor set MD must be faithfully
 passed through any tensor set converter round trip.
 
-** Specific tensor data model
+* Specific tensor data model
 
-The specific tensor data model defines a number of complex specific
-data types in terms of the generic tensor data model.  
+The specific tensor data model defines representations of a number of
+data types in terms of the generic tensor data model.
 
-*** Common metadata conventions
+** Common metadata conventions
 
 A tensor MD shall have an attribute named *datapath* of type string that
 identifies the tensor in a logical hierarchical structure of multiple
 tensors.  The *datapath* value shall be unique among all tensors held in
 a tensor set.  The value shall be interpreted as a sequence of atomic
-identifiers separated by a ~"/"~ (slash) character.  An atomic
+identifiers separated by a ~/~ (slash) character.  An atomic
 identifier must be valid for use as a name of C++ or Python variables
 or functions.  A *datapath* value may be stored in a tensor MD attribute
 and refer to another tensor when both tensors are held in the same
@@ -90,7 +90,7 @@ Complex data types may be represented as an *aggregation* of multiple
 tensors.  These shall be defined on a per data type basis below as a
 set of MD attributes providing *datapath* values.
 
-*** Overview of specific types
+** Overview of specific types
 
 The following specific types are mapped to the basic tensor data
 model.  Each item in the list gives the *datatype* MD attribute value
@@ -109,14 +109,14 @@ The specific requirements for each data type are given in the
 following sections in terms of their tensor array and metadata and in
 some cases in terms of other types defined previously.
 
-*** pcarray
+** pcarray
 
 The *datatype* of *pcarray* indicates a tensor representing one
 ~PointCloud::Array~.
 The tensor array information shall map directly to that of ~Array~.
 A *pcarray* places no additional requirements on its tensor MD.
 
-*** pcdataset
+** pcdataset
 
 The *datatype* of *pcdataset* indicates a tensor representing on
 ~PointCloud::Dataset~.
@@ -129,7 +129,7 @@ The tensor MD shall have the following attributes:
 Additional user application ~Dataset~ metadata may reside in the tensor
 MD.
 
-*** pcgraph
+** pcgraph
 
 The *datatype* of *pcgraph* indicates a tensor representing a "point cloud
 graph".  This extends a point cloud to include relationships between
@@ -147,7 +147,7 @@ shall provide indices into the *nodes* point cloud representing the tail
 and head endpoint of graph edges.  A node or edge dataset may be
 shared between different *pcgraph* instances.
 
-*** trace
+** trace
 
 The *datatype* of *trace* indicates a tensor representing a single ~ITrace~
 or a collection of ~ITrace~ which have been combined.
@@ -169,7 +169,7 @@ The tensor MD may include the attribute *tbin* with integer value and
 providing the number of sample periods (ticks) between the frame
 reference time and the first sample (column) in the array.
 
-*** tracedata
+** tracedata
 
 The *datatype* of *tracedata* provides per-trace information for a subset
 of.  It is similar to a *pcdataset* and in fact may carry that value as
@@ -194,7 +194,11 @@ and neither *index* nor *summary* is recognized.  If the *tracedata* has a
 may provide a *chid* array each corresponding to the traces identified
 by *index*.
 
-*** frame
+** frame
+
+#+begin_note
+See the topic [[file:frame-tensor.org][frames as tensors]] for details about representing frames with tensors.
+#+end_note
 
 The *datatype* of *frame* represents an ~IFrame~.
 
@@ -223,63 +227,24 @@ truncated to *type* ~"i2"~.
 A frame tensor of type ~"i2"~ shall have its sample values inflated to
 type ~float~ when converted to an ~IFrame~.
 
-*** cluster
+** cluster
 
 A ~cluster~ is a ~pcgraph~ with convention for how to serialize each of
-its node types as described here.
+the node types of an ~ICluster~ graph (/wire/, /channel/, /measure/, /blob/ and
+/slice/) and edges between them.  It generally follows an array schema
+outlined in the document [[file::ClusterArrays.org][on Cluster Arrays]].  Their representation
+is similar to [[https://pytorch-geometric.readthedocs.io/en/latest/generated/torch_geometric.data.HeteroData.html#torch_geometric.data.HeteroData][~HeteroData~]] type from pytorch-geometric.
+  
 
-**** wire
-
-**** channel
-
-**** measure
-
-**** blob
-
-**** slice
-
-** Similarity to HDF5
+* Similarity to HDF5
 
 The data model is intentionally similar to HDF5 abstract data model
 and there is a conceptual mapping between the two:
 
-#+begin_center
-HDF5 group hierarchy
+- HDF5 group hierarchy $\leftrightarrow$ ~ITensor~ metadata attribute providing a hierarchy path as array of string.
+- HDF5 group $\leftrightarrow$ No direct equivalent but an ~ITensor~ with no array is effectively the same.
+- HDF5 dataset $\leftrightarrow$ ~ITensor~ array.
+- HDF5 dataspace and datatype $\leftrightarrow$ ~ITensor~ methods ~shape()~, ~dtype()~, etc.
+- HDF5 group or dataset attribute $\leftrightarrow$ ~ITensor~ metadata attribute
 
-$\leftrightarrow$ 
-
-~ITensor~ metadata attribute providing a hierarchy path as array of string.
-#+end_center
-
-#+begin_center
-HDF5 group 
-
-$\leftrightarrow$ 
-
-No direct equivalent but an ~ITensor~ with no array is effectively the same.
-#+end_center
-
-#+begin_center
-HDF5 dataset
-
-$\leftrightarrow$ 
-
-~ITensor~ array.
-#+end_center
-
-#+begin_center
-HDF5 dataspace and datatype
-
-$\leftrightarrow$ 
-
-~ITensor~ methods ~shape()~, ~dtype()~, etc.
-#+end_center
-
-#+begin_center
-HDF5 group or dataset attribute
-
-$\leftrightarrow$ 
-
-~ITensor~ metadata attribute
-#+end_center
 

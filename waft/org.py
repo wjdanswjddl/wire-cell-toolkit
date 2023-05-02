@@ -28,9 +28,12 @@ class org_export(Task):
             pre="#+include:"
             if line.lower().startswith(pre):
                 fname = line[len(pre):].strip()
-                debug("org: scan found " + fname)
                 dep = node.parent.find_resource(fname)
-                deps.append(dep)
+                if dep:
+                    debug(f"org: scan of {node} dependency found: {fname}")
+                    deps.append(dep)
+                else:
+                    debug(f"org: scan of {node} dependency not found: {fname}")                    
 
         return (deps,[])
 
@@ -49,7 +52,10 @@ class org_export(Task):
 
         debug(f"org: emacs will produce: {tmp}")
 
-        cmd = "${EMACS} %s --batch -f %s" % (onode.abspath(), self.func)
+        if 'EMACSCLIENT' in self.env:
+            cmd = """${EMACSCLIENT} -e '(progn (find-file "%s") (%s))'""" % (onode.abspath(), self.func)
+        else:
+            cmd = "${EMACS} %s --batch -f %s" % (onode.abspath(), self.func)
         if tmp != enode.abspath():
             debug(f"org: will move {tmp} to {enode}")
             move = "mv %s %s" % (tmp, enode.abspath())
@@ -92,6 +98,7 @@ def process_org(tgen, node):
 
 def configure(cfg):
     cfg.find_program("emacs", var="EMACS")
+    cfg.find_program("emacsclient", var="EMACSCLIENT", mandatory=False)
 
 
 def build(cfg):

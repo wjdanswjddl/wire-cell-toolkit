@@ -1,12 +1,13 @@
-* Historical tests
+#+title: Historical tests
+#+include: ../../docs/include-topic.org
 
 The WCT testing framework supports "historical tests" and "historical
 files".  A "historical file" is simply one produced by a test and
-saved to the "history" category of the test data repostiroy (see section [[Data repository]]).
+saved to the "history" category of the test data repository (see the [[file::datarepo.org][data repository topic]]).
 A "historical test" is then a test that consumes
 these files.
 
-** Versions
+* Versions
 
 A historical test may itself only run software from the current software version under test.  A historical test can not execute any code from other versions, though it may access historical files produced by other code versions.
 
@@ -28,6 +29,6 @@ The data repository will be populated with files for the configured tests data v
 
 Historical tests should only assume versions in this list but may also include the current version.
 
-** Support
+* Support
 
-See section [[BATS]] for description of support for historical tests written as BATS files.  
+See the [[file::bats.org][BATS topic]] for description of support for historical tests written as BATS files.  

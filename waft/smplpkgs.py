@@ -534,7 +534,8 @@ int main(int argc, char** argv) {
             # readtheorg and bigblow themes and to allow integration
             # between README, manual, blog and source.
             html = readme.parent.make_node("README.html")
-            bld(features="org2html", source=readme, target=html)
+            bld(name=f'readme-{bld.path.name}-html',
+                features="org2html", source=readme, target=html)
 
         # A PDF export fo the READMEs
         if "org2pdf" in bld.env.DOCS:
@@ -542,6 +543,16 @@ int main(int argc, char** argv) {
             pdf  = bld.path.find_or_declare(f'wct-readme-{bld.path.name}.pdf')
             bld(features="org2pdf", source=readme, target=pdf)
             bld.install_files('${PREFIX}/share/doc', pdf)
+
+    if docdir:
+        topics = docdir.ant_glob("*.org")
+        for topic in topics:
+            if "org2html" in bld.env.DOCS:
+                html = topic.parent.make_node(topic.name.replace(".org",".html"))
+                debug(f"org: {html}")
+                bld(name="topic-" + html.name.replace('.','-'),
+                    features="org2html", source=topic, target=html)
+            
 
     # Return even if we are no tests so as to not break code in
     # wscript_build that uses this return to define "variant" tests.

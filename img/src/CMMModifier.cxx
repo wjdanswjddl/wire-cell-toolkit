@@ -317,8 +317,8 @@ bool CMMModifier::operator()(const input_pointer& in, output_pointer& out)
 
     out = IFrame::pointer(sfout);
 
-    log->debug("output: {} size: {}", m_cm_tag, out->masks()[m_cm_tag].size());
     log->debug("call={} output frame: {}", m_count-1, Aux::taginfo(out));
+    log->debug("output: {} size: {}", m_cm_tag, out->masks()[m_cm_tag].size());
 
     return true;
 }
