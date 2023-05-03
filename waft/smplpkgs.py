@@ -75,6 +75,8 @@ def options(opt):
 
     opt.add_option("--docs", default="",
                    help="comma separated list of docs to generate.  eg: 'org2hml,org2pdf,doxy'.  default:none")
+    opt.add_option("--docs-prefix", default="share/doc/wirecell",
+                   help="Installation root for docs, appended to PREFIX if relative")
 
 def configure(cfg):
     cfg.load('compiler_cxx')
@@ -98,7 +100,7 @@ def configure(cfg):
     cfg.find_program('diff', var='DIFF', mandatory=True)
 
     cfg.env.DOCS = cfg.options.docs.split(",")
-
+    cfg.env.DOCS_PREFIX = cfg.options.docs_prefix
 
 def build(bld):
     bld.load('wcb_unit_test')
@@ -106,6 +108,17 @@ def build(bld):
     bld.load('org')
 
     bld.env.append_unique('DOCS', bld.options.docs.split(","))
+    docs_prefix = getattr(bld.options, "docs_prefix", None)
+    if docs_prefix:
+        bld.env.DOCS_PREFIX = docs_prefix
+    bld.env.DOCS_INSTALL_PATH = bld.env.PREFIX + "/share/doc/wirecell"
+    if bld.env.DOCS_PREFIX:
+        if bld.env.DOCS_PREFIX.startswith("/"):
+            bld.env.DOCS_INSTALL_PATH=bld.env.DOCS_PREFIX
+        else:
+            bld.env.DOCS_INSTALL_PATH=bld.env.PREFIX + "/" + bld.env.DOCS_PREFIX
+
+    debug(f'smplpkgs: docs install path: {bld.env.DOCS_INSTALL_PATH}')
 
 from wcb_unit_test import test_group_sequence
 
@@ -518,42 +531,30 @@ int main(int argc, char** argv) {
 
     vc = ValidationContext(bld, test_use + [name])
 
+    top_dir = bld.root.find_dir(bld.top_dir)
+    bld_dir = bld.root.find_dir(bld.out_dir)
+    debug(f"smplpkgs: TOP DIR: {top_dir} from {top_dir} or {bld_dir}")
+
     # Put this group after validations to avoid upsetting their group.
-    readme = bld.path.find_resource("README.org")
-    if readme:
-        bld.cycle_group("documentation")
-
-        # An HTML export of the READMEs
-        if "org2html" in bld.env.DOCS:
-            debug(f'smplpkgs: org2html {readme}')
-            # fixme: For now we build HTML in-source and do not
-            # install.  This is dubious, but many org files link to
-            # other files in the source tree.
-            #
-            # fixme: A convention needs to be established to allow
-            # links to absolute paths.  For example, to find served
-            # readtheorg and bigblow themes and to allow integration
-            # between README, manual, blog and source.
-            html = readme.parent.make_node("README.html")
-            bld(name=f'readme-{bld.path.name}-html',
-                features="org2html", source=readme, target=html)
-
-        # A PDF export fo the READMEs
-        if "org2pdf" in bld.env.DOCS:
-            debug(f'smplpkgs: org2pdf {readme}')
-            pdf  = bld.path.find_or_declare(f'wct-readme-{bld.path.name}.pdf')
-            bld(features="org2pdf", source=readme, target=pdf)
-            bld.install_files('${PREFIX}/share/doc', pdf)
-
+    orgs = [ bld.path.find_resource("README.org") ]
     if docdir:
-        topics = docdir.ant_glob("*.org")
-        for topic in topics:
-            if "org2html" in bld.env.DOCS:
-                html = topic.parent.make_node(topic.name.replace(".org",".html"))
-                debug(f"org: {html}")
-                bld(name="topic-" + html.name.replace('.','-'),
-                    features="org2html", source=topic, target=html)
-            
+        orgs += docdir.ant_glob("*.org")
+    orgs = [o for o in orgs if o]
+    if orgs:
+        bld.cycle_group("documentation")
+        for org in orgs:
+            for ext in ('html', 'pdf'):
+                feat = 'org2'+ext
+                if feat in bld.env.DOCS:
+                    out = org.parent.find_or_declare(org.name.replace(".org","."+ext))
+                    bld(name=org.parent.name + '-' + out.name.replace(".","-"),
+                        features=feat, source=org, target=out)
+                    if ext == 'html':
+                        bld.install_files(bld.env.DOCS_INSTALL_PATH, out,
+                                          cwd=bld_dir, relative_trick=True)
+
+
+
 
     # Return even if we are no tests so as to not break code in
     # wscript_build that uses this return to define "variant" tests.

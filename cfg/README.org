@@ -73,13 +73,6 @@ layers* form introduced above.  In some cases, legacy detector
 configuration may used in an adapter that provides *structured layers*
 forms.
 
-** Obsolete
-
-Configuration can become obsolete when the C++ changes or when new
-paradigms of configuration organization are adopted.  That
-configuration may be moved to [[file:obsolete/]] for some time before being
-dropped from the tip of the master branch.
-
 * Tests
 
 As with other WCT subpackages, this provides a ~/test/~ sub-directory with various tests that used through the [[file:../test/README.org][WCT testing framework]].  In particular the ~cfg~ sub-package has many tests written in Jsonnet and the [[file:../test/docs/jsonnet.org][Jsonnet test support]] is particularly relevant.

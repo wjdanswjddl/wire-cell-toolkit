@@ -83,5 +83,6 @@ optimization".
 ** ...
 
 Any interfaces not listed above, please see their header file in
-[[file:inc/WireCellIface/][inc/WireCellIface/]] for more information.
+~inc/WireCellIface/~ for more information.
+
 

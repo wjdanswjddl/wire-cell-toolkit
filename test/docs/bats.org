@@ -342,5 +342,3 @@ Output to the special file descriptor ~3~ will always lead to that output to the
   }
 #+end_example
 Please avoid using this except in special, temporary cases, as it leads to very "noisy" tests.
-
-

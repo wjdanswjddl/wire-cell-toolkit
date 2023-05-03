@@ -24,5 +24,3 @@ Some categories of code appropriate for ~aux~:
 - [[file:docs/ClusterArrays.org][array representation of cluster graphs]]
 - [[file:docs/cluster-shadow.org][the "cluster shadow" concept]]
 
-
-
