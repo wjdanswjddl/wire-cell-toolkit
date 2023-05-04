@@ -45,6 +45,7 @@ namespace WireCell {
                 using layer_projection2d_map_t = std::unordered_map<WirePlaneLayer_t, Projection2D>;
                 layer_projection2d_map_t m_layer_proj;
                 double m_estimated_minimum_charge {0};
+	        double m_estimated_total_charge {0};
             };
             // returns layer ID -> channel-tick-charge matrix
             LayerProjection2DMap get_projection(const WireCell::cluster_graph_t& cg, const std::set<cluster_vertex_t>&, const size_t nchan, const size_t nslice);
