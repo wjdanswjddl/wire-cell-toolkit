@@ -64,7 +64,7 @@ namespace WireCell::Aux::BlobShadow {
         WirePlaneId wpid{0};
     };
 
-    using graph_t = boost::adjacency_list<boost::setS, boost::vecS,
+    using graph_t = boost::adjacency_list<boost::vecS, boost::vecS,
                                           boost::undirectedS,
                                           Node, Edge, Graph>;
     using vdesc_t = boost::graph_traits<graph_t>::vertex_descriptor;
