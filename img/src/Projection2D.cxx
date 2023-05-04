@@ -295,46 +295,73 @@ namespace {
     }
 }
 
-// 1: tar is part of ref
-// -1: ref is part of tar
-// 2: tar is equal to ref
-// -2: tar is equal to ref and both are empty
-// 0 ref and tar do not belong to each other
+// 1: tar is part of ref: REF_COVERS_TAR
+// -1: ref is part of tar: TAR_COVERAS_REF
+// 2: tar is equal to ref: REF_EQ_TAR
+// -2: tar is equal to ref and both are empty: BOTH EMPTY ...
+// 0 ref and tar do not belong to each other:   OTHER
 WireCell::Img::Projection2D::Coverage WireCell::Img::Projection2D::judge_coverage(const Projection2D& ref, const Projection2D& tar) {
-    // ref * tar
-    sparse_mat_t ref_t_tar = ref.m_proj.cwiseProduct(tar.m_proj);
 
-    // non overlapping
-    bool all_zero = !loop_exist(ref_t_tar, [](scaler_t x){return x!=0;});
-    if (all_zero) return OTHER;
+  // non zero component in both
+  bool ref_non_zero = loop_exist(ref.m_proj, [](scaler_t x){return (x!=0 && x > -1e11);}); // number of live elements
+  bool tar_non_zero = loop_exist(tar.m_proj, [](scaler_t x){return (x!=0 && x > -1e11);}); // number of live elements ...
 
+  if ((!ref_non_zero) && (!tar_non_zero)){
+    return BOTH_EMPTY;
+  }else if (ref_non_zero && (!tar_non_zero)){
+    return REF_COVERS_TAR;
+  }else if ((!ref_non_zero) && tar_non_zero){
+    return TAR_COVERS_REF;
+  }else{
     // ref - tar
     sparse_mat_t ref_m_tar = ref.m_proj - tar.m_proj;
-    bool ref_m_tar_neg = loop_exist(ref_m_tar, [](scaler_t x){return x<0;});
-    bool ref_m_tar_pos = loop_exist(ref_m_tar, [](scaler_t x){return x>0;});
+    bool ref_m_tar_neg = loop_exist(ref_m_tar, [](scaler_t x){return (x<0 && fabs(x)<1e11);}); // number of live elements belong to tar, not belong to ref
+    bool ref_m_tar_pos = loop_exist(ref_m_tar, [](scaler_t x){return (x>0 && fabs(x)<1e11);}); // number of live elements belong to ref, not belong to tar
+
+    if ((!ref_m_tar_neg) && (!ref_m_tar_pos)){
+      return REF_EQ_TAR;
+    }else if ( ref_m_tar_neg && (!ref_m_tar_pos) ){
+      return TAR_COVERS_REF;
+    }else if ( (!ref_m_tar_neg) && ref_m_tar_pos ){
+      return REF_COVERS_TAR;
+    }else{
+      return OTHER;
+    }
+  }
+  
+  return OTHER;
+  
+  // ref * tar
+  // sparse_mat_t ref_t_tar = ref.m_proj.cwiseProduct(tar.m_proj);
+
+    // non overlapping
+  // bool all_zero = !loop_exist(ref_t_tar, [](scaler_t x){return (x!=0 && x > -1e8);}); 
+  //  if (all_zero) return OTHER;
+
+    
 
     // partial overlapping
-    if (ref_m_tar_neg && ref_m_tar_pos) {
-        return OTHER;
-    }
+    //if (ref_m_tar_neg && ref_m_tar_pos) {
+    //    return OTHER;
+  // }
 
     // no non-overlapping pixels
     // TODO: all dead is also non-zero?
-    bool ref_non_zero = loop_exist(ref.m_proj, [](scaler_t x){return x!=0;});
-
-    if (!ref_m_tar_neg && !ref_m_tar_pos) {
-        if (ref_non_zero) {
-            return REF_EQ_TAR;
-        }
-        return BOTH_EMPTY;
-    }
+    
+    
+  // if (!ref_m_tar_neg && !ref_m_tar_pos) {
+  //      if (ref_non_zero) {
+  //          return REF_EQ_TAR;
+  //      }
+  //      return BOTH_EMPTY;
+  //  }
 
     // ref > tar
-    if (ref_m_tar_pos) {
-        return REF_COVERS_TAR;
-    }
+  //  if (ref_m_tar_pos) {
+  //      return REF_COVERS_TAR;
+  //  }
 
-    return TAR_COVERS_REF;
+
 }
 
 

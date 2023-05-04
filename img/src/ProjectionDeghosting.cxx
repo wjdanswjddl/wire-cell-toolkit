@@ -34,8 +34,8 @@ WireCell::Configuration Img::ProjectionDeghosting::default_configuration() const
 {
     WireCell::Configuration cfg;
     cfg["verbose"] = m_verbose;
-    cfg["nchan"] = m_nchan;
-    cfg["nslice"] = m_nslice;
+    cfg["nchan"] = (unsigned int)m_nchan;
+    cfg["nslice"] = (unsigned int)(m_nslice);
     cfg["dryrun"] = m_dryrun;
 
     return cfg;
