@@ -139,19 +139,31 @@ LayerProjection2DMap WireCell::Img::Projection2D::get_projection(
     using triplet_vec_t = std::vector<triplet_t>;
     std::unordered_map<WirePlaneLayer_t, triplet_vec_t> lcoeff;
     std::unordered_set<std::pair<int, int>, pair_hash> filled;
+    std::set<int> filled_slices;
     // layer_projection_map_t ret;
     LayerProjection2DMap ret;
 
     // blob_est_min_charge = min(u,v,w)
     // cluster_est_min_charge = sum(blob_est_min_charge )
     double estimated_minimum_charge = 0;
-
+    double estimated_total_charge = 0;
+    //    int saved_flag = 0;
+    // int saved_flag_1 = 0;
+    int number_mcells = 0;
+    int number_slices = 0;
+    
     // assumes one blob linked to one slice
     // use b-w-c to find all channels linked to the blob
     for (const auto& blob_desc : group) {
         const auto& node = cg[blob_desc];
         std::unordered_map<WirePlaneLayer_t, double> layer_charge;
+	// initialization ...
+	layer_charge[kUlayer] = 0;
+	layer_charge[kVlayer] = 0;
+	layer_charge[kWlayer] = 0;
+	
         if (node.code() == 'b') {
+	  number_mcells ++;
             const auto slice_descs = neighbors_oftype<slice_t>(cg, blob_desc);
             if (slice_descs.size() != 1) {
                 THROW(ValueError() << errmsg{"slice_descs.size()!=1"});
@@ -161,6 +173,7 @@ LayerProjection2DMap WireCell::Img::Projection2D::get_projection(
             // FIXME: it only fills the start time bin for now
             int start = int(slice->start() / (500 * units::nanosecond));
             int span = int(slice->span() / (500 * units::nanosecond));
+	    filled_slices.insert(start);
             auto activity = slice->activity();
             const auto wire_descs = neighbors_oftype<wire_t>(cg, blob_desc);
             // std::cout << " #wire " << wire_descs.size();
@@ -174,11 +187,13 @@ LayerProjection2DMap WireCell::Img::Projection2D::get_projection(
                     auto unc = activity[chan].uncertainty();
                     auto charge = val;
                     // TODO: make this configurable and robust
-                    if (unc > 1e10) {
+                    if (unc > 1e11) {
                         charge = -1e12;
-                    }
-                    // TODO: double check this
-                    layer_charge[layer] += charge;
+                    }else{
+		      // TODO: double check this
+		      layer_charge[layer] += charge;
+		    }
+		    
                     // if filled, skip
                     if (filled.find({index,start})!=filled.end()) {
                         continue;
@@ -191,8 +206,22 @@ LayerProjection2DMap WireCell::Img::Projection2D::get_projection(
         }  // for each blob
         auto min_iter = std::min_element(layer_charge.begin(), layer_charge.end(),
                                          [](const auto& a, const auto& b) { return a.second < b.second; });
+
+	// calculate the total charge ...
+	double sum_charge = 0;
+	int sum_n = 0;
+	for (auto it = layer_charge.begin(); it!= layer_charge.end(); it++){
+	  if (it->second !=0){
+	    sum_charge += it->second;
+	    sum_n ++;
+	  }
+	}
+	if (sum_n > 0)
+	  estimated_total_charge = sum_charge/sum_n;
+	
         estimated_minimum_charge += min_iter->second;
     }
+    number_slices = filled_slices.size();
 
     for (auto lc : lcoeff) {
         auto l = lc.first;
@@ -203,6 +232,9 @@ LayerProjection2DMap WireCell::Img::Projection2D::get_projection(
         ret.m_layer_proj[l].m_proj.setFromTriplets(c.begin(), c.end());
     }
     ret.m_estimated_minimum_charge = estimated_minimum_charge;
+    ret.m_estimated_total_charge = estimated_total_charge;
+    ret.m_number_mcells = number_mcells;
+    ret.m_number_slices = number_slices;
     return ret;
 }
 
@@ -373,29 +405,38 @@ WireCell::Img::Projection2D::Coverage WireCell::Img::Projection2D::judge_coverag
                                                                                       const Projection2D& tar)
 {
     // ref * tar
-    sparse_mat_t ref_t_tar = ref.m_proj.cwiseProduct(tar.m_proj);
-    sparse_mat_t inter_mask = mask(ref_t_tar, [](scaler_t x){return x>0;});
-    sparse_mat_t inter_proj = ref.m_proj.cwiseProduct(inter_mask);
+  //    sparse_mat_t ref_t_tar = ref.m_proj.cwiseProduct(tar.m_proj);
+  //sparse_mat_t inter_mask = mask(ref_t_tar, [](scaler_t x){return x>0;});
+  /// sparse_mat_t inter_proj = ref.m_proj.cwiseProduct(inter_mask);
 
+  sparse_mat_t ref_mask = mask(ref.m_proj, [](scaler_t x){return x>0;});
+  sparse_mat_t tar_mask = mask(tar.m_proj, [](scaler_t x){return x>0;});
+  sparse_mat_t inter_mask = ref_mask.cwiseProduct(tar_mask);
+  sparse_mat_t inter_proj = ref.m_proj.cwiseProduct(inter_mask);
+  
     int num_ref = loop_count(ref.m_proj, [](scaler_t x){return x>0;});
     int num_tar = loop_count(tar.m_proj, [](scaler_t x){return x>0;});
-    int num_dead_ref = loop_count(ref.m_proj, [](scaler_t x){return x<-1e8;}); // -1e12 for dead pixels, TODO: make sure this is robust
-    int num_dead_tar = loop_count(tar.m_proj, [](scaler_t x){return x<-1e8;});
+    int num_dead_ref = loop_count(ref.m_proj, [](scaler_t x){return x<-1e11;}); // -1e12 for dead pixels, TODO: make sure this is robust
+    int num_dead_tar = loop_count(tar.m_proj, [](scaler_t x){return x<-1e11;});
     int num_inter  = loop_count(inter_proj, [](scaler_t x){return x>0;});
+    
     scaler_t charge_ref = loop_sum(ref.m_proj, [](scaler_t x){return (x>0)*x;});
     scaler_t charge_tar = loop_sum(tar.m_proj, [](scaler_t x){return (x>0)*x;});
     scaler_t charge_inter = loop_sum(inter_proj, [](scaler_t x){return (x>0)*x;});
 
-    if (num_ref == 0 && num_tar == 0) {
-        return BOTH_EMPTY;
-    }
-    else if (num_ref == num_tar && num_dead_ref == num_ref) {
-        return REF_EQ_TAR;
-    }
-    else if (num_dead_ref == num_ref) {
+    if (num_ref !=0 && num_tar !=0 && num_inter ==0) return OTHER;
+
+    
+    //    if (num_ref == 0 && num_tar == 0) {
+    //    return BOTH_EMPTY;
+    // }
+    //else if (num_ref == num_tar && num_dead_ref == num_dead_tar) {
+    //    return REF_EQ_TAR;
+    // }
+    if (num_inter == num_ref) {
         return TAR_COVERS_REF;
     }
-    else if (num_dead_ref == num_tar) {
+    else if (num_inter == num_tar) {
         return REF_COVERS_TAR;
     }
     else {
