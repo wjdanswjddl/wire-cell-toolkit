@@ -235,6 +235,21 @@ the node types of an ~ICluster~ graph (/wire/, /channel/, /measure/, /blob/ and
 outlined in the document [[file::ClusterArrays.org][on Cluster Arrays]].  Their representation
 is similar to [[https://pytorch-geometric.readthedocs.io/en/latest/generated/torch_geometric.data.HeteroData.html#torch_geometric.data.HeteroData][~HeteroData~]] type from pytorch-geometric.
   
+* Tensor archive files
+
+WCT provides the DFP graph node components ~TensorFileSink~ and
+~TensorFileSource~ that persist ~ITensorSet~ through an archive file (Zip
+or Tar, with optional compression) using WCT iostreams.  The archive
+file will contain files with names matching these patterns: 
+
+#+begin_example
+  <prefix>tensorset_<ident>_metadata.json 
+  <prefix>tensor_<ident>_<index>_metadata.npy
+  <prefix>tensor_<ident>_<index>_array.json
+#+end_example
+
+The ~<prefix>~ is arbitrary, the ~<index>~ identifies a tensor set and
+~<index>~ identifies a tensor in a set.
 
 * Similarity to HDF5
 

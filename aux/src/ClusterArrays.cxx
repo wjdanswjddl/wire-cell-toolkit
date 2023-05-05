@@ -1,12 +1,10 @@
 #include "WireCellAux/ClusterArrays.h"
-
 #include "WireCellUtil/Exceptions.h"
 #include "WireCellUtil/GraphTools.h"
 
 #include <boost/graph/filtered_graph.hpp>
 #include <boost/graph/copy.hpp>
 
-#include <map>
 
 using namespace WireCell;
 using namespace WireCell::Aux;
@@ -17,6 +15,17 @@ using wire_t = cluster_node_t::wire_t;
 using blob_t = cluster_node_t::blob_t;
 using slice_t = cluster_node_t::slice_t;
 using meas_t = cluster_node_t::meas_t;
+
+// Some hard-wired schema values
+// See ClusterArray.org docs and keep in sync.
+// For the common node array columns.
+// Fixme: remove these when move to Dataset store
+static const size_t desc_col=0; // all node and edge types
+static const size_t ident_col=1; // all node types
+static const size_t sigv_col=2;  // all but wires
+static const size_t sigu_col=3;  // all but wires
+
+
 
 
 ClusterArrays::ClusterArrays()
@@ -111,14 +120,6 @@ ClusterArrays::vertex_address(cluster_vertex_t vtx)
 }
 
 
-// Some hard-wired schema values
-// See ClusterArray.org docs and keep in sync.
-// For the common node array columns
-static const size_t ident_col=0; // all node types
-static const size_t sigv_col=1;  // all but wires
-static const size_t sigu_col=2;  // all but wires
-
-
 ClusterArrays::node_row_t ClusterArrays::node_row(cluster_vertex_t vtx)
 {
     const auto sa = vertex_address(vtx);
@@ -143,6 +144,16 @@ std::string ClusterArrays::edge_code_str(ClusterArrays::edge_code_t ec)
     return ret;
 }
 
+
+char ClusterArrays::node_code(const cluster_node_t& node)
+{
+    char nc = node.code();
+    if (nc == 'c') return 'a';
+    return nc;
+}
+
+
+
 struct NodeKiller
 {
     std::unordered_set<cluster_vertex_t> condemned;
@@ -155,15 +166,6 @@ struct NodeKiller
     }
 };
 using reduced_graph_t = boost::filtered_graph<cluster_graph_t, NodeKiller, NodeKiller>;
-
-
-static
-char node_code(const cluster_node_t& node)
-{
-    char nc = node.code();
-    if (nc == 'c') return 'a';
-    return nc;
-}
 
 
 // CAVEAT: BIG FAT HACK
@@ -248,6 +250,17 @@ void ClusterArrays::init(const cluster_graph_t& cin_graph)
 {
     this->clear();
 
+    // Record this so after bodging we can give each per-slice
+    // activity the original channel vertex descriptor to allow
+    // perfect round trip.
+    for (const auto& vdesc : vertex_range(cin_graph)) {
+        const auto& node = cin_graph[vdesc];
+        if (node.code() == 'c') { // unbodged code
+            const auto& ich = std::get<channel_t>(node.ptr);
+            m_chid2desc[ich->ident()] = vdesc;
+        }
+    }
+
     cluster_graph_t mutable_graph = cin_graph;
     bodge_channel_slice(mutable_graph);
     const cluster_graph_t& graph = mutable_graph;
@@ -267,16 +280,16 @@ void ClusterArrays::init(const cluster_graph_t& cin_graph)
     // node array type.  See ClusterArray.org for definitive
     // description and keep it in sync here.
     std::unordered_map<node_code_t, size_t> node_array_ncols = {
-        // [ident, value, uncertainty, index, wpid]
-        {'a',3+2},
-        // [ident, wip, seg, ch, plane, [tail x,y,z], [head x,y,z]]
-        {'w',11},
-        // [ident,sigv,sigu, faceid,sliceid,start,span, [3x2 wire bounds], nc,[12 corner y,z]]
-        {'b',3+4+3*2+1+12*2},
-        // [ident,sigv,sigu, frameid, start, span]
-        {'s',3+3},
-        // [ident,sigv,sigu, wpid]
-        {'m', 4},
+        // [desc, ident, value, uncertainty, index, wpid]
+        {'a',1+3+2},
+        // [desc, ident, wip, seg, ch, plane, [tail x,y,z], [head x,y,z]]
+        {'w',1+11},
+        // [desc,ident,sigv,sigu, faceid,sliceid,start,span, [3x2 wire bounds], nc,[12 corner y,z]]
+        {'b',1+3+4+3*2+1+12*2},
+        // [desc,ident,sigv,sigu, frameid, start, span]
+        {'s',1+3+3},
+        // [desc,ident,sigv,sigu, wpid]
+        {'m',1+4},
     };
 
     // Allocate node arrays
@@ -387,35 +400,44 @@ void ClusterArrays::init_slice(const cluster_graph_t& graph, cluster_vertex_t sv
     assert('s' == node_code(snode));
 
     const auto& islice = std::get<slice_t>(snode.ptr);
+    const int sident = islice->ident();
+    const auto& iframe = islice->frame();
+    const int fident = iframe ? iframe->ident() : -1;
     const auto& activity = islice->activity();
         
     // The slices get a sum of all their activity.
     auto srow = node_row(svtx);
+
+    srow[desc_col] = svtx;
+    srow[ident_col] = sident;
+
     for (const auto& [_, sig] : activity) {
         srow[sigv_col] += sig.value();
         srow[sigu_col] += sig.uncertainty();
     }
 
-    const int sident = islice->ident();
-
     {   // slice start and span, just after sigv/sigu.
         node_array_t::size_type col = sigu_col;
-        srow[++col] = sident;
+        srow[++col] = fident;
         srow[++col] = islice->start();
         srow[++col] = islice->span();
     }
     
+    // This is bodged activity
     for (auto cvtx : mir(boost::adjacent_vertices(svtx, graph))) {
         const auto& cnode = graph[cvtx];
         if (node_code(cnode) != 'a') { continue; }
 
         auto ichan = std::get<channel_t>(cnode.ptr);
+        const int chid = ichan->ident();
         auto sigit = activity.find(ichan);
         if (sigit == activity.end()) {
             continue;
         }
         auto cval = sigit->second;
         auto crow = node_row(cvtx);
+        crow[desc_col] = m_chid2desc[chid];
+        crow[ident_col] = chid;
         crow[sigv_col] = cval.value();
         crow[sigu_col] = cval.uncertainty();
         crow[sigu_col+1] = ichan->index();
@@ -431,13 +453,12 @@ void ClusterArrays::init_measure(const cluster_graph_t& graph, cluster_vertex_t 
     auto mrow = node_row(mvtx);
     auto imeas = std::get<meas_t>(mnode.ptr);
     auto mval = imeas->signal();
-    node_array_t::size_type col = 0;
-    mrow[col++] = imeas->ident();
-    mrow[col++] = mval.value();
-    mrow[col++] = mval.uncertainty();
-    mrow[col++] = imeas->planeid().ident();
+    mrow[desc_col] = mvtx;
+    mrow[ident_col] = imeas->ident();
+    mrow[sigv_col] = mval.value();
+    mrow[sigu_col] = mval.uncertainty();
+    mrow[sigu_col+1] = imeas->planeid().ident();
 }
-
 
 void ClusterArrays::init_wire(const cluster_graph_t& graph, cluster_vertex_t wvtx)
 {
@@ -449,19 +470,22 @@ void ClusterArrays::init_wire(const cluster_graph_t& graph, cluster_vertex_t wvt
     const auto& iwire = get<wire_t>(wnode.ptr);
     const auto [p1,p2] = iwire->ray();
 
-    // Wires have ident col=0 set above, see ClusterArrays.org.
-    node_array_t::size_type col = 1;
-    wrow[col++] = iwire->index();
-    wrow[col++] = iwire->segment();
-    wrow[col++] = iwire->channel();
-    wrow[col++] = iwire->planeid().ident();
+    wrow[desc_col] = wvtx;
+    wrow[ident_col] = iwire->ident();
 
-    wrow[col++] = p1.x();
-    wrow[col++] = p1.y();
-    wrow[col++] = p1.z();
-    wrow[col++] = p2.x();
-    wrow[col++] = p2.y();
-    wrow[col++] = p2.z();
+    node_array_t::size_type col = ident_col;
+
+    wrow[++col] = iwire->index();
+    wrow[++col] = iwire->segment();
+    wrow[++col] = iwire->channel();
+    wrow[++col] = iwire->planeid().ident();
+
+    wrow[++col] = p1.x();
+    wrow[++col] = p1.y();
+    wrow[++col] = p1.z();
+    wrow[++col] = p2.x();
+    wrow[++col] = p2.y();
+    wrow[++col] = p2.z();
 }
 
 void ClusterArrays::init_blob(const cluster_graph_t& graph, cluster_vertex_t bvtx)
@@ -477,11 +501,12 @@ void ClusterArrays::init_blob(const cluster_graph_t& graph, cluster_vertex_t bvt
     const auto& shape = iblob->shape();
     const auto& strips = shape.strips();
 
-    brow[sigv_col] += iblob->value();
-    brow[sigu_col] += iblob->uncertainty();
+    brow[desc_col] = bvtx;
+    brow[ident_col] = iblob->ident();
+    brow[sigv_col] = iblob->value();
+    brow[sigu_col] = iblob->uncertainty();
 
-    // skip common [ident,sigv,sigu] filled elsewhere
-    node_array_t::size_type col = 3;
+    node_array_t::size_type col = sigu_col + 1;
 
     // 3:faceid, 4:sident, 5:start, 6:span
     brow[col++] = iface->ident();
@@ -517,3 +542,12 @@ void ClusterArrays::init_blob(const cluster_graph_t& graph, cluster_vertex_t bvt
     }
 }
 
+
+cluster_graph_t ClusterArrays::cluster_graph() const
+{
+    cluster_graph_t graph;
+
+
+
+    return graph;
+}

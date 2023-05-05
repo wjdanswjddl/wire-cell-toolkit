@@ -26,6 +26,9 @@ namespace WireCell::Aux {
         // Initialize.  Causes a clear().
         void init(const cluster_graph_t& graph);
 
+        // Return self as cluster graph.
+        cluster_graph_t cluster_graph() const;
+
         // Clear all stored data.  This will invalidate any arrays
         // previously accessed and held by const reference.
         void clear();
@@ -64,8 +67,22 @@ namespace WireCell::Aux {
         const node_array_t& node_array(node_code_t nc) const;
         node_array_t& node_array(node_code_t nc);
 
+        // Return the node's code.  This returns the code in the
+        // cluster array schema.  Specifically, 'c' is translated to
+        // 'a'.
+        static char node_code(const cluster_node_t& node);
+
+        // Rewrite an ICluster graph so that "channel" vertices become
+        // per-slice vertices.  A channel vertex in an ICluster graph
+        // represents a physical channel.  Cluster arrays to not have
+        // the concept of a "channel" but instead an "activity" which
+        // is charge in channel in a slice.  All previous channel
+        // vertices are removed and their edges are distributed to new
+        // channel vertices on a per-slice basis.
+        static void bodge_channel_slice(cluster_graph_t& graph);
 
       private:
+
         using node_store_t = std::unordered_map<node_code_t, node_array_t>;
         using edge_store_t = std::unordered_map<edge_code_t, edge_array_t>;
         node_store_t m_na;
@@ -80,20 +97,19 @@ namespace WireCell::Aux {
         using v2s_t = std::unordered_map<cluster_vertex_t, store_address_t>;
         v2s_t m_v2s;
 
+        // Remember the unbodged vertex of channels
+        using chid2desc_t = std::unordered_map<int, cluster_vertex_t>;
+        chid2desc_t m_chid2desc;
+
         using node_row_t = node_array_t::array_view<1>::type;
         node_row_t node_row(cluster_vertex_t vtx);
         store_address_t vertex_address(cluster_vertex_t vtx);
             
-        // make degenerate cnodes unique.
-        void bodge_channel_slice(cluster_graph_t& graph);
-
         // Process one seed node of a type
         void init_slice(const cluster_graph_t& graph, cluster_vertex_t vtx);
         void init_blob(const cluster_graph_t& graph, cluster_vertex_t vtx);
         void init_wire(const cluster_graph_t& graph, cluster_vertex_t vtx);
         void init_measure(const cluster_graph_t& graph, cluster_vertex_t vtx);
-
-
     };
 }
 

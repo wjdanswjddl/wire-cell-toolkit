@@ -3,14 +3,7 @@
 
 Provides array representations of ~ICluster~.
 
-The ~ICluster~ graph represents identity, attributes and associations of
-five types of objects related to WCT imaging.  In addition to the
-associations represented internally by the graph some objects carry
-additional information and references to objects that are external to
-the graph.  The ~ClusterArrays~ class provides methods to "flatten" the
-internal and external structure to a set of arrays.  This document
-describes the ~ClusterArrays~ interface and provides guidance on how to
-use the arrays it produces.
+The ~ICluster~ graph represents identity, attributes and associations of five types of objects related to WCT imaging.  In addition to the associations represented internally by the graph some objects carry additional information and references to objects that are external to the graph.  The ~ClusterArrays~ class provides methods to "flatten" the internal and external structure to a set of arrays.  This document describes the ~ClusterArrays~ interface and provides guidance on how to use the arrays it produces.
 
 * Low-level array representation
 
@@ -18,49 +11,25 @@ The API provides arrays in the form of [[https://www.boost.org/doc/libs/1_79_0/l
 
 * Graph connection schema
 
-Production of an ~ICluster~ graph is described in detail in the Ray Grid
-document.  Its structure is summarized by the /type graph/ from that
-document.  This graph illustrates the five types of nodes and the
-allowed types of edges between node types.
+Production of an ~ICluster~ graph is described in detail in the Ray Grid document.  Its structure is summarized by the /type graph/ from that document.  This graph illustrates the five types of nodes and the allowed types of edges between node types.
 
 [[file:./cluster-graph-types.png]]
 
 * Array schema
 
-The array schema closely matches that provided by the python-geometric
-~HeteroData~ interface with the following simplification:
+The array schema closely matches that provided by the python-geometric ~HeteroData~ interface with the following simplification:
 
 - All node attributes are coerced to double precision floating point scalar values.
-- No graph nor edge attributes.
-This results in a graph being represented by a set of *node arrays* and
-a set of *edge arrays*.
 
-Each *node array* is of a given type.  An array type is defined by a
-tuple that labels the interpretation of the columns of an array.  The
-tuple elements map to node attributes.  The rows of an array map to
-node instances of a given type.
+- No graph nor edge attributes. This results in a graph being represented by a set of *node arrays* and a set of *edge arrays*.
 
-All *edge arrays* have two columns.  The first provides indices of rows
-in a "tail" array and the second in a "head" array".  An edge array is
-mapped to these two node arrays by an array naming convention based on
-*array codes* and *edge codes*.
+Each *node array* is of a given type.  An array type is defined by a tuple that labels the interpretation of the columns of an array.  The tuple elements map to node attributes.  The rows of an array map to node instances of a given type.
 
-Before listing these codes, one structural change must be understood.
-The ~ICluster~ graph connection schema described above treats /channel/
-(and /wire/ ) nodes as representing physical entities.  A given channel
-node may be reached through multiple ~s-b-m-c~ paths beginning from
-multiple slices.  The ~ICluster~ also holds internal to /slice/ nodes an
-~ISlice::activity()~.  This provides a the amount of signal in a channel
-that contributes to the slice.  Furthermore, this /activity map/
-information is a superset of ~s-c~ relationships that may be found by
-following ~s-b-m-c~ paths.  This is because some slice activity may not
-have contributed to forming blobs in the slice.  This activity map can
-not be coerced into an slice array column (it would be a "ragged
-array").
+All *edge arrays* have two columns.  The first provides indices of rows in a "tail" array and the second in a "head" array".  An edge array is mapped to these two node arrays by an array naming convention based on *array codes* and *edge codes*.
 
-In order to faithfully preserve the /activity map/ in the array format,
-the ~ClusterArrays~ schema *does not follow the cluster graph* schema
-shown above.  Instead, the cluster array type graph is:
+Before listing these codes, one structural change must be understood.  The ~ICluster~ graph connection schema described above treats /channel/ (and /wire/ ) nodes as representing physical entities.  A given channel node may be reached through multiple ~s-b-m-c~ paths beginning from multiple slices.  The ~ICluster~ also holds internal to /slice/ nodes an ~ISlice::activity()~.  This provides a the amount of signal in a channel that contributes to the slice.  Furthermore, this /activity map/ information is a superset of ~s-c~ relationships that may be found by following ~s-b-m-c~ paths.  This is because some slice activity may not have contributed to forming blobs in the slice.  This activity map can not be coerced into an slice array column (it would be a "ragged array").
+
+In order to faithfully preserve the /activity map/ in the array format, the ~ClusterArrays~ schema *does not follow the cluster graph* schema shown above.  Instead, the cluster array type graph is:
 
 [[file:cluster-array-types.png]]
 
@@ -71,59 +40,36 @@ Comparing these two type graph representations:
 - /activity/ holds a signal value and uncertainty
 - a /channel-slice/ edge is added
 
-The remaining vertex types and allowed edges are the same other as in
-the original cluster graph schema.  In particular, the /wire/ vertex
-type still represents a physical wire which is not specific to any
-particular slice.  All other vertices are per-slice.
+The remaining vertex types and allowed edges are the same other as in the original cluster graph schema.  In particular, the /wire/ vertex type still represents a physical wire which is not specific to any particular slice.  All other vertices are per-slice.
 
-With this change stated, we define /node array codes/ as the ASCII value
-of the lower case initial letter of the node array names: /activity,
-blob, measure, slice/ and /wire/.  For example, an activity array will
-have a label ~anodes~.  The /edge array codes/ are the combination of two
-node array codes in alphabetical order.  For example, the edges
-between /slice/ and /activity/ vertices are represented in an array with a
-name that includes the label ~asedges~.  Each array is held in a Numpy file
-named with a prefix ~cluster~ (indicating array is in the format
-described in this document) followed by the cluster identity number
-~<ident>~ and the node/edge label just described.  For example a cluster
-6501 is represented by the arrays
+With this change stated, we define /node array codes/ as the ASCII value of the lower case initial letter of the node array names: /activity (a), blob (b), measure (m), slice (s)/ and /wire (w)/.  For example, an activity array will have a label ~anodes~.  The /edge array codes/ are the combination of two node array codes in alphabetical order.  For example, the edges between /slice/ and /activity/ vertices are represented in an array with a name that includes the label ~asedges~. 
 
-#+begin_example
- cluster_6501_wnodes.npy
- cluster_6501_snodes.npy
- cluster_6501_bnodes.npy
- cluster_6501_mnodes.npy
- cluster_6501_anodes.npy
- cluster_6501_bsedges.npy
- cluster_6501_bwedges.npy
- cluster_6501_asedges.npy
- cluster_6501_bbedges.npy
- cluster_6501_bmedges.npy
- cluster_6501_awedges.npy
- cluster_6501_amedges.npy
-#+end_example
+The remainder of this section describes the columns that make up each type of array.
 
-The remainder of this section describes the columns that make up each
-type of array.
+** Common
+
+The arrays are either of node type or edge type.  All node type arrays have common definitions for their first *two* columns:
+
+0. [@0] /vdesc/, (int) the vertex descriptor counts the node in the graph
+1. /ident/, (int) the value from the WCT object's ~ident()~ method
+
+The additional columns that make each array schema unique are given in the sections below and there these two columns are not repeated.
+
 
 ** Activity
 
-An /activity/ represents an amount of signal and its uncertainty
-collected from a channel over the duration of a time slice.
+An /activity/ represents an amount of signal and its uncertainty collected from a channel over the duration of a time slice.
 
-1. /ident/, (int) channel ID as defined in the "wires" file
-2. /value/, the central value of the signal
+2. [@2] /value/, the central value of the signal
 3. /uncertainty/, the uncertainty in the value
 4. /index/, (int) the channel index
 5. /wpid/, (int) the wire plane id
 
 ** Wire
 
-The wire array represents the "geometric" information about physical
-wire segments.
+The wire array represents the "geometric" information about physical wire segments.
 
-1. /ident/, (int) the application determined ID number.
-2. /wip/, (int) the wire-in-plane (WIP) index.
+2. [@2] /wip/, (int) the wire-in-plane (WIP) index.
 3. /segment/, (int) the number of segments between this wire segment and the channel input.
 4. /channel/, (int) the channel ID (not row index).
 5. /plane/, (int) the plane ID (not necessarily a plane index).
@@ -136,13 +82,9 @@ wire segments.
 
 ** Blob
 
-A blob describes a volume in space bounded in the longitudinal
-direction by the duration of a time slice and in the transverse
-directions by pairs of wires from each plane and it includes an
-associated amount of signal contained by the volume.
+A blob describes a volume in space bounded in the longitudinal direction by the duration of a time slice and in the transverse directions by pairs of wires from each plane and it includes an associated amount of signal contained by the volume.
 
-1. /ident/, (int) the application determined ID number.
-2. /value/, the central value of the signal
+2. [@2] /value/, the central value of the signal
 3. /uncertainty/, the uncertainty in the value
 4. /faceid/, (int) the face ident from ~WirePlaneId(kUnkownLayer,face,apa)~
 5. /sliceid/, (int) the slice ident
@@ -161,8 +103,7 @@ associated amount of signal contained by the volume.
 
 A slice represents a duration in drift/readout time.
 
-1. /ident/, (int) the application determined ID number.
-2. /value/, the central value of the signal.
+2. [@2] /value/, the central value of the signal.
 3. /uncertainty/, the uncertainty in the value.
 4. /frameid/, (int) the frame ident number
 5. /start/, the start time of the slice.
@@ -170,58 +111,75 @@ A slice represents a duration in drift/readout time.
 
 ** Measure
 
-A measure represents the collection of channels in a given plane
-connected to a set of wires that span one or more blobs overlapping in
-one wire plane.  Its includes an associated signal representing the
-sum of signals from the participating channels.
+A measure represents the collection of channels in a given plane connected to a set of wires that span one or more blobs overlapping in one wire plane.  Its includes an associated signal representing the sum of signals from the participating channels.
 
-1. /ident/, (int) the application determined ID number.
-2. /value/, the central value of the signal.
+2. [@2] /value/, the central value of the signal.
 3. /uncertainty/, the uncertainty in the value.
 4. /wpid/, the wire plane ID
 
 ** Edge
 
-An edge represents an association between a row in a tail array and a
-row in a head array.  Unlike node arrays above, edge arrays are of
-integer value.
+An edge represents an association between a row in a tail array and a row in a head array.  Unlike node arrays above, edge arrays are of integer value.
 
-1. /tail/, index of a row in a tail array
-2. /head/, index of a row in a head array   
-
-
-* Cluster archive files
-
-As described above, WCT ~ICluster~ graph may be represented by a number
-of arrays.  Each array is persisted in a Numpy file (/eg/ ~.npy~ file
-extension).  A set of files representing a cluster graph may be packed
-into a /cluster archive file/.  A set is defined by the array file names
-having the prefix ~cluster~ and a common ~<ident>~ number.  Elemental
-Numpy files/arrays in a set are interpreted according to their suffix
-label (eg ~Anodes~ or ~ABedges~).  A cluster archive file may contain a
-number of such sets.
-
-The cluster archive file format may be Tar (/eg/ with ~.tar~ extension)
-and have optional compression (/eg/ ~.tar.gz~ or ~.tar.bz2~) or it may be
-Zip (~.zip~ or ~.npz~).  The files comprising one set *should* be contiguous
-in the archive and sets *should* be sequential in ascending ~<ident>~
-number.
+0. [@0] /edesc,/ (int), the edge descriptor counts the edge in the graph
+1. /tail/, (int) index of a row in a tail array
+2. /head/, (int) index of a row in a head array   
 
 
-* Implementation
+* Persistence 
 
-The ~ClusterArrays~ class will convert ~ICluster~ to cluster arrays
-following above schema.  See ~ClusterFileSink::numpify()~ for example
-usage.  The C++ WCT components ~ClusterFileSink~ and ~ClusterFileSource~
-will write and read cluster archive files in Numpy array (and JSON
-structure) format.
+WCT supports persisting clusters in files.  This is still a work in progress and this section describes the current support.  Three persistent schema exist and for each a choice for file format is available.
 
-These components provide special-case file I/O.  A cluster array
-representation may be easily converted into the WCT tensor data model
-With such a converter, cluster graphs may pass through the more
-flexible and general forms of tensor data model I/O.  See
-[[file:tensor-data-model.org]] for details. FIXME: implement these
-converters!
+** Graph schema
 
-The Python module ~wirecell.img.tap~ can read cluster files.
+The /cluster graph file schema/ matches very closely that of ~ICluster~.  The file format is JSON with optional compression (~.json.gz~, ~.json.bz2~).  It is called a /cluster graph schema/ because the /activity map/ is represented as an attribute on /slice/ objects and /channel/ nodes are retained.
 
+** Array schema
+
+The /cluster array file schema/ matches the schema defined in this document.  In particular, the /channel/ nodes are represented with /activity/ arrays which hold the /activity map/ information and all node level properties are coerced into double prescision floating point values.  Arrays are per node or edge type.  Currently, ~ICluster~ can be saved to these files but they no reader exists.
+
+The file format is that of any archive container supported by WCT iostreams (Zip and Tar with optimal compression).  Each array is represented in a Numpy file that is written to or read from the stream.  The names of the Numpy files encode the ~ICluster::ident()~ number and the array type.  This results in files in the container with names like:
+
+#+begin_example
+ cluster_6501_wnodes.npy
+ cluster_6501_snodes.npy
+ cluster_6501_bnodes.npy
+ cluster_6501_mnodes.npy
+ cluster_6501_anodes.npy
+ cluster_6501_bsedges.npy
+ cluster_6501_bwedges.npy
+ cluster_6501_asedges.npy
+ cluster_6501_bbedges.npy
+ cluster_6501_bmedges.npy
+ cluster_6501_awedges.npy
+ cluster_6501_amedges.npy
+#+end_example
+
+This representation may be directly consumed by code expecting a schema matching the ~HeteroData~ class from ~pytorch-geometric~.
+
+** Tensor schema
+
+The /cluster tensor schema/ is similar to the /cluster array schema/ and comes in two variants.  Both variants allow representation as collections of ~PointCloud::Dataset~ or ~ITensorSet~.  In terms of the former the two variants are described:
+
+- monolith :: each cluster array is mapped to a ~Dataset~ with a single ~PointCloud::Array~, that of the cluster array, and mapped to a single ~ITensor~.  The coercion of ~int~ to ~double~ remains.
+- columnar :: each cluster array is mapped to a ~Dataset~ with one ~PointCloud::Array~ for each column.  This avoids the ~int~ to ~double~ coercion and explicitly names the PC attributes instead of relying on column mapping described above.
+
+The details of the tensor representation are given in [[file:tensor-data-model.org]].
+
+** Implementation
+
+Full support for persistence of clusters is a work in progress.  The current (admittedly somewhat complicated) situation is illustrated:
+
+[[file:cluster-representation.png]]
+
+Solid black represent existing nodes and edges.  Gray nodes are not implemented and dashed edges represent unrealized transforms.  As this story improves, this diagram will become simpler.
+
+Milestones for completing this support are:
+
+- [ ] extend ~ClusterArrays~ to provide round-trip with ~ICluster~.
+- [ ] extend ~ClusterArrays~ to be initialized with from arrays.
+- [ ] extend ~ClusterFileSource~ to use above to read cluster array schema files.
+- [ ] refactor ~ClusterArrays~ to utilize ~PointCloud::Dataset~ as internal storage.
+- [ ] extend ~ClusterArrays~ to produce ~ITensorSet~ using ~TensorDM~ API to convert from ~Dataset~.
+- [ ] extend ~ClusterArrays~ to initialize from ~ITensorSet~, again using ~TensorDM~.
+- [ ] develop ~ClusterTensor~ and ~TensorCluster~ DFP graph node components.
