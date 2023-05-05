@@ -80,28 +80,21 @@ namespace {
         }
     };
 
-    using bsedge_cache_t =
-        std::unordered_multimap<std::pair<BlobShadow::vdesc_t, BlobShadow::vdesc_t>, BlobShadow::edesc_t, pair_hash>;
-
     // find edges from bsedges cache, layer info from bsgraph
     // one layer should has at most one edge
     using bs_layer_edge_t = std::unordered_map<WirePlaneLayer_t, BlobShadow::edesc_t>;
-    bs_layer_edge_t esisting_layer_edges(
+    bs_layer_edge_t existing_layer_edges(
         const BlobShadow::graph_t& bsgraph,
-        const bsedge_cache_t& bsedges,
         const BlobShadow::vdesc_t& bs_vtx1,
         const BlobShadow::vdesc_t& bs_vtx2)
     {
         bs_layer_edge_t ret;
-        auto range1 = bsedges.equal_range({bs_vtx1, bs_vtx2});
-        for (auto& it = range1.first; it!=range1.second; ++it) {
-            auto edge = it->second;
-            const auto& eobj = bsgraph[edge];
-            ret.insert({eobj.wpid.layer(), edge});
-        }
-        auto range2 = bsedges.equal_range({bs_vtx2, bs_vtx1});
-        for (auto& it = range1.first; it!=range1.second; ++it) {
-            auto edge = it->second;
+        // for undirected graph (BS), edge_range(0,1) yields edges from 
+        // both add_edge(0,1) and add_edge(1,0)
+        // https://onlinegdb.com/u4D6du-Sj
+        auto range = boost::edge_range(bs_vtx1, bs_vtx2,bsgraph);
+        for (auto& it = range.first; it!=range.second; ++it) {
+            auto edge = *it;
             const auto& eobj = bsgraph[edge];
             ret.insert({eobj.wpid.layer(), edge});
         }
@@ -133,10 +126,6 @@ BlobShadow::graph_t BlobShadow::shadow(const cluster_graph_t& cgraph, char leaf_
         if (dgraph[svtx].code() != 's') {
             continue;
         }
-
-        // TODO: use this for quicker edge search?
-        // per slice bs edge cache
-        bsedge_cache_t bsedges;
 
         // Keep track of every blob in a slice from whence we came to a leaf.
         std::unordered_map<cluster_vertex_t, std::vector<cluster_vertex_t>> leaf2blob;
@@ -194,8 +183,8 @@ BlobShadow::graph_t BlobShadow::shadow(const cluster_graph_t& cgraph, char leaf_
                         continue;
                     }
 
-                    // returns an esisting layer -> edge map
-                    auto layer_edges = esisting_layer_edges(bsgraph, bsedges, bs_vtx1, bs_vtx2);
+                    // returns an existing layer -> edge map
+                    auto layer_edges = existing_layer_edges(bsgraph, bs_vtx1, bs_vtx2);
 
                     // if layer -> edge exists, refresh the edge beg-end
                     if (layer_edges.find(wpid.layer())!=layer_edges.end()) {
@@ -217,9 +206,6 @@ BlobShadow::graph_t BlobShadow::shadow(const cluster_graph_t& cgraph, char leaf_
                     eobj.wpid = wpid;
                     eobj.beg = index;
                     eobj.end = index+1;
-
-                    // add to cache
-                    bsedges.insert({{bs_vtx1, bs_vtx2}, edge});
                 }
             }
         }

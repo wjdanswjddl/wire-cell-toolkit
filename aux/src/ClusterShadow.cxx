@@ -65,6 +65,19 @@ ClusterShadow::graph_t ClusterShadow::shadow(const cluster_graph_t& cgraph,
         auto cs_tail = clusters[c_tail];
         auto cs_head = clusters[c_head];
 
+        // check if cs edge exists for this layer
+        bool c_layer_edge_exist = false;
+        auto edge_range =  boost::edge_range(cs_tail, cs_head, cs_graph);
+        for (auto eit = edge_range.first; eit != edge_range.second; ++eit) {
+            const auto& eobj = cs_graph[*eit];
+            if (eobj.wpid.layer() == bs_graph[bs_edge].wpid.layer() ) {
+                c_layer_edge_exist = true;
+            }
+        }
+        if (c_layer_edge_exist) {
+            continue;
+        }
+
         auto [cs_edge, added] = boost::add_edge(cs_tail, cs_head, cs_graph);
         if (added) {
             cs_graph[cs_edge].wpid = bs_graph[bs_edge].wpid;
