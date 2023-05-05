@@ -48,7 +48,7 @@ namespace WireCell {
 	        double m_estimated_total_charge {0};
 	        int m_saved_flag {0};
 	        int m_saved_flag_1 {0};
-	        int m_number_mcells {0};
+	        int m_number_blobs {0};
 	        int m_number_slices {0};
             };
             // returns layer ID -> channel-tick-charge matrix

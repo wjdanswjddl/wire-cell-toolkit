@@ -156,9 +156,13 @@ bool Img::ProjectionDeghosting::operator()(const input_pointer& in, output_point
     }
     const auto in_graph = in->graph();
     dump_cg(in_graph, log);
+    // blob shadow ... vertex = blob, edge --> wire/channel, plane
     BlobShadow::graph_t bsgraph = BlobShadow::shadow(in_graph, 'w'); // or 'c'
+
+    //cluster shadow map, blob to cluster map ???
     ClusterShadow::blob_cluster_map_t clusters;
     auto cs_graph = ClusterShadow::shadow(in_graph, bsgraph, clusters);
+    // is this right ??? blob size ...
     log->debug("clusters.size(): {} ", clusters.size());
 
     // make a cluster -> blob map
@@ -188,6 +192,234 @@ bool Img::ProjectionDeghosting::operator()(const input_pointer& in, output_point
     // TODO: figure out how to do this right
     std::unordered_set<cluster_vertex_t> tagged_bs;
 
+    // how to build a 2D cluster --> 3D cluster vector map (for each view)???
+    // tail and head --> key of map -->
+    // LayerProjection2DMap& aaa = tail->get_projection();
+    // modify --> ClusterShadow ??? 
+    // 2D projection --> (3D cluster, view)
+    // also need clusters not in this cluster shadow things ...
+
+    
+    // figure out the connected components --> get projection for every vertex
+    // store group number --> set of vertices & set of vertices and group number ...
+    std::unordered_map<ClusterShadow::vdesc_t, int> cluster2id;
+    auto nclust = boost::connected_components(cs_graph, boost::make_assoc_property_map(cluster2id));
+    
+    // store the three maps in terms of group number?
+    std::unordered_map<WireCell::WirePlaneLayer_t, std::unordered_map<ClusterShadow::vdesc_t,std::vector<ClusterShadow::vdesc_t>>> wp_2D_3D_clus_map;
+    {
+      std::unordered_map<ClusterShadow::vdesc_t,std::vector<ClusterShadow::vdesc_t>> u_2D_3D_clus_map;
+      std::unordered_map<ClusterShadow::vdesc_t,std::vector<ClusterShadow::vdesc_t>> v_2D_3D_clus_map;
+      std::unordered_map<ClusterShadow::vdesc_t,std::vector<ClusterShadow::vdesc_t>> w_2D_3D_clus_map;
+      wp_2D_3D_clus_map[kUlayer] = u_2D_3D_clus_map;
+      wp_2D_3D_clus_map[kVlayer] = v_2D_3D_clus_map;
+      wp_2D_3D_clus_map[kWlayer] = w_2D_3D_clus_map;
+    }
+    
+
+    // run algorithm ...
+    for (auto cs_cluster: GraphTools::mir(boost::vertices(cs_graph))){
+      auto b_cluster = c2b[cs_cluster]; // cluster_vertex_t
+      int gid_cluster = cluster2id[cs_cluster];
+      Projection2D::LayerProjection2DMap& proj_cluster =
+            get_projection(id2lproj, cs_cluster, in_graph, b_cluster, m_nchan, m_nslice);
+      
+      if (proj_cluster.m_number_slices ==0) continue;
+      // loop over each plane ...
+      for (auto it = wp_2D_3D_clus_map.begin(); it != wp_2D_3D_clus_map.end(); it++){
+	WireCell::WirePlaneLayer_t layer_cluster = it->first;
+	std::unordered_map<ClusterShadow::vdesc_t,std::vector<ClusterShadow::vdesc_t>>& clus_2D_3D_map = it->second;
+	Projection2D::Projection2D& proj2D_cluster = proj_cluster.m_layer_proj[layer_cluster];
+
+	// flag about saving or not ...
+	bool flag_save = true;
+	std::vector<ClusterShadow::vdesc_t> to_be_removed;
+
+	for (auto it1 = clus_2D_3D_map.begin(); it1!=clus_2D_3D_map.end(); it1++){
+	  ClusterShadow::vdesc_t clust3D = it1->first;
+	  std::vector<ClusterShadow::vdesc_t>& vec_clust3D = it1->second;
+	  int gid_clust3D = cluster2id[clust3D];
+	  // not in the same connected component, remove ...
+	  if (gid_clust3D != gid_cluster) continue;
+	  
+	  // judge if an edge (with the proper plan number) existed between cs_cluster and clust3D ...
+	  //	  auto edge_ranges = boost::edge_range(cs_cluster, clust3D, cs_graph);
+	  //	  for (auto it2 = edge_ranges.first; it2 != edge_ranges.second; it2++){
+	  for (const auto& cedge : GraphTools::mir(boost::edge_range(cs_cluster, clust3D, cs_graph))){
+	    // if not the same plane, skip ...
+	    const auto& eobj = cs_graph[cedge];
+	    if ( layer_cluster != eobj.wpid.layer() ) continue;
+	    
+	    auto b_clust3D = c2b[clust3D];
+	    Projection2D::LayerProjection2DMap& proj_clust3D =
+	      get_projection(id2lproj, clust3D, in_graph, b_clust3D, m_nchan, m_nslice);
+	    
+	    Projection2D::Projection2D& proj2D_clust3D = proj_clust3D.m_layer_proj[layer_cluster];
+	    int coverage = Projection2D::judge_coverage(proj2D_clust3D, proj2D_cluster); // ref is eixsting, tar is new clust ...
+	    if (coverage == 1){ // tar is part of ref
+	      flag_save = false;
+	      break;
+	    }else if (coverage == 2){ // tar is same as ref
+	      flag_save = false;
+	      vec_clust3D.push_back(cs_cluster);
+	      break;
+	    }else if (coverage == -1){ // ref is part of tar
+	      to_be_removed.push_back(clust3D);
+	    }
+
+	  }// loop over edges ...
+	    
+	} // loop over existing ...
+
+
+	for (auto it1 = to_be_removed.begin(); it1!=to_be_removed.end(); it1++){
+	  clus_2D_3D_map.erase(*it1);
+	}
+	if (flag_save){
+	  std::vector<ClusterShadow::vdesc_t> vec_3Dclus;
+	  vec_3Dclus.push_back(cs_cluster);
+	  clus_2D_3D_map[cs_cluster] = vec_3Dclus;
+	}
+	
+      } // loop over plane 
+      
+    }
+
+    // secondary loop over plane
+    for (auto it = wp_2D_3D_clus_map.begin(); it != wp_2D_3D_clus_map.end(); it++){
+      WireCell::WirePlaneLayer_t layer_cluster = it->first;
+      std::unordered_map<ClusterShadow::vdesc_t,std::vector<ClusterShadow::vdesc_t>>& clus_2D_3D_map = it->second;
+
+      // loop over cluster
+      std::vector<ClusterShadow::vdesc_t> to_be_removed;
+      for (auto it1 = clus_2D_3D_map.begin(); it1 != clus_2D_3D_map.end(); it1++){
+	ClusterShadow::vdesc_t clust3D = it1->first;
+	if (find(to_be_removed.begin(), to_be_removed.end(), clust3D) == to_be_removed.end()){
+	  int gid_clust3D = cluster2id[clust3D];
+	  auto b_clust3D = c2b[clust3D];
+	  Projection2D::LayerProjection2DMap& proj_clust3D =
+            get_projection(id2lproj, clust3D, in_graph, b_clust3D, m_nchan, m_nslice);
+	  Projection2D::Projection2D& proj2D_clust3D = proj_clust3D.m_layer_proj[layer_cluster];
+	  auto it2 = it1; it2++;
+	  for (auto it3 = it2; it3!=clus_2D_3D_map.end(); it3++){
+	    ClusterShadow::vdesc_t comp_3Dclus = it3->first;
+	    int gid_comp_3Dclus = cluster2id[comp_3Dclus];
+	    if (gid_clust3D != gid_comp_3Dclus) continue;
+
+
+	    // judge if an edge (with the proper plan number) existed between cs_cluster and clust3D ...
+	    //	  auto edge_ranges = boost::edge_range(cs_cluster, clust3D, cs_graph);
+	    //	  for (auto it2 = edge_ranges.first; it2 != edge_ranges.second; it2++){
+	    for (const auto& cedge : GraphTools::mir(boost::edge_range(clust3D, comp_3Dclus, cs_graph))){
+
+	      // if not the same plane, skip ...
+	      const auto& eobj = cs_graph[cedge];
+	      if ( layer_cluster != eobj.wpid.layer() ) continue;
+	    
+	      auto b_comp_3Dclus = c2b[comp_3Dclus];
+	      Projection2D::LayerProjection2DMap& proj_comp_3Dclus =
+		get_projection(id2lproj, comp_3Dclus, in_graph, b_comp_3Dclus, m_nchan, m_nslice);
+	      Projection2D::Projection2D& proj2D_comp_3Dclus = proj_comp_3Dclus.m_layer_proj[layer_cluster];
+	      
+	      int coverage_alt = Projection2D::judge_coverage_alt(proj2D_comp_3Dclus, proj2D_clust3D);
+	      if (coverage_alt == 1){
+		to_be_removed.push_back(clust3D);
+	      }else if (coverage_alt==-1){
+		to_be_removed.push_back(comp_3Dclus);
+	      }
+
+	    }// loop over edges
+	  }
+	}
+      }// loop clusters
+
+      for (auto it1 = to_be_removed.begin(); it1!=to_be_removed.end(); it1++){
+	clus_2D_3D_map.erase(*it1);
+      }
+
+      for (auto it1 = clus_2D_3D_map.begin(); it1 != clus_2D_3D_map.end(); it1++){
+	for (auto it2 = it1->second.begin(); it2 != it1->second.end(); it2++){
+	  ClusterShadow::vdesc_t clust3D = *it2;
+	  auto b_clust3D = c2b[clust3D];
+	  Projection2D::LayerProjection2DMap& proj_clust3D =
+            get_projection(id2lproj, clust3D, in_graph, b_clust3D, m_nchan, m_nslice);
+	  proj_clust3D.m_saved_flag ++;
+	}
+      }
+      
+      
+    }// loop over plane
+    
+    // summarize the results ...
+     for (auto it = wp_2D_3D_clus_map.begin(); it != wp_2D_3D_clus_map.end(); it++){
+      WireCell::WirePlaneLayer_t layer_cluster = it->first;
+      std::unordered_map<ClusterShadow::vdesc_t,std::vector<ClusterShadow::vdesc_t>>& clus_2D_3D_map = it->second;
+      for (auto it1 = clus_2D_3D_map.begin(); it1 != clus_2D_3D_map.end(); it1++){
+	int max_flag_saved = -1;
+	for (auto it2 = it1->second.begin(); it2 != it1->second.end(); it2++){
+	  ClusterShadow::vdesc_t clust3D = *it2;
+	  auto b_clust3D = c2b[clust3D];
+	  Projection2D::LayerProjection2DMap& proj_clust3D =
+            get_projection(id2lproj, clust3D, in_graph, b_clust3D, m_nchan, m_nslice);
+	  if (proj_clust3D.m_saved_flag > max_flag_saved) max_flag_saved = proj_clust3D.m_saved_flag;
+	}
+
+	for (auto it2 = it1->second.begin(); it2 != it1->second.end(); it2++){
+	  ClusterShadow::vdesc_t clust3D = *it2;
+	  auto b_clust3D = c2b[clust3D];
+	  Projection2D::LayerProjection2DMap& proj_clust3D =
+            get_projection(id2lproj, clust3D, in_graph, b_clust3D, m_nchan, m_nslice);
+	  if (proj_clust3D.m_saved_flag != max_flag_saved)
+	    proj_clust3D.m_saved_flag_1 ++;
+	  
+	}
+      }
+     }
+    
+     // run algorithm ...
+     for (auto cs_cluster: GraphTools::mir(boost::vertices(cs_graph))){
+       auto b_cluster = c2b[cs_cluster]; // cluster_vertex_t
+       int gid_cluster = cluster2id[cs_cluster];
+       Projection2D::LayerProjection2DMap& proj_cluster =
+	 get_projection(id2lproj, cs_cluster, in_graph, b_cluster, m_nchan, m_nslice);
+       float total_charge = proj_cluster.m_estimated_total_charge;
+       float min_charge = proj_cluster.m_estimated_minimum_charge;
+       int flag_saved = proj_cluster.m_saved_flag;
+       int flag_saved_1 = proj_cluster.m_saved_flag_1;
+       int n_blobs = proj_cluster.m_number_blobs;
+       int n_timeslices = proj_cluster.m_number_slices;
+
+       int saved = 0;
+       if (flag_saved-flag_saved_1 ==3){
+	// look at each cell level ...
+	if ( sqrt(pow(n_timeslices/3.,2) + pow(min_charge/n_blobs/3000.,2))<1 || min_charge/n_blobs/2000.<1.){
+	  saved = 0;
+	}else{
+	  saved = 1;
+	}
+      }else if (flag_saved-flag_saved_1  ==2){
+	if ( sqrt(pow(n_timeslices/8.,2) + pow(min_charge/n_blobs/8000.,2))<1 ||  min_charge/n_blobs/4000.<1.){
+	  saved = 0;
+	}else{
+	  saved = 1;
+	}
+      }else if (flag_saved-flag_saved_1  ==1){
+	if ( sqrt(pow(n_timeslices/8.,2) + pow(min_charge/n_blobs/8000.,2))<1 || min_charge/n_blobs/6000.<1.){
+	  saved = 0;
+	}else{
+	  saved = 1;
+	}
+      }
+
+       if (saved ==0){
+	 for (auto& b : b_cluster) {
+	   tagged_bs.insert(b);
+	 }
+       }
+       
+     }
+     
+     /*    
     for (const auto& cs_edge : GraphTools::mir(boost::edges(cs_graph))) {
         counters["cs_edges"] += 1;
         WireCell::WirePlaneLayer_t layer = cs_graph[cs_edge].wpid.layer();
@@ -216,12 +448,13 @@ bool Img::ProjectionDeghosting::operator()(const input_pointer& in, output_point
         log->debug("proj_head.m_layer_proj.size(): {}", proj_head.m_layer_proj.size());
         Projection2D::Projection2D& ref_proj = proj_tail.m_layer_proj[layer];
         Projection2D::Projection2D& tar_proj = proj_head.m_layer_proj[layer];
+
         int coverage = Projection2D::judge_coverage(ref_proj, tar_proj);
         int coverage_alt = Projection2D::judge_coverage_alt(ref_proj, tar_proj);
         log->debug("coverage: {} alt: {}", coverage, coverage_alt);
 
         // DEBUGONLY
-        coverage = coverage_alt;
+	//        coverage = coverage_alt;
 
         // DEBUGONLY
         // std::stringstream ss;
@@ -266,10 +499,12 @@ bool Img::ProjectionDeghosting::operator()(const input_pointer& in, output_point
             }
         }
     }
+     */
+
     fout.close();
-    for (auto c : counters) {
-        log->debug("{} : {} ", c.first, c.second);
-    }
+    //for (auto c : counters) {
+    //    log->debug("{} : {} ", c.first, c.second);
+    // }
 
     // true: remove tagged_bs; false: only keep tagged_bs
     auto out_graph = remove_blobs(in_graph,tagged_bs,true);

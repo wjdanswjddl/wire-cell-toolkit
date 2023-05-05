@@ -139,7 +139,7 @@ LayerProjection2DMap WireCell::Img::Projection2D::get_projection(
     using triplet_vec_t = std::vector<triplet_t>;
     std::unordered_map<WirePlaneLayer_t, triplet_vec_t> lcoeff;
     std::unordered_set<std::pair<int, int>, pair_hash> filled;
-    std::set<int> filled_slices;
+    std::unordered_set<int> filled_slices;
     // layer_projection_map_t ret;
     LayerProjection2DMap ret;
 
@@ -149,7 +149,7 @@ LayerProjection2DMap WireCell::Img::Projection2D::get_projection(
     double estimated_total_charge = 0;
     //    int saved_flag = 0;
     // int saved_flag_1 = 0;
-    int number_mcells = 0;
+    int number_blobs = 0;
     int number_slices = 0;
     
     // assumes one blob linked to one slice
@@ -163,7 +163,7 @@ LayerProjection2DMap WireCell::Img::Projection2D::get_projection(
 	layer_charge[kWlayer] = 0;
 	
         if (node.code() == 'b') {
-	  number_mcells ++;
+	  number_blobs ++;
             const auto slice_descs = neighbors_oftype<slice_t>(cg, blob_desc);
             if (slice_descs.size() != 1) {
                 THROW(ValueError() << errmsg{"slice_descs.size()!=1"});
@@ -233,7 +233,7 @@ LayerProjection2DMap WireCell::Img::Projection2D::get_projection(
     }
     ret.m_estimated_minimum_charge = estimated_minimum_charge;
     ret.m_estimated_total_charge = estimated_total_charge;
-    ret.m_number_mcells = number_mcells;
+    ret.m_number_blobs = number_blobs;
     ret.m_number_slices = number_slices;
     return ret;
 }
