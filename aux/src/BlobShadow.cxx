@@ -92,9 +92,7 @@ namespace {
         // for undirected graph (BS), edge_range(0,1) yields edges from 
         // both add_edge(0,1) and add_edge(1,0)
         // https://onlinegdb.com/u4D6du-Sj
-        auto range = boost::edge_range(bs_vtx1, bs_vtx2,bsgraph);
-        for (auto& it = range.first; it!=range.second; ++it) {
-            auto edge = *it;
+        for (const auto& edge : mir(boost::edge_range(bs_vtx1, bs_vtx2, bsgraph))) {
             const auto& eobj = bsgraph[edge];
             ret.insert({eobj.wpid.layer(), edge});
         }
