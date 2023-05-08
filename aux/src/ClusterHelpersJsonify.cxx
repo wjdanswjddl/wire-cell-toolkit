@@ -101,9 +101,9 @@ Json::Value blob_jsoner(const cluster_node_t& n)
         if (plane_ind <0) {
             continue;           // skip active region bounds
         }
-        Json ::Value j = Json::arrayValue;
-        j[0] = strip.bounds.first;
-        j[0] = strip.bounds.second;
+        Json ::Value j = Json::objectValue;
+        j["beg"] = strip.bounds.first;
+        j["end"] = strip.bounds.second;
         jbounds.append(j);
     }
     ret["bounds"] = jbounds;
@@ -125,16 +125,17 @@ Json::Value slice_jsoner(const cluster_node_t& n)
     double sigtot = 0;
 
     // note: used to be SOA, now AOS.
-    Json::Value jsig = Json::objectValue;
+    Json::Value jsignal = Json::arrayValue;
     for (const auto& it : islice->activity()) {
-        std::string ind = String::format("%d", it.first->ident());
+        Json::Value jact = Json::objectValue;
+        jact["ident"] = it.first->ident();
         const double val = it.second.value();
-        jsig[ind]["val"] = val;
+        jact["val"] = val;
         sigtot += val;
-        const double unc = it.second.uncertainty();
-        jsig[ind]["unc"] = unc;
+        jact["unc"] = it.second.uncertainty();
+        jsignal.append(jact);
     }
-    ret["signal"] = jsig;
+    ret["signal"] = jsignal;
     return ret;
 }
 
@@ -159,10 +160,10 @@ Json::Value WireCell::Aux::jsonify(const cluster_graph_t& gr)
     auto asjson = [&](const cluster_node_t& n) { return jsoners[n.ptr.index()](n); };
 
     /*
-     * - vertices :: a list of graph vertices
+     * - nodes :: a list of graph nodes
      * - edges :: a list of graph edges
      *
-     * A vertex is represented as a JSON object with the following attributes
+     * A node is represented as a JSON object with the following attributes
      * - ident :: an indexable ID number for the node, and referred to in "edges"
      * - type :: the letter "code" used in ICluster: one in "sbcwm"
      * - data :: an object holding information about the corresponding vertex object
@@ -171,31 +172,31 @@ Json::Value WireCell::Aux::jsonify(const cluster_graph_t& gr)
      *
      */
 
-    Json::Value jvertices = Json::arrayValue;
+    Json::Value jnodes = Json::arrayValue;
     for (auto vtx : boost::make_iterator_range(boost::vertices(gr))) {
         const auto& vobj = gr[vtx];
         if (!vobj.ptr.index()) {
             // warn?
             continue;
         }
-        Json::Value jvtx = Json::objectValue;
-        jvtx["ident"] = (int) vtx;
-        jvtx["type"] = String::format("%c", vobj.code());
-        jvtx["data"] = asjson(vobj);
+        Json::Value jnode = Json::objectValue;
+        jnode["ident"] = (int) vtx;
+        jnode["type"] = String::format("%c", vobj.code());
+        jnode["data"] = asjson(vobj);
 
-        jvertices.append(jvtx);
+        jnodes.append(jnode);
     }
 
     Json::Value jedges = Json::arrayValue;
     for (auto eit : boost::make_iterator_range(boost::edges(gr))) {
-        Json::Value jedge = Json::arrayValue;
-        jedge[0] = (int) boost::source(eit, gr);
-        jedge[1] = (int) boost::target(eit, gr);
+        Json::Value jedge = Json::objectValue;
+        jedge["tail"] = (int) boost::source(eit, gr);
+        jedge["head"] = (int) boost::target(eit, gr);
         jedges.append(jedge);
     }
 
     Json::Value top = Json::objectValue;
-    top["vertices"] = jvertices;
+    top["nodes"] = jnodes;
     top["edges"] = jedges;
 
     return top;

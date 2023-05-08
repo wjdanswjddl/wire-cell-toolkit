@@ -115,3 +115,25 @@ function do_blobs () {
     run $wcimg plot-blobs --single --plot views clusters-numpy.tar.gz blob-views.png
 
 }
+
+@test "valid cluster graph schema" {
+    cd_tmp file
+
+    local moo="$(which moo)"
+    if [ -z "$moo" ] ; then
+        skip "No moo available to check schema (see https://brettviren.github.io/moo/moo.html#install)"
+    fi
+
+    local sfile=$(relative_path ../../aux/docs/cluster-graph-schema.jsonnet)
+    [[ -s "$sfile" ]]
+
+    [[ -s clusters-json.tar.gz ]]
+    tar -xf clusters-json.tar.gz
+
+    local dfile="cluster_6501_graph.json"
+    [[ -s "$dfile" ]]
+
+    run $moo validate -t wirecell.cluster.Cluster -s "$sfile" "$dfile"
+    echo "$output"
+    [[ "$status" -eq 0 ]]
+}
