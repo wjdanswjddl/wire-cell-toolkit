@@ -38,9 +38,9 @@ WireCell::Configuration Img::ProjectionDeghosting::default_configuration() const
     cfg["nslice"] = (unsigned int)(m_nslice);
     cfg["dryrun"] = m_dryrun;
 
-    cfg["cut_nparas"] = m_cut_nparas;
-    for (int i=0;i!=m_cut_nparas;i++){
-      cfg["cut_values"][i] = m_cut_values[i];
+    cfg["global_deghosting_cut_nparas"] = m_global_deghosting_cut_nparas;
+    for (int i=0;i!=3*m_global_deghosting_cut_nparas;i++){
+      cfg["global_deghosting_cut_values"][i] = m_global_deghosting_cut_values[i];
     }
     cfg["uncer_cut"] = m_uncer_cut;
     cfg["dead_default_charge"] = m_dead_default_charge;
@@ -57,11 +57,11 @@ void Img::ProjectionDeghosting::configure(const WireCell::Configuration& cfg)
     m_nslice = get<size_t>(cfg,"nslice", m_nslice);
     m_dryrun = get<bool>(cfg,"dryrun", m_dryrun);
 
-    m_cut_nparas = get<int>(cfg,"cut_nparas", m_cut_nparas);
-    if (cfg.isMember("cut_values")){
-      m_cut_values.clear();
-      for (auto value: cfg["cut_values"]){
-	m_cut_values.push_back(value.asFloat());
+    m_global_deghosting_cut_nparas = get<int>(cfg,"global_deghosting_cut_nparas", m_global_deghosting_cut_nparas);
+    if (cfg.isMember("global_deghosting_cut_values")){
+      m_global_deghosting_cut_values.clear();
+      for (auto value: cfg["global_deghosting_cut_values"]){
+	m_global_deghosting_cut_values.push_back(value.asDouble());
       }
     }
 
@@ -247,9 +247,9 @@ bool Img::ProjectionDeghosting::operator()(const input_pointer& in, output_point
     // run algorithm ...
     for (auto cs_cluster: GraphTools::mir(boost::vertices(cs_graph))){
       auto b_cluster = c2b[cs_cluster]; // cluster_vertex_t
-      int gid_cluster = cluster2id[cs_cluster];
+      int gid_cluster = cluster2id[cs_cluster];  // cluster id ...
       Projection2D::LayerProjection2DMap& proj_cluster =
-	get_projection(id2lproj, cs_cluster, in_graph, b_cluster, m_nchan, m_nslice, m_uncer_cut, m_dead_default_charge);
+	get_projection(id2lproj, cs_cluster, in_graph, b_cluster, m_nchan, m_nslice, m_uncer_cut, m_dead_default_charge); // 3 views are all here ...
 
       // empty ...
       if (proj_cluster.m_number_slices ==0) continue;
@@ -284,6 +284,7 @@ bool Img::ProjectionDeghosting::operator()(const input_pointer& in, output_point
 	      get_projection(id2lproj, clust3D, in_graph, b_clust3D, m_nchan, m_nslice, m_uncer_cut, m_dead_default_charge);
 	    
 	    Projection2D::Projection2D& proj2D_clust3D = proj_clust3D.m_layer_proj[layer_cluster];
+	    
 	    int coverage = Projection2D::judge_coverage(proj2D_clust3D, proj2D_cluster, m_uncer_cut); // ref is eixsting, tar is new clust ...
 	    //if (coverage == 1){ // tar is part of ref
 	    if (coverage == Projection2D::REF_COVERS_TAR){
@@ -418,7 +419,7 @@ bool Img::ProjectionDeghosting::operator()(const input_pointer& in, output_point
        Projection2D::LayerProjection2DMap& proj_cluster =
 	 get_projection(id2lproj, cs_cluster, in_graph, b_cluster, m_nchan, m_nslice, m_uncer_cut, m_dead_default_charge);
        //       float total_charge = proj_cluster.m_estimated_total_charge;
-       float min_charge = proj_cluster.m_estimated_minimum_charge;
+       double min_charge = proj_cluster.m_estimated_minimum_charge;
        int flag_saved = proj_cluster.m_saved_flag;
        int flag_saved_1 = proj_cluster.m_saved_flag_1;
        int n_blobs = proj_cluster.m_number_blobs;
@@ -427,19 +428,19 @@ bool Img::ProjectionDeghosting::operator()(const input_pointer& in, output_point
        int saved = 0;
        if (flag_saved-flag_saved_1 ==3){
 	// look at each cell level ...
-	 if ( sqrt(pow(n_timeslices/m_cut_values.at(0),2) + pow(min_charge/n_blobs/m_cut_values.at(1),2))<1 || min_charge/n_blobs/m_cut_values.at(2)<1.){
+	 if ( sqrt(pow(n_timeslices/m_global_deghosting_cut_values.at(0),2) + pow(min_charge/n_blobs/m_global_deghosting_cut_values.at(1),2))<1 || min_charge/n_blobs/m_global_deghosting_cut_values.at(2)<1.){
 	  saved = 0;
 	}else{
 	  saved = 1;
 	}
       }else if (flag_saved-flag_saved_1  ==2){
-	 if ( sqrt(pow(n_timeslices/m_cut_values.at(m_cut_nparas),2) + pow(min_charge/n_blobs/m_cut_values.at(m_cut_nparas+1),2))<1 ||  min_charge/n_blobs/m_cut_values.at(m_cut_nparas+2)<1.){
+	 if ( sqrt(pow(n_timeslices/m_global_deghosting_cut_values.at(m_global_deghosting_cut_nparas),2) + pow(min_charge/n_blobs/m_global_deghosting_cut_values.at(m_global_deghosting_cut_nparas+1),2))<1 ||  min_charge/n_blobs/m_global_deghosting_cut_values.at(m_global_deghosting_cut_nparas+2)<1.){
 	  saved = 0;
 	}else{
 	  saved = 1;
 	}
       }else if (flag_saved-flag_saved_1  ==1){
-	 if ( sqrt(pow(n_timeslices/m_cut_values.at(2*m_cut_nparas),2) + pow(min_charge/n_blobs/m_cut_values.at(2*m_cut_nparas+1),2))<1 || min_charge/n_blobs/m_cut_values.at(2*m_cut_nparas+2)<1.){
+	 if ( sqrt(pow(n_timeslices/m_global_deghosting_cut_values.at(2*m_global_deghosting_cut_nparas),2) + pow(min_charge/n_blobs/m_global_deghosting_cut_values.at(2*m_global_deghosting_cut_nparas+1),2))<1 || min_charge/n_blobs/m_global_deghosting_cut_values.at(2*m_global_deghosting_cut_nparas+2)<1.){
 	  saved = 0;
 	}else{
 	  saved = 1;
