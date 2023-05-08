@@ -31,11 +31,14 @@ namespace WireCell {
 
             struct Projection2D {
                 Projection2D(){}
-                Projection2D(const size_t nchan, const size_t nslice) : m_nchan(nchan), m_nslice(nslice), m_proj({m_nchan, m_nslice}) {}
+	    Projection2D(const size_t nchan, const size_t nslice) : m_nchan(nchan), m_nslice(nslice), m_proj({(long int)m_nchan, (long int)m_nslice}) {}
                 // uboone: 8256,9592
                 size_t m_nchan {0}; // bins in the channel direction
                 size_t m_nslice {0}; // bins in the time direction
-                sparse_mat_t m_proj{m_nchan, m_nslice};
+	      sparse_mat_t m_proj{(long int)m_nchan, (long int)m_nslice};
+
+	      //double m_uncer_cut {1e11};
+	      //double m_dead_default_charge {-1e12};
             };
 
             // returns group id -> cluster_vertex_t in each group
@@ -51,8 +54,9 @@ namespace WireCell {
 	        int m_number_blobs {0};
 	        int m_number_slices {0};
             };
+	    
             // returns layer ID -> channel-tick-charge matrix
-            LayerProjection2DMap get_projection(const WireCell::cluster_graph_t& cg, const std::set<cluster_vertex_t>&, const size_t nchan, const size_t nslice);
+            LayerProjection2DMap get_projection(const WireCell::cluster_graph_t& cg, const std::set<cluster_vertex_t>&, const size_t nchan, const size_t nslice, double uncer_cut = 1e11, double dead_default_charge = -1e12);
 
             std::string dump(const Projection2D& proj2d, bool verbose=false);
             bool write(const Projection2D& proj2d, const std::string& fname="proj2d.tar.gz");
@@ -61,8 +65,8 @@ namespace WireCell {
             // std::vector<int> calc_coverage(const Projection2D& ref, const Projection2D& tar);
 
             // see .cxx for more details
-            Coverage judge_coverage(const Projection2D& ref, const Projection2D& tar);
-            Coverage judge_coverage_alt(const Projection2D& ref, const Projection2D& tar);
+            Coverage judge_coverage(const Projection2D& ref, const Projection2D& tar, double uncer_cut = 1e11);
+            Coverage judge_coverage_alt(const Projection2D& ref, const Projection2D& tar, std::vector<double>& cut_values, double uncer_cut = 1e11);
 
         }  // namespace Projection2D
     }  // namespace Img

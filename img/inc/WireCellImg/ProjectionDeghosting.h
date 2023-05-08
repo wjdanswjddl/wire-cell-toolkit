@@ -27,6 +27,14 @@ namespace WireCell {
             size_t m_nchan{8256};
             size_t m_nslice{9592};
 
+	    int m_cut_nparas{3};
+	    std::vector<float> m_cut_values{3., 3000., 2000.,
+		8., 8000., 4000.,
+		8., 8000., 6000.};
+	    double m_uncer_cut{1e11};
+	    double m_dead_default_charge{-1e12};
+	    std::vector<double> m_judge_alt_cut_values{0.05, 0.33, 0.15, 0.33};
+
             // DEBUGONLY
             bool m_dryrun{false};
         };

@@ -38,6 +38,15 @@ WireCell::Configuration Img::ProjectionDeghosting::default_configuration() const
     cfg["nslice"] = (unsigned int)(m_nslice);
     cfg["dryrun"] = m_dryrun;
 
+    cfg["cut_nparas"] = m_cut_nparas;
+    for (int i=0;i!=m_cut_nparas;i++){
+      cfg["cut_values"][i] = m_cut_values[i];
+    }
+    cfg["uncer_cut"] = m_uncer_cut;
+    cfg["dead_default_charge"] = m_dead_default_charge;
+    for (int i=0;i!=4;i++){
+      cfg["judge_alt_cut_values"][i] = m_judge_alt_cut_values[i];
+    }
     return cfg;
 }
 
@@ -47,6 +56,23 @@ void Img::ProjectionDeghosting::configure(const WireCell::Configuration& cfg)
     m_nchan = get<size_t>(cfg,"nchan", m_nchan);
     m_nslice = get<size_t>(cfg,"nslice", m_nslice);
     m_dryrun = get<bool>(cfg,"dryrun", m_dryrun);
+
+    m_cut_nparas = get<int>(cfg,"cut_nparas", m_cut_nparas);
+    if (cfg.isMember("cut_values")){
+      m_cut_values.clear();
+      for (auto value: cfg["cut_values"]){
+	m_cut_values.push_back(value.asFloat());
+      }
+    }
+
+    m_uncer_cut = get<double>(cfg, "uncer_cut", m_uncer_cut);
+    if (cfg.isMember("judge_alt_cut_values")){
+      m_judge_alt_cut_values.clear();
+      for (auto value : cfg["judge_alt_cut_values"]){
+	m_judge_alt_cut_values.push_back(value.asDouble());
+      }
+    }
+    
     Json::FastWriter jwriter;
     log->debug("{}", jwriter.write(cfg));
 }
@@ -91,14 +117,14 @@ namespace {
     Projection2D::LayerProjection2DMap& get_projection(cluster_proj_t& id2lproj, const ClusterShadow::vdesc_t& id,
                                                               const WireCell::cluster_graph_t& cg,
                                                               const std::set<cluster_vertex_t>& group, const size_t nchan,
-                                                              const size_t nslice)
+						       const size_t nslice, double uncer_cut, double dead_default_charge)
     {
         if (id2lproj.find(id) != id2lproj.end()) {
             auto& lproj = id2lproj.at(id);
             return lproj;
         }
         else {
-            auto lproj = Projection2D::get_projection(cg, group, nchan, nslice);
+	  auto lproj = Projection2D::get_projection(cg, group, nchan, nslice, uncer_cut, dead_default_charge);
             id2lproj[id] = lproj;
             return id2lproj[id];
         }
@@ -203,7 +229,8 @@ bool Img::ProjectionDeghosting::operator()(const input_pointer& in, output_point
     // figure out the connected components --> get projection for every vertex
     // store group number --> set of vertices & set of vertices and group number ...
     std::unordered_map<ClusterShadow::vdesc_t, int> cluster2id;
-    auto nclust = boost::connected_components(cs_graph, boost::make_assoc_property_map(cluster2id));
+    //auto nclust =
+    boost::connected_components(cs_graph, boost::make_assoc_property_map(cluster2id));
     
     // store the three maps in terms of group number?
     std::unordered_map<WireCell::WirePlaneLayer_t, std::unordered_map<ClusterShadow::vdesc_t,std::vector<ClusterShadow::vdesc_t>>> wp_2D_3D_clus_map;
@@ -222,9 +249,11 @@ bool Img::ProjectionDeghosting::operator()(const input_pointer& in, output_point
       auto b_cluster = c2b[cs_cluster]; // cluster_vertex_t
       int gid_cluster = cluster2id[cs_cluster];
       Projection2D::LayerProjection2DMap& proj_cluster =
-            get_projection(id2lproj, cs_cluster, in_graph, b_cluster, m_nchan, m_nslice);
-      
+	get_projection(id2lproj, cs_cluster, in_graph, b_cluster, m_nchan, m_nslice, m_uncer_cut, m_dead_default_charge);
+
+      // empty ...
       if (proj_cluster.m_number_slices ==0) continue;
+      
       // loop over each plane ...
       for (auto it = wp_2D_3D_clus_map.begin(); it != wp_2D_3D_clus_map.end(); it++){
 	WireCell::WirePlaneLayer_t layer_cluster = it->first;
@@ -252,18 +281,21 @@ bool Img::ProjectionDeghosting::operator()(const input_pointer& in, output_point
 	    
 	    auto b_clust3D = c2b[clust3D];
 	    Projection2D::LayerProjection2DMap& proj_clust3D =
-	      get_projection(id2lproj, clust3D, in_graph, b_clust3D, m_nchan, m_nslice);
+	      get_projection(id2lproj, clust3D, in_graph, b_clust3D, m_nchan, m_nslice, m_uncer_cut, m_dead_default_charge);
 	    
 	    Projection2D::Projection2D& proj2D_clust3D = proj_clust3D.m_layer_proj[layer_cluster];
-	    int coverage = Projection2D::judge_coverage(proj2D_clust3D, proj2D_cluster); // ref is eixsting, tar is new clust ...
-	    if (coverage == 1){ // tar is part of ref
+	    int coverage = Projection2D::judge_coverage(proj2D_clust3D, proj2D_cluster, m_uncer_cut); // ref is eixsting, tar is new clust ...
+	    //if (coverage == 1){ // tar is part of ref
+	    if (coverage == Projection2D::REF_COVERS_TAR){
 	      flag_save = false;
 	      break;
-	    }else if (coverage == 2){ // tar is same as ref
+	      //	    }else if (coverage == 2){ // tar is same as ref
+	    }else if (coverage == Projection2D::REF_EQ_TAR){
 	      flag_save = false;
 	      vec_clust3D.push_back(cs_cluster);
 	      break;
-	    }else if (coverage == -1){ // ref is part of tar
+	      //	    }else if (coverage == -1){ // ref is part of tar
+	    }else if (coverage == Projection2D::TAR_COVERS_REF){
 	      to_be_removed.push_back(clust3D);
 	    }
 
@@ -298,7 +330,7 @@ bool Img::ProjectionDeghosting::operator()(const input_pointer& in, output_point
 	  int gid_clust3D = cluster2id[clust3D];
 	  auto b_clust3D = c2b[clust3D];
 	  Projection2D::LayerProjection2DMap& proj_clust3D =
-            get_projection(id2lproj, clust3D, in_graph, b_clust3D, m_nchan, m_nslice);
+            get_projection(id2lproj, clust3D, in_graph, b_clust3D, m_nchan, m_nslice, m_uncer_cut, m_dead_default_charge);
 	  Projection2D::Projection2D& proj2D_clust3D = proj_clust3D.m_layer_proj[layer_cluster];
 	  auto it2 = it1; it2++;
 	  for (auto it3 = it2; it3!=clus_2D_3D_map.end(); it3++){
@@ -318,13 +350,16 @@ bool Img::ProjectionDeghosting::operator()(const input_pointer& in, output_point
 	    
 	      auto b_comp_3Dclus = c2b[comp_3Dclus];
 	      Projection2D::LayerProjection2DMap& proj_comp_3Dclus =
-		get_projection(id2lproj, comp_3Dclus, in_graph, b_comp_3Dclus, m_nchan, m_nslice);
+		get_projection(id2lproj, comp_3Dclus, in_graph, b_comp_3Dclus, m_nchan, m_nslice, m_uncer_cut, m_dead_default_charge);
 	      Projection2D::Projection2D& proj2D_comp_3Dclus = proj_comp_3Dclus.m_layer_proj[layer_cluster];
-	      
-	      int coverage_alt = Projection2D::judge_coverage_alt(proj2D_comp_3Dclus, proj2D_clust3D);
-	      if (coverage_alt == 1){
+
+	      //std::vector<double> cut_values{0.05, 0.33, 0.15, 0.33};
+	      int coverage_alt = Projection2D::judge_coverage_alt(proj2D_comp_3Dclus, proj2D_clust3D, m_judge_alt_cut_values, m_uncer_cut);
+	      //if (coverage_alt == 1){
+	      if (coverage_alt == Projection2D::REF_COVERS_TAR){
 		to_be_removed.push_back(clust3D);
-	      }else if (coverage_alt==-1){
+		//	      }else if (coverage_alt==-1){
+	      }else if (coverage_alt == Projection2D::TAR_COVERS_REF){
 		to_be_removed.push_back(comp_3Dclus);
 	      }
 
@@ -342,7 +377,7 @@ bool Img::ProjectionDeghosting::operator()(const input_pointer& in, output_point
 	  ClusterShadow::vdesc_t clust3D = *it2;
 	  auto b_clust3D = c2b[clust3D];
 	  Projection2D::LayerProjection2DMap& proj_clust3D =
-            get_projection(id2lproj, clust3D, in_graph, b_clust3D, m_nchan, m_nslice);
+            get_projection(id2lproj, clust3D, in_graph, b_clust3D, m_nchan, m_nslice, m_uncer_cut, m_dead_default_charge);
 	  proj_clust3D.m_saved_flag ++;
 	}
       }
@@ -352,7 +387,7 @@ bool Img::ProjectionDeghosting::operator()(const input_pointer& in, output_point
     
     // summarize the results ...
      for (auto it = wp_2D_3D_clus_map.begin(); it != wp_2D_3D_clus_map.end(); it++){
-      WireCell::WirePlaneLayer_t layer_cluster = it->first;
+       //      WireCell::WirePlaneLayer_t layer_cluster = it->first;
       std::unordered_map<ClusterShadow::vdesc_t,std::vector<ClusterShadow::vdesc_t>>& clus_2D_3D_map = it->second;
       for (auto it1 = clus_2D_3D_map.begin(); it1 != clus_2D_3D_map.end(); it1++){
 	int max_flag_saved = -1;
@@ -360,7 +395,7 @@ bool Img::ProjectionDeghosting::operator()(const input_pointer& in, output_point
 	  ClusterShadow::vdesc_t clust3D = *it2;
 	  auto b_clust3D = c2b[clust3D];
 	  Projection2D::LayerProjection2DMap& proj_clust3D =
-            get_projection(id2lproj, clust3D, in_graph, b_clust3D, m_nchan, m_nslice);
+            get_projection(id2lproj, clust3D, in_graph, b_clust3D, m_nchan, m_nslice, m_uncer_cut, m_dead_default_charge);
 	  if (proj_clust3D.m_saved_flag > max_flag_saved) max_flag_saved = proj_clust3D.m_saved_flag;
 	}
 
@@ -368,7 +403,7 @@ bool Img::ProjectionDeghosting::operator()(const input_pointer& in, output_point
 	  ClusterShadow::vdesc_t clust3D = *it2;
 	  auto b_clust3D = c2b[clust3D];
 	  Projection2D::LayerProjection2DMap& proj_clust3D =
-            get_projection(id2lproj, clust3D, in_graph, b_clust3D, m_nchan, m_nslice);
+            get_projection(id2lproj, clust3D, in_graph, b_clust3D, m_nchan, m_nslice, m_uncer_cut, m_dead_default_charge);
 	  if (proj_clust3D.m_saved_flag != max_flag_saved)
 	    proj_clust3D.m_saved_flag_1 ++;
 	  
@@ -376,13 +411,13 @@ bool Img::ProjectionDeghosting::operator()(const input_pointer& in, output_point
       }
      }
     
-     // run algorithm ...
+     //delete blobs ...
      for (auto cs_cluster: GraphTools::mir(boost::vertices(cs_graph))){
        auto b_cluster = c2b[cs_cluster]; // cluster_vertex_t
-       int gid_cluster = cluster2id[cs_cluster];
+       //       int gid_cluster = cluster2id[cs_cluster];
        Projection2D::LayerProjection2DMap& proj_cluster =
-	 get_projection(id2lproj, cs_cluster, in_graph, b_cluster, m_nchan, m_nslice);
-       float total_charge = proj_cluster.m_estimated_total_charge;
+	 get_projection(id2lproj, cs_cluster, in_graph, b_cluster, m_nchan, m_nslice, m_uncer_cut, m_dead_default_charge);
+       //       float total_charge = proj_cluster.m_estimated_total_charge;
        float min_charge = proj_cluster.m_estimated_minimum_charge;
        int flag_saved = proj_cluster.m_saved_flag;
        int flag_saved_1 = proj_cluster.m_saved_flag_1;
@@ -392,19 +427,19 @@ bool Img::ProjectionDeghosting::operator()(const input_pointer& in, output_point
        int saved = 0;
        if (flag_saved-flag_saved_1 ==3){
 	// look at each cell level ...
-	if ( sqrt(pow(n_timeslices/3.,2) + pow(min_charge/n_blobs/3000.,2))<1 || min_charge/n_blobs/2000.<1.){
+	 if ( sqrt(pow(n_timeslices/m_cut_values.at(0),2) + pow(min_charge/n_blobs/m_cut_values.at(1),2))<1 || min_charge/n_blobs/m_cut_values.at(2)<1.){
 	  saved = 0;
 	}else{
 	  saved = 1;
 	}
       }else if (flag_saved-flag_saved_1  ==2){
-	if ( sqrt(pow(n_timeslices/8.,2) + pow(min_charge/n_blobs/8000.,2))<1 ||  min_charge/n_blobs/4000.<1.){
+	 if ( sqrt(pow(n_timeslices/m_cut_values.at(m_cut_nparas),2) + pow(min_charge/n_blobs/m_cut_values.at(m_cut_nparas+1),2))<1 ||  min_charge/n_blobs/m_cut_values.at(m_cut_nparas+2)<1.){
 	  saved = 0;
 	}else{
 	  saved = 1;
 	}
       }else if (flag_saved-flag_saved_1  ==1){
-	if ( sqrt(pow(n_timeslices/8.,2) + pow(min_charge/n_blobs/8000.,2))<1 || min_charge/n_blobs/6000.<1.){
+	 if ( sqrt(pow(n_timeslices/m_cut_values.at(2*m_cut_nparas),2) + pow(min_charge/n_blobs/m_cut_values.at(2*m_cut_nparas+1),2))<1 || min_charge/n_blobs/m_cut_values.at(2*m_cut_nparas+2)<1.){
 	  saved = 0;
 	}else{
 	  saved = 1;

@@ -22,6 +22,7 @@ using slice_t = cluster_node_t::slice_t;
 using meas_t = cluster_node_t::meas_t;
 
 
+
 // template <typename It> boost::iterator_range<It> mir(std::pair<It, It> const& p) {
 //     return boost::make_iterator_range(p.first, p.second);
 // }
@@ -133,7 +134,8 @@ struct pair_hash
 };
 
 LayerProjection2DMap WireCell::Img::Projection2D::get_projection(
-    const WireCell::cluster_graph_t& cg, const std::set<cluster_vertex_t>& group, const size_t nchan, const size_t nslice)
+								 const WireCell::cluster_graph_t& cg, const std::set<cluster_vertex_t>& group, const size_t nchan, const size_t nslice,
+    double uncer_cut , double dead_default_charge )
 {
     using triplet_t = Eigen::Triplet<scaler_t>;
     using triplet_vec_t = std::vector<triplet_t>;
@@ -172,7 +174,7 @@ LayerProjection2DMap WireCell::Img::Projection2D::get_projection(
             // TODO: make this tick duration configurable
             // FIXME: it only fills the start time bin for now
             int start = int(slice->start() / (500 * units::nanosecond));
-            int span = int(slice->span() / (500 * units::nanosecond));
+	    // int span = int(slice->span() / (500 * units::nanosecond));
 	    filled_slices.insert(start);
             auto activity = slice->activity();
             const auto wire_descs = neighbors_oftype<wire_t>(cg, blob_desc);
@@ -187,8 +189,8 @@ LayerProjection2DMap WireCell::Img::Projection2D::get_projection(
                     auto unc = activity[chan].uncertainty();
                     auto charge = val;
                     // TODO: make this configurable and robust
-                    if (unc > 1e11) {
-                        charge = -1e12;
+                    if (unc > uncer_cut) {
+                        charge = dead_default_charge;
                     }else{
 		      // TODO: double check this
 		      layer_charge[layer] += charge;
@@ -332,11 +334,11 @@ namespace {
 // 2: tar is equal to ref: REF_EQ_TAR
 // -2: tar is equal to ref and both are empty: BOTH EMPTY ...
 // 0 ref and tar do not belong to each other:   OTHER
-WireCell::Img::Projection2D::Coverage WireCell::Img::Projection2D::judge_coverage(const Projection2D& ref, const Projection2D& tar) {
+WireCell::Img::Projection2D::Coverage WireCell::Img::Projection2D::judge_coverage(const Projection2D& ref, const Projection2D& tar, double uncer_cut) {
 
   // non zero component in both
-  bool ref_non_zero = loop_exist(ref.m_proj, [](scaler_t x){return (x!=0 && x > -1e11);}); // number of live elements
-  bool tar_non_zero = loop_exist(tar.m_proj, [](scaler_t x){return (x!=0 && x > -1e11);}); // number of live elements ...
+  bool ref_non_zero = loop_exist(ref.m_proj, [&](scaler_t x){return (x!=0 && x > -uncer_cut);}); // number of live elements
+  bool tar_non_zero = loop_exist(tar.m_proj, [&](scaler_t x){return (x!=0 && x > -uncer_cut);}); // number of live elements ...
 
   if ((!ref_non_zero) && (!tar_non_zero)){
     return BOTH_EMPTY;
@@ -347,8 +349,8 @@ WireCell::Img::Projection2D::Coverage WireCell::Img::Projection2D::judge_coverag
   }else{
     // ref - tar
     sparse_mat_t ref_m_tar = ref.m_proj - tar.m_proj;
-    bool ref_m_tar_neg = loop_exist(ref_m_tar, [](scaler_t x){return (x<0 && fabs(x)<1e11);}); // number of live elements belong to tar, not belong to ref
-    bool ref_m_tar_pos = loop_exist(ref_m_tar, [](scaler_t x){return (x>0 && fabs(x)<1e11);}); // number of live elements belong to ref, not belong to tar
+    bool ref_m_tar_neg = loop_exist(ref_m_tar, [&](scaler_t x){return (x<0 && fabs(x)<fabs(uncer_cut));}); // number of live elements belong to tar, not belong to ref
+    bool ref_m_tar_pos = loop_exist(ref_m_tar, [&](scaler_t x){return (x>0 && fabs(x)<fabs(uncer_cut));}); // number of live elements belong to ref, not belong to tar
 
     if ((!ref_m_tar_neg) && (!ref_m_tar_pos)){
       return REF_EQ_TAR;
@@ -402,7 +404,7 @@ WireCell::Img::Projection2D::Coverage WireCell::Img::Projection2D::judge_coverag
 // 2: tar is equal to ref
 // 0 ref and tar do not belong to each other
 WireCell::Img::Projection2D::Coverage WireCell::Img::Projection2D::judge_coverage_alt(const Projection2D& ref,
-                                                                                      const Projection2D& tar)
+                                                                                      const Projection2D& tar, std::vector<double>& cut_values, double uncer_cut)
 {
     // ref * tar
   //    sparse_mat_t ref_t_tar = ref.m_proj.cwiseProduct(tar.m_proj);
@@ -416,8 +418,8 @@ WireCell::Img::Projection2D::Coverage WireCell::Img::Projection2D::judge_coverag
   
     int num_ref = loop_count(ref.m_proj, [](scaler_t x){return x>0;});
     int num_tar = loop_count(tar.m_proj, [](scaler_t x){return x>0;});
-    int num_dead_ref = loop_count(ref.m_proj, [](scaler_t x){return x<-1e11;}); // -1e12 for dead pixels, TODO: make sure this is robust
-    int num_dead_tar = loop_count(tar.m_proj, [](scaler_t x){return x<-1e11;});
+    int num_dead_ref = loop_count(ref.m_proj, [&](scaler_t x){return x<(-1)*uncer_cut;}); // -1e12 for dead pixels, TODO: make sure this is robust
+    int num_dead_tar = loop_count(tar.m_proj, [&](scaler_t x){return x<(-1)*uncer_cut;});
     int num_inter  = loop_count(inter_proj, [](scaler_t x){return x>0;});
     
     scaler_t charge_ref = loop_sum(ref.m_proj, [](scaler_t x){return (x>0)*x;});
@@ -461,8 +463,8 @@ WireCell::Img::Projection2D::Coverage WireCell::Img::Projection2D::judge_coverag
         float common_counts = num_inter;
         float common_charge = charge_inter;
 
-        if ((1 - common_charge / small_charge) < std::min(0.05 * (small_counts + dead_counts) / small_counts, 0.33) &&
-            (1 - common_counts / small_counts) < std::min(0.15 * (small_counts + dead_counts) / small_counts, 0.33)) {
+        if ((1 - common_charge / small_charge) < std::min( cut_values[0] * (small_counts + dead_counts) / small_counts, cut_values[1]) &&
+            (1 - common_counts / small_counts) < std::min( cut_values[2] * (small_counts + dead_counts) / small_counts, cut_values[3])) {
             return value;
         }
         else {

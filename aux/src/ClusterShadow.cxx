@@ -40,11 +40,13 @@ ClusterShadow::graph_t ClusterShadow::shadow(const cluster_graph_t& cgraph,
 
         // Each view/strip of the blob shape.
         for (const auto& strip : iblob->shape().strips()) {
-            if (strip.layer < 2) {
-                // skip layers defining anode sensitive area
-                continue;
-            }
-            const size_t view = strip.layer - 2;
+
+	  // WCT convention ...
+	  if (strip.layer < 2) {
+	    // skip layers defining anode sensitive area
+	    continue;
+	  }
+	  const size_t view = strip.layer - 2;
 
             const auto b = strip.bounds;
             coverage_t::yinterval_t yi(b.first, b.second);
