@@ -49,8 +49,8 @@ static cluster_node_t to_blob(Json::Value jblob,
                               const IWire::vector& wires)
 {
     const int ident = jblob["ident"].asInt();
-    const double value = jblob["value"].asDouble();
-    const double error = jblob["error"].asDouble();
+    const double value = jblob["val"].asDouble();
+    const double error = jblob["unc"].asDouble();
 
     std::map<int, RayGrid::Strip> strips;
     for (const auto& iwire : wires) {

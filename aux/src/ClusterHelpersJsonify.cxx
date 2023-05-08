@@ -79,8 +79,8 @@ Json::Value blob_jsoner(const cluster_node_t& n)
     ret["span"] = islice->span();
     ret["start"] = islice->start();
     ret["ident"] = iblob->ident();
-    ret["value"] = iblob->value();
-    ret["error"] = iblob->uncertainty();
+    ret["val"] = iblob->value();
+    ret["unc"] = iblob->uncertainty();
     {
         WirePlaneId afid(kUnknownLayer, iface->which(), iface->anode());
         ret["faceid"] = afid.ident();

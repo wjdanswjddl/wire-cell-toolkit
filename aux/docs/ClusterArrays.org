@@ -60,8 +60,8 @@ The additional columns that make each array schema unique are given in the secti
 
 An /activity/ represents an amount of signal and its uncertainty collected from a channel over the duration of a time slice.
 
-2. [@2] /value/, the central value of the signal
-3. /uncertainty/, the uncertainty in the value
+2. [@2] /val/, the central value of the signal
+3. /unc/, the uncertainty in the value
 4. /index/, (int) the channel index
 5. /wpid/, (int) the wire plane id
 
@@ -84,8 +84,8 @@ The wire array represents the "geometric" information about physical wire segmen
 
 A blob describes a volume in space bounded in the longitudinal direction by the duration of a time slice and in the transverse directions by pairs of wires from each plane and it includes an associated amount of signal contained by the volume.
 
-2. [@2] /value/, the central value of the signal
-3. /uncertainty/, the uncertainty in the value
+2. [@2] /val/, the central value of the signal
+3. /unc/, the uncertainty in the value
 4. /faceid/, (int) the face ident from ~WirePlaneId(kUnkownLayer,face,apa)~
 5. /sliceid/, (int) the slice ident
 6. /start/, the start time of the blob
@@ -103,8 +103,8 @@ A blob describes a volume in space bounded in the longitudinal direction by the 
 
 A slice represents a duration in drift/readout time.
 
-2. [@2] /value/, the central value of the signal.
-3. /uncertainty/, the uncertainty in the value.
+2. [@2] /val/, the central value of the signal.
+3. /unc/, the uncertainty in the value.
 4. /frameid/, (int) the frame ident number
 5. /start/, the start time of the slice.
 6. /span/, the duration time of the slice.
@@ -113,8 +113,8 @@ A slice represents a duration in drift/readout time.
 
 A measure represents the collection of channels in a given plane connected to a set of wires that span one or more blobs overlapping in one wire plane.  Its includes an associated signal representing the sum of signals from the participating channels.
 
-2. [@2] /value/, the central value of the signal.
-3. /uncertainty/, the uncertainty in the value.
+2. [@2] /val/, the central value of the signal.
+3. /unc/, the uncertainty in the value.
 4. /wpid/, the wire plane ID
 
 ** Edge
