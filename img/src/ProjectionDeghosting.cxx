@@ -300,8 +300,10 @@ bool Img::ProjectionDeghosting::operator()(const input_pointer& in, output_point
 	      to_be_removed.push_back(clust3D);
 	    }
 
-	  }// loop over edges ...
-	    
+	  }// loop over edges ..
+	  
+	  if (!flag_save) break;
+	  
 	} // loop over existing ...
 
 
