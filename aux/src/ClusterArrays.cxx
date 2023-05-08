@@ -25,7 +25,10 @@ static const size_t ident_col=1; // all node types
 static const size_t sigv_col=2;  // all but wires
 static const size_t sigu_col=3;  // all but wires
 
-
+// Edges do not have an integer descriptor, per se but we put an edge
+// counter in the desc_col.
+static const size_t tail_col=1;  // edge tail
+static const size_t head_col=2;  // edge head
 
 
 ClusterArrays::ClusterArrays()
@@ -153,36 +156,22 @@ char ClusterArrays::node_code(const cluster_node_t& node)
 }
 
 
-
-struct NodeKiller
-{
-    std::unordered_set<cluster_vertex_t> condemned;
-
-    bool operator()(cluster_graph_t::edge_descriptor ed) const {
-        return true;
-    }
-    bool operator()(cluster_graph_t::vertex_descriptor vd) const {
-        return condemned.find(vd) == condemned.end();
-    }
-};
-using reduced_graph_t = boost::filtered_graph<cluster_graph_t, NodeKiller, NodeKiller>;
-
-
-// CAVEAT: BIG FAT HACK
+// CAVEAT: BIG FAT BODGE HACK
 //
-// We rewrite the graph to REPLACE input c-nodes that represent
-// physical channels with c-nodes that represent activity in a channel
-// and in a slice.  These new c-nodes become activity arrays and
-// together hold the information in the "activity map" of the ISlice
-// instances.
+// APPEND new c-nodes to represent activity nodes.  The old c-nodes
+// will have their IChannel::pointer NULLED.  While the old c-nodes
+// represent physical channels the new c-nodes represent activity in a
+// channel AND in a slice.  These new c-nodes are used to fill the
+// activity array and together hold the information in the "activity
+// map" of the ISlice instances.  Old c-nodes with nullptr shoudl be
+// ignored but are left in order not to invalidate vertex descriptors.
 //
 void ClusterArrays::bodge_channel_slice(cluster_graph_t& graph)
 {
-    // Collect all "old" cnodes for later removal.
-    NodeKiller dead_cnodes;
-    for (const auto& cvtx : vertex_range(graph)) {
-        if (node_code(graph[cvtx]) == 'a') {
-            dead_cnodes.condemned.insert(cvtx);
+    std::vector<cluster_vertex_t> old_cvtx;
+    for (const auto& vtx : vertex_range(graph)) {
+        if ('c' == graph[vtx].code()) {
+            old_cvtx.push_back(vtx);
         }
     }
 
@@ -232,7 +221,7 @@ void ClusterArrays::bodge_channel_slice(cluster_graph_t& graph)
                 const auto& mnode = graph[mvtx];
                 if (node_code(mnode) != 'm') { continue; }
                 for (auto cvtx : mir(boost::adjacent_vertices(mvtx, graph))) {
-                    const auto& cnode = graph[cvtx];
+                    const auto& cnode = graph[cvtx]; // old
                     if (node_code(cnode) != 'a') { continue; }
                     auto active_cvtx = active_cnodes[std::get<channel_t>(cnode.ptr)];
                     boost::add_edge(active_cvtx, mvtx, graph);
@@ -240,24 +229,69 @@ void ClusterArrays::bodge_channel_slice(cluster_graph_t& graph)
             }
         }
     }
-    reduced_graph_t rg(graph, dead_cnodes, dead_cnodes);
-    cluster_graph_t copy;
-    boost::copy_graph(rg, copy);
-    graph = copy;
+
+    // Invalidate old c-nodes.  Subsequent code much check for
+    // non-null ptr value to avoid using these!
+    for (auto cvtx : old_cvtx) {
+        std::get<channel_t>(graph[cvtx].ptr) = nullptr;
+    }
+}
+
+static bool is_old_chan(const cluster_node_t& node)
+{
+    if (node.code() == 'c') {
+        if (std::get<channel_t>(node.ptr) == nullptr) {
+            return true;
+        }
+    }
+    return false;
+}
+
+static
+void dump(const cluster_graph_t& graph)
+{
+    size_t nold_chan=0;
+    std::unordered_map<char, std::unordered_set<int>> code2idents;
+    for (const auto& vdesc : vertex_range(graph)) {
+        const auto& node = graph[vdesc];
+        if (is_old_chan(node)) {
+            ++nold_chan;
+            continue;
+        }
+        char code = node.code();
+        int ident = node.ident();
+        code2idents[code].insert(ident);
+    }
+
+    const std::map<std::string, size_t>& counts = count(graph);
+    std::cerr << "nodes: ";
+    for (const auto& [code,num] : counts) {
+        if (code.size() != 1) { continue; }
+        if (code[0] == 'c') {
+            std::cerr << code << ":" << num-nold_chan << "(" << nold_chan << ") " ;
+            continue;
+        }
+        std::cerr << code << ":" << num << " " ;
+    }
+    std::cerr << "edges: ";
+    for (const auto& [code,num] : counts) {
+        if (code.size() == 2) {
+            std::cerr << code << ":" << num << " ";
+        }
+    }
+    std::cerr << "\n";
 }
 
 void ClusterArrays::init(const cluster_graph_t& cin_graph)
 {
     this->clear();
 
-    // Record this so after bodging we can give each per-slice
-    // activity the original channel vertex descriptor to allow
-    // perfect round trip.
-    for (const auto& vdesc : vertex_range(cin_graph)) {
-        const auto& node = cin_graph[vdesc];
-        if (node.code() == 'c') { // unbodged code
-            const auto& ich = std::get<channel_t>(node.ptr);
-            m_chid2desc[ich->ident()] = vdesc;
+    // Remember original channel vertex descriptor
+    for (const auto& vtx : vertex_range(cin_graph)) {
+        const auto& node = cin_graph[vtx];
+        auto nc = node.code();
+        if (nc == 'c') {
+            m_chid2desc[node.ident()] = vtx;
         }
     }
 
@@ -265,31 +299,38 @@ void ClusterArrays::init(const cluster_graph_t& cin_graph)
     bodge_channel_slice(mutable_graph);
     const cluster_graph_t& graph = mutable_graph;
 
-    const size_t nverts = boost::num_vertices(graph);
+    {                           // debugging
+        std::cerr << "pre-bodge:  ";
+        dump(cin_graph);
+        std::cerr << "post-bodge: ";
+        dump(graph);
+    }
+
     // Loop vertices to get per-type sizes.
     std::unordered_map<node_code_t, size_t> counts;
     for (const auto& vdesc : vertex_range(graph)) {
         const auto& node = graph[vdesc];
+        if (is_old_chan(node)) {
+            continue;
+        }
         node_code_t code = node_code(node);
         ++counts[code];
     }
-
-    assert(nverts == boost::num_vertices(graph));
 
     // This hardwires the number of columns in the schema for each
     // node array type.  See ClusterArray.org for definitive
     // description and keep it in sync here.
     std::unordered_map<node_code_t, size_t> node_array_ncols = {
         // [desc, ident, value, uncertainty, index, wpid]
-        {'a',1+3+2},
+        {'a',1+3+2},            // 6
         // [desc, ident, wip, seg, ch, plane, [tail x,y,z], [head x,y,z]]
-        {'w',1+11},
+        {'w',1+11},             // 12
         // [desc,ident,sigv,sigu, faceid,sliceid,start,span, [3x2 wire bounds], nc,[12 corner y,z]]
-        {'b',1+3+4+3*2+1+12*2},
+        {'b',1+3+4+3*2+1+12*2}, // 39
         // [desc,ident,sigv,sigu, frameid, start, span]
-        {'s',1+3+3},
+        {'s',1+3+3},            // 7
         // [desc,ident,sigv,sigu, wpid]
-        {'m',1+4},
+        {'m',1+4},              // 5
     };
 
     // Allocate node arrays
@@ -302,6 +343,9 @@ void ClusterArrays::init(const cluster_graph_t& cin_graph)
     counts.clear();             // reuse to track nrows.
     for (const auto& vdesc : vertex_range(graph)) {
         const auto& node = graph[vdesc];
+        if (is_old_chan(node)) {
+            continue;
+        }
         const node_code_t code = node_code(node);
 
         node_array_t::size_type row = counts[code];
@@ -312,11 +356,13 @@ void ClusterArrays::init(const cluster_graph_t& cin_graph)
         node_array(code)[row][ident_col] = node.ident();
     }
     
-    assert(nverts == boost::num_vertices(graph));
-
     // One more time to process things that require graph traversal.
     for (const auto& vdesc : vertex_range(graph)) {
         const auto& node = graph[vdesc];
+        if (is_old_chan(node)) {
+            continue;
+        }
+
         const node_code_t code = node_code(node);
 
         if (code == 's') { // slices and channels
@@ -339,16 +385,17 @@ void ClusterArrays::init(const cluster_graph_t& cin_graph)
         }
     }
 
-    assert(nverts == boost::num_vertices(graph));
-
     // And the edges.  First to collect the data and learn the sizes.
     std::unordered_map<edge_code_t, size_t> ecounts;
     for (const auto& edge : mir(boost::edges(graph))) {
         auto tvtx = boost::source(edge, graph);
         auto hvtx = boost::target(edge, graph);
 
-        // auto tsa = m_v2s[tvtx];
-        // auto hsa = m_v2s[hvtx];
+        const auto& tnode = graph[tvtx];
+        if (is_old_chan(tnode)) continue;
+        const auto& hnode = graph[hvtx];
+        if (is_old_chan(hnode)) continue;
+
         auto tsa = vertex_address(tvtx);
         auto hsa = vertex_address(hvtx);
 
@@ -362,19 +409,21 @@ void ClusterArrays::init(const cluster_graph_t& cin_graph)
         ++ecounts[ecode];
     }
     for (const auto& [ecode, esize] : ecounts) {
-        rezero(edge_array(ecode), {esize, 2});
+        rezero(edge_array(ecode), {esize, 3});
     }
-
-    assert(nverts == boost::num_vertices(graph));
 
     // And again, this time with feeling!
     ecounts.clear();
+    int edesc = 0;
     for (const auto& edge : mir(boost::edges(graph))) {
         auto tvtx = boost::source(edge, graph);
         auto hvtx = boost::target(edge, graph);
 
-        // auto tsa = m_v2s[tvtx];
-        // auto hsa = m_v2s[hvtx];
+        const auto& tnode = graph[tvtx];
+        if (is_old_chan(tnode)) continue;
+        const auto& hnode = graph[hvtx];
+        if (is_old_chan(hnode)) continue;
+
         auto tsa = vertex_address(tvtx);
         auto hsa = vertex_address(hvtx);
 
@@ -387,10 +436,10 @@ void ClusterArrays::init(const cluster_graph_t& cin_graph)
         auto ecode = edge_code(tsa.code, hsa.code);
         edge_array_t::size_type erow = ecounts[ecode];
         ++ecounts[ecode];
-        edge_array(ecode)[erow][0] = tsa.index;
-        edge_array(ecode)[erow][1] = hsa.index;
+        edge_array(ecode)[erow][desc_col] = edesc++;
+        edge_array(ecode)[erow][tail_col] = tsa.index;
+        edge_array(ecode)[erow][head_col] = hsa.index;
     }
-    assert(nverts == boost::num_vertices(graph));
 }
 
 // must process s+c together to spread activity onto channel
@@ -427,6 +476,7 @@ void ClusterArrays::init_slice(const cluster_graph_t& graph, cluster_vertex_t sv
     for (auto cvtx : mir(boost::adjacent_vertices(svtx, graph))) {
         const auto& cnode = graph[cvtx];
         if (node_code(cnode) != 'a') { continue; }
+        if (is_old_chan(cnode)) { continue; }
 
         auto ichan = std::get<channel_t>(cnode.ptr);
         const int chid = ichan->ident();
@@ -453,8 +503,9 @@ void ClusterArrays::init_measure(const cluster_graph_t& graph, cluster_vertex_t 
     auto mrow = node_row(mvtx);
     auto imeas = std::get<meas_t>(mnode.ptr);
     auto mval = imeas->signal();
+    int ident = imeas->ident();
     mrow[desc_col] = mvtx;
-    mrow[ident_col] = imeas->ident();
+    mrow[ident_col] = ident;
     mrow[sigv_col] = mval.value();
     mrow[sigu_col] = mval.uncertainty();
     mrow[sigu_col+1] = imeas->planeid().ident();
@@ -470,8 +521,9 @@ void ClusterArrays::init_wire(const cluster_graph_t& graph, cluster_vertex_t wvt
     const auto& iwire = get<wire_t>(wnode.ptr);
     const auto [p1,p2] = iwire->ray();
 
+    int ident = iwire->ident();
     wrow[desc_col] = wvtx;
-    wrow[ident_col] = iwire->ident();
+    wrow[ident_col] = ident;
 
     node_array_t::size_type col = ident_col;
 
@@ -501,8 +553,9 @@ void ClusterArrays::init_blob(const cluster_graph_t& graph, cluster_vertex_t bvt
     const auto& shape = iblob->shape();
     const auto& strips = shape.strips();
 
+    int ident = iblob->ident();
     brow[desc_col] = bvtx;
-    brow[ident_col] = iblob->ident();
+    brow[ident_col] = ident;
     brow[sigv_col] = iblob->value();
     brow[sigu_col] = iblob->uncertainty();
 

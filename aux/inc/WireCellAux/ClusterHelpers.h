@@ -24,7 +24,7 @@ namespace WireCell::Aux {
     /// Return JSON representation of the cluster.
     Json::Value jsonify(const cluster_graph_t& cgraph);
 
-    /// A loader of cluster JSON files.
+    /// A loader of cluster JSON files.  See also ClusterArrays.
     ///
     class ClusterLoader {
     public:
@@ -138,7 +138,8 @@ namespace WireCell::Aux {
     /// or return an empty graph.
     cluster_graph_t extract_sbX(const cluster_graph_t& cgraph, char code);
 
-
+    /// Return counts indexed by node and/or edge code
+    std::map<std::string, size_t> count(const cluster_graph_t& cgraph, bool nodes=true, bool edges=true);
 }
 
 #endif

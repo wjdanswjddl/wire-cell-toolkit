@@ -203,3 +203,31 @@ Aux::cluster::directed::type_directed(const cluster_graph_t& cgraph,
     }
     return dgraph;
 }
+
+std::map<std::string, size_t> Aux::count(const cluster_graph_t& cgraph, bool nodes, bool edges)
+{
+    std::map<std::string, size_t> counts;
+    if (nodes) {
+        for (auto vtx : mir(boost::vertices(cgraph))) {
+            std::string nc=" ";
+            nc[0] = cgraph[vtx].code();
+            counts[nc] += 1;
+        }
+    }
+    if (edges) {
+        for (const auto& edge : mir(boost::edges(cgraph))) {
+            auto t = boost::source(edge, cgraph);
+            auto h = boost::target(edge, cgraph);
+            char tc = cgraph[t].code();
+            char hc = cgraph[h].code();
+            if (tc > hc) {
+                std::swap(tc,hc);
+            }
+            std::string ec="  ";
+            ec[0] = tc;
+            ec[1] = hc;
+            counts[ec] += 1;
+        }
+    }
+    return counts;
+}

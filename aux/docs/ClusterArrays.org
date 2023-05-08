@@ -119,12 +119,11 @@ A measure represents the collection of channels in a given plane connected to a 
 
 ** Edge
 
-An edge represents an association between a row in a tail array and a row in a head array.  Unlike node arrays above, edge arrays are of integer value.
+An edge array is of a type constructed as the concatenation of two node types, in alphabetical order.  Eg, a ~bw~ edge array holds edges between ~b~ and ~w~ nodes.  Each row holds tail and head indices into the corresponding tail and head arrays.  An edge array also holds an edge descriptor giving the edge order in the original graph.  Note, ~boost::graph~ edges do not provide this integer representation directly and thus it is expected to be formed as a simple count by the code that writes cluster array schema.  Code that reads cluster array schema should add edges in order of this edge descriptor.
 
-0. [@0] /edesc,/ (int), the edge descriptor counts the edge in the graph
+0. [@0], (int) edge order
 1. /tail/, (int) index of a row in a tail array
 2. /head/, (int) index of a row in a head array   
-
 
 * Persistence 
 
@@ -183,3 +182,4 @@ Milestones for completing this support are:
 - [ ] extend ~ClusterArrays~ to produce ~ITensorSet~ using ~TensorDM~ API to convert from ~Dataset~.
 - [ ] extend ~ClusterArrays~ to initialize from ~ITensorSet~, again using ~TensorDM~.
 - [ ] develop ~ClusterTensor~ and ~TensorCluster~ DFP graph node components.
+

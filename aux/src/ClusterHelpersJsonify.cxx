@@ -77,6 +77,7 @@ Json::Value blob_jsoner(const cluster_node_t& n)
 
     Json::Value ret = Json::objectValue;
     ret["span"] = islice->span();
+    ret["start"] = islice->start();
     ret["ident"] = iblob->ident();
     ret["value"] = iblob->value();
     ret["error"] = iblob->uncertainty();
@@ -94,25 +95,18 @@ Json::Value blob_jsoner(const cluster_node_t& n)
     }
     ret["corners"] = jcorners;
 
-    //-- strip info is redunant with edges connected to wire vertices.
-    // Json::Value jstrips = Json::arrayValue;
-    // for (const auto& strip : blob.strips()) {
-    //     int plane_ind = strip.layer - 2; // fixme
-    //     if (plane_ind <0) { continue; }
-    //     Json ::Value j = Json::objectValue;
-    //     j["wpid"] = iplanes[plane_ind]->planeid().ident();
-    //     j["planeind"] = plane_ind;
-    //     j["wip1"] = strip.bounds.first;
-    //     j["wip2"] = strip.bounds.second;
-    //     Json::Value jwires = Json::arrayValue;
-    //     const auto& wires = iplanes[plane_ind]->wires();
-    //     for (auto wip = strip.bounds.first; wip < strip.bounds.second; ++wip) {
-    //         jwires.append(wires[wip]->ident());
-    //     }
-    //     j["wids"] = jwires;
-    //     jstrips.append(j);
-    // }
-    // ret["strips"] = jstrips;
+    Json::Value jbounds = Json::arrayValue;
+    for (const auto& strip : blob.strips()) {
+        int plane_ind = strip.layer - 2;
+        if (plane_ind <0) {
+            continue;           // skip active region bounds
+        }
+        Json ::Value j = Json::arrayValue;
+        j[0] = strip.bounds.first;
+        j[0] = strip.bounds.second;
+        jbounds.append(j);
+    }
+    ret["bounds"] = jbounds;
 
     return ret;
 }

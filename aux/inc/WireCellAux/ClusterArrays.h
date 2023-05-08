@@ -97,7 +97,7 @@ namespace WireCell::Aux {
         using v2s_t = std::unordered_map<cluster_vertex_t, store_address_t>;
         v2s_t m_v2s;
 
-        // Remember the unbodged vertex of channels
+        // Remember chid -> original channel descriptor
         using chid2desc_t = std::unordered_map<int, cluster_vertex_t>;
         chid2desc_t m_chid2desc;
 

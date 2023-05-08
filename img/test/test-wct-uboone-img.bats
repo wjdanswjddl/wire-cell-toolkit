@@ -29,6 +29,7 @@ setup_file () {
     run_idempotently -s "$dag_file" -s "$infile" \
                      -t "$img_numpy_file" -t "$img_json_file" -t "$log_file" -- \
                      wct -l "$log_file" -L debug -c "$dag_file"
+    echo $output 1>&3
     [[ -s "$log_file" ]]
 }
 
@@ -74,18 +75,23 @@ function do_blobs () {
         logs[$fmt]="$log"
 
         local dat="clusters-${fmt}.tar.gz"
-        echo $wcimg $what "${args[@]}" -o "$log" "$dat"
+        echo "$wcimg $what ${args[@]} -o $log $dat" 
         run $wcimg $what "${args[@]}" -o "$log" "$dat"
         echo "$output"
+        echo "$status"
         [[ "$status" -eq 0 ]]
         [[ -s "$log" ]]
     done
 
     local delta="$(diff -u ${logs[*]})"
+    echo "$delta"
     [[ -z "$delta" ]]
 }
 
-@test "inspect blobs" {
+@test "inspect blobs quietly" {
+    do_blobs inspect
+}
+@test "inspect blobs verbosely" {
     do_blobs inspect --verbose
 }
 @test "dump blobs" {
