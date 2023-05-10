@@ -133,15 +133,22 @@ An edge array is of a type constructed as the concatenation of two node types, i
 
 * Persistence 
 
-WCT supports persisting clusters in files.  This is still a work in progress and this section describes the current support.  Three persistent schema exist and for each a choice for file format is available.
+WCT supports persisting clusters in files. Three persistent schema exist: "graph", "array" and "tensor".
 
 ** Graph schema
 
-The /cluster graph file schema/ matches very closely that of ~ICluster~.  The file format is JSON with optional compression (~.json.gz~, ~.json.bz2~).  It is called a /cluster graph schema/ because the /activity map/ is represented as an attribute on /slice/ objects and /channel/ nodes are retained.
+The /cluster graph file schema/ matches very closely the data schema of the ~ICluster~ representation, which is why it is called cluster *graph* schema.  The file format is JSON with optional compression (~.json.gz~, ~.json.bz2~).  As it closely mimics the ~ICluster~ representation, the slice activity map is stored directly as an attribute in a slice s-node.
+
+The ~ClusterFileSource~ and ~ClusterFileSink~ can persist /cluster graph file/ schema.
 
 ** Array schema
 
-The /cluster array file schema/ matches the schema defined in this document.  In particular, the /channel/ nodes are represented with /activity/ arrays which hold the /activity map/ information and all node level properties are coerced into double prescision floating point values.  Arrays are per node or edge type.  Currently, ~ICluster~ can be saved to these files but they no reader exists.
+The /cluster array file schema/ matches the schema defined in this document.  This schema differs from /cluster graph schema/ in these ways.
+
+1. A set of arrays represent the graph instead of a JSON data structure.  
+2. Every node attribute is coerced to scalar double precision number.
+3. c-nodes (physical channel) are removed and a-nodes (activity in channel in slice)  are added.
+4. The slice activity map is expressed through a-s edges and adding signal value and uncertainty in the a-node properties.
 
 The file format is that of any archive container supported by WCT iostreams (Zip and Tar with optimal compression).  Each array is represented in a Numpy file that is written to or read from the stream.  The names of the Numpy files encode the ~ICluster::ident()~ number and the array type.  This results in files in the container with names like:
 
@@ -160,47 +167,32 @@ The file format is that of any archive container supported by WCT iostreams (Zip
  cluster_6501_amedges.npy
 #+end_example
 
-This representation may be directly consumed by code expecting a schema matching the ~HeteroData~ class from ~pytorch-geometric~.
+The ~ClusterFileSource~ and ~ClusterFileSink~ can persist /cluster array file/ schema.
 
 ** Tensor schema
 
-The /cluster tensor schema/ is similar to the /cluster array schema/ and comes in two variants.  Both variants allow representation as collections of ~PointCloud::Dataset~ or ~ITensorSet~.  In terms of the former the two variants are described:
+The /cluster tensor schema/ is not yet realized.  With already two implemented schema, a third seems excessive.  The main motivation is to unify persistence of data products in the WCT [[file:tensor-data-model.org][tensor data model]].  This involves writing object level converters to/from ~ITensorSet~ and using general purpose ~ITensorSet~ I/O components.  Already converters exist for ~IFrame~ and ~PointCloud~.  With and ~ICluster~ converter (and ~IDepo~), all major WCT data products would be in one data model.  The existing I/O for ~ITensorSet~ works with WCT iostreams.  Furthermore the tensor data model was designed to mimic HDF5 and so supporting that format would be easy and would bring random access file I/O.  A /cluster tensor schema/ is then, in the end, motivated.
 
-- monolith :: each cluster array is mapped to a ~Dataset~ with a single ~PointCloud::Array~, that of the cluster array, and mapped to a single ~ITensor~.  The coercion of ~int~ to ~double~ remains.
-- columnar :: each cluster array is mapped to a ~Dataset~ with one ~PointCloud::Array~ for each column.  This avoids the ~int~ to ~double~ coercion and explicitly names the PC attributes instead of relying on column mapping described above.
+The /cluster tensor schema/ is exected to be similar to the /cluster array schema/ but two representation choices exist. The choice comes down to adopting the type coercion of /cluster array schema/ to retain "monolithic" arrays or allowing each node attribute to retain its natural type and using individual "columnar" arrays.  This choice is made possible as ~ITensorSet~ allows for a heterotypical set of its ~ITensor~ constituents.
 
-The details of the tensor representation are given in [[file:tensor-data-model.org]].
+An related implementation choice for /cluster tensor schema/ also exists.  We may convert directly between ~ICluster~ and ~ITensorSet~ with new code or we may extend ~ClusterArrays~ to gain ~ITensorSet~ support and reuse/rework its code.  Then, there is a choice to retain ~ClusterArrays~ current use of ~boost::multi_array~ or to replace it those with ~PointCloud::DataSet~.  The motivator is that ~DataSet~ already has converters with ~ITensor~.  Choosing the "monolithic" type coercion approach would be easiest and may allow for compatibility between /tensor/ and /array/ files (useful for feeding GNN training).
 
 ** Implementation
 
-Full support for persistence of clusters is a work in progress.  The current (admittedly somewhat complicated) situation is illustrated:
+The current situation is illustrated:
 
 [[file:cluster-representation.png]]
 
-Solid black represent existing nodes and edges.  Gray nodes are not implemented and dashed edges represent unrealized transforms.  As this story improves, this diagram will become simpler.
+Solid black represent existing nodes and edges.  Gray nodes are not implemented.  The "repr?" edge refers to the implementation choice in the last paragraph of the section just above.
 
 Milestones for completing this support are:
 
 - [X] extend ~ClusterArrays~ to provide round-trip with ~ICluster~.
-- [ ] test ~ClusterArrays~ to provide round-trip with ~ICluster~.
-- [ ] extend ~ClusterArrays~ to be initialized with from arrays.
-- [ ] extend ~ClusterFileSource~ to use above to read cluster array schema files.
+- [X] test ~ClusterArrays~ to provide round-trip with ~ICluster~.
+- [X] extend ~ClusterArrays~ to be initialized with from arrays.
+- [X] extend ~ClusterFileSource~ to use above to read cluster array schema files.
 - [ ] refactor ~ClusterArrays~ to utilize ~PointCloud::Dataset~ as internal storage.
 - [ ] extend ~ClusterArrays~ to produce ~ITensorSet~ using ~TensorDM~ API to convert from ~Dataset~.
 - [ ] extend ~ClusterArrays~ to initialize from ~ITensorSet~, again using ~TensorDM~.
 - [ ] develop ~ClusterTensor~ and ~TensorCluster~ DFP graph node components.
 
-* Debug
-
-json-json
-
-#+begin_example
-ClusterFileSource:> cluster=6501 nvertices=15045 nedges=80358 types: c:6019 w:6019 b:1281 s:85 m:1641 
-ClusterFileSink:>   cluster=6501 nvertices=15045 nedges=80358 types: c:6019 w:6019 b:1281 s:85 m:1641
-#+end_example
-
-numpy-numpy
-
-#+begin_example
-
-#+end_example
