@@ -320,6 +320,8 @@ bool Img::ProjectionDeghosting::operator()(const input_pointer& in, output_point
       
     }
 
+    log->debug("2D --> 3D size: {} {} {}", wp_2D_3D_clus_map[kUlayer].size(), wp_2D_3D_clus_map[kVlayer].size(), wp_2D_3D_clus_map[kWlayer].size()  );
+
     // secondary loop over plane
     for (auto it = wp_2D_3D_clus_map.begin(); it != wp_2D_3D_clus_map.end(); it++){
       WireCell::WirePlaneLayer_t layer_cluster = it->first;

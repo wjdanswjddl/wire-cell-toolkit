@@ -189,12 +189,15 @@ LayerProjection2DMap WireCell::Img::Projection2D::get_projection(
                     auto unc = activity[chan].uncertainty();
                     auto charge = val;
                     // TODO: make this configurable and robust
+		    
                     if (unc > uncer_cut) {
                         charge = dead_default_charge;
                     }else{
 		      // TODO: double check this
 		      layer_charge[layer] += charge;
 		    }
+
+		    // if (charge < 10 && charge > -uncer_cut) std::cout << layer << " " << index << " " << start << " " << charge << " " << unc << std::endl;
 		    
                     // if filled, skip
                     if (filled.find({index,start})!=filled.end()) {
@@ -336,10 +339,16 @@ namespace {
 // 0 ref and tar do not belong to each other:   OTHER
 WireCell::Img::Projection2D::Coverage WireCell::Img::Projection2D::judge_coverage(const Projection2D& ref, const Projection2D& tar, double uncer_cut) {
 
+  sparse_mat_t ref_mask = mask(ref.m_proj, [&](scaler_t x){return x> -uncer_cut;});
+  sparse_mat_t tar_mask = mask(tar.m_proj, [&](scaler_t x){return x> -uncer_cut;});
+  
   // non zero component in both
-  bool ref_non_zero = loop_exist(ref.m_proj, [&](scaler_t x){return (x!=0 && x > -uncer_cut);}); // number of live elements
-  bool tar_non_zero = loop_exist(tar.m_proj, [&](scaler_t x){return (x!=0 && x > -uncer_cut);}); // number of live elements ...
+  //bool ref_non_zero = loop_exist(ref.m_proj, [&](scaler_t x){return (x!=0 && x > -uncer_cut);}); // number of live elements
+  //bool tar_non_zero = loop_exist(tar.m_proj, [&](scaler_t x){return (x!=0 && x > -uncer_cut);}); // number of live elements ...
 
+  bool ref_non_zero = loop_exist(ref_mask, [](scaler_t x){return (x!=0);}); // number of live elements
+  bool tar_non_zero = loop_exist(tar_mask, [](scaler_t x){return (x!=0);}); // number of live elements ...
+  
   if ((!ref_non_zero) && (!tar_non_zero)){
     return BOTH_EMPTY;
   }else if (ref_non_zero && (!tar_non_zero)){
@@ -348,9 +357,14 @@ WireCell::Img::Projection2D::Coverage WireCell::Img::Projection2D::judge_coverag
     return TAR_COVERS_REF;
   }else{
     // ref - tar
-    sparse_mat_t ref_m_tar = ref.m_proj - tar.m_proj;
-    bool ref_m_tar_neg = loop_exist(ref_m_tar, [&](scaler_t x){return (x<0 && fabs(x)<fabs(uncer_cut));}); // number of live elements belong to tar, not belong to ref
-    bool ref_m_tar_pos = loop_exist(ref_m_tar, [&](scaler_t x){return (x>0 && fabs(x)<fabs(uncer_cut));}); // number of live elements belong to ref, not belong to tar
+    //    sparse_mat_t ref_m_tar = ref.m_proj - tar.m_proj;
+    sparse_mat_t ref_m_tar = ref_mask - tar_mask;
+    
+    //bool ref_m_tar_neg = loop_exist(ref_m_tar, [&](scaler_t x){return (x<0 && fabs(x)<fabs(uncer_cut));}); // number of live elements belong to tar, not belong to ref
+    //bool ref_m_tar_pos = loop_exist(ref_m_tar, [&](scaler_t x){return (x>0 && fabs(x)<fabs(uncer_cut));}); // number of live elements belong to ref, not belong to tar
+
+    bool ref_m_tar_neg = loop_exist(ref_m_tar, [](scaler_t x){return x<-0.01 ;}); // number of live elements belong to tar, not belong to ref
+    bool ref_m_tar_pos = loop_exist(ref_m_tar, [](scaler_t x){return x>0.01 ;}); // number of live elements belong to ref, not belong to tar
 
     if ((!ref_m_tar_neg) && (!ref_m_tar_pos)){
       return REF_EQ_TAR;
