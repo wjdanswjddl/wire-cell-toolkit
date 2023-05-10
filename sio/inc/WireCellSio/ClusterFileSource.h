@@ -37,6 +37,11 @@ namespace WireCell::Sio {
            Configuration: "inname".
            
            Name the input stream.
+
+           Note, file name extension in the stream is used to
+           determine loading mechanism.  JSON (.json) following
+           cluster graph schema and Numpy (.npy) following cluster
+           array schema are supported.
         */
         std::string m_inname{""};
 
@@ -53,7 +58,7 @@ namespace WireCell::Sio {
             Provide array of IAnodePlane instances for loading JSON.
         */
 
-      private:
+    private:
 
         using istream_t = boost::iostreams::filtering_istream;
         istream_t m_in;
@@ -66,6 +71,10 @@ namespace WireCell::Sio {
         header_t m_cur;
 
         ICluster::pointer load();
+        bool load_filename();
+        ICluster::pointer dispatch();
+        void clear_load();
+
         ICluster::pointer load_json(int ident);
         ICluster::pointer load_numpy(int ident);
         void clear();
@@ -74,6 +83,7 @@ namespace WireCell::Sio {
 
         size_t m_count{0};
         bool m_eos_sent{false};
+        std::vector<IAnodePlane::pointer> m_anodes;
     };
 
 }  // namespace WireCell

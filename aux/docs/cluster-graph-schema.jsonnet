@@ -11,7 +11,7 @@ local hier = {
     unc: cs.number("Uncertainty", "f8", doc="Uncertainty in a signal value"),
 
     index: cs.number("Index", "u4", doc="Index unique in some per-type context"),
-    wpid: cs.number("WPID", "u4", doc="Packed wire plane identifier"),
+    wpid: cs.number("WPID", "i4", doc="Packed wire plane identifier"),
     node_code: cs.string("Code", doc="Node type code"),
                                               
     coord: cs.number("Coord", "f8", doc="A coordinate in some space"),
@@ -52,7 +52,7 @@ local hier = {
     bounds: cs.sequence("Bounds", self.range, doc="Range for each wire plane"),
         
     blob: cs.record("Blob", [
-        cs.field("faceid", self.ident),
+        cs.field("faceid", self.wpid, doc="Packed WirePlaneId with face and anode numbers"),
         cs.field("sliceid", self.ident),
         cs.field("start", self.time),
         cs.field("span", self.time),

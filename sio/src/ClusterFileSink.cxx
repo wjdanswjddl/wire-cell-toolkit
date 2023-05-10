@@ -23,8 +23,13 @@ static void dump_cluster(WireCell::Log::logptr_t& log,
     const size_t ncodes = known.size();
     std::vector<size_t> counts(ncodes, 0);
 
+    size_t nnull = 0;
     for (auto vtx : boost::make_iterator_range(boost::vertices(gr))) {
         const auto& vobj = gr[vtx];
+        if (! vobj.ptr.index() ) {
+            ++nnull;
+            continue;
+        }
         ++counts[vobj.ptr.index() - 1]; // node type index=0 is the bogus node type
     }
 
@@ -33,6 +38,9 @@ static void dump_cluster(WireCell::Log::logptr_t& log,
         ss << known[ind] << ":" << counts[ind] << " ";
     }
 
+    if (nnull) {
+        log->warn("found {} null nodes in graph, something is wrong with whatever made our cluster", nnull);
+    }
     log->debug("cluster={} nvertices={} nedges={} types: {}",
                cluster->ident(),
                boost::num_vertices(gr),
@@ -105,20 +113,20 @@ void Sio::ClusterFileSink::numpify(const ICluster& cluster)
         return this->fqn(cluster, name, "npy");
     };
 
-    Aux::ClusterArrays ca(cluster.graph());
+    Aux::ClusterArrays::node_array_set_t nas;
+    Aux::ClusterArrays::edge_array_set_t eas;
+    Aux::ClusterArrays::to_arrays(cluster.graph(), nas, eas);
 
     // write nodes
-    for (auto nc : ca.node_codes()) {
-        const auto& na = ca.node_array(nc);
+    for (const auto& [nc,na] : nas) {
         std::string name = "_nodes";
         name[0] = nc;
         write_numpy(na, fn(name));
     }
 
     // write edges
-    for (auto ec : ca.edge_codes()) {
-        const auto& ea = ca.edge_array(ec);
-        auto name = ca.edge_code_str(ec);
+    for (const auto& [ec, ea] : eas) {
+        auto name = Aux::ClusterArrays::to_string(ec);
         name += "edges";
         write_numpy(ea, fn(name));
     }

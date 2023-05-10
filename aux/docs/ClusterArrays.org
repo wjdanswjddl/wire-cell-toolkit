@@ -3,7 +3,7 @@
 
 Provides array representations of ~ICluster~.
 
-The ~ICluster~ graph represents identity, attributes and associations of five types of objects related to WCT imaging.  In addition to the associations represented internally by the graph some objects carry additional information and references to objects that are external to the graph.  The ~ClusterArrays~ class provides methods to "flatten" the internal and external structure to a set of arrays.  This document describes the ~ClusterArrays~ interface and provides guidance on how to use the arrays it produces.
+The ~ICluster~ graph represents identity, attributes and associations of five types of objects related to WCT imaging.  In addition to the associations represented internally by the graph some vertex objects (nodes) carry additional information and references to objects that are external to the graph.  The ~ClusterArrays~ class provides methods to "flatten" the internal and external structure to a set of arrays.  This document describes the ~ClusterArrays~ interface and provides guidance on how to use the arrays it produces.
 
 * Low-level array representation
 
@@ -42,7 +42,9 @@ Comparing these two type graph representations:
 
 The remaining vertex types and allowed edges are the same other as in the original cluster graph schema.  In particular, the /wire/ vertex type still represents a physical wire which is not specific to any particular slice.  All other vertices are per-slice.
 
-With this change stated, we define /node array codes/ as the ASCII value of the lower case initial letter of the node array names: /activity (a), blob (b), measure (m), slice (s)/ and /wire (w)/.  For example, an activity array will have a label ~anodes~.  The /edge array codes/ are the combination of two node array codes in alphabetical order.  For example, the edges between /slice/ and /activity/ vertices are represented in an array with a name that includes the label ~asedges~. 
+* Nodes
+
+We define /node array codes/ as the ASCII value of the lower case initial letter of the node array names: /activity (a), blob (b), measure (m), slice (s)/ and /wire (w)/.  For example, an activity array will have a label ~anodes~.  The /edge array codes/ are the combination of two node array codes in alphabetical order.  For example, the edges between /slice/ and /activity/ vertices are represented in an array with a name that includes the label ~asedges~. 
 
 The remainder of this section describes the columns that make up each type of array.
 
@@ -54,7 +56,6 @@ The arrays are either of node type or edge type.  All node type arrays have comm
 1. /ident/, (int) the value from the WCT object's ~ident()~ method
 
 The additional columns that make each array schema unique are given in the sections below and there these two columns are not repeated.
-
 
 ** Activity
 
@@ -86,7 +87,7 @@ A blob describes a volume in space bounded in the longitudinal direction by the 
 
 2. [@2] /val/, the central value of the signal
 3. /unc/, the uncertainty in the value
-4. /faceid/, (int) the face ident from ~WirePlaneId(kUnkownLayer,face,apa)~
+4. /faceid/, (int) the face identifier (see note)
 5. /sliceid/, (int) the slice ident
 6. /start/, the start time of the blob
 7. /span/, the time span of the blob
@@ -98,6 +99,10 @@ A blob describes a volume in space bounded in the longitudinal direction by the 
 13. /max3/, (int) the WIP providing upper bound of the blob in plane 3.
 14. /ncorners/, (int) the number of corners
 15. 24 columns holding /corners as (y,z) pairs/, 12 pairs, of which /ncorners/ are valid.
+
+#+begin_note
+The /faceid/ is not (necessarily) the ~IAnodeFace::ident()~ but is ~WirePlaneId afid(kUnknownLayer, iface->which(), iface->anode()).ident()~.
+#+end_note
 
 ** Slice
 
@@ -117,7 +122,8 @@ A measure represents the collection of channels in a given plane connected to a 
 3. /unc/, the uncertainty in the value.
 4. /wpid/, the wire plane ID
 
-** Edge
+
+* Edges
 
 An edge array is of a type constructed as the concatenation of two node types, in alphabetical order.  Eg, a ~bw~ edge array holds edges between ~b~ and ~w~ nodes.  Each row holds tail and head indices into the corresponding tail and head arrays.  An edge array also holds an edge descriptor giving the edge order in the original graph.  Note, ~boost::graph~ edges do not provide this integer representation directly and thus it is expected to be formed as a simple count by the code that writes cluster array schema.  Code that reads cluster array schema should add edges in order of this edge descriptor.
 
@@ -175,7 +181,8 @@ Solid black represent existing nodes and edges.  Gray nodes are not implemented 
 
 Milestones for completing this support are:
 
-- [ ] extend ~ClusterArrays~ to provide round-trip with ~ICluster~.
+- [X] extend ~ClusterArrays~ to provide round-trip with ~ICluster~.
+- [ ] test ~ClusterArrays~ to provide round-trip with ~ICluster~.
 - [ ] extend ~ClusterArrays~ to be initialized with from arrays.
 - [ ] extend ~ClusterFileSource~ to use above to read cluster array schema files.
 - [ ] refactor ~ClusterArrays~ to utilize ~PointCloud::Dataset~ as internal storage.
@@ -183,3 +190,17 @@ Milestones for completing this support are:
 - [ ] extend ~ClusterArrays~ to initialize from ~ITensorSet~, again using ~TensorDM~.
 - [ ] develop ~ClusterTensor~ and ~TensorCluster~ DFP graph node components.
 
+* Debug
+
+json-json
+
+#+begin_example
+ClusterFileSource:> cluster=6501 nvertices=15045 nedges=80358 types: c:6019 w:6019 b:1281 s:85 m:1641 
+ClusterFileSink:>   cluster=6501 nvertices=15045 nedges=80358 types: c:6019 w:6019 b:1281 s:85 m:1641
+#+end_example
+
+numpy-numpy
+
+#+begin_example
+
+#+end_example

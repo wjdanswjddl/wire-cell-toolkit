@@ -137,3 +137,49 @@ function do_blobs () {
     echo "$output"
     [[ "$status" -eq 0 ]]
 }
+
+function roundtrip () {
+    local ifmt=$1; shift
+    local ofmt=$1; shift
+    local ifile=clusters-${ifmt}.tar.gz
+    local ofile=clusters-${ifmt}-${ofmt}.tar.gz
+    local lfile=roundtrip-${ifmt}-${ofmt}.log
+    local cfg=$(relative_path test-wct-uboone-img-roundtrip.jsonnet)
+
+    cd_tmp file
+
+    wct -l $lfile -L debug \
+        -A infile=$ifile \
+        -A outfile=$ofile \
+        -A infmt=$ifmt \
+        -A outfmt=$ofmt \
+        -c $cfg
+
+    local errors="$(egrep ' W | E ' $lfile)"
+    echo "$errors"
+    [[ -z "$errors" ]]
+    
+    local wcimg=$(wcb_env_value WCIMG)
+
+    ilog=roundtrip-inspect-${ifmt}2${ofmt}-ilog-${ifmt}.log
+    olog=roundtrip-inspect-${ifmt}2${ofmt}-olog-${ofmt}.log
+    run $wcimg inspect --verbose -o $ilog $ifile
+    run $wcimg inspect --verbose -o $olog $ofile
+
+    local delta="$(diff -u $ilog $olog)"
+    echo "$delta"
+    [[ -z "$delta" ]]
+}
+
+@test "round trip json to json" {
+    roundtrip json json
+}
+@test "round trip numpy to numpy" {
+    roundtrip numpy numpy
+}
+@test "round trip numpy to json" {
+    roundtrip numpy json
+}
+@test "round trip json to numpy" {
+    roundtrip json numpy
+}
