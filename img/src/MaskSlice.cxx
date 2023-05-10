@@ -181,6 +181,16 @@ void Img::MaskSliceBase::slice(const IFrame::pointer& in, slice_map_t& svcmap)
     const double tick = in->tick();
     const double span = tick * m_tick_span;
 
+    // Need to create slices for all possible tbins to make sure syncing in BlobSetMerge
+    // TODO: make this optional?
+    // FIXME: how to handle same slice ident?
+    for (size_t slicebin=m_min_tbin/m_tick_span; slicebin < m_max_tbin/m_tick_span; ++slicebin) {
+        const double start = slicebin * m_tick_span * tick;
+        const double span = m_tick_span * tick;
+        auto s = new Img::Data::Slice(in, slicebin, start, span);
+        svcmap[slicebin] = s;
+    }
+
     // get charge traces
     auto charge_traces = Aux::tagged_traces(in, m_charge_tag);
     const size_t ntraces = charge_traces.size();
