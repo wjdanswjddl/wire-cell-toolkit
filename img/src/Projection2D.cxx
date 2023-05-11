@@ -302,6 +302,8 @@ namespace {
             {
                 if (f(it.value())) {
                     it.valueRef() = 1;
+                } else {
+                    it.valueRef() = 0;
                 }
             }
         }
