@@ -142,6 +142,10 @@ LayerProjection2DMap WireCell::Img::Projection2D::get_projection(
     std::unordered_map<WirePlaneLayer_t, triplet_vec_t> lcoeff;
     std::unordered_set<std::pair<int, int>, pair_hash> filled;
     std::unordered_set<int> filled_slices;
+    
+    // record the number of slices for each layer ... 
+    std::unordered_map<WirePlaneLayer_t, std::unordered_set<int> > layer_nslices;
+    
     // layer_projection_map_t ret;
     LayerProjection2DMap ret;
 
@@ -163,6 +167,9 @@ LayerProjection2DMap WireCell::Img::Projection2D::get_projection(
 	layer_charge[kUlayer] = 0;
 	layer_charge[kVlayer] = 0;
 	layer_charge[kWlayer] = 0;
+
+
+	// initialization ...
 	
         if (node.code() == 'b') {
 	  number_blobs ++;
@@ -195,6 +202,7 @@ LayerProjection2DMap WireCell::Img::Projection2D::get_projection(
                     }else{
 		      // TODO: double check this
 		      layer_charge[layer] += charge;
+		      layer_nslices[layer].insert(start);
 		    }
 
 		    // if (charge < 10 && charge > -uncer_cut) std::cout << layer << " " << index << " " << start << " " << charge << " " << unc << std::endl;
@@ -206,6 +214,7 @@ LayerProjection2DMap WireCell::Img::Projection2D::get_projection(
                     // TODO: validate this
                     lcoeff[layer].push_back({index, start, charge});
                     filled.insert({index,start});
+		    
                 }
             }
         }  // for each blob
@@ -228,6 +237,10 @@ LayerProjection2DMap WireCell::Img::Projection2D::get_projection(
     }
     number_slices = filled_slices.size();
 
+    for (auto it = layer_nslices.begin(); it!=layer_nslices.end(); it++){
+      ret.m_number_layer_slices[it->first] = it->second.size();
+    }
+    
     for (auto lc : lcoeff) {
         auto l = lc.first;
         auto c = lc.second;

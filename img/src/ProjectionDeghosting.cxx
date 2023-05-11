@@ -257,6 +257,10 @@ bool Img::ProjectionDeghosting::operator()(const input_pointer& in, output_point
       // loop over each plane ...
       for (auto it = wp_2D_3D_clus_map.begin(); it != wp_2D_3D_clus_map.end(); it++){
 	WireCell::WirePlaneLayer_t layer_cluster = it->first;
+
+	//
+	if (proj_cluster.m_number_layer_slices[layer_cluster] ==0 ) continue;
+	
 	std::unordered_map<ClusterShadow::vdesc_t,std::vector<ClusterShadow::vdesc_t>>& clus_2D_3D_map = it->second;
 	Projection2D::Projection2D& proj2D_cluster = proj_cluster.m_layer_proj[layer_cluster];
 

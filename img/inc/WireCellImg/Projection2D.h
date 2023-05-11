@@ -53,6 +53,7 @@ namespace WireCell {
 	        int m_saved_flag_1 {0};
 	        int m_number_blobs {0};
 	        int m_number_slices {0};
+	      std::unordered_map<WireCell::WirePlaneLayer_t, int> m_number_layer_slices; 
             };
 	    
             // returns layer ID -> channel-tick-charge matrix
