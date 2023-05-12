@@ -29,7 +29,7 @@ namespace WireCell::Stream {
 
     /// Fill a filtering input stream with filters and a file source
     /// based on the an input file name.  Filters are determined based
-    /// on file name extension(s).  Supportted extensions include
+    /// on file name extension(s).  Supported extensions include
     /// .tar, .tar.gz, .tar.bz2, .gz, .bz2.  Any unsupported
     /// extensions will result no filtering and a raw binary file
     /// source.

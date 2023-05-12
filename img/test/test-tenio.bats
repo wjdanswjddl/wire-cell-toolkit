@@ -1,6 +1,7 @@
 #!/usr/bin/env bats
 
 # This file is generated.  Any edits may be lost.
+# See img/test/test-tenio.org for source to modify.
 
 # standard WCT Bats support library
 bats_load_library "wct-bats.sh"
