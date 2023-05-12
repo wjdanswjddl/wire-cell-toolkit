@@ -34,78 +34,8 @@ using WireCell::Aux::DftTools::fwd_r2c;
 using WireCell::Aux::DftTools::inv;
 using WireCell::Aux::DftTools::inv_c2r;
 
-OmnibusSigProc::OmnibusSigProc(
-    const std::string& anode_tn, const std::string& per_chan_resp_tn, const std::string& field_response,
-    double fine_time_offset, double coarse_time_offset, const std::string& elecresponse_tn, double gain,
-    double shaping_time, double inter_gain, double ADC_mV, float th_factor_ind, float th_factor_col, int pad, float asy,
-    int rebin, double l_factor, double l_max_th, double l_factor1, int l_short_length, int l_jump_one_bin,
-    double r_th_factor, double r_fake_signal_low_th, double r_fake_signal_high_th,
-    double r_fake_signal_low_th_ind_factor, double r_fake_signal_high_th_ind_factor, int r_pad, int r_break_roi_loop,
-    double r_th_peak, double r_sep_peak, double r_low_peak_sep_threshold_pre, int r_max_npeaks, double r_sigma,
-    double r_th_percent, std::vector<int> process_planes, int charge_ch_offset, const std::string& wiener_tag,
-    const std::string& wiener_threshold_tag, const std::string& decon_charge_tag, const std::string& gauss_tag,
-    bool use_roi_debug_mode, bool use_roi_refinement, const std::string& tight_lf_tag, const std::string& loose_lf_tag,
-    const std::string& cleanup_roi_tag, const std::string& break_roi_loop1_tag, const std::string& break_roi_loop2_tag,
-    const std::string& shrink_roi_tag, const std::string& extend_roi_tag, const std::string& mp3_roi_tag,
-    const std::string& mp2_roi_tag)
+OmnibusSigProc::OmnibusSigProc(    )
   : Aux::Logger("OmnibusSigProc", "sigproc")
-  , m_anode_tn(anode_tn)
-  , m_per_chan_resp(per_chan_resp_tn)
-  , m_field_response(field_response)
-  , m_fine_time_offset(fine_time_offset)
-  , m_coarse_time_offset(coarse_time_offset)
-  , m_period(0)
-  , m_nticks(0)
-  , m_fft_flag(0)
-  , m_elecresponse_tn(elecresponse_tn)
-  , m_gain(gain)
-  , m_shaping_time(shaping_time)
-  , m_inter_gain(inter_gain)
-  , m_ADC_mV(ADC_mV)
-  , m_th_factor_ind(th_factor_ind)
-  , m_th_factor_col(th_factor_col)
-  , m_pad(pad)
-  , m_asy(asy)
-  , m_rebin(rebin)
-  , m_l_factor(l_factor)
-  , m_l_max_th(l_max_th)
-  , m_l_factor1(l_factor1)
-  , m_l_short_length(l_short_length)
-  , m_l_jump_one_bin(l_jump_one_bin)
-  , m_r_th_factor(r_th_factor)
-  , m_r_fake_signal_low_th(r_fake_signal_low_th)
-  , m_r_fake_signal_high_th(r_fake_signal_high_th)
-  , m_r_fake_signal_low_th_ind_factor(r_fake_signal_low_th_ind_factor)
-  , m_r_fake_signal_high_th_ind_factor(r_fake_signal_high_th_ind_factor)
-  , m_r_pad(r_pad)
-  , m_r_break_roi_loop(r_break_roi_loop)
-  , m_r_th_peak(r_th_peak)
-  , m_r_sep_peak(r_sep_peak)
-  , m_r_low_peak_sep_threshold_pre(r_low_peak_sep_threshold_pre)
-  , m_r_max_npeaks(r_max_npeaks)
-  , m_r_sigma(r_sigma)
-  , m_r_th_percent(r_th_percent)
-  , m_process_planes(process_planes)
-  , m_charge_ch_offset(charge_ch_offset)
-  , m_wiener_tag(wiener_tag)
-  , m_wiener_threshold_tag(wiener_threshold_tag)
-  , m_decon_charge_tag(decon_charge_tag)
-  , m_gauss_tag(gauss_tag)
-  , m_frame_tag("sigproc")
-  , m_use_roi_debug_mode(use_roi_debug_mode)
-  , m_use_roi_refinement(use_roi_refinement)
-  , m_tight_lf_tag(tight_lf_tag)
-  , m_loose_lf_tag(loose_lf_tag)
-  , m_cleanup_roi_tag(cleanup_roi_tag)
-  , m_break_roi_loop1_tag(break_roi_loop1_tag)
-  , m_break_roi_loop2_tag(break_roi_loop2_tag)
-  , m_shrink_roi_tag(shrink_roi_tag)
-  , m_extend_roi_tag(extend_roi_tag)
-  , m_use_multi_plane_protection(false)
-  , m_mp3_roi_tag(mp3_roi_tag)
-  , m_mp2_roi_tag(mp2_roi_tag)
-  , m_isWrapped(false)
-  , m_sparse(false)
 {
     // get wires for each plane
 
@@ -193,7 +123,10 @@ void OmnibusSigProc::configure(const WireCell::Configuration& config)
     m_charge_ch_offset = get(config, "charge_ch_offset", m_charge_ch_offset);
 
     m_wiener_tag = get(config, "wiener_tag", m_wiener_tag);
-    m_wiener_threshold_tag = get(config, "wiener_threshold_tag", m_wiener_threshold_tag);
+    // m_wiener_threshold_tag = get(config, "wiener_threshold_tag", m_wiener_threshold_tag);
+    if (! config["wiener_threshold_tag"].isNull()) {
+        log->warn("The 'wiener_threshold_tag' is obsolete, thresholds in summary on 'wiener' tagged traces");
+    }
     m_decon_charge_tag = get(config, "decon_charge_tag", m_decon_charge_tag);
     m_gauss_tag = get(config, "gauss_tag", m_gauss_tag);
     m_frame_tag = get(config, "frame_tag", m_frame_tag);
@@ -333,7 +266,7 @@ WireCell::Configuration OmnibusSigProc::default_configuration() const
     cfg["charge_ch_offset"] = m_charge_ch_offset;
 
     cfg["wiener_tag"] = m_wiener_tag;
-    cfg["wiener_threshold_tag"] = m_wiener_threshold_tag;
+    // cfg["wiener_threshold_tag"] = m_wiener_threshold_tag;
     cfg["decon_charge_tag"] = m_decon_charge_tag;
     cfg["gauss_tag"] = m_gauss_tag;
     cfg["frame_tag"] = m_frame_tag;
@@ -1677,8 +1610,7 @@ bool OmnibusSigProc::operator()(const input_pointer& in, output_pointer& out)
     // }
 
     if (m_use_roi_refinement) {
-        sframe->tag_traces(m_wiener_tag, wiener_traces);
-        sframe->tag_traces(m_wiener_threshold_tag, wiener_traces, thresholds);
+        sframe->tag_traces(m_wiener_tag, wiener_traces, thresholds);
         sframe->tag_traces(m_gauss_tag, gauss_traces);
     }
 
@@ -1711,7 +1643,7 @@ bool OmnibusSigProc::operator()(const input_pointer& in, output_pointer& out)
 
     out = IFrame::pointer(sframe);
 
-    log->debug("call={} output frame: {}", m_count, Aux::taginfo(in));
+    log->debug("call={} output frame: {}", m_count, Aux::taginfo(out));
 
     ++m_count;
 
