@@ -3,7 +3,7 @@
 # BATS helper functions.
 # To use inside a <pkg>/test/test_XXX.bats do:
 #
-# load ../../test/wct-bats.sh
+# bats_load_library wct-bats.sh
 #
 # See test/docs/bats.org for more info.
 #
