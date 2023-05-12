@@ -218,22 +218,27 @@ LayerProjection2DMap WireCell::Img::Projection2D::get_projection(
                 }
             }
         }  // for each blob
-        auto min_iter = std::min_element(layer_charge.begin(), layer_charge.end(),
-                                         [](const auto& a, const auto& b) { return a.second < b.second; });
+	//        auto min_iter = std::min_element(layer_charge.begin(), layer_charge.end(),
+	//                               [](const auto& a, const auto& b) { return a.second < b.second; });
 
 	// calculate the total charge ...
 	double sum_charge = 0;
 	int sum_n = 0;
+	double min_charge = 1e12;
 	for (auto it = layer_charge.begin(); it!= layer_charge.end(); it++){
 	  if (it->second !=0){
 	    sum_charge += it->second;
 	    sum_n ++;
+	    if (it->second < min_charge) min_charge = it->second;
 	  }
 	}
+	// protection ... 
+	if (min_charge == 1e12) min_charge = 0;
 	if (sum_n > 0)
 	  estimated_total_charge = sum_charge/sum_n;
+
 	
-        estimated_minimum_charge += min_iter->second;
+        estimated_minimum_charge += min_charge;//min_iter->second;
     }
     number_slices = filled_slices.size();
 
