@@ -215,10 +215,9 @@ local magnifio3 = g.pnode({
     data: {
         output_filename: magout,
 //        root_file_mode: "UPDATE",
-        frames: ["raw", "gauss", "wiener", "threshold"],
+        frames: ["raw", "gauss", "wiener"],
         //cmmtree: [["bad", "T_bad"], ["lf_noisy", "T_lf"]], 
         anode: wc.tn(anode),
-        //summaries: ["threshold"],
     },
 }, nin=1, nout=1);
 
