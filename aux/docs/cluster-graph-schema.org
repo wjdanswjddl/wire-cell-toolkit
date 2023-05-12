@@ -1,0 +1,34 @@
+#+title: Cluster Graph Schema
+#+include: ../../docs/include-topic.org
+
+The /cluster graph schema/ describes a data structure that represents an
+~ICluster~ graph.  Specifically, it targets a JSON representation.
+
+* Formal schema
+
+The schema is formally defined in [[file:cluster-graph-schema.jsonnet]].
+This file expresses the schema in [[https://brettviren.github.io/moo][moo]] form.  This form may be
+converted to [[https://json-schema.org/][JSON Schema]] form via:
+
+#+begin_example
+moo jsonschema -t wirecell.cluster.Cluster \
+               -o cluster-graph-schema.json \
+                  cluster-graph-schema.jsonnet
+#+end_example
+
+A file may be validated against the *moo* schema form with:
+
+#+begin_example
+moo validate -t wirecell.cluster.Cluster \
+             -s cluster-graph-schema.jsonnet \
+             cluster_6501_graph.json
+#+end_example
+
+* Persistency
+
+The ~ClusterFileSink~ will write cluster graph schema files and the
+~ClusterFileSource~ will read them.
+
+* Others
+
+A closely related /cluster array schema/ is described in [[file:ClusterArrays.org]].  

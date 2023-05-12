@@ -1,15 +1,18 @@
 #include "WireCellAux/TensorFrame.h"
 #include "WireCellAux/TensorDM.h"
+#include "WireCellAux/FrameTools.h"
 
 #include "WireCellUtil/NamedFactory.h"
 
 WIRECELL_FACTORY(TensorFrame, WireCell::Aux::TensorFrame,
+                 WireCell::INamed,
                  WireCell::ITensorSetFrame)
 
 using namespace WireCell;
 using namespace WireCell::Aux;
 
 TensorFrame::TensorFrame()
+  : Aux::Logger("TensorFrame", "aux")
 {
 }
 TensorFrame::~TensorFrame()
@@ -61,5 +64,7 @@ bool TensorFrame::operator()(const input_pointer& its, output_pointer& frame)
             break;
         }
     }
+    log->debug("call={} output frame: {}", m_count++, Aux::taginfo(frame));
+
     return true;
 }

@@ -6,11 +6,13 @@
 
 #include "WireCellIface/ITensorSetFrame.h"
 #include "WireCellIface/IConfigurable.h"
+#include "WireCellAux/Logger.h"
 
 #include <regex>
 
 namespace WireCell::Aux {
-    class TensorFrame : public WireCell::ITensorSetFrame,
+    class TensorFrame : public Aux::Logger,
+                        public WireCell::ITensorSetFrame,
                         public WireCell::IConfigurable
     {
       public:
@@ -48,6 +50,8 @@ namespace WireCell::Aux {
         double m_offset=0, m_scale=1, m_baseline=0;
 
         std::function<float(float)> m_transform;
+
+        size_t m_count{0};
 
     };
 }

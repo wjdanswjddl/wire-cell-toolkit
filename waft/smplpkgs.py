@@ -71,9 +71,12 @@ def options(opt):
     opt.load('compiler_cxx')
     opt.load('wcb_unit_test') # adds --tests
     opt.load("datarepo")
+    opt.load('org')
 
     opt.add_option("--docs", default="",
                    help="comma separated list of docs to generate.  eg: 'org2hml,org2pdf,doxy'.  default:none")
+    opt.add_option("--docs-prefix", default="share/doc/wirecell",
+                   help="Installation root for docs, appended to PREFIX if relative")
 
 def configure(cfg):
     cfg.load('compiler_cxx')
@@ -97,7 +100,7 @@ def configure(cfg):
     cfg.find_program('diff', var='DIFF', mandatory=True)
 
     cfg.env.DOCS = cfg.options.docs.split(",")
-
+    cfg.env.DOCS_PREFIX = cfg.options.docs_prefix
 
 def build(bld):
     bld.load('wcb_unit_test')
@@ -105,6 +108,17 @@ def build(bld):
     bld.load('org')
 
     bld.env.append_unique('DOCS', bld.options.docs.split(","))
+    docs_prefix = getattr(bld.options, "docs_prefix", None)
+    if docs_prefix:
+        bld.env.DOCS_PREFIX = docs_prefix
+    bld.env.DOCS_INSTALL_PATH = bld.env.PREFIX + "/share/doc/wirecell"
+    if bld.env.DOCS_PREFIX:
+        if bld.env.DOCS_PREFIX.startswith("/"):
+            bld.env.DOCS_INSTALL_PATH=bld.env.DOCS_PREFIX
+        else:
+            bld.env.DOCS_INSTALL_PATH=bld.env.PREFIX + "/" + bld.env.DOCS_PREFIX
+
+    debug(f'smplpkgs: docs install path: {bld.env.DOCS_INSTALL_PATH}')
 
 from wcb_unit_test import test_group_sequence
 
@@ -129,7 +143,15 @@ class ValidationContext:
     # A script may need extra environment.
     script_environ = {}
 
+    # We impose a series of groups to assure coarse grained dependency
+    # with a source naming convention to separate different
+    # intentions.  Map scope name to source file name prefix.
     extra_prefixes = dict(atomic=("test",))
+
+    # What things look like a test source
+    def source_glob(self, prefix, ext):
+        return 'test/{prefix}*{ext}'.format(prefix=prefix, ext=ext)
+
 
     def __init__(self, bld, uses):
         '''
@@ -145,14 +167,6 @@ class ValidationContext:
             debug("smplpkgs: tests suppressed for " + self.bld.path.name)
             return
 
-        # We impose a series of groups to assure coarse grained
-        # dependency with a source naming convention to separate
-        # different intentions.  Map scope name to source file name
-        # prefix.
-        extra_prefixes = dict(atomic=("test",))
-
-        match_pat = 'test/%s*%s' #  (prefix, ext)
-
         for group in test_group_sequence:
             self.do_group(group)
             if group == bld.env.TEST_GROUP:
@@ -164,12 +178,11 @@ class ValidationContext:
 
         prefixes = [group]
         prefixes += self.extra_prefixes.get(group, [])
-        match_pat = 'test/%s*%s' #  (prefix, ext)
 
         for prefix in prefixes:
 
             for ext in self.compiled_extensions:
-                pat = match_pat % (prefix, ext)
+                pat = self.source_glob(prefix, ext)
                 for one in self.bld.path.ant_glob(pat):
                     debug("tests: (%s) %s" %(features, one))
                     self.program(one, features)
@@ -178,11 +191,11 @@ class ValidationContext:
                 continue
 
             for ext in self.script_templates:
-                pat = match_pat % (prefix, ext)
+                pat = self.source_glob(prefix, ext)
                 for one in self.bld.path.ant_glob(pat):
                     debug(f"tests: ({group}) script: {one}")
                     self.script(one)
-        
+        return
 
 
     def __enter__(self):
@@ -404,6 +417,7 @@ def smplpkg(bld, name, use='', app_use='', test_use=''):
     dictdir = bld.path.find_dir('dict')
     appsdir = bld.path.find_dir('apps')
     docdir = bld.path.find_dir('docs')
+    testdir = bld.path.find_dir('test')
 
     bld.cycle_group("libraries")
 
@@ -455,6 +469,45 @@ def smplpkg(bld, name, use='', app_use='', test_use=''):
 
     bld.cycle_group("applications")
 
+    def write_doctest_main(tsk):
+        out = tsk.outputs[0]
+        info(f'generating doctest main: {out}')
+        text = '''
+#define DOCTEST_CONFIG_IMPLEMENT
+#include "WireCellUtil/doctest.h"
+#include "spdlog/spdlog.h"
+#include "spdlog/cfg/env.h"
+int main(int argc, char** argv) {
+    spdlog::cfg::load_env_levels();
+    doctest::Context context;
+    context.applyCommandLine(argc, argv);
+    return context.run();
+
+}'''
+        out.write(text)
+        return
+
+    if testdir:
+        dtsrcs = testdir.ant_glob('doctest*.cxx')
+        if dtsrcs:
+            pkgname = testdir.parent.name
+            mainbin = bld.path.find_or_declare(f'wcdoctest-{pkgname}')
+            mainsrc = bld.path.find_or_declare(f'wcdoctest-{pkgname}.cxx')
+            dtsrcs.insert(0, mainsrc)
+            tmp="\n\t".join([str(s) for s in dtsrcs])
+            tname=f'make_wcdoctest_{pkgname}_source'
+            bld(name=tname,
+                rule = write_doctest_main, target = mainsrc)
+            debug(f'smplpkgs: {dtsrcs} --> {mainbin}')
+            bld.program(features='cxx cxxprogram test',
+                        name=f'wcdoctest-{pkgname}',
+                        source = dtsrcs,
+                        target = mainbin,
+                        rpath = bld.get_rpath(test_use + [name]),
+                        includes = includes,
+                        use = test_use + [name, tname]
+                        )
+
     # hack in to the env entries for the apps we build
     validation_envs = dict()
 
@@ -478,31 +531,30 @@ def smplpkg(bld, name, use='', app_use='', test_use=''):
 
     vc = ValidationContext(bld, test_use + [name])
 
+    top_dir = bld.root.find_dir(bld.top_dir)
+    bld_dir = bld.root.find_dir(bld.out_dir)
+    debug(f"smplpkgs: TOP DIR: {top_dir} from {top_dir} or {bld_dir}")
+
     # Put this group after validations to avoid upsetting their group.
-    readme = bld.path.find_resource("README.org")
-    if readme:
+    orgs = [ bld.path.find_resource("README.org") ]
+    if docdir:
+        orgs += docdir.ant_glob("*.org")
+    orgs = [o for o in orgs if o]
+    if orgs:
         bld.cycle_group("documentation")
+        for org in orgs:
+            for ext in ('html', 'pdf'):
+                feat = 'org2'+ext
+                if feat in bld.env.DOCS:
+                    out = org.parent.find_or_declare(org.name.replace(".org","."+ext))
+                    bld(name=org.parent.name + '-' + out.name.replace(".","-"),
+                        features=feat, source=org, target=out)
+                    if ext == 'html':
+                        bld.install_files(bld.env.DOCS_INSTALL_PATH, out,
+                                          cwd=bld_dir, relative_trick=True)
 
-        # An HTML export of the READMEs
-        if "org2html" in bld.env.DOCS:
-            debug(f'smplpkgs: org2html {readme}')
-            # fixme: For now we build HTML in-source and do not
-            # install.  This is dubious, but many org files link to
-            # other files in the source tree.
-            #
-            # fixme: A convention needs to be established to allow
-            # links to absolute paths.  For example, to find served
-            # readtheorg and bigblow themes and to allow integration
-            # between README, manual, blog and source.
-            html = readme.parent.make_node("README.html")
-            bld(features="org2html", source=readme, target=html)
 
-        # A PDF export fo the READMEs
-        if "org2pdf" in bld.env.DOCS:
-            debug(f'smplpkgs: org2pdf {readme}')
-            pdf  = bld.path.find_or_declare(f'wct-readme-{bld.path.name}.pdf')
-            bld(features="org2pdf", source=readme, target=pdf)
-            bld.install_files('${PREFIX}/share/doc', pdf)
+
 
     # Return even if we are no tests so as to not break code in
     # wscript_build that uses this return to define "variant" tests.

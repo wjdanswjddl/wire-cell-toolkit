@@ -52,18 +52,19 @@ WireCell::Aux::TensorDM::as_tensors(const PointCloud::Dataset& dataset,
     md["datatype"] = "pcdataset";
     md["arrays"] = Json::objectValue;
 
-    boost::filesystem::path trpath = datapath + "/arrays";
     ITensor::vector ret;
+    ret.push_back(nullptr);     // fill in below
 
-    int arrnum = 0;
+    boost::filesystem::path trpath = datapath + "/arrays";
+
     for (const auto& [name, arr] : dataset.store()) {
-        auto dpath = trpath / std::to_string(arrnum++);
+        auto dpath = trpath / name;
         ret.push_back(as_tensor(arr, dpath.string()));
         md["arrays"][name] = dpath.string();
     }
 
-    auto top = std::make_shared<SimpleTensor>(md);
-    ret.insert(ret.begin(), top);
+    // build main "dataset" tensor
+    ret[0] = std::make_shared<SimpleTensor>(md);
     return ret;
 }
 
@@ -106,7 +107,7 @@ WireCell::Aux::TensorDM::as_dataset(const ITensor::vector& tens,
                                     const std::string datapath,
                                     bool share)
 {
-
+    // Index the tensors by datapath and find main "pcdataset" tensor.
     ITensor::pointer top = nullptr;
     std::unordered_map<std::string, ITensor::pointer> located;
     for (const auto& iten : tens) {

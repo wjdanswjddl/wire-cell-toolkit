@@ -16,6 +16,26 @@ function(services, params) function(anode)
         },
     };
 
+    local slicing(min_tbin=0, max_tbin=0, ext="", span=4,
+                  active_planes=[0,1,2], masked_planes=[], dummy_planes=[]) =
+        pg.pnode({
+            type: "MaskSlices",
+            name: ident+ext,
+            data: {
+                wiener_tag: "threshold"+ident,
+                charge_tag: "gauss"+ident,
+                error_tag: "gauss_error"+ident,
+                tick_span: span,
+                anode: wc.tn(anode),
+                min_tbin: min_tbin,
+                max_tbin: max_tbin,
+                active_planes: active_planes,
+                masked_planes: masked_planes,
+                dummy_planes: dummy_planes,
+            },
+        }, nin=1, nout=1, uses=[anode]);
+
+
     // Inject signal uncertainty.
     local sigunc = 
         pg.pnode({
@@ -35,7 +55,7 @@ function(services, params) function(anode)
 
     low.pg.pipeline([
         sigunc,
-        img.slicing("gauss"+ident, "gauss_error"+ident, span=params.img.span),
+        slicing(span=params.img.span),
         img.tiling(),
         img.clustering(),
         img.grouping(),

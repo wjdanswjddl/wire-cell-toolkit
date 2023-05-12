@@ -15,6 +15,48 @@ using namespace WireCell;
 using WireCell::GraphTools::mir;
 using slice_t = cluster_node_t::slice_t;
 
+std::string WireCell::Aux::dumps(const cluster_graph_t& cgraph)
+{
+
+    std::map<char, size_t> ncounts;
+    for (auto vtx : mir(boost::vertices(cgraph))) {
+        const auto& node = cgraph[vtx];
+        ++ncounts[node.code()];
+    }
+    
+    std::map<std::string, size_t> ecounts;
+    for (auto edge : mir(boost::edges(cgraph))) {
+        auto tvtx = boost::source(edge, cgraph);
+        auto hvtx = boost::target(edge, cgraph);
+
+        const auto& tnode = cgraph[tvtx];
+        const auto& hnode = cgraph[hvtx];
+
+        std::string code="  ";
+        code[0] = tnode.code();
+        code[1] = hnode.code();
+        ++ecounts[code];
+    }
+
+    std::stringstream ss;
+    ss << "graph: "
+       << boost::num_vertices(cgraph)
+       << " nodes of " << ncounts.size() << " types:";
+    for (const auto& [code, num] : ncounts) {
+        ss << " " << code << ":" << num;
+    }
+    ss << boost::num_edges(cgraph)
+       << " edges of " << ecounts.size() << " types:";
+    for (const auto& [code, num] : ecounts) {
+        ss << " " << code << ":" << num;
+    }
+    ss << "\n";
+
+    return ss.str();
+}
+
+
+
 // maybe useful to export
 ISlice::vector WireCell::Aux::find_slices(const cluster_graph_t& gr)
 {
@@ -202,4 +244,32 @@ Aux::cluster::directed::type_directed(const cluster_graph_t& cgraph,
         boost::add_edge(t,h,dgraph);
     }
     return dgraph;
+}
+
+std::map<std::string, size_t> Aux::count(const cluster_graph_t& cgraph, bool nodes, bool edges)
+{
+    std::map<std::string, size_t> counts;
+    if (nodes) {
+        for (auto vtx : mir(boost::vertices(cgraph))) {
+            std::string nc=" ";
+            nc[0] = cgraph[vtx].code();
+            counts[nc] += 1;
+        }
+    }
+    if (edges) {
+        for (const auto& edge : mir(boost::edges(cgraph))) {
+            auto t = boost::source(edge, cgraph);
+            auto h = boost::target(edge, cgraph);
+            char tc = cgraph[t].code();
+            char hc = cgraph[h].code();
+            if (tc > hc) {
+                std::swap(tc,hc);
+            }
+            std::string ec="  ";
+            ec[0] = tc;
+            ec[1] = hc;
+            counts[ec] += 1;
+        }
+    }
+    return counts;
 }

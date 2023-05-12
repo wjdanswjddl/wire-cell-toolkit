@@ -1,4 +1,5 @@
 #+title: WCT Imaging Notes
+#+include: ../../docs/include-topic.org
 
 * Concepts, data and processes
 
@@ -6,7 +7,7 @@
 
 The figure below holds an initial, high-level prototype conceptual flow graph showing the top-level algorithms as implemented in the [[https://github.com/BNLIF/wire-cell/][Wire-Cell Prototype code base]].  
 
-[[./imaging_flow.pdf]] 
+[[file:imaging_flow.pdf]]
 
 Some notes and interpretations on this are collected here.  Please not, *these are WCP terms* and not fully carried over to WCT.
 
@@ -233,7 +234,7 @@ A per-slice blobs can be viewed:
   paraview test-pdsp-748-blobs.vtu
 #+END_EXAMPLE
 
-[[file:x.pdf]]
+[[file:x.svg]]
 
 On Mate desktop, paraview renders tool tips with white text on yellow
 background which is unreadable.  [[https://community.slickedit.com/index.php/topic,14388.0.html][This solution]] works.  Install ~qtconfig~, "Appearance" tab, "Tune Palette..." button "ToolTipBase" and "ToolTipText" under "Central color roles".  Pick nicer color (I just made text black) and save.

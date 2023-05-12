@@ -1,5 +1,5 @@
 #+title: Wire Cell Toolkit Apps
-#+SETUPFILE: ../setup-readme.org
+#+include: ../docs/include-readme.org
 
 
 * Overview
@@ -134,3 +134,5 @@ top-level execution.  Provided here are ~ConfigDumper~ and ~NodeDumper~
 which are more examples than useful.  See ~TbbFlow~ from the ~tbb~ sub
 package and ~Pgrapher~ from the ~pgraph~ package for the two most used
 apps.
+
+

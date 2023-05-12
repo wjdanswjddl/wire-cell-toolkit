@@ -1,8 +1,9 @@
-* Framework
+#+title: WCT Testing Framework
+#+include: ../../docs/include-topic.org
 
 This describes the WCT test framework.
 
-** Overview
+* Overview
 
 WCT provides a large and growing suite of self-tests.  When they pass, they assure a variety of correct or at least expected behavior.  Examples of the behavior tested:
 
@@ -18,11 +19,15 @@ WCT provides a large and growing suite of self-tests.  When they pass, they assu
 
 Tests are developed in the WCT testing framework as described in this document.
 
-** Executing tests
+* Executing tests
+:PROPERTIES:
+:CUSTOM_ID: exec-tests
+:END:
+
 
 A user may execute tests in three different ways.
 
-*** Automated campaign
+** Automated campaign
 
 By default, *no tests are executed* by the WCT builder (~waf~ or the provided ~wcb~).  To execute tests the ~--tests~ option may be given at configure time:
 #+begin_example
@@ -50,7 +55,7 @@ Some tests take many minutes to complete.  Each time they are run, their run tim
   waf --test-duration=<seconds>
 #+end_example
 
-*** Targeted execution
+** Targeted execution
 
 Assuming the build was configured with ~--test~, an individual test may be run explicitly via ~waf~ by giving its "target name":
 #+begin_example
@@ -67,7 +72,7 @@ To force a particular test to be rerun after it has been run once:
 #+end_example
 If the build was not configured with the ~--test~ option, this option must be added to the above examples to enable them to actually operate on tests.
 
-*** Direct execution
+** Direct execution
 
 A test program may be executed directly from the shell command line.  Compiled tests are found under ~build/<pkg>/<prefix><sep><name>~.  Interpreted test files are left in-place in the source trees and must be run with an appropriate interpreter.  Here are some examples of directly running tests:
 
@@ -78,7 +83,11 @@ bats test/test/test_bats.bats
 #+end_example
 
 
-** Test requirements
+* Test requirements
+:PROPERTIES:
+:CUSTOM_ID: requirements
+:END:
+
 
 A test program:
 - should include at least one check for proper behavior that may fail,
@@ -88,7 +97,11 @@ A test program:
 - should cover a minimum of code scope needed to perform its checks.
 - must not depend on the execution of other tests (in its group).
 
-** Test source
+* Test source
+:PROPERTIES:
+:CUSTOM_ID: source
+:END:
+
 
 The source file for a test program must found as:
 
@@ -109,16 +122,22 @@ gen/test/test-addnoise.bats
 util/test/check_act2viz.cxx
 #+end_example
 
+* Test groups
+:PROPERTIES:
+:CUSTOM_ID: groups
+:END:
+
+
 All tests in a test /group/ are executed independently and each group is executed in sequence.  A test in one group may depend on programs or their results from a prior group.
 
 The test groups names are listed.  Their ~<prefix>~ matches the group name or in some cases aliases are checked.
 
 - check :: simply compile a program but do not run.  The ~<prefix>~ is ~check~.
-- atomic :: is a basic test, depending on no other tests (but see section [[Data repository]]).  Besides a ~<prefix>~ of ~atomic~ the prefix ~test~ may be (and usually is) given.
-- history :: intended to run after all atomic tests and potentially consume data from prior campaigns and/or produce data for future campaigns.  See section [[Data repository]].  The ~<prefix>~ is ~history~.
+- atomic :: is a basic test, depending on no other tests (but see [[file:datarepo.org][Data repository]]).  Besides a ~<prefix>~ of ~atomic~ the prefix ~test~ may be (and usually is) given.
+- history :: intended to run after all atomic tests and potentially consume data from prior campaigns and/or produce data for future campaigns.  See [[file:datarepo.org][Data repository]].  The ~<prefix>~ is ~history~.
 - report :: intended as a final stage to produce material for human inspection.  The ~<prefix>~ is ~report~.
 
-Most simply, the ~<name>~ should made be unique across the entire toolkit.  It is however acceptable to have more than one test with a given ~<name>~ as long as it differs in ~<prefix>~, ~<sep>~ or ~<ext>~.  Developers of such tests must assure the tests are mutually compatible.  No test may have ~<prefix>~, ~<sep>, <name>~ and ~<ext>~ in common as only one will be run.
+Finally, the ~<ext>~ determines if compilation or interpolation is required.  See [[file:cpp.org][C++ testing]] for information about compiled tests.
 
-Finally, the ~<ext>~ determines if compilation or interpolation is required.  See section [[Test implementation languages]] for information about the supported languages.
+Most simply, the ~<name>~ should made be unique across the entire toolkit.  It is however acceptable to have more than one test with a given ~<name>~ as long as it differs in ~<prefix>~, ~<sep>~ or ~<ext>~.  Developers of such tests must assure the tests are mutually compatible.  No test may have ~<prefix>~, ~<sep>, <name>~ and ~<ext>~ in common as only one will be run.
 

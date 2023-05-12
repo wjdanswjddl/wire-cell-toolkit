@@ -1,6 +1,0 @@
-#+title: Wire-Cell Toolkit Testing 
-#+latex_header: \usepackage[margin=1in]{geometry}
-#+options: ':t toc:t
-#+SETUPFILE: https://fniessen.github.io/org-html-themes/org/theme-readtheorg.setup
-#+EXPORT_FILE_NAME: testing
-#+include: testing.org

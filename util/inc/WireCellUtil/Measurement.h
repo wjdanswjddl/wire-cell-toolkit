@@ -3,6 +3,13 @@
     This is an example outside of Boost, proper.  We hook it in
     through this file just to give some firewall.
 
+    Besides arithemtic methods, there are these accessors:
+
+        constexpr value_type value() const
+        constexpr value_type uncertainty() const
+        constexpr value_type lower_bound() const
+        constexpr value_type upper_bound() const
+
 */
 #ifndef WIRECELLUTIL_MEASUREMENT
 #define WIRECELLUTIL_MEASUREMENT

@@ -13,12 +13,14 @@ namespace WireCell::Aux {
      * This is is nothing more than a bag of data.
      */
     class SimpleFrame : public IFrame {
-       public:
+      public:
         SimpleFrame(int ident, double time, const ITrace::vector& traces, double tick = 0.5 * units::microsecond,
                     const Waveform::ChannelMaskMap& cmm = Waveform::ChannelMaskMap());
 
         SimpleFrame(int ident, double time, ITrace::shared_vector traces, double tick = 0.5 * units::microsecond,
                     const Waveform::ChannelMaskMap& cmm = Waveform::ChannelMaskMap());
+
+        SimpleFrame(int ident, double time=0, double tick = 0.5 * units::microsecond);
 
         ~SimpleFrame();
         virtual int ident() const;
@@ -68,7 +70,9 @@ namespace WireCell::Aux {
             tag_traces<IFrame::trace_list_t,IFrame::trace_summary_t>(tag, indices, summary);
         }
 
-       private:
+        void set_time(double time) { m_time = time; }
+
+      private:
         int m_ident;
         double m_time, m_tick;
         ITrace::shared_vector m_traces;

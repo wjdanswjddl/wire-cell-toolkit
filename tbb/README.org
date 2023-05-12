@@ -1,5 +1,5 @@
 #+title: Wire Cell Interface to TBB flow graph
-#+SETUPFILE: ../setup-readme.org
+#+include: ../docs/include-readme.org
 
 Note, TBB docs seem to be under constant churn so expect links here to become dead.
 

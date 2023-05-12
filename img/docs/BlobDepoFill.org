@@ -1,8 +1,9 @@
-* Blob Depo Fill
+#+title: Blob Depo Fill
+#+include: ../../docs/include-topic.org
 
 This replaces charge in blobs with that from overlapping depos.
 
-** Overview
+* Overview
 
 The ~BlobDepoFill~ WCT flow graph node is in the "join" DFP category.
 It accepts an ~ICluster~ on input port 0 and an ~IDepoSet~ on input port 1
@@ -19,7 +20,7 @@ are correlated.
 See also presentation blob-depo-fill.pdf
 
 
-** Algorithm
+* Algorithm
 
 The goal is to integrate the depo charge distribution over the volume
 of each blob.  This ends up being rather complex for a few reasons.
@@ -72,7 +73,7 @@ boundary rays from the other planes.  The three integrals from each
 dimension then scale the depo charge and the result is added to a sum
 associated with the current blob.
 
-** Selection
+* Selection
 
 The ~Drifter~ produces depos at a fixed location along the drift
 direction which is near to anode plane faces.  However, the set of
@@ -88,7 +89,7 @@ context where it receives an ~ICluster~ with blobs from a single
 context where the ~ICluster~ spans multiple anode planes (eg, after some
 form of cross-anode "stitching").
 
-** Alignment
+* Alignment
 
 In order to correlate portions of the 3D Gaussian extent of a depo
 with a blob, it is likely necessary to apply a time offset to match

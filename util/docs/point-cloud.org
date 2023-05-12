@@ -1,6 +1,7 @@
-#+title: WCT Point Cloud Support
-#+setupfile: setup-note.org
-#+include: setup-listings.org
+#+title: Point Cloud
+#+include: ../../docs/include-topic.org
+
+See also [[file:talks/point-cloud-presentation.pdf][these presentation materials (pdf)]].
 
 #+name: awk
 #+begin_src bash :var re="" :var file="/dev/null" :var lang="shell" :exports none :results output code
@@ -323,7 +324,7 @@ Assuming ~knn~ and the context from the above example, here are some ways to do 
 
 
 
-* Appendix: appending
+* Appending
 
 As described above, two common additive operations are supported in
 ~Dataset~:
@@ -366,9 +367,9 @@ into a form that may also be registered to be called from the update
 hook.
 
 
-* Appendix: nanoflann
+* nanoflann
 
-This appendix provides some developer documentation for ~nanoflann~ as what it provides is rather slim.  What info is available is at the [[https://github.com/jlblancoc/nanoflann][repo readme]] and in the [[https://jlblancoc.github.io/nanoflann/][doxygen docs]].  This information is not required to use WCT PCs.
+This section provides developer documentation for ~nanoflann~ as what that package provides is rather slim.  What info that is available is at the [[https://github.com/jlblancoc/nanoflann][repo readme]] and in the [[https://jlblancoc.github.io/nanoflann/][doxygen docs]].  The additional information given here is not required to use WCT PCs.
 
 ** Dataset
 
@@ -456,4 +457,5 @@ Both of these rely on ~findNeighbors()~ method.
 #+end_src
 
 The ~RESULTSET~ passed to ~findNeighbors()~ may be a ~KNNResultSet<DistanceType>~ for ~knnSearch()~ or a ~RadiusResultSet<DistanceType>~ for ~radiusSearch()~.  The only reason to call this directly instead of through the high level methods is if the result set provides additional required information that they do not.
+
 

@@ -4,7 +4,7 @@ This document describes a subset of the tests.
 
 * test-pdsp-simsn
 
-This [[file:../test/test-pdsp-simsn.bats][test file]] runs PDSP simulation and signal processing, produces some standard output plots, and assuring no significant changes.  It was adapted from https://www.phy.bnl.gov/~yuhw/wct-ci/gen/
+This [[file:../test/test-pdsp-simsn-nfsp.bats][test file]] runs PDSP simulation and signal processing, produces some standard output plots, and assuring no significant changes.  It was adapted from https://www.phy.bnl.gov/~yuhw/wct-ci/gen/
 
 * test-wct-uboone-img
 

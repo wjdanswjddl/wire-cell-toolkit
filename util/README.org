@@ -1,14 +1,10 @@
-#+title: Wire Cell Toolkit Utilities
-#+SETUPFILE: ../setup-readme.org
+#+title: Wire-Cell Toolkit Utilities
+#+include: ../docs/include-readme.org
 
 * Overview
 
 This package provides basic utility functions and classes on which the
-rest of the toolkit is based.
-
-* Highlights
-
-Some classes and functionality are worth highlighting here:
+rest of the toolkit is based.  Some foundational parts include:
 
 - *Interface ::* Wire Cell makes heavy use of the Interface software pattern.  The entire ~iface~ package is mostly made of interface classes.  Of particular note is the ~Interface~ interface class which is used to mark major component classes.  Component classes can be instantiated while maintaining loose coupling between compilation units.
 
@@ -20,3 +16,10 @@ Some classes and functionality are worth highlighting here:
 
 - *Testing ::* is some functions that facilitate writing tests such as ~Assert~.  Two more are ~TimeKeeper~ and ~MemUsage~ which are bundled together in ~ExecMon~.  As their names imply they help code measure how much time and memory it uses.
 
+
+* Links to more docs
+
+
+- [[file:docs/point-cloud.org][Point Cloud]] :: a point-cloud data structure compatible with WCT tensor data model.
+
+- [[file:docs/rectangles.org][Rectangles]] :: a 2-D interval tree.  Similar to a sparse array of pixels but requiring no grid.

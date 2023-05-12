@@ -1,9 +1,12 @@
 #+title: Pgrapher Reference Configuration
+#+include: ../../docs/include-topic.org
 
-This area holds a set of *reference configuration* files spanning many
-targets.  It is self-contained except for depending on the files at
-the top of the ~cfg~ package.  These are expected to provide a set of
-examples or a starting point for deriving production configuration.
+This area holds a set of *reference configuration* files that target
+configuring a WCT job running a /graph execution engine/ such as
+~Pgrapher~ or ~TbbFlow~.  These are expected to provide a set of examples
+or a starting point for deriving production configuration.  See also
+[[file:../layers/README.org][layers]] for a new approach to configuration that strives to be generic
+across many detectors.
 
 * Organization
 
@@ -21,10 +24,7 @@ according to their scope of use.
 - [[./experiment/]] :: reference configuration specific to one experiment
      or detector (eg [[./experiment/uboone/]])
 
-- [[./test/]] :: it should be possible to individually compile all files
-                 above to JSON but this directory holds some
-                 additional files that test integrating files from the
-                 above directories.
+- [[./test/]] :: follows [[file:../../test/README.org][WCT testing]] conventions and of course with an emphasis on [[file:../../test/docs/jsonnet.org][Jsonnet tests]].
 
 
 * Guidelines for developing specific configuration
@@ -60,6 +60,10 @@ directory location for the ~wire-cell-cfg~ package.  Eg:
 #+BEGIN_EXAMPLE
   $ jsonnet -J cfg cfg/pgrapher/uboone/test-nf.jsonnet > test-nf.json
 #+END_EXAMPLE
+
+#+begin_tip
+WCT provides a program ~wcsonnet~ which replaces and has two benefits over the plain ~jsonnet~.  It is aware of ~WIRECELL_PATH~ and it is linked against the Go Jsonnet library which is substantially faster than the C++ Jsonnet library used (currently) by the ~jsonnet~ command line program.
+#+end_tip
 
 If this spits out JSON then the Jsonnet is correctly formed.  Some
 common mistakes are:

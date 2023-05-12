@@ -1,0 +1,197 @@
+#+title: Wire-Cell Toolkit Documentation Sub-package
+#+include: ../docs/include-readme.org
+
+
+* Overview
+
+The ~docs/~ sub package provides support for various forms of documentation provided by the ~wire-cell-toolkit~ repository.
+
+* Documentation source 
+
+The documentation text source is written in plain text following [[https://orgmode.org/][org markup]].  
+
+** README
+
+At [[file:../README.org][top level]] and in every sub package in the WCT repo there is a ~README.org~ file.  These files should provide a brief explanation of their context and then delegate details to other documents under the sibling directory ~docs/~.
+
+Every ~README.org~ file should start with lines like:
+
+#+begin_example
+  ,#+title: Wire-Cell Toolkit <Package>
+  ,#+include: ../docs/include-readme.org
+#+end_example
+
+This will allow the file to be consistently integrated with publishing (see below).
+
+** Topic files
+
+A /topic/ file holds some detailed documentation on some aspect.  It should be placed under ~<pkg>/docs/<topic>.org~.  
+
+Every /topic/ file should start with lines like:
+
+#+begin_example
+  ,#+title: Wire-Cell Toolkit Topic XYZ
+  ,#+include: ../../docs/include-topic.org
+#+end_example
+
+* Building
+
+Each doc source file may be /exported/ to HTML or PDF manually (eg by ~emacs~ or less nicely by ~pandoc~).  The build system performs this export automatically if Emacs is available.  See also [[Publishing][Publishing]] below.
+
+** Automatic
+
+By default, the docs are not built.  Their build is initiated with the command line option ~--docs=<...>~.  It takes a list of transformations.  Currently all transformations can be exercised with:
+
+#+begin_example
+  waf --docs=org2html,org-pdf
+#+end_example
+
+This will build all documents.
+
+** Individual
+
+Individual documents can be built via the usual Waf target mechanism:
+
+#+begin_example
+  waf --docs=org2html list
+  waf --docs=org2html --target=docs-README-html
+  waf --docs=org2pdf --target=docs-README-pdf
+  evince build/docs/README.pdf 
+#+end_example
+
+** Manual
+
+Of course it is possible to manually transform the org documents to HTML or PDF.  Care must be taken to not leave the exported products in the source tree.  Do not ever commit generated documentation to the repo.
+
+*** Using Emacs
+
+Visit the org file and type ~C-c C-e h h~ to export it to HTML.  Alternatively, ~C-c C-e l p~ will export to PDF.
+
+#+begin_note
+Results may differ from officially published version.  In particular, code syntax highlighting is sensitive Emacs customization.
+#+end_note
+
+*** Using pandoc
+
+If you are afraid of Emacs you can use ~pandoc~ to generate previews.  For example:
+
+#+begin_example
+  cd docs
+  pandoc -o README.html README.org
+  pandoc -o README.pdf README.org
+#+end_example
+
+#+begin_note
+The results with pandoc will be rather plain and ugly compared to what is produced by Emacs.
+#+end_note
+
+
+* Authoring
+
+There is a huge body of guidance on authoring documents in org markup.  Here, only a few special things relevant to WCT documentation are given.  To get started:
+
+#+begin_example
+  git clone git@github.com:wirecell/wire-cell-toolkit.git /path/to/wct
+  cd /path/to/wct
+  $EDITOR <pkg>/docs/somefile.org
+#+end_example
+
+Any text editor is fine to use though of course Emacs provides the most support.
+
+** File links
+
+In addition to linking to web URLs, relative links to other files are allowed.  The form that should be used is:
+
+#+begin_example
+  See [[file:other.org][this other file]] for more info.
+#+end_example
+
+Publishing will include the targets of these links.
+
+** Images
+
+Documents may include images.  They are typically placed in the ~docs/~ directory alongside the org source. 
+
+#+begin_example
+  Enjoy this figure:
+
+  [[file:/wire-cell-bee-logo.png]]
+#+end_example
+
+[[file:wire-cell-bee-logo.png]]
+
+Graphics files can pose a problem for allowing the org source to export to both HTML and PDF (by way of LaTeX).  Use of PNG and JPEG is compatible with both but for some content leads to poor resolution or large files.  Use of PDF images is best for PDF export and for line-art but PDF will not be inlined in HTML export and will instead be presented as a link.  In principle, SVG can be used for both and has good resolution/size features but use in PDF/LaTeX export requires some special attention.
+
+** File inclusion
+
+Avoid including other org files as this causes ambiguity in relative links and goes against the "one org file per document" pattern that the build assumes.
+
+* Previewing
+
+While editing it can be useful to see a rendered version.  One may simply build a document as described in [[Building][Building]].  This can be coupled with a "live view" previewing.  
+
+** PDF
+
+The ~evince~ or ~atril~ PDF viewers provide "live view", reloading when the PDF updates.
+
+** HTML
+
+A "live view" of the HTML file can be useful as one edits.  This can approximate "instant" publishing.  It may be used like:
+
+#+begin_example
+  cd /path/to/wct
+  ln -s docs/styles .
+  livereload -d -p 5959 -t .
+#+end_example
+The reason for the symlink is to make the source area look like the published web area.  
+
+#+begin_tip
+The command may be installed with ~pip install livereload~.  It may be convenient to install this in the same Python environment as ~wire-cell-python~. 
+#+end_tip
+
+#+begin_note
+File tree indices (~index.html~) are not automatically generated by ~livereload~ so you will must type in the full path to an HTML file in the URL.  For example, the top level README would be at the URL http://127.0.0.1:5959/README.html.
+#+end_note
+
+* Publishing
+
+We publish the WCT source docs by "installing" the exported HTML files into the ~git~ repo that holds the WCT web site.
+
+#+begin_example
+  git clone git@github.com:WireCell/wirecell.github.io /path/to/web
+  git clone git@github.com:wirecell/wire-cell-toolkit.git /path/to/wct
+
+  cd /path/to/wct
+  waf configure [...]
+  waf install --docs=org2html --docs-prefix=/path/to/web 
+
+  cd /path/to/web
+  git commit
+  git push
+#+end_example
+
+#+begin_tip
+By default, the ~waf install --docs=org2html~ command will launch a new instance of Emacs for each org file.  This can be slow.  An optional optimization is supported that will speed up the build by about 4x.  To use it, first start ~emacs~ and there issue ~M-x (server-start)~.  Then build with: ~waf install --docs=org2html --emacs-daemon="server"~.
+#+end_tip
+
+* Other markup
+
+Org markup syntax is very simple and plain text.  You may use any editor to author it.  Above gives various ways to convert to HTML or PDF without using or knowing Emacs.
+
+In principle, other markup formats could be supported, but this is discouraged.  Supporting a new markup format requires a developer to "champion" the formation.  Requirement on the developer include:
+
+- Demonstrate that they will actually provide and maintain documentation.
+
+- Explain why they are incapable of using org.
+
+- Develop a waf tool to integrate the formst that operates symmetric with the [[file:../waft/org.py][org waf tool]].
+
+- Provide HTML CSS/JS styling.
+
+* Other documentation
+
+WCT has additional documentation beyond what is housed in the source repo.  See entry point at:
+
+- https://wirecell.bnl.gov/
+
+- https://wirecell.github.io/ (mirror)
