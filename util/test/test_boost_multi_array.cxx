@@ -57,5 +57,19 @@ int main()
         }
     }
 
+    {
+        std::vector<std::size_t> shape = {23746,6};
+        std::vector<double> dvec(shape[0]*shape[1]);
+        
+        const std::byte* bytes = (std::byte*)dvec.data();
+        const double* data = reinterpret_cast<const double*>(bytes);
+
+        auto ref = boost::const_multi_array_ref<double,2>(data, shape);
+        auto ma = boost::multi_array<double, 2> (ref);
+        Assert(ma.shape()[0] == shape[0]);
+        Assert(ma.shape()[1] == shape[1]);
+    }
+
+
     return 0;
 }

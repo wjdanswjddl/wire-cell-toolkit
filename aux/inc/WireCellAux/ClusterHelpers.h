@@ -21,6 +21,8 @@
 
 namespace WireCell::Aux {
 
+    std::string dumps(const cluster_graph_t& cgraph);
+
     /// Return JSON representation of the cluster.
     Json::Value jsonify(const cluster_graph_t& cgraph);
 

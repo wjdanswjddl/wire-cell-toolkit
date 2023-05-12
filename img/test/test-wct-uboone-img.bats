@@ -143,17 +143,21 @@ function roundtrip () {
     local ofmt=$1; shift
     local ifile=clusters-${ifmt}.tar.gz
     local ofile=clusters-${ifmt}-${ofmt}.tar.gz
-    local lfile=roundtrip-${ifmt}-${ofmt}.log
+    local dag=roundtrip-${ifmt}-${ofmt}
+    local lfile=$dag.log
     local cfg=$(relative_path test-wct-uboone-img-roundtrip.jsonnet)
 
     cd_tmp file
 
-    wct -l $lfile -L debug \
+    compile_jsonnet $cfg ${dag}.json \
         -A infile=$ifile \
         -A outfile=$ofile \
         -A infmt=$ifmt \
         -A outfmt=$ofmt \
-        -c $cfg
+
+    dotify_graph "${dag}.json" "${dag}.png"
+
+    wct -l $lfile -L debug -c "${dag}.json"
 
     local errors="$(egrep ' W | E ' $lfile)"
     echo "$errors"
@@ -182,4 +186,65 @@ function roundtrip () {
 }
 @test "round trip json to numpy" {
     roundtrip json numpy
+}
+
+function roundtrip2 () {
+    local ifmt=$1; shift
+    local ofmt=$1; shift
+    local ifile=clusters-${ifmt}.tar.gz
+    local ofile1=clusters2-${ifmt}-${ofmt}.tar.gz
+    local ofile2=clusters2-${ifmt}-${ofmt}-${ifmt}.tar.gz
+
+
+    local dag1=roundtrip2-${ifmt}-${ofmt}
+    local dag2=roundtrip2-${ifmt}-${ofmt}-${ifmt}
+
+    local lfile1=${dag1}.log
+    local lfile2=${dag2}.log
+    local cfg=$(relative_path test-wct-uboone-img-roundtrip.jsonnet)
+
+    cd_tmp file
+
+    compile_jsonnet ${cfg} ${dag1}.json \
+        -A infile=$ifile \
+        -A outfile=$ofile1 \
+        -A infmt=$ifmt \
+        -A outfmt=$ofmt
+
+    dotify_graph "${dag1}.json" "${dag1}.png"
+
+    wct -l $lfile1 -L debug -c ${dag1}.json
+    local errors="$(egrep ' W | E ' $lfile1)"
+    echo "$errors"
+    [[ -z "$errors" ]]
+
+
+    compile_jsonnet ${cfg} ${dag2}.json \
+        -A infile=$ofile1 \
+        -A outfile=$ofile2 \
+        -A infmt=$ofmt \
+        -A outfmt=$ifmt
+
+    dotify_graph "${dag2}.json" "${dag2}.png"
+
+    wct -l $lfile2 -L debug -c ${dag2}.json
+    local errors="$(egrep ' W | E ' $lfile2)"
+    echo "$errors"
+    [[ -z "$errors" ]]
+    
+
+    local wcimg=$(wcb_env_value WCIMG)
+
+    ilog=${dag1}-inspect.log
+    olog=${dag2}-inspect.log
+    run $wcimg inspect -o $ilog $ifile
+    run $wcimg inspect -o $olog $ofile2
+
+    local delta="$(diff -u $ilog $olog)"
+    echo "$delta"
+    [[ -z "$delta" ]]
+}
+
+@test "round trip json to tensor" {
+    roundtrip2 json tensor
 }

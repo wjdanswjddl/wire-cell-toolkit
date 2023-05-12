@@ -22,41 +22,6 @@ using namespace WireCell::Aux;
 using namespace WireCell::Sio;
 using namespace WireCell::String;
 
-static void dump_cluster(WireCell::Log::logptr_t& log,
-                         const WireCell::ICluster::pointer& cluster)
-{
-    const auto& gr = cluster->graph();
-    const auto known = WireCell::cluster_node_t::known_codes;
-    const size_t ncodes = known.size();
-    std::vector<size_t> counts(ncodes, 0);
-
-    size_t nnull = 0;
-    for (auto vtx : boost::make_iterator_range(boost::vertices(gr))) {
-        const auto& vobj = gr[vtx];
-        if (! vobj.ptr.index() ) {
-            ++nnull;
-            continue;
-        }
-        ++counts[vobj.ptr.index() - 1]; // node type index=0 is the bogus node type
-    }
-
-    std::stringstream ss;
-    for (size_t ind=0; ind < ncodes; ++ind) {
-        ss << known[ind] << ":" << counts[ind] << " ";
-    }
-
-    if (nnull) {
-        log->warn("found {} null nodes in graph, something is wrong with whatever made our cluster", nnull);
-    }
-    log->debug("cluster={} nvertices={} nedges={} types: {}",
-               cluster->ident(),
-               boost::num_vertices(gr),
-               boost::num_edges(gr),
-               ss.str());
-}
-
-using namespace WireCell;
-
 ClusterFileSource::ClusterFileSource()
     : Logger("ClusterFileSource", "io")
 {
@@ -361,8 +326,7 @@ bool ClusterFileSource::operator()(ICluster::pointer& cluster)
         m_eos_sent = true;
     }
     else {
-        log->debug("load cluster at call={}", m_count);
-        dump_cluster(log, cluster);
+        log->debug("load cluster {} at call={}: {}", cluster->ident(), m_count, dumps(cluster->graph()));
     }
     ++m_count;
     return true;

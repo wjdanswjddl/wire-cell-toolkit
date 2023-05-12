@@ -3,6 +3,7 @@
 
 #include "ClusterHelpers.h"
 #include "WireCellIface/ICluster.h"
+#include "WireCellIface/ITensorSet.h"
 #include <boost/multi_array.hpp>
 #include <boost/range/counting_range.hpp>
 
@@ -98,6 +99,10 @@ namespace WireCell::Aux::ClusterArrays {
     cluster_graph_t to_cluster(const node_array_set_t& nas,
                                const edge_array_set_t& eas,
                                const anodes_t& anodes);
+
+
+    /// See TensorDM for conversion between ICluster and ITensor.
+
 }
 
 #endif
