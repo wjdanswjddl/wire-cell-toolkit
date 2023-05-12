@@ -163,3 +163,24 @@ function comp1d () {
     cd_tmp file
     dotify_graph $dag_file dag.svg
 }
+
+@test "has wiener summary" {
+    cd_tmp file
+
+    local found_wiener=$(cat wire-cell.log | grep 'OmnibusSigProc' | grep 'output frame' | grep '"wiener0":2560 \[2560\]')
+    [[ -n "$found_wiener" ]]
+}
+@test "no threshold summary" {
+    cd_tmp file
+
+    local found_threshold=$(cat wire-cell.log | grep 'OmnibusSigProc' | grep 'output frame' | grep 'threshold')
+    echo "found threshold: $found_threshold"
+    [[ -z "$found_threshold" ]]
+}
+@test "no wiener_threshold_tag configuration" {
+    cd_tmp file
+
+    local found_threshold=$(cat wire-cell.log | grep 'wiener_threshold_tag')
+    echo "found threshold: $found_threshold"
+    [[ -z "$found_threshold" ]]
+}
