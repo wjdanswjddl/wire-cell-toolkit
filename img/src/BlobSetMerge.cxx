@@ -46,6 +46,9 @@ bool Img::BlobSetMerge::operator()(const input_vector& invec, output_pointer& ou
     auto sbs = new Aux::SimpleBlobSet(0, nullptr);
     out = IBlobSet::pointer(sbs);
 
+    // TODO assign new blob ident
+    // reset the counter with EOS
+
     int neos = 0;
     std::stringstream perset;
     for (const auto& ibs : invec) {
