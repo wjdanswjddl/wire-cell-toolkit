@@ -39,7 +39,7 @@ namespace WireCell::Img {
             The string may provide a %d format code which will be
             interpolated with the frame's ident number.
          */
-        std::string m_datapath = "frames/%d";
+        std::string m_datapath = "pointclouds/%d";
 
         size_t m_count{0};
     };

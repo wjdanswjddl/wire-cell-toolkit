@@ -6,110 +6,121 @@
 On data model that the Wire-Cell Toolkit (WCT) supports is the /tensor
 data model/.  This model is factored into two layers:
 
-- The *generic tensor data model* consists of a ordered collection (set)
-  of *tensor objects*.  A tensor object consists of a multi-dimensional,
-  *numeric array* and a structured *metadata object*.  The WCT data
-  interface classes ~ITensor~ and ~ITensorSet~ express these aspects.
+- The *generic tensor data model* is transiently represented as a
+  concrete implementation of ~ITensorSet~ and ~ITensor~ and persisted
+  according to this document.
 
 - The *specific tensor data model* defines conventions on the generic
   tensor data model in order to map certain other data types to the
   generic tensor data model.
 
 #+begin_note
-The next two sections define the generic and specific tensor data
-models and are written in rfc2119 language.  
+The meaning of the term "tensor" is not that of the strict
+mathematical sense.
 #+end_note
 
 * Generic tensor data model
 
-A *tensor* shall be composed of two conceptual parts: an *array* part and
-a *metadata* part.
+The generic tensor data model maps between the transient ~ITensorSet~
+and ~ITensor~ model and a persistent one.  The elements of the tensor
+data model are:
 
-The *array* part consists of a sequence of elements that shall be stored
-contiguously and associated with a *shape*, layout *order* and array
-element *type* and *size*.
+- A *tensor set* is an aggregation of zero or more *tensors* and a
+  optional *metadata object*.
 
-The array *shape* shall be represented as a vector of integer type with
-each element corresponding to the number of elements spanned by the
-corresponding dimension.  The array layout *order* shall be represented
-as a vector which stores the majority of the dimensions or it shall be
-empty indicating "C" layout (conventional array layout for the C
-programming language).  A "C" layout should be used.  The array
-element *type* shall be represented as a string with values following
-Numpy [[https://numpy.org/doc/stable/reference/arrays.interface.html#arrays-interface][array interface]] ~typestr~ specification.  This typically means a
-letter followed by a number giving the size in bytes of the type.  The
-array element *size* shall be represented as an integer providing the
-size of one element measured in bytes.
+- A *tensor* is the combination of an *array* and a *metadata object*.
 
-A tensor *metadata* (MD) part shall follow the JSON data model and be of
-JSON type /object/.  The MD model reserves the following attributes
-names.
+- A *metadata object* associates *attributes* in a structure that follows
+  the JSON data model.
 
-- array :: optional and when existing it is an object providing array
-  specifications using keyword names given in bold above (*shape*, etc).
-Additional MD attributes are required by the specific tensor data
-model.  User application may define attributes not otherwise reserved
-here.  The MD must be faithfully passed through any tensor converter
-round trip.
+- An *array* is a contiguous block of memory holding numeric data that
+  is stored with associated *shape*, layout *order* and array element *type*
+  and *size*.  An array may be empty or null.
 
-A *tensor set* shall be composed of two conceptual parts: an ordered
-sequence of tensors and a metadata part.  A tensor set shall not
-contain other tensor sets.
-The ordering of a tensor set sequence shall be stable and may be
-empty.  A tensor may be contained in multiple tensor sets.
-The tensor set MD object shall follow the JSON data model and be of
-JSON type object but otherwise this tensor data model places no
-requirements on its contents.  The tensor set MD must be faithfully
-passed through any tensor set converter round trip.
+* Persistent tensor data models
+
+Two persistent variants are supported:
+
+- serial :: data is sent through WCT iostreams to/from Zip or Tar archive files.
+
+- hierarchical :: data is read/written in random access manner to/from HDF5 files.
+
+In both persistent forms a hiearchy is expressed.  In the serial form,
+each ~ITensorSet~ or ~ITensor~ representation carries its location in the
+hierarchy by a path-like stream in the reserved *metadata object*
+attribute *datapath*.  While, in HDF5 the *datapath* is inherently stored
+as an first class HDF5 attribute of an HDF5 dataset and is not stored
+in the HDF5 dataset metadata.
+
+In the serial form, aggregates of tensors are collected by referencing
+their *datapath* values in a *metadata object attribute*.  For example, a
+tensor set metadata object attribute *tensors* holds an array of
+*datapath* to its tensors (see below).  Other aggregations are described
+in the specific tensor data model below.  The hierarchy form may
+utilize HDF5 object or region references.
+
+For I/O optimization, the *serial* variant will also associate tensor
+set with its tensors using a file naming and ordering convention as
+illustrated:
+
+#+begin_example
+tensorset_0_metadata   # the tensor set ident=0 metadata object
+tensor_0_0_metadata    # the first tensor metadata object (no array)
+tensor_0_1_metadata    # the second tensor metadata object
+tensor_0_1_array       # the second tensor array object
+tensor_0_2_metadata    # etc....
+tensor_0_2_array     
+tensor_0_3_metadata  
+tensor_0_3_array     
+tensor_0_4_metadata  
+tensor_0_4_array     
+#+end_example
+
+#+begin_note
+The user may adopt a convention that *datapath* informally implies some
+association.  For example a point cloud (see below) may result in the
+following *datapath* set:
+
+#+begin_example
+pointcloud/0           # main tensor datapath
+pointcloud/0/arrays/t  # datapath to first PC attribute
+pointcloud/0/arrays/x  # etc...
+pointcloud/0/arrays/y  # etc...
+pointcloud/0/arrays/z  # etc...
+#+end_example
+#+end_note
 
 * Specific tensor data model
 
-The specific tensor data model defines representations of a number of
-data types in terms of the generic tensor data model.
+The specific tensor data model maps meaning to one or more tensors in
+terms of other WCT data types by defining a number of conventions on
+top of the generic tensor data model.
 
-** Common metadata conventions
+Every tensor has an associated *datatype* attribute of value string.
+Only values listed may be used:
 
-A tensor MD shall have an attribute named *datapath* of type string that
-identifies the tensor in a logical hierarchical structure of multiple
-tensors.  The *datapath* value shall be unique among all tensors held in
-a tensor set.  The value shall be interpreted as a sequence of atomic
-identifiers separated by a ~/~ (slash) character.  An atomic
-identifier must be valid for use as a name of C++ or Python variables
-or functions.  A *datapath* value may be stored in a tensor MD attribute
-and refer to another tensor when both tensors are held in the same
-tensor set.
 
-A tensor MD shall have an attribute *datatype* which identifies a data
-type in the specific tensor data model that it represents.  The
-*datatype* value shall be one from the set of specific types described
-below.  Additional requirements on MD attributes may be defined that
-are specific to a *datatype* as described in the corresponding section
-below.
+- pcarray :: a ~PointCloud::Array~ (~pointclouds/<ident>/arrays/<name>~)
+- pcdataset :: a ~PointCloud::Dataset~ (~pointclouds/<ident>~)
+- pcgraph :: a ~PointGraph~ (~pointgraphs/<ident>~ with ~pointgraphs/<ident>/{nodes,edges}~)
 
-A complex data type may be represented as an *aggregation* of multiple
-tensors.  The aggregation shall be defined by a MD attribute that
-provides a collection of *datapath* values for the constituents.  The
-nature of this collection may defined uniquely for each *datatype*.  A
-constituent should have a *datapath* that is a child of *datapath* of the
-parent aggregate.
+- trace :: one ~ITrace~ as 1D array or multiple ~ITrace~ as 2D array. (~frames/<ident>/traces/<number>~)
+- tracedata :: tagged trace indices and summary data. (~frames/<ident>/tracedata~)
+- frame :: an ~IFrame~ as aggregate of traces and/or traceblocks. (~frames/<ident>~)
 
-** Overview of specific types
-
-The following specific types are mapped to the basic tensor data
-model.  Each item in the list gives the *datatype* MD attribute value
-and describes the WCT data type to which it associates.
-
-- pcarray :: a ~PointCloud::Array~
-- pcdataset :: a ~PointCloud::Dataset~
-- pcgraph :: a ~PointGraph~
-
-- trace :: one ~ITrace~ as 1D array or multiple ~ITrace~ as 2D array.
-- tracedata :: tagged trace indices and summary data.
-- frame :: an ~IFrame~ as aggregate of traces and/or traceblocks.
-
-- cluster :: an ~ICluster~ 
+- cluster :: an ~ICluster~ (~clusters/<ident>~)
 - clnodeset :: an array of attributes for set of monotypical ~ICluster~ graph nodes.
 - cledgeset :: an array describing a set of ~ICluster~ graph edges between all nodes of one type to all nodes of another.
+
+Where pertinent, the recommended *datapath* root path for the type is given in parenthesis.
+
+The tensor set has a *datatype* of *tensorset* and is merely a generic
+container of tensors produced in some context (eg an "event").  The
+*tensorset* shall have an attribute *tensors* of value array of string
+that provides the *datapath* of all tensors in the set.
+
+A tensor type may be an *aggregate*.  This is a tensor that represents
+other tensors by collecting their *datapath* into an metadata attribute.
 
 The remaining sections describe additional requirements specific to
 for each *datatype*.
@@ -272,13 +283,15 @@ file will contain files with names matching these patterns:
 The ~<prefix>~ is arbitrary, the ~<index>~ identifies a tensor set and
 ~<index>~ identifies a tensor in a set.
 
-* Similarity to HDF5
+* Hierarchical files
 
-The data model is intentionally similar to HDF5 abstract data model
+Currently, only the serial variant of the persistent data model is
+implemented.  The general data model is intentionally similar to HDF5
 and there is a conceptual mapping between the two:
 
 - HDF5 group hierarchy $\leftrightarrow$ ~ITensor~ metadata attribute providing a hierarchy path as array of string.
-- HDF5 group $\leftrightarrow$ No direct equivalent but an ~ITensor~ with no array is effectively the same.
+- HDF5 group $\leftrightarrow$ No direct equivalent in that *datapath* patterns do not imply grouping but rather explicit metadata arrays do.
+- HDF5 references $\leftrightarrow$ Aggregation through array of *datapath* in metadata attribute.
 - HDF5 dataset $\leftrightarrow$ ~ITensor~ array.
 - HDF5 dataspace and datatype $\leftrightarrow$ ~ITensor~ methods ~shape()~, ~dtype()~, etc.
 - HDF5 group or dataset attribute $\leftrightarrow$ ~ITensor~ metadata attribute
