@@ -180,29 +180,38 @@ Dataset Dataset::zeros_like(size_t nmaj)
 
 void Dataset::append(const std::map<std::string, Array>& tail)
 {
-    if (tail.empty()) return;
+    if (tail.empty()) {
+        return;                 // nothing to append
+    }
 
     const size_t nmaj_before = size_major();
 
-    auto diff = difference(keys(), store_keys(tail));
-    if (diff.size() > 0) {
-        THROW(ValueError() << errmsg{"missing keys in append"});
-    }
-
-    size_t nmaj = 0;            // check rectangular
-    for (auto& [key, arr] : tail) {
-        if (nmaj == 0) {        // first
-            nmaj = arr.size_major();
-            continue;
-        }
-        if (arr.size_major() != nmaj) {
-            THROW(ValueError() << errmsg{"variation in major axis size in append"});
+    if (m_store.empty()) {      // we are nothing and become tail
+        for (auto& [key, arr] : tail) {
+            add(key, arr);
         }
     }
+    else {                      // actual append
+        auto diff = difference(keys(), store_keys(tail));
+        if (diff.size() > 0) {
+            THROW(ValueError() << errmsg{"missing keys in append"});
+        }
 
-    for (auto& [key, arr] : m_store) {
-        const auto& [ok, oa] = *tail.find(key);
-        arr.append(oa.bytes());
+        size_t nmaj = 0;            // check rectangular
+        for (auto& [key, arr] : tail) {
+            if (nmaj == 0) {        // first
+                nmaj = arr.size_major();
+                continue;
+            }
+            if (arr.size_major() != nmaj) {
+                THROW(ValueError() << errmsg{"variation in major axis size in append"});
+            }
+        }
+
+        for (auto& [key, arr] : m_store) {
+            const auto& [ok, oa] = *tail.find(key);
+            arr.append(oa.bytes());
+        }
     }
 
     const size_t nmaj_after = size_major();

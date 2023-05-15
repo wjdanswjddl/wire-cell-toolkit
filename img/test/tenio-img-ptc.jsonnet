@@ -17,9 +17,11 @@ function(detector, variant="nominal",
     local components = [
         local anode = anodes[aid];
         local acfg={anode: anode.data.ident};
+
+        // Note, the "sampler" must be unique to the "sampling".
         local bs = {
             type: "BlobSampler",
-            name: anode.data.ident,
+            name: anode.data.ident, 
             data: {
                 strategy: ["center","corner","edge"]
                 #strategy: "center"

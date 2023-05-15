@@ -15,7 +15,7 @@ bats_load_library wct-bats.sh
     
 }
 
-@test "no threshold tags in cfg" {
+@test "no threshold tags in cfg - this fails until wclsFrameSaver issue resolved" {
 
     local cfgdir=$(srcdir cfg)
 
@@ -28,3 +28,4 @@ bats_load_library wct-bats.sh
     [[ "$found" -eq 0 ]]
     
 }
+

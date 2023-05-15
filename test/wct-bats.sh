@@ -38,9 +38,12 @@ function die () {
 function file_larger_than () {
     local filename=$1 ; shift
     local minsize=$1; shift
+    echo "check file size for $filename"
     [[ -f "$filename" ]]
+    local fsize="$(stat -c '%s' $filename)"
+    echo "minsize is $minsize. $filename is size $fsize"
     [[ -n "$minsize" ]]
-   [[ "$(stat -c '%s' $filename)" -gt "$minsize" ]]
+    [[ "$fsize" -gt "$minsize" ]]
 }
 
 

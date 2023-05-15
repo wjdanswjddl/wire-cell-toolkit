@@ -66,11 +66,11 @@ void BlobSampler::configure(const WireCell::Configuration& cfg)
 }
 
 
-// Base class providing common functionality to all samplers.
+// Local base class providing common functionality to all samplers.
 //
 // Subclass should provide sample() which should call intern() with
 // points.
-struct BlobSampler::Sampler
+struct BlobSampler::Sampler : public Aux::Logger
 {
     // Little helper to reduct setting the same value over n points and
     // only doing so if the suffix is configured.
@@ -112,9 +112,11 @@ struct BlobSampler::Sampler
     // Current blob index in the iterated IBlob::vector
     size_t blob_index;
     IBlob::pointer iblob;
+    size_t points_added{0};
 
     explicit Sampler(const Configuration& cfg, size_t ident)
-        : cc(cfg2cpp(cfg)), ident(ident)
+        : Aux::Logger("BlobSampler", "img")
+        , cc(cfg2cpp(cfg)), ident(ident)
     {
         this->configure(cfg);
     }
@@ -123,14 +125,16 @@ struct BlobSampler::Sampler
 
     // Context manager around sample()
     IAnodeFace::pointer anodeface;
-    void begin_sample(size_t bind, IBlob::pointer iblob)
+    void begin_sample(size_t bind, IBlob::pointer fresh_iblob)
     {
+        points_added = 0;
         blob_index = bind;
-        iblob = iblob;
-        anodeface = iblob->face();
+        iblob = fresh_iblob;
+        anodeface = fresh_iblob->face();
     }
     void end_sample()
     {
+        points_added=0;
         anodeface = nullptr;
         blob_index=0;
         iblob = nullptr;
@@ -191,6 +195,9 @@ struct BlobSampler::Sampler
         return false;
     }
     
+    // Fixme: this cache is not thread safe if a BlobSampler is shared
+    // to multiple BlobSamplings.  To fix, have BlobSampler be
+    // configured for IAnodePlanes and pre-fill the lookup.
     struct ChanInfo {
         int ident, index;
     };
@@ -330,12 +337,21 @@ struct BlobSampler::Sampler
         for (int tbin : irange(bins.nbins())) {
             const double time = bins.edge(tbin);
             const double x = time2drift(time);
+            points_added += npts;
             for (size_t ind=0; ind<npts; ++ind) {
                 points[ind].x(x);
             }
             auto tail = make_dataset(points, time);
+            const size_t before = ds.size_major();
             ds.append(tail);
+            const size_t after = ds.size_major();
+            // log->debug("sampler {} iblob {} intern {} points, ds size {}, tail size {} with binning {}",
+            //            ident, iblob->ident(), npts, ds.size_major(), tail.size_major(), bins);
+            if (after != before + npts) {
+                THROW(AssertionError() << errmsg{"PointCloud append() is broken"});
+            }
         }
+        
     }
 };
 
@@ -344,14 +360,21 @@ PointCloud::Dataset BlobSampler::sample_blobs(const IBlob::vector& iblobs)
 {
     PointCloud::Dataset ret;
     size_t nblobs = iblobs.size();
+    size_t points_added = 0;
     for (size_t bind=0; bind<nblobs; ++bind) {
-        auto iblob = iblobs[bind];
+        auto fresh_iblob = iblobs[bind];
         for (auto& sampler : m_samplers) {
-            sampler->begin_sample(bind, iblob);
+            if (!fresh_iblob) {
+                THROW(ValueError() << errmsg{"can not sample null blob"});
+            }
+            sampler->begin_sample(bind, fresh_iblob);
             sampler->sample(ret);
+            points_added += sampler->points_added;
             sampler->end_sample();
         }
     }
+    log->debug("got {} blobs, sampled {} points with {} samplers, returning {}",
+               nblobs, points_added, m_samplers.size(), ret.size_major());
     return ret;
 }
         
