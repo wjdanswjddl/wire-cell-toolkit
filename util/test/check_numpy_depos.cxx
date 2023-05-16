@@ -1,50 +1,53 @@
-
-#include "WireCellUtil/NumpyHelper.h"
+#include "WireCellUtil/Stream.h"
 #include <iostream>
 #include <string>
+
+using namespace WireCell::Stream;
 
 using FArray = Eigen::Array<float, Eigen::Dynamic, Eigen::Dynamic>;
 using IArray = Eigen::Array<int, Eigen::Dynamic, Eigen::Dynamic>;
 
-using WireCell::Numpy::load2d;
 
 int main(int argc, char** argv)
 
 {
     if (argc < 3) {
-        std::cerr << "usage: check_numpy_depos depo-file.npz <SetN> [<FirstDepo> [<NDepos>]]\n";
+        std::cerr << "usage: check_numpy_depos depo-file.npz\n";
     }
     const std::string fname = argv[1];
-    const std::string nname = argv[2];
-    size_t row_beg=0, nrows = 10;
-    if (argc > 3) {
-        row_beg = atoi(argv[3]);
-    }
-    if (argc > 4) {
-        nrows = atoi(argv[4]);
-    }
+
+    boost::iostreams::filtering_istream si;
+    input_filters(si, fname);
+
 
     FArray data;
+    std::string dname="";
+    read(si, dname, data);
+    assert(!dname.empty());
+    std::cerr << dname << " shape: (" << data.rows() << " " << data.cols() << ")\n";
+
     IArray info;
-    load2d(data, "depo_data_" + nname, fname);
-    load2d(info, "depo_info_" + nname, fname);
+    std::string iname="";
+    read(si, iname, info);
+    assert(!iname.empty());
+    std::cerr << iname << " shape: (" << info.rows() << " " << info.cols() << ")\n";
         
-    assert (data.cols() == 7);
-    assert (info.cols() == 4);
+    assert (data.rows() == 7);
+    assert (info.rows() == 4);
     
-    const size_t ndepos = data.rows();
-    assert(ndepos == (size_t)info.rows());
+    const size_t ndepos = data.cols();
+    assert(ndepos == (size_t)info.cols());
 
-    const size_t row_end = std::min(row_beg + nrows, ndepos);
-
-    for (size_t irow=row_beg; irow<row_end; ++irow) {
+    for (size_t idepo=0; idepo<ndepos; ++idepo) {
         
         std::cerr
-            << "row=" << irow
-            << " t=" << data(irow,0)
-            << " id=" << info(irow,0)
-            << " gen=" << info(irow,2)
-            << " child=" << info(irow,3)
+            << "row=" << idepo
+            << " t=" << data(0, idepo)
+            << " q=" << data(1, idepo)
+            << " id=" << info(0, idepo)
+            << " pdg=" << info(1, idepo)
+            << " gen=" << info(2, idepo)
+            << " child=" << info(3, idepo)
             << std::endl;
     }
     return 0;

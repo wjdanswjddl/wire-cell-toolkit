@@ -15,32 +15,8 @@ WIRECELL_FACTORY(ClusterFileSink, WireCell::Sio::ClusterFileSink,
                  WireCell::IClusterSink, WireCell::ITerminal,
                  WireCell::IConfigurable)
 
-static void dump_cluster(WireCell::Log::logptr_t& log,
-                         const WireCell::ICluster::pointer& cluster)
-{
-    const auto& gr = cluster->graph();
-    const auto known = WireCell::cluster_node_t::known_codes;
-    const size_t ncodes = known.size();
-    std::vector<size_t> counts(ncodes, 0);
-
-    for (auto vtx : boost::make_iterator_range(boost::vertices(gr))) {
-        const auto& vobj = gr[vtx];
-        ++counts[vobj.ptr.index() - 1]; // node type index=0 is the bogus node type
-    }
-
-    std::stringstream ss;
-    for (size_t ind=0; ind < ncodes; ++ind) {
-        ss << known[ind] << ":" << counts[ind] << " ";
-    }
-
-    log->debug("cluster={} nvertices={} nedges={} types: {}",
-               cluster->ident(),
-               boost::num_vertices(gr),
-               boost::num_edges(gr),
-               ss.str());
-}
-
 using namespace WireCell;
+using namespace WireCell::Aux;
 
 Sio::ClusterFileSink::ClusterFileSink()
     : Aux::Logger("ClusterFileSink", "io")
@@ -105,23 +81,24 @@ void Sio::ClusterFileSink::numpify(const ICluster& cluster)
         return this->fqn(cluster, name, "npy");
     };
 
-    Aux::ClusterArrays ca(cluster.graph());
+    Aux::ClusterArrays::node_array_set_t nas;
+    Aux::ClusterArrays::edge_array_set_t eas;
+    Aux::ClusterArrays::to_arrays(cluster.graph(), nas, eas);
 
     // write nodes
-    for (auto nc : ca.node_codes()) {
-        const auto& na = ca.node_array(nc);
+    for (const auto& [nc,na] : nas) {
         std::string name = "_nodes";
         name[0] = nc;
         write_numpy(na, fn(name));
     }
 
     // write edges
-    for (auto ec : ca.edge_codes()) {
-        const auto& ea = ca.edge_array(ec);
-        auto name = ca.edge_code_str(ec);
+    for (const auto& [ec, ea] : eas) {
+        auto name = Aux::ClusterArrays::to_string(ec);
         name += "edges";
         write_numpy(ea, fn(name));
     }
+
 }
 
 void Sio::ClusterFileSink::configure(const WireCell::Configuration& cfg)
@@ -161,7 +138,7 @@ bool Sio::ClusterFileSink::operator()(const ICluster::pointer& cluster)
         return true;
     }
 
-    dump_cluster(log, cluster);
+    log->debug("save cluster {} at call={}: {}", cluster->ident(), m_count, dumps(cluster->graph()));
     m_serializer(*cluster);
 
     ++m_count;

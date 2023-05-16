@@ -13,14 +13,15 @@ function (anode) {
     // The recommended slicer.  There is almost no reasonable default
     // to each detector variant may as well create the MaskSlices
     // directly.
-    slicing :: function(tag, errtag, min_tbin=0, max_tbin=0, ext="",
+    slicing :: function(min_tbin=0, max_tbin=0, ext="",
                         span=4, active_planes=[0,1,2], masked_planes=[], dummy_planes=[]) 
         pg.pnode({
             type: "MaskSlices",
             name: ident+ext,
             data: {
-                tag: tag,
-                error_tag: errtag,
+                wiener_tag: "wiener"+ident,
+                charge_tag: "gauss"+ident,
+                error_tag: "gauss_error"+ident,
                 tick_span: span,
                 anode: wc.tn(anode),
                 min_tbin: min_tbin,
@@ -193,20 +194,20 @@ function (anode) {
     // - trange :: time slice tbin min/max range in ticks
     // - span :: the time slice span in ticks
 
-    blobify_single :: function(uname, tag, errtag,
+    blobify_single :: function(uname,
                                planes={}, trange=[0,0], span=4)
         local p = { active: [], masked: [], dummy: [] } + planes;
-        pg.pipeline([$.slicing(tag, errtag, trange[0], trange[1], uname,
+        pg.pipeline([$.slicing(trange[0], trange[1], uname,
                                span, p.active, p.masked, p.dummy),
                      $.tiling(uname)], "blobify_single_"+uname),
 
     // Make a full blobify subgraph over a slicing strategy array of
     // slicing objects.
-    blobify :: function(uname, tag, errtag,
+    blobify :: function(uname,
                         strategy=[], trange=[0,0], span=4)
         local nstrats = std.length(strategy);
         local pipes = [
-            $.blobify_single('%s-s%d'%[uname,sind], tag, errtag, strategy[sind], trange, span)
+            $.blobify_single('%s-s%d'%[uname,sind], planes=strategy[sind], trange=trange, span=span)
             for sind in std.range(0,nstrats-1)
         ];
         if nstrats == 1

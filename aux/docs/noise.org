@@ -1,52 +1,5 @@
-#+title: Wire-Cell Toolkit Noise
-#+options: ':t
-#+latex_header: \usepackage[margin=1in]{geometry}
-#+LaTeX_HEADER: \lstloadlanguages{[ISO]C++}
-#+LaTeX_HEADER: \definecolor{background}{RGB}{255,255,255}
-#+LaTeX_HEADER: \definecolor{delim}{RGB}{20,105,176}
-#+LaTeX_HEADER: \definecolor{keyword}{RGB}{20,105,176}
-#+LaTeX_HEADER: \definecolor{comment}{RGB}{20,200,10}
-#+LaTeX_HEADER: \lstdefinelanguage{jsonnet}{
-#+LaTeX_HEADER:    basicstyle=\normalfont\ttfamily,
-#+LaTeX_HEADER:    numbers=left,
-#+LaTeX_HEADER:    numberstyle=\scriptsize,
-#+LaTeX_HEADER:    stepnumber=1,
-#+LaTeX_HEADER:    numbersep=8pt,
-#+LaTeX_HEADER:    showstringspaces=false,
-#+LaTeX_HEADER:    breaklines=true,
-#+LaTeX_HEADER:    frame=lines,
-#+LaTeX_HEADER:    backgroundcolor=\color{background},
-#+LaTeX_HEADER:    keywords = {$},
-#+LaTeX_HEADER:    keywords = [2]{self, import, local, true, false, null, function},
-#+LaTeX_HEADER:    keywordstyle=[2]\color{keyword},
-#+LaTeX_HEADER:    comment=[l]{//},
-#+LaTeX_HEADER:    commentstyle=\color{comment}\ttfamily,
-#+LaTeX_HEADER:    stringstyle=\color{blue}\ttfamily,
-#+LaTeX_HEADER:    morestring=[b]',
-#+LaTeX_HEADER:    morestring=[b]",
-#+LaTeX_HEADER:    otherkeywords={:, =, ==}
-#+LaTeX_HEADER: }
-#+LaTeX_HEADER: \lstloadlanguages{Jsonnet}
-#+LaTeX_HEADER: \lstdefinestyle{note}{
-#+LaTeX_HEADER:     basicstyle=\normalfont\ttfamily,
-#+LaTeX_HEADER:     numbers=none,
-#+LaTeX_HEADER:     numberstyle=\scriptsize,
-#+LaTeX_HEADER:     stepnumber=1,
-#+LaTeX_HEADER:     numbersep=8pt,
-#+LaTeX_HEADER:     showstringspaces=false,
-#+LaTeX_HEADER:     breaklines=true,
-#+LaTeX_HEADER:     frame=lines,
-#+LaTeX_HEADER:     backgroundcolor=\color{background},
-#+LaTeX_HEADER:     keywords = [2]{include, if, for, const, typedef, using, public, private, virtual, class, return, void},
-#+LaTeX_HEADER:     keywordstyle=[2]\color{keyword},
-#+LaTeX_HEADER:     comment=[l]{//},
-#+LaTeX_HEADER:     commentstyle=\color{comment}\ttfamily,
-#+LaTeX_HEADER:     stringstyle=\color{blue}\ttfamily,
-#+LaTeX_HEADER:     morestring=[b]',
-#+LaTeX_HEADER:     morestring=[b]",
-#+LaTeX_HEADER:     otherkeywords={:, =, ==, ::}
-#+LaTeX_HEADER: }
-#+LaTeX_HEADER: \lstset{style=note}
+#+title: WCT Noise Modeling
+#+include: ../../docs/include-topic.org
 
 * Overview
 

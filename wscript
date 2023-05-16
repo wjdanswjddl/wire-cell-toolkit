@@ -1,11 +1,26 @@
 #!/usr/bin/env python
 
+# Copyright 2015-2023 Brookhaven National Laboratory for the benefit
+# of the Wire-Cell Team.
+# 
+# This file is part of the wire-cell-toolkit project and distributed
+# according to the LICENSE file provided as also part of this project.
+
 import os
+
+# fixme: move into waft/
+from waflib.Build import BuildContext
+from waflib.Logs import debug, info, error, warn
+import waflib.Utils
 
 TOP = '.'
 APPNAME = 'WireCell'
 VERSION = os.popen("git describe --tags").read().strip()
 
+# to avoid adding tooldir="waft" in all the load()'s
+import os
+import sys
+sys.path.insert(0, os.path.realpath("./waft"))
 
 def options(opt):
     opt.load("wcb")
@@ -19,8 +34,9 @@ def options(opt):
                    help="Def is true, set to false if your spdlog is not compiled (not recomended)")
 
 def configure(cfg):
-    # get this into config.h
+    # Save to BuildConfig.h and env
     cfg.define("WIRECELL_VERSION", VERSION)
+    cfg.env.VERSION = VERSION
 
     # See comments at top of Exceptions.h for context.
     cfg.load('compiler_cxx')
@@ -44,9 +60,6 @@ int main(int argc,const char *argv[])
                   mandatory=False)
 
 
-    # fixme: should go into wcb.py
-    cfg.find_program("jsonnet", var='JSONNET')
-
     # boost 1.59 uses auto_ptr and GCC 5 deprecates it vociferously.
     cfg.env.CXXFLAGS += ['-Wno-deprecated-declarations']
     cfg.env.CXXFLAGS += ['-Wall', '-Wno-unused-local-typedefs', '-Wno-unused-function']
@@ -63,8 +76,14 @@ int main(int argc,const char *argv[])
 
     cfg.env.CXXFLAGS += ['-I.']
 
-    print("Configured version", VERSION)
-#    print(cfg.env)
+    info("Configured version %s" % VERSION)
+
 
 def build(bld):
+    bld.load('wcb')
+
+def dumpenv(bld):
+    bld.load('wcb')
+
+def packrepo(bld):
     bld.load('wcb')

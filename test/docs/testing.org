@@ -1,0 +1,7 @@
+
+#+include: framework.org 
+#+include: writing.org
+#+include: datarepo.org
+#+include: history.org
+#+include: languages.org
+

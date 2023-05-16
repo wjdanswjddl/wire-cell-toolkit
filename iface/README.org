@@ -1,4 +1,5 @@
 #+title:  Wire Cell Interfaces
+#+include: ../docs/include-readme.org
 
 This package provides a set of abstract base classes aka interface
 classes.  In general, there should be no implementation code in this
@@ -82,5 +83,6 @@ optimization".
 ** ...
 
 Any interfaces not listed above, please see their header file in
-[[file:inc/WireCellIface/][inc/WireCellIface/]] for more information.
+~inc/WireCellIface/~ for more information.
+
 

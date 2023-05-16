@@ -1,0 +1,38 @@
+#+title: Wire-Cell Toolkit Testing
+#+include: ../docs/include-readme.org
+
+The Wire-Cell Toolkit (WCT) includes a large number of tests.  Developers and users are strongly encouraged to  contribute even more.
+
+The tests are *not* built nor run by default.   Typically, *normal users* to not need to expend the processing time to build and run them.   Tests are most needed by *developers* as they create and fix bugs, *release managers* preparing a release and *expert users* that are porting WCT to new platforms.
+
+If you wish to write tests (and, developers, this means you!) read the first topics on the framework and the general document on how to write tests.  You may then skip to a specific language.  The topics on the data repository
+will be of interest for basic tests needing input and for historical tests which are then explained.
+
+* General topics
+:PROPERTIES:
+:CUSTOM_ID: general
+:END:
+
+
+General topics on WCT testing are available at:
+
+- [[file:docs/framework.org][WCT test framework]]
+- [[file:docs/writing.org][How to write tests]]
+- [[file:docs/datarepo.org][Test data repository]]
+- [[file:docs/history.org][Historical testing]]
+
+* Languages
+:PROPERTIES:
+:CUSTOM_ID: languages
+:END:
+
+
+Tests may be developed in a few programming languages.  A specific
+topic for each supported language is avilable:
+
+- [[file:docs/cpp.org][C++]]
+- [[file:docs/bats.org][BATS (shell)]]
+- [[file:docs/jsonnet.org][Jsonnet]]
+
+
+

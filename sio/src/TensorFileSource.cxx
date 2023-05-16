@@ -76,15 +76,16 @@ ParsedFilename parse_fname(const std::string& fname,
     if (! startswith(fname, prefix)) {
         return ret;
     }
+    std::string rname = fname.substr(prefix.size());
 
     std::string basename;
-    if (endswith(fname, ".json")) {
+    if (endswith(rname, ".json")) {
         ret.form = ParsedFilename::json;
-        basename = fname.substr(0, fname.size() - 5);
+        basename = rname.substr(0, rname.size() - 5);
     }
-    else if (endswith(fname, ".npy")) {
+    else if (endswith(rname, ".npy")) {
         ret.form = ParsedFilename::npy;
-        basename = fname.substr(0, fname.size() - 4);
+        basename = rname.substr(0, rname.size() - 4);
     }
     else return ret;
 
@@ -209,6 +210,8 @@ ITensorSet::pointer TensorFileSource::load()
 
     while (true) {
 
+        // log->debug("loop file={} size={}", m_cur.fname, m_cur.fsize);
+
         if (m_cur.fsize == 0) {
             clear();
             custard::read(m_in, m_cur.fname, m_cur.fsize);
@@ -217,13 +220,13 @@ ITensorSet::pointer TensorFileSource::load()
                 //            m_count, m_inname);
                 break;
             }
-            if (!m_in) {
-                log->critical("call={}, read stream error with file={}",
+            if (!m_cur.fsize) {
+                log->critical("call={}, short read from file={}",
                               m_count, m_inname);
                 return nullptr;
             }
-            if (!m_cur.fsize) {
-                log->critical("call={}, short read from file={}",
+            if (!m_in) {
+                log->critical("call={}, read stream error with file={}",
                               m_count, m_inname);
                 return nullptr;
             }
@@ -231,9 +234,9 @@ ITensorSet::pointer TensorFileSource::load()
 
         auto pf = parse_fname(m_cur.fname, m_prefix);
 
-        // log->debug("read file={} size={} type={} form={} ident={} index={}",
-        //            m_cur.fname, m_cur.fsize,
-        //            pf.type, pf.form, pf.ident, pf.index);
+        log->debug("read file={} size={} type={} form={} ident={} index={}",
+                   m_cur.fname, m_cur.fsize,
+                   pf.type, pf.form, pf.ident, pf.index);
 
         if (pf.type == ParsedFilename::bad or pf.form == ParsedFilename::unknown) {
             m_in.seekg(m_cur.fsize, m_in.cur);

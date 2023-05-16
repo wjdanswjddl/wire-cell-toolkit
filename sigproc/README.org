@@ -1,10 +1,13 @@
-* Wire Cell Signal Processing
+#+title: Wire Cell Signal Processing
+#+include: ../docs/include-readme.org
+
+* Overview
 
 This is a Wire Cell Toolkit package which provides signal processing functionality.
 
 The algorithm and performance of this package (0.6.2) have been summarized in [[https://arxiv.org/abs/1802.08709][arXiv:1802.08709]] (MicroBooNE collaboration).
 
-It also contains Python code to help prepare a Wire Cell Toolkit [[./docs/field-response-data-file.org][field response data file]].
 
 See the main [[https://github.com/wirecell/wire-cell-toolkit][wire-cell-toolkit]] package for entry points to the toolkit.
 
+- [[file:docs/field-response-data-file.org][Field response data file]]

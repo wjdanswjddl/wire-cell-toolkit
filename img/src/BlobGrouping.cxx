@@ -22,7 +22,9 @@ namespace bcdesc {
     struct nprop_t { cluster_vertex_t desc; };
     struct eprop_t { };
 
-    using graph_t = boost::adjacency_list<boost::setS, boost::vecS, boost::undirectedS,
+    using graph_t = boost::adjacency_list<boost::setS, 
+                                          boost::vecS, 
+                                          boost::undirectedS,
                                           nprop_t, eprop_t>;
 
     using vdesc_t = boost::graph_traits<graph_t>::vertex_descriptor;
@@ -48,6 +50,7 @@ void doit(cluster_graph_t& cgraph)
 
         // Recieve b and c reached from this s per plane
         std::vector<bcdesc::graph_t> bcs(3); // fixme: hard-code 3 planes
+        std::vector< std::unordered_map<int, bcdesc::vdesc_t> > uniq_chans(3);
 
         for (auto bvtx : mir(boost::adjacent_vertices(svtx, cgraph))) {
             const auto& bnode = cgraph[bvtx];
@@ -55,11 +58,13 @@ void doit(cluster_graph_t& cgraph)
             if (bcode != 'b') {
                 continue;
             }
-            
+
+            const auto iblob = std::get<IBlob::pointer>(bnode.ptr);
+
             // add this blob to each plane graph
             std::vector<bcdesc::vdesc_t> bidx;
             for (auto& bc : bcs) {
-                bidx.push_back(boost::add_vertex({bvtx}, bc));
+                bidx.push_back(boost::add_vertex({ bvtx }, bc));
             }
 
             // wires
@@ -70,6 +75,8 @@ void doit(cluster_graph_t& cgraph)
                     continue;
                 }
                 
+                const auto iwire = std::get<IWire::pointer>(wnode.ptr);
+
                 // channels
                 for (auto cvtx : mir(boost::adjacent_vertices(wvtx, cgraph))) {
                     const auto& cnode = cgraph[cvtx];
@@ -81,41 +88,54 @@ void doit(cluster_graph_t& cgraph)
                     auto ich = std::get<IChannel::pointer>(cnode.ptr);
                     const auto wpid = ich->planeid();
                     const auto pind = wpid.index();
+                    const auto cident = ich->ident();
+
                     auto& bc = bcs[pind];
 
-                    const auto cidx = boost::add_vertex({ cvtx }, bc);
-                    boost::add_edge(bidx[pind], cidx, bc);
+                    bcdesc::vdesc_t cidx;
+                    auto& uniq_chan = uniq_chans[pind];
+                    auto ucit = uniq_chan.find(cident);
+                    if (ucit == uniq_chan.end()) {
+                        cidx = boost::add_vertex({ cvtx }, bc);
+                        uniq_chan[cident] = cidx;
+                    }
+                    else {
+                        cidx = ucit->second;
+                    }
 
+                    boost::add_edge(bidx[pind], cidx, bc);
                 } // channels
             } // wires
         } // blobs
         
         // now have a per-slice, per-plane graph of blob-channel vertices
-        for (const auto& bc : bcs) {
+        for (size_t iplane = 0; iplane < 3; ++iplane) {
+            const auto& bc = bcs[iplane];
+
+            size_t nverts = boost::num_vertices(bc);
+
             // every cc's int locally names a measure
-            std::unordered_map<bcdesc::vdesc_t, int> cc;
-            boost::connected_components(bc, boost::make_assoc_property_map(cc));
+            // std::unordered_map<bcdesc::vdesc_t, int> cc;
+            // auto ncomponents = boost::connected_components(bc, boost::make_assoc_property_map(cc));
+            std::vector<int> cc(nverts);
+            auto ncomponents = boost::connected_components(bc, &cc[0]);
             
-            std::unordered_map<int, std::pair<Aux::SimpleMeasure*,cluster_vertex_t>> measures;
+            std::vector<Aux::SimpleMeasure*> measures(ncomponents, nullptr);
+            std::vector<cluster_vertex_t> mvtxs(ncomponents);
 
-            for (const auto& [idx, num] : cc) {
-                Aux::SimpleMeasure* sm=nullptr;
-                cluster_vertex_t mvtx;
-
-                const auto it = measures.find(num);
-                if (it == measures.end()) {
-                    sm = new Aux::SimpleMeasure(tot_meas++);
-                    mvtx = boost::add_vertex(IMeasure::pointer(sm), cgraph);
-                    measures[num] = std::make_pair(sm, mvtx);
-                }
-                else {
-                    sm = it->second.first;
-                    mvtx = it->second.second;
+            for (size_t idx = 0; idx < nverts; ++idx) {
+            // for (const auto& [idx, ncomp] : cc) {
+                size_t ncomp = cc[idx];
+                Aux::SimpleMeasure* sm=measures[ncomp];
+                cluster_vertex_t mvtx=mvtxs[ncomp];
+                if (!sm) {
+                    sm = measures[ncomp] = new Aux::SimpleMeasure(tot_meas++);
+                    mvtx = mvtxs[ncomp] = boost::add_vertex(IMeasure::pointer(sm), cgraph);
                 }
 
                 // edge to measure for either blob or channel
                 const auto vtx = bc[idx].desc;
-                boost::add_edge(mvtx, vtx, cgraph);
+                boost::add_edge(vtx, mvtx, cgraph);
 
                 // if channel, accumulate signal
                 const auto& node = cgraph[vtx];
@@ -127,8 +147,7 @@ void doit(cluster_graph_t& cgraph)
                     sm->wpid = wpid;
                 }
             }
-        }
-               
+        } // planes
     } // slices
 }
 

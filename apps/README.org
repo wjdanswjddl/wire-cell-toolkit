@@ -1,0 +1,138 @@
+#+title: Wire Cell Toolkit Apps
+#+include: ../docs/include-readme.org
+
+
+* Overview
+
+This package provides toolkit layers at the top of an application
+stack.  This includes
+
+- main command line programs, in particular ~wire-cell~.
+
+- a ~Main~ class used in CLI and other application interfaces (such as /art/).
+
+- a few so called "apps" which are WCT components that provide a
+  high-level execution policy.  See also ~TbbFlow~ in sub package ~tbb~
+  and ~Pgrapher~ in
+
+* Programs
+
+** ~wire-cell~
+
+The ~wire-cell~ command line program provides a "reference" application
+of the toolkit.  It is a generic, "policy free" program that is fully
+driven by configuration.
+
+#+begin_src bash :results output
+  wire-cell --help
+  wire-cell --version
+#+end_src
+
+#+RESULTS:
+#+begin_example
+Command line interface to the Wire-Cell Toolkit
+
+Usage:
+	wire-cell [options] [configuration ...]
+
+Options:
+  -h [ --help ]         produce help message
+  -l [ --logsink ] arg  set log sink as <filename> or 'stdout' or 'stderr', a 
+                        log level for the sink may be given by appending 
+                        ':<level>'
+  -L [ --loglevel ] arg set lowest log level for a log in form 'name:level' or 
+                        just give 'level' value for all (level one of: 
+                        critical,error,warn,info,debug,trace)
+  -a [ --app ] arg      application component to invoke
+  -c [ --config ] arg   provide a configuration file
+  -p [ --plugin ] arg   specify a plugin as name[:lib]
+  -V [ --ext-str ] arg  specify a Jsonnet external variable=<string>
+  -C [ --ext-code ] arg specify a Jsonnet external variable=<code>
+  -A [ --tla-str ] arg  specify a Jsonnet top level arguments variable=<string>
+  --tla-code arg        specify a Jsonnet top level arguments variable=<code>
+  -P [ --path ] arg     add to JSON/Jsonnet search path
+  -t [ --threads ] arg  limit number of threads used
+  -v [ --version ]      print the compiled version to stdout
+
+0.24.0-33-gf9d92c77
+#+end_example
+
+** ~wcsonnet~
+
+The ~wcsonnet~ program is a thin wrapper around the Jsonnet library used to build WCT.  It can be preferable to the standard ~jsonnet~ program for the following reasons:
+
+- It uses the Go Jsonnet library which is substantially faster than the C/C++ library used by ~jsonnet~.
+- It honors the ~WIRECELL_PATH~ to locate files.
+
+#+begin_src shell :results output
+  wcsonnet --help
+#+end_src
+
+#+RESULTS:
+#+begin_example
+wcsonnet is a Wire-Cell Toolkit aware Jsonnet compiler
+Usage: wcsonnet [OPTIONS] [file]
+
+Positionals:
+  file TEXT                   Jsonnet file to compile
+
+Options:
+  -h,--help                   Print this help message and exit
+  -o,--output TEXT            Output file
+  -P,--path TEXT ...          Search paths to consider in addition to those in WIRECELL_PATH
+  -V,--ext-str TEXT ...       Jsonnet external variable as <name>=<string>
+  -C,--ext-code TEXT ...      Jsonnet external code as <name>=<string>
+  -A,--tla-str TEXT ...       Jsonnet level argument value <name>=<string>
+  -S,--tla-code TEXT ...      Jsonnet level argument code <name>=<string>
+
+#+end_example
+
+** ~wcwires~
+
+One of the main input configurations to many WCT algorithms is the
+"wire geometry".  This is typically an exhaustive list of wire (or
+strip) endpoints and their channel and other identifiers.  In many
+cases, the "wires files" are provided with errors.  They may not
+follow correct ordering conventions or they may have poor precision in
+wire endpoints.  WCT provides a way to validate and correct the wire
+geometry when a "wires file" is read in and ~wcwires~ provides this
+functionality in a convenient command line interface.
+
+#+begin_src shell :results output
+  wcwires --help
+#+end_src
+
+#+RESULTS:
+#+begin_example
+wcwires converts and validates Wire-Cell Toolkit wire descriptions
+Usage: wcwires [OPTIONS] [file]
+
+Positionals:
+  file TEXT                   wires file
+
+Options:
+  -h,--help                   Print this help message and exit
+  -P,--path TEXT ...          Search paths to consider in addition to those in WIRECELL_PATH
+  -o,--output TEXT            Write out a wires file (def=none)
+  -c,--correction INT         Correction level: 1=load,2=order,3=direction,4=pitch (def=4)
+  -v,--validate               Perform input validation (def=false)
+  -f,--fail-fast              Fail on first validation error (def=false)
+  -e,--epsilon FLOAT          Unitless relative error determining imprecision during validation (def=1e-6)
+
+#+end_example
+
+
+* WCT ~Main~
+
+WCT provides a C++ class called ~Main~ which may be used to easily integrate WCT functionality into other applications.  The ~wire-cell~ program provides a command line interface to ~Main~.  Likewise, the ~WCLS_tool~ in the ~larwirecell~ packages of LArSoft providse an /art/ / FHiCL interface to ~Main~.
+
+* WCT "apps"
+
+Finally, this package provides a number of simple WCT "apps" classes.
+Typically, one or more "app" instance is used via ~Main~ to provide some
+top-level execution.  Provided here are ~ConfigDumper~ and ~NodeDumper~
+which are more examples than useful.  See ~TbbFlow~ from the ~tbb~ sub
+package and ~Pgrapher~ from the ~pgraph~ package for the two most used
+apps.
+
+

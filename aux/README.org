@@ -1,5 +1,7 @@
-
 #+title: Wire-Cell Toolkit Auxiliary 
+#+include: ../docs/include-readme.org
+
+* Overview
 
 This core WCT package enjoys a special position in the dependency
 tree.  It depends on ~WireCellIface~ as do other "implementation"
@@ -13,8 +15,12 @@ Some categories of code appropriate for ~aux~:
 - ~INode~ implementations that provide general purpose data converters (eg, ~ITensorSet <--> IFrame~)
 - general utility code that operate on interfaces (eg, ~FrameTools~)
 
+* Topics
 
-When describing a class or code outgrows what can easily be expressed
-in comments a file in [[./docs][docs/]] may be provided.
-
+- [[file:docs/noise.org][Support for noise modeling]]
+- [[file:docs/tensor-data-model.org][Tensor data model]]
+- [[file:docs/frame-tensor.org][WCT frames as tensors]]
+- [[file:docs/frame-files.org][frame files]]
+- [[file:docs/ClusterArrays.org][array representation of cluster graphs]]
+- [[file:docs/cluster-shadow.org][the "cluster shadow" concept]]
 

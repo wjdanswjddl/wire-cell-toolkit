@@ -62,18 +62,56 @@ void BlobSampler::configure(const WireCell::Configuration& cfg)
     m_cc = cfg2cpp(cfg, m_cc);
 
     add_strategy(cfg["strategy"]);
+    add_extra(cfg["extra"]);
 }
 
 
 // Base class providing common functionality to all samplers.
+//
+// Subclass should provide sample() which should call intern() with
+// points.
 struct BlobSampler::Sampler
 {
+    // Little helper to reduct setting the same value over n points and
+    // only doing so if the suffix is configured.
+    struct npts_dup {
+        Sampler& samp;
+        Dataset& ds;
+        size_t npts;
+
+        template<typename Num>
+        void operator()(const std::string& suffix, Num val)
+        {
+            if (samp.is_extra(suffix)) {
+                std::vector<Num> vals(npts, val);
+                ds.add(samp.cc.prefix+suffix, Array(vals));
+            }
+        }
+    };
+    struct pts_vec {
+        Sampler& samp;
+        Dataset& ds;
+        std::string letter;
+
+        template<typename Num>
+        void operator()(const std::string& suffix, const std::vector<Num>& vals)
+        {
+            std::string lsuffix = letter + suffix;
+            if (samp.is_extra(lsuffix)) {
+                ds.add(samp.cc.prefix+lsuffix, Array(vals));
+            }
+        }
+    };
 
     // Hard-wired, common subset of full config.
     BlobSampler::CommonConfig cc;
 
     // The identity of the sampler
     size_t ident;
+
+    // Current blob index in the iterated IBlob::vector
+    size_t blob_index;
+    IBlob::pointer iblob;
 
     explicit Sampler(const Configuration& cfg, size_t ident)
         : cc(cfg2cpp(cfg)), ident(ident)
@@ -85,17 +123,21 @@ struct BlobSampler::Sampler
 
     // Context manager around sample()
     IAnodeFace::pointer anodeface;
-    void begin_sample(IBlob::pointer iblob)
+    void begin_sample(size_t bind, IBlob::pointer iblob)
     {
+        blob_index = bind;
+        iblob = iblob;
         anodeface = iblob->face();
     }
     void end_sample()
     {
         anodeface = nullptr;
+        blob_index=0;
+        iblob = nullptr;
     }
 
     // Entry point to subclasses
-    virtual void sample(Dataset& ds, IBlob::pointer iblob) = 0;
+    virtual void sample(Dataset& ds) = 0;
 
     // subclass may want to config self.
     virtual void configure(const Configuration& cfg) { }
@@ -138,22 +180,36 @@ struct BlobSampler::Sampler
         return avg;
     }
 
-    // Return a dataset with a single point data.
-    // Dataset make_dataset(const Point& p, int blobid)
-    // {
-    //     return Dataset({
-    //             {cc.prefix + "x", Array({p.x()})},
-    //             {cc.prefix + "y", Array({p.y()})},
-    //             {cc.prefix + "z", Array({p.z()})},
-    //             {cc.prefix + "strategy", Array({ident})},
-    //             {cc.prefix + "blobid", Array({blobid})}});
-    // }
+    // Match array name suffix against regexp
+    bool is_extra(const std::string& suffix) {
+        std::smatch smatch;
+        for (const auto& re : cc.extra_re) {
+            if (std::regex_match(suffix, smatch, re)) {
+                return true;
+            }
+        }
+        return false;
+    }
+    
+    struct ChanInfo {
+        int ident, index;
+    };
+    using ident2index_t = std::unordered_map<int, int>;
+    using plane_ident2index_t = std::unordered_map<IWirePlane::pointer, ident2index_t>;
+    plane_ident2index_t plane_ident2index;
+
+    bool want_extra(const std::string& letter, const std::vector<std::string>& names) {
+        for (const auto& name : names) {
+            if (is_extra(letter + name)) { return true; }
+        }
+        return false;
+    }
+
     // Return a dataset covering multiple points related to a blob
-    Dataset make_dataset(const std::vector<Point>& pts, int blobid, double time)
+    Dataset make_dataset(const std::vector<Point>& pts, double time)
     {
         size_t npts = pts.size();
-        std::vector<size_t> idents(npts, ident);
-        std::vector<int> blobids(npts, blobid);
+
         std::vector<float> times(npts, time);
         std::vector<Point::coordinate_t> x(npts),y(npts),z(npts);
         for (size_t ind=0; ind<npts; ++ind) {
@@ -163,28 +219,105 @@ struct BlobSampler::Sampler
             z[ind] = pt.z();
         }
 
-        return Dataset({
+        Dataset ds({
                 {cc.prefix + "x", Array(x)},
                 {cc.prefix + "y", Array(y)},
                 {cc.prefix + "z", Array(z)},
-                {cc.prefix + "t", Array(times)},
-                {cc.prefix + "strategy", Array(idents)},
-                {cc.prefix + "blobid", Array(blobids)}});
+                {cc.prefix + "t", Array(times)}});
 
-        // fixme: include:
-        // - pitch in each view
-        // - index of nearest wire in each view
-        // - tick
-        // - activity
 
+        // Extra values
+        const std::vector<std::string> uvw = {"u","v","w"};
+        auto islice = iblob->slice();
+
+        // Per blob, duplicated over all pts.
+        {
+            npts_dup nd{*this, ds, npts};
+            nd("sample_strategy", ident);
+            nd("blob_ident", iblob->ident());
+            nd("blob_index", blob_index);
+            nd("slice_indent", islice->ident());
+            nd("slice_start", islice->start());
+            nd("slice_span", islice->span());
+        }        
+
+        if (cc.extra_re.empty()) {
+            return ds;
+        }
+
+        // Per point arrays
+
+        const auto& activity = islice->activity();
+        auto iface = iblob->face();
+        for (const auto iplane : iface->planes()) {
+
+            const auto* pimpos = iplane->pimpos();
+            const int pind = iplane->planeid().index();
+            const std::string letter = uvw[pind];
+
+            // Not sure if pre-checking all the regex is faster than
+            // simply calculating everything first and checking
+            // one-by-one at nv/add() time....
+            if (! want_extra(letter, {"wire_index", "channel_ident", "channel_attach",
+                                      "pitch_coord", "wire_coord", "charge_val", "charge_unc"})) {
+                continue;
+            }
+
+            pts_vec nv{*this, ds, letter};
+            
+            const IChannel::vector& channels = iplane->channels();
+
+            // Hit cache for ch ident -> ch index
+            auto& p_chi2i = plane_ident2index[iplane];
+            if (p_chi2i.empty()) {
+                const size_t nchannels = channels.size();
+                for (size_t chind=0; chind<nchannels; ++chind) {
+                    auto ich = channels[chind];
+                    p_chi2i[ich->ident()] = chind;
+                }
+            }
+
+            std::vector<int> wire_index(npts, -1), channel_ident(npts, -1), channel_attach(npts, -1);
+            std::vector<double> pitch_coord(npts,0), wire_coord(npts,0), charge_val(npts,0), charge_unc(npts,0);
+
+            const IWire::vector& iwires = iplane->wires();
+
+            for (size_t ipt=0; ipt<npts; ++ipt) {
+                const Point xwp = pimpos->transform(pts[ipt]);
+                wire_coord[ipt] = xwp[1];
+                pitch_coord[ipt] = xwp[2];
+                wire_index[ipt] = pimpos->closest(pitch_coord[ipt]).first;
+        
+                IWire::pointer iwire = iwires[wire_index[ipt]];
+                channel_ident[ipt] = iwire->channel();
+                channel_attach[ipt] = p_chi2i[channel_ident[ipt]];
+                auto ich = channels[channel_attach[ipt]];
+
+                auto ait = activity.find(ich);
+                if (ait != activity.end()) {
+                    auto act = ait->second;
+                    charge_val[ipt] = act.value();
+                    charge_unc[ipt] = act.uncertainty();
+                }
+            }
+
+            nv("wire_index", wire_index);
+            nv("pitch_coord", pitch_coord);
+            nv("wire_coord", wire_coord);
+            nv("channel_ident", channel_ident);
+            nv("channel_attach", channel_attach);
+            nv("charge_val", charge_val);
+            nv("charge_unc", charge_unc);
+
+        } // over planes
+
+        return ds;
     }
 
     // Append points to PC.  
     void intern(Dataset& ds,
-                std::vector<Point> points,
-                IBlob::pointer iblob)
+                std::vector<Point> points)
     {
-        const int blobid = iblob->ident();
         auto islice = iblob->slice();
         const double t0 = islice->start();
         const double dt = islice->span();
@@ -200,7 +333,7 @@ struct BlobSampler::Sampler
             for (size_t ind=0; ind<npts; ++ind) {
                 points[ind].x(x);
             }
-            auto tail = make_dataset(points, blobid, time);
+            auto tail = make_dataset(points, time);
             ds.append(tail);
         }
     }
@@ -210,10 +343,12 @@ struct BlobSampler::Sampler
 PointCloud::Dataset BlobSampler::sample_blobs(const IBlob::vector& iblobs)
 {
     PointCloud::Dataset ret;
-    for (const auto& iblob : iblobs) {
+    size_t nblobs = iblobs.size();
+    for (size_t bind=0; bind<nblobs; ++bind) {
+        auto iblob = iblobs[bind];
         for (auto& sampler : m_samplers) {
-            sampler->begin_sample(iblob);
-            sampler->sample(ret, iblob);
+            sampler->begin_sample(bind, iblob);
+            sampler->sample(ret);
             sampler->end_sample();
         }
     }
@@ -227,11 +362,11 @@ struct Center : public BlobSampler::Sampler
     Center(const Center&) = default;
     Center& operator=(const Center&) = default;
 
-    void sample(Dataset& ds, IBlob::pointer iblob)
+    void sample(Dataset& ds)
     {
         std::vector<Point> points(1);
         points[0] = center_point(iblob->shape().corners());
-        intern(ds, points, iblob);
+        intern(ds, points);
     }
 };
 
@@ -246,7 +381,7 @@ struct Corner : public BlobSampler::Sampler
     {
         span = get(cfg, "span", span);
     }
-    void sample(Dataset& ds, IBlob::pointer iblob)
+    void sample(Dataset& ds)
     {
         const auto& corners = iblob->shape().corners();
         const size_t npts = corners.size();
@@ -256,7 +391,7 @@ struct Corner : public BlobSampler::Sampler
         for (const auto& corner : corners) {
             points.emplace_back(crossing_point(corner));
         }
-        intern(ds, points, iblob);
+        intern(ds, points);
     }
 };
 
@@ -267,7 +402,7 @@ struct Edge : public BlobSampler::Sampler
     Edge(const Edge&) = default;
     Edge& operator=(const Edge&) = default;
 
-    void sample(Dataset& ds, IBlob::pointer iblob)
+    void sample(Dataset& ds)
     {
         const auto& coords = anodeface->raygrid();
         auto pts = coords.ring_points(iblob->shape().corners());
@@ -282,7 +417,7 @@ struct Edge : public BlobSampler::Sampler
             const auto mid = 0.5*(egress + origin);
             points.push_back(mid);
         }
-        intern(ds, points, iblob);
+        intern(ds, points);
     }
 };
 
@@ -310,7 +445,7 @@ struct Grid : public BlobSampler::Sampler
         planes.push_back(other[tot]);
     }
 
-    void sample(Dataset& ds, IBlob::pointer iblob)
+    void sample(Dataset& ds)
     {
         if (step == 1.0) {
             aligned(ds, iblob);
@@ -349,7 +484,7 @@ struct Grid : public BlobSampler::Sampler
                 }
             }
         }
-        intern(ds, points, iblob);
+        intern(ds, points);
     }
 
     void unaligned(Dataset& ds, IBlob::pointer iblob)
@@ -418,7 +553,7 @@ struct Grid : public BlobSampler::Sampler
                 }
             }
         }
-        intern(ds, points, iblob);
+        intern(ds, points);
     }
 };
 
@@ -435,7 +570,7 @@ struct Bounds : public BlobSampler::Sampler
         step = get(cfg, "step", step);
     }
 
-    void sample(Dataset& ds, IBlob::pointer iblob)
+    void sample(Dataset& ds)
     {
         const auto& coords = anodeface->raygrid();
         auto pts = coords.ring_points(iblob->shape().corners());
@@ -456,10 +591,25 @@ struct Bounds : public BlobSampler::Sampler
                 points.push_back(pt);
             }
         }
-        intern(ds, points, iblob);
+        intern(ds, points);
     }
 };
 
+
+void BlobSampler::add_extra(Configuration extra)
+{
+    if (extra.isArray()) {
+        for (auto one : extra) {
+            add_extra(one);
+        }
+        return;
+    }
+    if (extra.isString()) {
+        std::string res = extra.asString();
+        m_cc.extra_re.push_back(std::regex(res));
+        return;
+    }
+}
 
 void BlobSampler::add_strategy(Configuration strategy)
 {

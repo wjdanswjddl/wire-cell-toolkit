@@ -4,13 +4,13 @@ local pg = high.pg;
 
 function(detector, variant="nominal",
          infiles="frames-sig-%(anode)s.npz",
-         outfiles="clusters-img-%(anode)s.npz")
+         outfiles="clusters-img-%(anode)s.npz",
+         anode_iota=null)
 
     local mid = high.mid(detector, variant, options={sparse:false});
 
     local anodes = mid.anodes();
-    local nanodes = std.length(anodes);
-    local anode_iota = std.range(0, nanodes-1);
+    local iota = if std.type(anode_iota) == "null" then std.range(0, std.length(anodes)-1) else anode_iota;
 
     local components = [
         local anode = anodes[aid];
@@ -22,7 +22,7 @@ function(detector, variant="nominal",
 
             high.fio.cluster_file_sink(std.format(outfiles, acfg))
 
-        ]) for aid in anode_iota];
+        ]) for aid in iota];
 
     local graph = pg.components(components);
     local executor = "TbbFlow";

@@ -1,0 +1,8 @@
+#+TITLE: Wire-Cell Toolkit Pgraph 
+#+include: ../docs/include-readme.org
+
+* Overview
+
+Pgraph provides a WCT "app" that implements the /data flow programming
+paradigm/.  It executes WCT "flow graphs" following a single-threaded,
+low-memory policy.  See also ~TbbFlow~ from sub-package ~tbb~.

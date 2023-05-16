@@ -1,0 +1,38 @@
+#+title: Testing Jsonnet
+#+include: ../../docs/include-topic.org
+
+Jsonnet is the primary means to construct configuration files for WCT.
+It's job is to build a data structure which can necessarily be very
+complex.  WCT provides various low level Jsonnet functions as well as
+higher level structure builders.  It can be useful to "lock" in
+expectation to guard against regression in those layers.
+
+* Running Jsonnet tests
+
+A Jsonnet test may be compiled with the plain ~jsonnet~ command or with
+the WCT version ~wcsonnet~.  By default ~jsonnet~ is used.  The two differ
+mostly in their defaults.  The ~jsonnet~ command does not have the
+~wire-cell-toolkit/cfg/~ directory added to its search path - though it
+does when run as part of the WCT test framework.  The ~wcsonnet~ will
+include any paths given in ~WIRECELL_PATH~.
+
+* Basic Jsonnet tests
+
+The most simple test is one that tests basic expected compilation
+without a need to locate additional files.  For example:
+
+#+begin_example
+jsonnet cfg/test/test_wirecell.jsonnet
+#+end_example
+
+others require resolving files that are ~import~:
+
+#+begin_example
+jsonnet -J cfg cfg/test/test_pgraph.jsonnet
+wcsonnet cfg/test/test_pgraph.jsonnet
+#+end_example
+
+* Assertions
+
+Jsonnet provides an ~assert~ function.  These should be sprinkled liberally throughout Jsonnet test code whenever it is possible to know what some intermediate data structure should be.  See ~test_graph.jsonnet~ for an example.
+

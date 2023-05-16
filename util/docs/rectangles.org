@@ -1,5 +1,7 @@
 #+title: Rectangles - a 2D interval tree
-#+LATEX_HEADER: \usepackage[margin=1in]{geometry}
+#+include: ../../docs/include-topic.org
+
+See also [[file:talks/rectangles-presentation.pdf][these presentation materials (pdf)]].
 
 * Intervals, trees, sets and maps.
 
@@ -45,7 +47,7 @@ This can be seen in the figure below.  The green elemental rectangle
 holding the data ~[b]~ and the yellow elemental rectangle holding ~[c]~
 overlap to produce a region with the combination ~{b,c}~.
 
-[[file:test_rectangles_find.svg]]
+[[file:talks/test_rectangles_find.svg]]
 
 To implement the 2D extension simply, each dimension is handled with
 independent 1D interval maps.  This produces a dimensional hierarchy

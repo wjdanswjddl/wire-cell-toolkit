@@ -5,6 +5,7 @@
 
 #include "WireCellAux/SimpleTrace.h"
 #include "WireCellAux/SimpleFrame.h"
+#include "WireCellAux/FrameTools.h"
 
 
 #include <unordered_map>
@@ -53,11 +54,13 @@ bool Gen::IncoherentAddNoise::operator()(const input_pointer& inframe, output_po
     // array will start from a random location in the recycled buffer
     // and a few percent will be "freshened".  This results in a small
     // amount of coherency between nearby channels.
-    auto rn = Normals::make_recycling(m_rng, 2*m_nsamples, 2*m_rep_percent);
+    const double BUG=m_bug202; // 0.0 is correct, passing rec. perc. 0.04 opened issue 202
+    auto rn = Normals::make_recycling(m_rng, 2*m_nsamples, BUG, 1, 2*m_rep_percent);
     GeneratorN rwgen(m_dft, rn);
 
     // Limit number of warnings below
     static bool warned = false;
+    static bool warned2 = false;
 
     // Make waveforms of size nsample from each model, adding only
     // ncharge of their element to the trace charge.  This
@@ -75,27 +78,37 @@ bool Gen::IncoherentAddNoise::operator()(const input_pointer& inframe, output_po
 
         for (auto& [mtn, model] : m_models) {
             const auto& spec = model->channel_spectrum(chid);
+            const size_t nspec = spec.size();
 
-            if (spec.empty()) {
+            if (! nspec) {
                 continue;       // channel not in model
             }
+
             // The model spec size may differ than expected nsamples.
             // We could interpolate to correct for that which would
             // slow things down.  Better to correct the model(s) code
             // and configuration.
-            if (not warned and spec.size() != m_nsamples) {
+            if (not warned and nspec != m_nsamples) {
                 log->warn("model {} produced {} samples instead of expected {}, future warnings muted",
-                          mtn, spec.size(), m_nsamples);
+                          mtn, nspec, m_nsamples);
                 warned = true;
             }
 
-            real_vector_t sigmas(m_nsamples);
-            for (size_t ind=0; ind<m_nsamples; ++ind) {
+            const size_t nsigmas = nspec;
+            // const nsigmas = m_nsamples;
+            real_vector_t sigmas(nsigmas);
+            for (size_t ind=0; ind < nsigmas; ++ind) {
                 sigmas[ind] = spec[ind]*sqrt2opi;
             }
+
             auto wave = rwgen.wave(sigmas);
+            if (not warned2 and wave.size() < ncharge) {
+                log->warn("undersized noise {} for input waveform {}, future warnings muted", wave.size(), ncharge);
+                warned2 = true;
+            }
             wave.resize(ncharge);
             Waveform::increase(charge, wave);
+
         }
 
         auto trace = make_shared<SimpleTrace>(chid, intrace->tbin(), charge);
@@ -104,6 +117,10 @@ bool Gen::IncoherentAddNoise::operator()(const input_pointer& inframe, output_po
     outframe = make_shared<SimpleFrame>(inframe->ident(), inframe->time(), outtraces, inframe->tick());
     log->debug("call={} frame={} {} traces",
                m_count, inframe->ident(), outtraces.size());
+
+    log->debug("input : {}", Aux::taginfo(inframe));
+    log->debug("output: {}", Aux::taginfo(outframe));
+
     ++m_count;
     return true;
 }
@@ -121,7 +138,8 @@ bool Gen::CoherentAddNoise::operator()(const input_pointer& inframe, output_poin
     // array will start from a random location in the recycled buffer
     // and a few percent will be "freshened".  This results in a small
     // amount of coherency between nearby channels.
-    auto rn = Normals::make_recycling(m_rng, 2*m_nsamples, 2*m_rep_percent);
+    const double BUG=m_bug202; // 0.0 is correct, passing rec. perc. 0.04 opened issue 202
+    auto rn = Normals::make_recycling(m_rng, 2*m_nsamples, BUG, 1, 2*m_rep_percent);
     GeneratorN rwgen(m_dft, rn);
 
     // Look up the generated wave for a group.
@@ -181,10 +199,11 @@ bool Gen::CoherentAddNoise::operator()(const input_pointer& inframe, output_poin
         outtraces.push_back(trace);
     }
     outframe = make_shared<SimpleFrame>(inframe->ident(), inframe->time(), outtraces, inframe->tick());
-    log->debug("call={} frame={} {} traces",
-               m_count, inframe->ident(), outtraces.size());
+
+    log->debug("input : {}", Aux::taginfo(inframe));
+    log->debug("output: {}", Aux::taginfo(outframe));
+
     ++m_count;
     return true;
-
 }
 

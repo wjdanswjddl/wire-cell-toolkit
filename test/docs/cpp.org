@@ -1,0 +1,266 @@
+#+title: WCT Testing with C++
+#+include: ../../docs/include-topic.org
+
+Wire-Cell testing allows writing tests in C++ tests at different levels of granularity.  C++ test source files match the usual WCT testing pattern:
+
+#+begin_example
+<pkg>/<prefix>[<sep>]<name>.cxx
+#+end_example
+The ~<prefix>~ may match any of the groups named in the [[file:framework.org::#groups][framework document]].  The developer is free to write tests of these types following the guidelines give by the WCT testing.
+
+In addition, C++ tests may be written in the form of [[https://github.com/doctest/doctest][doctest]] unit test framework.  These tests are meant to test the smallest code "units".  All ~<pkg>/test/doctest*.cxx~ source files will be compiled to a single, per-package ~build/<pkg>/wcdoctest-<pkg>~ executable.   Tests implemented with doctest should be very fast running and should make copious use of [[https://github.com/doctest/doctest/blob/master/doc/markdown/tutorial.md][doctest]] CPP macros and run atomically (no dependencies on other tests).   
+
+If you have not yet done so, read the [[file:framework.org][testing
+framework]] document for an overview and the 
+[[file:writing.org][writing tests]] document for general introduction to
+writing tests.  The remaining sections describe how to write WCT tests
+in C++.
+
+* Write a doctest test
+
+Edit a file named to match the ~<pkg>/test/doctest*.cxx~ pattern:
+
+#+begin_example
+emacs util/test/doctest-my-first-test.cxx
+#+end_example
+
+Include the single ~doctest.h~ header, and any others your test code may require and provide at least one ~TEST_CASE("...")~.
+
+#+include: ../test/doctest-my-first-test.cxx src c++
+
+Compile and run just one test:
+#+begin_example
+waf --target=wcdoctest-test
+./build/test/wcdoctest-test --test-case='my first test'
+./build/test/wcdoctest-test   # runs all test cases
+#+end_example
+
+The *doctest* runner has many options
+
+#+begin_example
+./build/util/wcdoctest-util --help
+#+end_example
+
+* Logging with doctest
+
+Developers are encouraged *not* to use ~std::cout~ or ~std::cerr~ in doctest tests.  Instead, as shown in the above example, we should use logging at ~debug~ level (or ~trace~).
+
+#+begin_src c++
+  #include "WireCellUtil/Logging.h"
+  TEST_CASE("...") {
+      spdlog::debug("some message");
+      // ...
+  }
+#+end_src
+
+By default, these messages will not be seen.  But they can be turned on:
+
+#+begin_example
+$ SPDLOG_LEVEL=DEBUG ./build/test/wcdoctest-test
+#+end_example
+
+* Atomic C++ tests
+
+An "atomic" C++ test source file matches:
+
+#+begin_example
+<pkg>/test/test*.cxx
+<pkg>/test/atomic*.cxx
+#+end_example
+
+Each atomic source file must provide a ~main()~ function and results in a similarly named executable found at:
+#+begin_example
+build/<pkg>/test*
+build/<pkg>/atomic*
+#+end_example
+
+Some reasons to write atomic tests (compared to doctest tests) include:
+- The developer wishes the test to accept optional command line arguments to perform variant tests.
+- The test is long-running (more than about 1 second) and so benefits from task-level parallelism provided by waf.
+
+* A simple atomic C++ test
+
+A trivial atomic test is shown:
+
+#+include: ../test/atomic-simple.cxx src c++
+
+Compile and run with:
+
+#+begin_example
+$ waf --tests --target=atomic-simple
+$ ./build/test/atomic-simple
+#+end_example
+
+* Logging with atomic tests
+
+Like in section [[Logging with doctest]], developers should use ~debug~ level logging instead of ~std::cout~ or ~std::cerr~.  For this to work, the code requires some boilerplate:
+
+#+include: ../test/atomic-simple-logging.cxx src c++
+
+#+begin_example
+$ ./build/test/atomic-simple-logging
+[2023-04-25 11:56:26.348] [info] avoid use of info() despite this example
+
+$ SPDLOG_LEVEL=debug ./build/test/atomic-simple-logging
+[2023-04-25 11:59:47.884] [debug] all messages should be at debug or trace
+[2023-04-25 11:59:47.884] [info] avoid use of info() despite this example
+#+end_example
+
+* Mixing atomic and doctest
+
+It is possible make an atomic test use doctest.  It will still be processed as an atomic test by WCT build system but it will gain the facilities of doctest.  Along with logging, it requires a bit more boilerplate:
+
+#+include: ../test/atomic-doctest.cxx src c++
+
+#+begin_example
+$ waf --tests --target=atomic-doctest
+$ ./build/test/atomic-doctest
+$ ./build/test/atomic-doctest --help
+#+end_example
+
+* Using atomic as a variant test
+
+An atomic test must run with no command line arguments.  However, we may allow optional arguments.  One example:
+
+#+begin_example
+aux/test/test_idft.cxx
+#+end_example
+This tests various aspects of the ~IDFT~ interface implementations.  It can be run as an atomic test with the default ~IDFT~ implementation:
+
+#+begin_example
+$ ./build/aux/test_idft
+#+end_example
+It can also be run in a variant form by giving optional command line argumetns:
+
+#+begin_example
+$ ./build/aux/test_idft FftwDFT WireCellAux
+$ ./build/aux/test_idft TorchDFT WireCellPytorch
+$ ./build/aux/test_idft cuFftDFT WireCellCuda
+#+end_example
+The first variant is actually identical to the atomic call.  The latter two require that WCT is build with support for PyTorch and CUDA, respectively.  An atomic test for each of the latter two variants can be found in their respective packages.
+
+#+begin_note
+C++ tests require particular attention to dependencies.  The ~test_idft~ is a little special in that it only has build-time dependency on the ~iface~ sub package yet it is placed in the ~aux~ package and can have run-time dependency on other higher-level packages via WCT's plugin and component factory mechanisms.  In its default calling, it relies on the ~FftwDFT~ component being available.  This component is provided the ~WireCellAux~ plugin library (from the ~aux~ sub package) and so this minimal run-time dependency is satisfied by placing the test in the ~aux~ sub package.  Depending on the variant form, it must be run in a context with either the ~WireCellPytorch~ or ~WireCellCuda~ plugins available.  We will show how to register these variants so they are run when these optional sub packages are built.
+#+end_note
+
+* Growing a test
+
+Tests tend to grow.  Developers are strongly urged to grow tests in a way that defines separate test cases separately.  When a developer writes a *doctest* test this is easily done by add more ~TEST_CASE()~ and/or ~SUBCASE()~ instances to the source file.  When writing an *atomic* test, the developer must invent their own "mini unit test framework".  One common pattern is "bag of ~test_*~ functions.  Functions are distinquished by name and/or templates:
+
+#+begin_src c++
+static
+void test_2d_threads(IDFT::pointer dft, int nthreads, int nloops, int size = 1024)
+{
+    // ...
+}
+template<typename ValueType>
+void test_2d_transpose(IDFT::pointer dft, int nrows, int ncols)
+{
+   // ...
+}
+
+int main(int argc, char* argv[])
+{
+    // ...
+    test_2d_transpose<IDFT::scalar_t>(idft, 2, 8);
+    // ...
+    return 0;
+}
+#+end_src
+
+
+* Failing tests
+
+A test is successful if it completes with a return status code of zero.  A failed test can be indicated in a number of ways:
+
+- return non-zero status code from ~main()~.
+- ~throw~ an exception.
+- call ~assert()~ or ~abort().~
+- call WCT's ~Assert()~ or ~AssertMsg()~.
+- apply *doctest* [[https://github.com/doctest/doctest/blob/master/doc/markdown/assertions.md][assertion macros]]. 
+
+The test developer is free to use any or a mix of these methods and is strongly urged to use them pervasively throughout the test code.
+
+#+begin_note
+Do not write tests that lack any forms of actual error exit.  Otherwise they are not actually testing anything!
+#+end_note
+
+* WCT C++ testing support
+
+As introduced above, WCT provides some support for testing.  The first are simple wrappers around ~assert()~ and one that will print a message if the assertion fails:
+
+#+begin_src c++
+#include "WireCellUtil/Testing.h"
+
+int main()
+{
+    int x = 42;
+    Assert(x == 42);
+    AssertMsg(x == 0, "Not the right answer");
+    return 0;
+}
+#+end_src
+
+In addition, WCT provides facilities for reporting simple performance
+statistics, specifically CPU time and memory usage.
+
+#+begin_src c++
+#include "WireCellUtil/TimeKeeper.h"
+#include "WireCellUtil/MemUsage.h"
+#include "WireCellUtil/ExecMon.h"
+#+end_src
+
+- ~TimeKeeper~ :: a "stopwatch" to record time along with a message for various steps in a test
+- ~MemUsage~ :: similar but to record memory usage
+- ~ExecMon~ :: combine the two.
+
+See ~test_timekeeper.cxx~, ~test_memusage.cxx~ and ~test_execmon.cxx~, respectively, in ~util/test/~.
+
+* Output diagnostic files
+
+Tests may produce files, even atomic tests that may have no files governing ~waf~ task dependencies.  These files can be useful to persist beyond the test job.  The ideal location for these files is the ~build/~ directory and as sibling to the C++ test executable.  C++ has a simple pattern to achieve this:
+
+#+begin_src c++
+int main(int argc, char* argv[])
+{
+    std::string name = argv[0];
+    std::string outname = name + ".ext";
+    std::string outname2 = name + "_other.ext";
+    // open and write to outname and outname 2....
+    return 0;
+}
+#+end_src
+
+As the C++ test executable is found ~build/<pkg>/<prefix><sep><name>~, these output files will be found there as siblings.  
+
+#+begin_tip
+See also the use of the data repository in [[file:datarepo.org][data repository document]] for special files to per persisted beyond the local ~build/~ area.
+#+end_tip
+
+* Found input files
+
+Likewise, an atomic test must not expect any input files specified by the caller.  However, it may load files that can be found from the environment.  A common example is to find a WCT "wires" file or others provided by ~wire-cell-data~.  Here is a C++ pattern do that in a way that naturally allows an atomic test to also be called in a variant manner.
+
+#+begin_src c++
+int main(int argc, char* argv[])
+{
+    const char* filename = "microboone-celltree-wires-v2.1.json.bz2";
+    if (argc > 1) {
+        filename = argv[1];
+    }
+    // use filename...
+    return 0;
+}
+#+end_src
+
+See ~util/test/test_wireschema.cxx~ for an example.  
+
+For this kind of file to be found the user *must* define ~WIRECELL_PATH~ to include a directory holding the contents of ~wire-cell-data~.
+
+In principle the path in ~argv[0]~ may also be used to locate the top of the ~wire-cell-toolkit~ source in order to locate files provided by the source and use them as input.
+
+#+begin_tip
+The data repository also provides a set of known files for input.
+#+end_tip
+
+

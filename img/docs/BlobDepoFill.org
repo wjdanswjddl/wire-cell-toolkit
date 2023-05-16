@@ -1,6 +1,7 @@
-#+title: ~WireCell::Img::BlobDepoFill~
+#+title: Blob Depo Fill
+#+include: ../../docs/include-topic.org
 
-Replaces charge in blobs with that from overlapping depos.
+This replaces charge in blobs with that from overlapping depos.
 
 * Overview
 
@@ -16,7 +17,7 @@ blobs.  See section [[Selection]] for details on which depos are
 considered and section [[Alignment]] for details on how blobs and depos
 are correlated.
 
-See also presentation [[blob-depo-fill.pdf]].
+See also presentation blob-depo-fill.pdf
 
 
 * Algorithm

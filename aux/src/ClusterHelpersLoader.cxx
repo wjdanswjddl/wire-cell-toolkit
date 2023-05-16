@@ -1,4 +1,6 @@
 #include "WireCellAux/ClusterHelpers.h"
+#include "WireCellAux/SimpleFrame.h"
+#include "WireCellAux/SimpleSlice.h"
 #include "WireCellAux/SimpleWire.h"
 #include "WireCellAux/SimpleChannel.h"
 #include "WireCellAux/SimpleBlob.h"
@@ -49,8 +51,8 @@ static cluster_node_t to_blob(Json::Value jblob,
                               const IWire::vector& wires)
 {
     const int ident = jblob["ident"].asInt();
-    const double value = jblob["value"].asDouble();
-    const double error = jblob["error"].asDouble();
+    const double value = jblob["val"].asDouble();
+    const double error = jblob["unc"].asDouble();
 
     std::map<int, RayGrid::Strip> strips;
     for (const auto& iwire : wires) {
@@ -77,56 +79,56 @@ static cluster_node_t to_blob(Json::Value jblob,
     return cluster_node_t(iblob);
 }
 
-struct Slice : public ISlice {
-    IFrame::pointer m_frame{nullptr};
-    int m_ident{0};
-    double m_start{0}, m_span{0};
-    ISlice::map_t m_activity{};
+// struct Slice : public ISlice {
+//     IFrame::pointer m_frame{nullptr};
+//     int m_ident{0};
+//     double m_start{0}, m_span{0};
+//     ISlice::map_t m_activity{};
 
-    Slice(IFrame::pointer frame, int ident, double start, double span, const ISlice::map_t& activity)
-        : m_frame(frame), m_ident(ident), m_start(start), m_span(span), m_activity(activity) { }
+//     Slice(IFrame::pointer frame, int ident, double start, double span, const ISlice::map_t& activity)
+//         : m_frame(frame), m_ident(ident), m_start(start), m_span(span), m_activity(activity) { }
 
-    virtual ~Slice() {}
+//     virtual ~Slice() {}
 
-    // ISlice interface
-    IFrame::pointer frame() const { return m_frame; }
-    int ident() const { return m_ident; }
-    double start() const { return m_start; }
-    double span() const { return m_span; }
-    map_t activity() const { return m_activity; }
-};
-struct Frame : public IFrame {
-    virtual ~Frame() {};
-    Frame(int ident) : m_ident(ident) {}
+//     // ISlice interface
+//     IFrame::pointer frame() const { return m_frame; }
+//     int ident() const { return m_ident; }
+//     double start() const { return m_start; }
+//     double span() const { return m_span; }
+//     map_t activity() const { return m_activity; }
+// };
+// struct Frame : public IFrame {
+//     virtual ~Frame() {};
+//     Frame(int ident) : m_ident(ident) {}
 
-    int m_ident{0};
-    virtual int ident() const { return m_ident; }
-    virtual double time() const { return 0; }
-    virtual double tick() const { return 0; }
+//     int m_ident{0};
+//     virtual int ident() const { return m_ident; }
+//     virtual double time() const { return 0; }
+//     virtual double tick() const { return 0; }
 
-    virtual ITrace::shared_vector traces() const {
-        return std::make_shared<ITrace::vector>();
-    }
-    virtual Waveform::ChannelMaskMap masks() const {
-        return Waveform::ChannelMaskMap{};
-    }
-    virtual const tag_list_t& frame_tags() const {
-        static tag_list_t dummy;
-        return dummy;
-    }
-    virtual const tag_list_t& trace_tags() const {
-        static tag_list_t dummy;
-        return dummy;
-    }
-    virtual const trace_list_t& tagged_traces(const tag_t& tag) const {
-        static trace_list_t dummy;
-        return dummy;
-    }
-    virtual const trace_summary_t& trace_summary(const tag_t& tag) const {
-        static trace_summary_t dummy;
-        return dummy;
-    }
-};
+//     virtual ITrace::shared_vector traces() const {
+//         return std::make_shared<ITrace::vector>();
+//     }
+//     virtual Waveform::ChannelMaskMap masks() const {
+//         return Waveform::ChannelMaskMap{};
+//     }
+//     virtual const tag_list_t& frame_tags() const {
+//         static tag_list_t dummy;
+//         return dummy;
+//     }
+//     virtual const tag_list_t& trace_tags() const {
+//         static tag_list_t dummy;
+//         return dummy;
+//     }
+//     virtual const trace_list_t& tagged_traces(const tag_t& tag) const {
+//         static trace_list_t dummy;
+//         return dummy;
+//     }
+//     virtual const trace_summary_t& trace_summary(const tag_t& tag) const {
+//         static trace_summary_t dummy;
+//         return dummy;
+//     }
+// };
 
 using chid2ichannel_t = std::unordered_map<int, IChannel::pointer>;
 using frid2iframe_t = std::unordered_map<int, IFrame::pointer>;
@@ -142,20 +144,19 @@ static cluster_node_t to_slice(Json::Value jslice,  IFrame::pointer iframe,
 
 
     ISlice::map_t activity;
-    auto jsig = jslice["signal"]; // map from chid as string to val/unc object.
-    for (auto jsig_it = jsig.begin(); jsig_it != jsig.end(); ++jsig_it) {
-        const auto& jchid = jsig_it.key();
-        const int ichid = atoi(jchid.asString().c_str());
+    for (auto jsig : jslice["signal"]) {
+        const int chid = jsig["ident"].asInt();
+        const float val = jsig["val"].asFloat();
+        const float unc = jsig["unc"].asFloat();
         IChannel::pointer ich = nullptr;
-        auto chit = channels.find(ichid);
+        auto chit = channels.find(chid);
         if (chit != channels.end()) {
             ich = chit->second;
         }
-        const auto& jmeas = *jsig_it;
-        activity[ich] = ISlice::value_t(jmeas["val"].asDouble(),
-                                        jmeas["unc"].asDouble());
+        activity[ich] = ISlice::value_t(val, unc);
+
     }
-    ISlice::pointer islice = std::make_shared<Slice>(iframe, ident, start, span, activity);
+    ISlice::pointer islice = std::make_shared<SimpleSlice>(iframe, ident, start, span, activity);
     return cluster_node_t(islice);
 }
 
@@ -201,7 +202,11 @@ cluster_graph_t ClusterLoader::load(const Json::Value& jgraph,
 
     std::unordered_map<int, cluster_vertex_t> vid2vtx;
 
-    for (const auto& jvtx : jgraph["vertices"]) {
+    // FIXME: should pre-make all nodes, then set each node via the
+    // saved "ident" vtx.  Current implementation does not preserve
+    // vertex descriptors.
+
+    for (const auto& jvtx : jgraph["nodes"]) {
         const int vid = jvtx["ident"].asInt();
         auto vtx = boost::add_vertex(cgraph);
         vid2vtx[vid] = vtx;
@@ -223,12 +228,12 @@ cluster_graph_t ClusterLoader::load(const Json::Value& jgraph,
     }
 
     for (const auto& edge : jgraph["edges"]) {
-        boost::add_edge(vid2vtx[edge[0].asInt()],
-                        vid2vtx[edge[1].asInt()], cgraph);
+        boost::add_edge(vid2vtx[edge["tail"].asInt()],
+                        vid2vtx[edge["head"].asInt()], cgraph);
     }
 
     chid2ichannel_t channels;
-    for (const auto& jvtx : jgraph["vertices"]) {
+    for (const auto& jvtx : jgraph["nodes"]) {
         const int vid = jvtx["ident"].asInt();
         const auto vtx = vid2vtx[vid];
 
@@ -257,7 +262,7 @@ cluster_graph_t ClusterLoader::load(const Json::Value& jgraph,
         frames[kf->ident()] = kf;
     }
     slid2islice_t slices;
-    for (const auto& jvtx : jgraph["vertices"]) {
+    for (const auto& jvtx : jgraph["nodes"]) {
         const int vid = jvtx["ident"].asInt();
         auto vtx = vid2vtx[vid];
 
@@ -268,7 +273,7 @@ cluster_graph_t ClusterLoader::load(const Json::Value& jgraph,
             int frameid = jobj["frameid"].asInt();
             auto iframe = frames[frameid];
             if (!iframe) {
-                iframe = std::make_shared<Frame>(frameid);
+                iframe = std::make_shared<SimpleFrame>(frameid);
                 frames[frameid] = iframe;
             }
             auto snode = to_slice(jobj, iframe, channels);
@@ -280,7 +285,7 @@ cluster_graph_t ClusterLoader::load(const Json::Value& jgraph,
     }
 
     // measures
-    for (const auto& jvtx : jgraph["vertices"]) {
+    for (const auto& jvtx : jgraph["nodes"]) {
         const int vid = jvtx["ident"].asInt();
         auto vtx = vid2vtx[vid];
 

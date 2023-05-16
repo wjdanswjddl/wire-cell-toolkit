@@ -28,6 +28,7 @@
 #include "WireCellUtil/Waveform.h"
 
 #include <Eigen/Core>
+#include <Eigen/Eigenvalues> 
 
 #include <memory>
 #include <vector>
@@ -76,6 +77,21 @@ namespace WireCell {
         /** linear baseline subtraction along row direction
          */
         array_xxf baseline_subtraction(const array_xxf& in);
+
+        // Perform principle component analysis nrows of vectors each
+        // of ncols of features aka coordinates.  The return value has
+        // .eigenvalue() and .eigenvectors() methods to get these
+        // results.  Eigenvalues are sorted in ascending order and the
+        // eigenvectors matrix has the vectors as columns that
+        // correspond to order of eigenvalues.
+        template<typename MatrixType=Eigen::MatrixXd>
+        Eigen::SelfAdjointEigenSolver<MatrixType> pca(const MatrixType& mat) {
+            MatrixType centered = mat.rowwise() - mat.colwise().mean();
+            // Note: many online PCA articles incorrectly omit the 1/(n-1) normalization or use 1/n.
+            MatrixType cov = ( centered.adjoint() * centered ) / ((double)mat.rows() - 1.0);
+            return Eigen::SelfAdjointEigenSolver<MatrixType>(cov);
+        }
+        
 
     }  // namespace Array
 }  // namespace WireCell

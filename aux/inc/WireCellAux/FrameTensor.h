@@ -4,9 +4,11 @@
 #include "WireCellIface/IConfigurable.h"
 #include "WireCellIface/IFrameTensorSet.h"
 #include "WireCellAux/TensorDM.h"
+#include "WireCellAux/Logger.h"
 
 namespace WireCell::Aux {
-    class FrameTensor : public WireCell::IConfigurable,
+    class FrameTensor : public Aux::Logger,
+                        public WireCell::IConfigurable,
                         public WireCell::IFrameTensorSet
     {
       public:
@@ -51,6 +53,8 @@ namespace WireCell::Aux {
         double m_offset=0, m_scale=1, m_baseline=0;
 
         std::function<float(float)> m_transform;
+
+        size_t m_count{0};
 
     };
 }

@@ -7,9 +7,14 @@
 #include "WireCellIface/ITensorSet.h"
 #include "WireCellIface/IFrame.h"
 #include "WireCellIface/ITrace.h"
+#include "WireCellIface/ICluster.h"
+#include "WireCellIface/IAnodePlane.h"
 #include "WireCellUtil/PointCloud.h"
 #include "WireCellUtil/PointGraph.h"
 #include "WireCellUtil/Waveform.h"
+
+#include <boost/multi_array.hpp>
+
 
 namespace WireCell::Aux::TensorDM {
 
@@ -197,6 +202,34 @@ namespace WireCell::Aux::TensorDM {
                              const std::string& datapath="",
                              std::function<float(float)> transform=identity);
 
+    /*
+     * ICluster
+     */
+
+    /**
+       Convert an ICluster to vector of ITensor.
+
+       First ITensor will be the "cluster" then a sequence of
+       "clnodeset" and then sequence of "cledgeset".
+     */
+    ITensor::vector as_tensors(ICluster::pointer cluster,
+                               const std::string& datapath);
+
+    /**
+       Convert sequence of ITensor to ICluster.
+
+       This is the inverse for as_tensors().
+
+       The datapath specifies the cluster tensor which aggregates the
+       others.  If empty then the first tensor of type "cluster" is
+       assumed.
+
+       The vector of anodes must be supplied in order to resolve ident
+       values to their IData object representation.
+    */
+    ICluster::pointer as_cluster(const ITensor::vector& tens,
+                                 const IAnodePlane::vector& anodes,
+                                 const std::string datapath="");
 
 }
 

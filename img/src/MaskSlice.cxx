@@ -143,23 +143,23 @@ bool Img::MaskSliceBase::thresholding(const WireCell::ITrace::ChargeSequence& wi
         }
         return true;
     }
-    const auto nq = gauss_charge.size();
+    const int nq = gauss_charge.size();
     const int sbin = qind / tick_span;
     const int sbin_next = sbin + 1;
     const int sbin_prev = sbin - 1;
     double q_next = 0;
     double q_prev = 0;
     if (sbin_next * 4 > 0 && sbin_next * 4 < nq) {
-        size_t count = 0;
-        for (size_t i = sbin_next * 4; i < (sbin_next + 1) * 4 && i < nq; ++i) {
+        int count = 0;
+        for (int i = sbin_next * 4; i < (sbin_next + 1) * 4 && i < nq; ++i) {
             q_next += wiener_charge[i];
             ++count;
         }
         q_next /= count;
     }
     if (sbin_prev * 4 > 0 && sbin_prev * 4 < nq) {
-        size_t count = 0;
-        for (size_t i = sbin_prev * 4; i < (sbin_prev + 1) * 4 && i < nq; ++i) {
+        int count = 0;
+        for (int i = sbin_prev * 4; i < (sbin_prev + 1) * 4 && i < nq; ++i) {
             q_prev += wiener_charge[i];
             ++count;
         }
@@ -178,6 +178,8 @@ bool Img::MaskSliceBase::thresholding(const WireCell::ITrace::ChargeSequence& wi
 
 void Img::MaskSliceBase::slice(const IFrame::pointer& in, slice_map_t& svcmap)
 {
+    log->debug("call={} input frame: {}", m_count++, Aux::taginfo(in));
+
     const double tick = in->tick();
     const double span = tick * m_tick_span;
 
@@ -225,8 +227,8 @@ void Img::MaskSliceBase::slice(const IFrame::pointer& in, slice_map_t& svcmap)
     // get RMS for traces
     auto const& summary = in->trace_summary(m_wiener_tag);
     if (summary.size()!=wiener_traces.size()) {
-        log->error("size un-matched for tag \"{}\", trace: {}, summary: {}. needed for threshold calc.", m_wiener_tag, wiener_traces.size(), summary.size());
-        THROW(RuntimeError() << errmsg{"size un-matched"});
+        log->error("size unmatched for tag \"{}\", trace: {}, summary: {}. needed for threshold calc.", m_wiener_tag, wiener_traces.size(), summary.size());
+        THROW(RuntimeError() << errmsg{"size unmatched"});
     }
 
     // get charge error traces
@@ -313,7 +315,7 @@ void Img::MaskSliceBase::slice(const IFrame::pointer& in, slice_map_t& svcmap)
                     s = new Img::Data::Slice(in, slicebin, start, span);
                     svcmap[slicebin] = s;
                 }
-                s->assign(ich, {m_dummy_charge, m_dummy_error});
+                s->assign(ich, {(float)m_dummy_charge, (float)m_dummy_error});
             }
         }
     }
@@ -345,7 +347,7 @@ void Img::MaskSliceBase::slice(const IFrame::pointer& in, slice_map_t& svcmap)
                     s = new Img::Data::Slice(in, slicebin, start, span);
                     svcmap[slicebin] = s;
                 }
-                s->assign(ich, {m_masked_charge, m_masked_error});
+                s->assign(ich, {(float)m_masked_charge, (float)m_masked_error});
             }
         }
     }

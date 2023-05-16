@@ -11,7 +11,8 @@
 local wc = import "wirecell.jsonnet";
 local g = import "pgraph.jsonnet";
 
-local io = import "pgrapher/common/fileio.jsonnet";
+// local io = import "pgrapher/common/fileio.jsonnet";
+local io = import "layers/high/fileio.jsonnet";
 local params = import "pgrapher/experiment/uboone/simparams.jsonnet";
 local tools_maker = import "pgrapher/common/tools.jsonnet";
 
@@ -61,17 +62,18 @@ local anode = tools.anodes[0];
 //                             [sim.ar39(), sim.tracks(tracklist)]);
 local depos = sim.tracks(tracklist);
 
-local deposio = io.numpy.depos(output);
+//local deposio = io.numpy.depos(output);
 local drifter = sim.drifter;
 local bagger = sim.make_bagger();
 local transform = sim.make_depotransform("nominal", anode, tools.pirs[0]);
 local digitizer = sim.digitizer(anode);
-local frameio = io.numpy.frames(output);
-local sink = sim.frame_sink;
+// local frameio = io.numpy.frames(output);
+// local sink = sim.frame_sink;
+local sink = io.frame_file_sink(output);
 
-local graph = g.pipeline([depos, deposio, drifter, bagger, transform,
+local graph = g.pipeline([depos, drifter, bagger, transform,
                           digitizer,
-                          frameio, sink]);
+                          sink]);
 
 local app = {
     type: "Pgrapher",

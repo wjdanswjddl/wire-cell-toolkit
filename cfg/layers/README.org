@@ -1,5 +1,5 @@
 #+title: WCT Configuration Structure Layers
-#+subtitle: No Copy Paste No ~if~ Branch
+#+include: ../../docs/include-topic.org
 
 * TODO
 
@@ -210,7 +210,7 @@ jsonnet \
   /path/to/wire-cell-toolkit/cfg/layers/tut-high.jsonnet
 #+end_example
 
-Before continuing, read through the [[tut-high.jsonnet]] with some focus
+Before continuing, read through the [[file:tut-high.jsonnet]] with some focus
 on how the ~mid~ object is created and then used.  The tutorial will
 describe how to develop Jsonnet code to provide that ~mid~ object in its
 proper form.

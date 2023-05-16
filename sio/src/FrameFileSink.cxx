@@ -124,7 +124,8 @@ void Sio::FrameFileSink::one_tag(const IFrame::pointer& frame,
                                  const std::string& tag)
 {
     ITrace::vector traces;
-    if (tag == "*") {
+    IFrame::trace_summary_t summary;
+    if (tag == "*") {           // all traces
         // The designer of IFrame was a dumb dumb in chosing to return
         // a shared vector.  He is also to blame for writing this
         // comment.
@@ -133,6 +134,7 @@ void Sio::FrameFileSink::one_tag(const IFrame::pointer& frame,
     }
     else {
         traces = Aux::tagged_traces(frame, tag);
+        summary = frame->trace_summary(tag);
     }
     if (traces.empty()) {
         log->warn("call={} frame={} ntraces={} tag=\"{}\" zero traces",
@@ -159,7 +161,6 @@ void Sio::FrameFileSink::one_tag(const IFrame::pointer& frame,
         tbinmm = Aux::tbin_range(traces);
     }
     
-
     const size_t ncols = tbinmm.second - tbinmm.first;
     const size_t nrows = std::distance(channels.begin(), channels.end());
 
@@ -181,6 +182,10 @@ void Sio::FrameFileSink::one_tag(const IFrame::pointer& frame,
     {  // the channel array
         const std::string aname = String::format("channels_%s_%d.npy", tag.c_str(), frame->ident());
         write(m_out, aname, channels);
+        if (channels.size() != nrows) {
+            log->warn("channels for tag \"{}\" ident {} has {} but there are {} waveform rows in frame",
+                      tag, frame->ident(), channels.size(), nrows);
+        }
     }
 
     {  // the tick array
@@ -188,6 +193,16 @@ void Sio::FrameFileSink::one_tag(const IFrame::pointer& frame,
         const std::vector<double> tickinfo{frame->time(), frame->tick(), (double) tbinmm.first};
         write(m_out, aname, tickinfo);
     }
+
+    if (summary.size()) { // the summary array
+        const std::string aname = String::format("summary_%s_%d.npy", tag.c_str(), frame->ident());
+        write(m_out, aname, summary);
+        if (summary.size() != nrows) {
+            log->warn("summary for tag \"{}\" ident {} has {} but there are {} waveform rows in frame",
+                      tag, frame->ident(), summary.size(), nrows);
+        }
+    }
+
     m_out.flush();
 
 }
@@ -250,12 +265,15 @@ bool Sio::FrameFileSink::operator()(const IFrame::pointer& frame)
         return true;
     }
 
+    log->debug("input frame: {}", Aux::taginfo(frame));
+
     for (auto tag : m_tags) {
         one_tag(frame, tag);
     }
     if (m_masks) {
         masks(frame);
     }
+
     ++m_count;
     return true;
 }

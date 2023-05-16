@@ -1,33 +1,25 @@
 // This provides the high.fio module and consists of
 // detector-independent methods to produce configuration for WCT
 // components that move data between files and a larger WCT graph.
-
+// 
 // A source or a sink takes a filename as first arg and this is used
 // to provide a name for the component instance.
-
-// Abslolutely NO detector-dependent code may exist in this (or any
-// other "high layer") file.
+//
+// Implementation note: the functions here are named with a cross
+// product of these labels: (type) x (format) * ("sink" "source").
+// Where the type is "depo", "frame", "cluster" etc.  Format is either
+// a "direct" conversion format and has no label or is the label
+// "tensor" which indicates the use of the unified WCT tensor data
+// model format.  The cross product is "sparse" in that not all
+// possible terms are implemented.
 
 local pg = import "pgraph.jsonnet";
 local wc = import "wirecell.jsonnet";
 
 {
-
-    // A source of depos from file. Several file formats supported.
-    depo_file_source(filename, scale=1.0) ::
-        pg.pnode({
-            type: 'DepoFileSource',
-            name: filename,
-            data: { inname: filename, scale: scale }
-        }, nin=0, nout=1),
-
-    // A sink of depos.  Several file formats supported
-    depo_file_sink(filename) ::
-        pg.pnode({
-            type: 'DepoFileSink',
-            name: filename,
-            data: { outname: filename }
-        }, nin=1, nout=0),
+    //
+    // Some utilities
+    //
 
     // If a frame is written out "dense" it the sink needs to know
     // what the bounds are in channel IDs (rows) and ticks (columns).
@@ -35,6 +27,11 @@ local wc = import "wirecell.jsonnet";
         chbeg: first_chid, chend: first_chid+nchannels,
         tbbeg: first_tick, tbend: first_tick+nticks
     },
+
+
+    //
+    // General tensor data model I/O nodes
+    // 
 
     tensor_file_sink(filename, prefix="") ::
         pg.pnode({
@@ -55,6 +52,15 @@ local wc = import "wirecell.jsonnet";
                 prefix: prefix,
             },
         }, nin=0, nout=1),
+
+    ///
+    /// Composite subgraph for tensor data model I/O with conversion
+    /// between tensor and data product.
+    ///
+
+    ///
+    ///  frame
+    ///
 
     /// Sink a stream of frames to a file in WCT "frame tensor file
     /// format".  See aux/docs/frame-files.org for valid filename
@@ -98,6 +104,79 @@ local wc = import "wirecell.jsonnet";
                 name: filename,
             }, nin=1, nout=1)],
                     name=filename),
+
+    ///
+    ///   cluster. See aux/docs/ClusterArrays.org
+    ///
+
+    /// Sink a stream of clusters to a file in WCT "cluster tensor
+    /// file schema".  The datapath is used to "place" the main
+    /// "cluster" tensor and will be interpolated with the cluster
+    /// ident number.  The prefix is arbitrary.
+    cluster_tensor_file_sink(filename, prefix="", datapath="clusters/%d") ::
+
+        pg.pipeline([
+            pg.pnode({
+                type: "ClusterTensor",
+                name: filename,
+                data: {
+                    datapath: datapath,
+                },
+            }, nin=1, nout=1),
+            pg.pnode({
+                type: "TensorFileSink",
+                name: filename,
+                data: {
+                    outname: filename,
+                    prefix: prefix,
+                },
+            }, nin=1, nout=0)], name=filename),
+        
+    /// Source a stream of clusters from a file in WCT "cluster tensor
+    /// file schema".  An array of anode objects are required to
+    /// provide anode faces matching idents referenced in the data.
+    /// The datapath is a regular expression used to locate the
+    /// "cluster" tensor.  The prefix must match any used to write the
+    /// file.
+    cluster_tensor_file_source(filename, anodes, prefix="", datapath="clusters/[[:digit:]]+$") ::
+        pg.pipeline([
+            pg.pnode({
+                type: "TensorFileSource",
+                name: filename,
+                data: {
+                    inname: filename,
+                    prefix: prefix,
+                },
+            }, nin=0, nout=1),
+            pg.pnode({
+                type: "TensorCluster",
+                name: filename,
+                data: {
+                    dpre: datapath,
+                    anodes: [wc.tn(a) for a in anodes]
+                }
+            }, nin=1, nout=1, uses=anodes)], name=filename),
+
+
+    // Direct converters
+
+
+    // A source of depos from file. Several file formats supported.
+    depo_file_source(filename, scale=1.0) ::
+        pg.pnode({
+            type: 'DepoFileSource',
+            name: filename,
+            data: { inname: filename, scale: scale }
+        }, nin=0, nout=1),
+
+    // A sink of depos.  Several file formats supported
+    depo_file_sink(filename) ::
+        pg.pnode({
+            type: 'DepoFileSink',
+            name: filename,
+            data: { outname: filename }
+        }, nin=1, nout=0),
+
 
     // Depreciated: prefer frame_tensor_file_sink().  Sink a stream
     // of frames to a file in WCT "frame file format".
@@ -154,7 +233,8 @@ local wc = import "wirecell.jsonnet";
     celltree_file_source :: function(filename, recid, 
                                      branches = ["calibWiener", "calibGaussian"],
                                      frame_tags=["gauss"],
-                                     trace_tags = ["wiener", "gauss"])
+                                     trace_tags = ["wiener", "gauss"],
+                                     extra_params = {})
         pg.pnode({
             type: "CelltreeSource",
             name: filename,
@@ -164,7 +244,7 @@ local wc = import "wirecell.jsonnet";
                 frames: frame_tags,
                 "in_branch_base_names": branches,
                 "out_trace_tags": trace_tags,
-            },
+            } + extra_params,
         }, nin=0, nout=1),
 
 

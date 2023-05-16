@@ -1,15 +1,14 @@
 /** BlobGrouping takes in a channel-level cluster and produces another
- * with channels merged measure ('m' nodes)
+ * with channels merged into measure ('m' nodes)
  *
- * The input cluster must have (b,w), (c,w) and (s,b) edges and may have (b,b) edges.
+ * The input cluster must have (b-w), (c-w) and (b-s) edges and may have (b-b) edges.
  *
- * The output cluster will have (m, b) and (s,b) edges and if the
- * input has (b,b) edges, they are preserved.
+ * The output cluster will add (b-m) and (c-m) edges.
  *
  * The created m-node IMeasures will have sequential ident() unique to
  * the context of the cluster.
  *
- * Grouping is done in the "coarse grained" strategy.
+ * Grouping is done in the "coarse grained" strategy.  (see raygrid.pdf).
  *
  * See manual for more info.
  */

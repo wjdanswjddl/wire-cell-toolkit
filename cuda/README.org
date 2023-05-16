@@ -1,4 +1,5 @@
 #+title: Wire-Cell CUDA
+#+include: ../docs/include-readme.org
 
 This package is a mostly empty place holder for now.  In the future it
 may provide Wire-Cell Toolkit components that depend on CUDA.

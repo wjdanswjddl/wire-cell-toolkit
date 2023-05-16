@@ -21,6 +21,13 @@ Aux::SimpleFrame::SimpleFrame(int ident, double time, ITrace::shared_vector trac
   , m_cmm(cmm)
 {
 }
+Aux::SimpleFrame::SimpleFrame(int ident, double time, double tick)
+  : m_ident(ident)
+  , m_time(time)
+  , m_tick(tick)
+{
+}
+
 Aux::SimpleFrame::~SimpleFrame() {}
 int Aux::SimpleFrame::ident() const { return m_ident; }
 double Aux::SimpleFrame::time() const { return m_time; }

@@ -1,4 +1,5 @@
-#+title Cluster Shadow
+#+title: Cluster Shadow
+#+include: ../../docs/include-topic.org
 
 * Introduction
 
@@ -14,8 +15,8 @@ sub-package is one example of a GC.
 
 A /blob shadow/ (BS) is an overlap between two blobs in a given
 tomographic view (wire plane).  The set of blob shadows for a set of
-blobs and over all views is represented as a /blob shadow graph/.  See
-[[blob-shadow.org]] for more info on blob shadows.
+blobs and over all views is represented as a /blob shadow graph/.  See the presentation 
+on Blob Shadows for more info on blob shadows.
 
 A /cluster shadow/ (CS) then represents the combination of these two
 relationships.  A CS is formed from a b-b GC graph and a b-b BS graph

@@ -57,15 +57,13 @@ namespace WireCell::Sio {
            The output stream contains one or more "files" in a given
            format.  Supported formats:
 
-           - json :: the stream consists of one file in JSON text
-             format for each ICluster.
+           - json :: clusters are written to JSON files in
+             "cluster graph schema" form.
 
-           - dot :: the stream consists of one file in GraphViz "dot"
-             format for each ICluster.
+           - numpy :: clusters are written to Numpy files in the
+             stream in "cluter array schema" form.
 
-           - numpy :: the stream consists of multiple files in Numpy
-             array format (.npy) for each ICluster and these are
-             preceeded with files with more global information.
+           - dot :: clustesr are written in GraphViz "dot" format.
 
            See "prefix" for file-in-stream naming conventions.
         */

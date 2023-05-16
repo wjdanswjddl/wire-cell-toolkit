@@ -1,0 +1,171 @@
+#+title: Wire-Cell Builder Waf Tools
+#+include: ../docs/include-readme.org
+
+* Overview
+
+This repository holds [[https://waf.io][Waf]] tools used to build the [[https://wirecell.bnl.gov][Wire-Cell Toolkit]]
+(and some other) software projects.  These tools are designed to
+minimize the amount of "build system work" required from a developer.
+Instead, the developer must provide source code files that follow some
+simple naming conventions.  See section [[Conventions]].
+
+WCT source ships with a program called ~wcb~ found in the top level
+directory.  Historically, ~wcb = waf + waft~.  However starting around
+version 0.25.0, WCT split ~waft~ out to this sub-package and made ~wcb~ be
+merely a copy of ~waf~.  Users are free to use their own ~waf~.  Wherever
+you may see reference to ~wcb~ in WCT documentation, unless any specific
+words to the contrary, ~wcb~ and ~waf~ refer to the same program.
+
+* Using ~wcb~ 
+
+On well-provisioned systems, ~wcb~ builds the software automatically:
+
+#+begin_example
+  (1)$ ./wcb configure --prefix=/path/to/install [...]
+  (2)$ ./wcb 
+  (3)$ ./wcb install
+  (4)$ ./wcb --tests
+  (4)$ ./wcb --docs=org2html,org2pdf,doxy
+#+end_example
+
+1. A one-time step so that dependencies may be located.
+2. Build the project (output goes to ~./build/~).
+3. Install elements of the build to the prefix.
+4. Build and execute many tests.
+%. Build documentation.
+
+In some environments, ~wcb~ may need help to find dependencies.  Hints can be given with ~--with-*~ type flags.  To see available flags use the online help:
+
+#+BEGIN_EXAMPLE
+  $ ./wcb --help
+#+END_EXAMPLE
+
+Packages can be included, excluded and located with the various ~--with-NAME*~ flags.  The rules work as follows:
+
+1) If package is optional:
+
+  - omitting a ~--with-NAME*~ option will omit use the package
+
+  - explicitly using ~--with-NAME=false~ (or "~no~" or "~off~") will omit use of the package.
+
+2) If package is mandatory:
+
+  - omitting all ~--with-NAME*~ options will use ~pkg-config~ to find the package.
+
+  - explicitly using ~--with-NAME=false~ (or "~no~" or "~off~") will assert.
+
+3) In either case:
+
+  - explicitly using ~--with-NAME=true~ (or "~yes~" or "~on~") will use pkg-config to find the package.
+
+  - using ~--with-NAME*! with a path will attempt to locate the package without using ~pkg-config~.
+
+When in doubt, explicitly include ~--with-NAME*~ flags.
+
+* Conventions
+
+The =smplpkgs= tool included in =waf-tools= provides a simple way to build a suite of software packages that have interdependencies without you, the developer, having to care much about the build system.
+
+** Package organization 
+
+To achieve this simplicity, some file and directory conventions for naming and organization must be followed, as illustrated:
+
+#+BEGIN_EXAMPLE
+  pkg1/
+  ├── wscript_build
+  ├── inc/
+  │   └── ProjectNamePkg1/*.h
+  ├── src/*.{cxx,h}
+  ├── test/test_*.*
+  ├── test/check_*.*
+  └── test/wscript_check
+  pkg2/
+  ├── wscript_build
+  ├── inc/
+  │   └── ProjectNamePkg2/*.h
+  ├── src/*.{cxx,h}
+  ├── app/*.{cxx,h}
+  └── test/*.{cxx,h}
+#+END_EXAMPLE
+
+Notes on the structure:
+
+- The "sub packages" (~pgk1~, ~pkg2~) are top-level sub-directories.
+- A  ~wscript_build~ file in each sub-package to declare the name of the sub package, dependencies and any special case build rules.
+- A header file =<pkgdirname>/inc/<PackageName>/Xxx.h= are considered "public" and will be made available as ~#include "PackageName/Xxx.h"~.
+- Library source (implementation and private headers) go under =<pkgdirname>/src/=
+- Application ~main()~ source as =<pkgdirname>/app/app-name.cxx=.
+- Units tests and integration/validation tests as  =<pkgdirname>/test/{test,check}_*.*=.  See the section [[Tests]] below.
+
+The =<pkgdirname>= only matters in the top-level =wscript= file which you must provide.  The =<PackageName>= matters for inter-package dependencies.
+
+
+** The per-package =wscript_build= file
+
+Each package needs a brief (generally single line) file called =wscript_build= to exist at in its top-level directory.  It is responsible for declaring:
+
+- The package name
+- Library dependencies
+- Any additional application dependencies
+- Any additional test dependencies
+
+Example:
+
+#+BEGIN_SRC python
+  bld.smplpkg('MyPackage', use='YourPackage YourOtherPackage')
+#+END_SRC
+
+Test and application programs are allowed to have additional dependencies declared.  For example:
+
+#+BEGIN_SRC python
+  bld.smplpkg('MyPackage', use='YourPackage YourOtherPackage', test_use='ROOTSYS')
+#+END_SRC
+
+** Tests
+
+The ~waft~ tools provides substantial support for running various types
+tests.  Details are provided in the document [[file:../tests/README.org]].
+By default tests are not run but are activated with ~--tests~.
+
+* Using ~wcb~ in your own project
+
+WCT source layout has a flexible design based on the composition of
+"sub packages".  In the WCT repository, a sub packages is simply a sub
+directory with a ~wscript_build~.  A sub package may also exist in a
+separate repository and be built separately against WCT.  They may be
+built with any build system but in particular can utilize ~wcb~.  Such a
+sub package is called a Wire-Cell user package (WCUP).
+
+There are at least two options to build a WCUP,
+
+1) Copy the ~waft~ directory into the WCUP and use ~waf~.
+
+2) Dump ~waf+waft~ into a ~wcb~ and copy this single file to the WCUP.  See section [[Packing waft]] 
+
+The first method is preferred if development of the WCUP requires development of ~waft~ itself.  For example, if dependencies are needed by the WCUP that are not required by WCT.  OTOH, the second method will keep the WCUP source more "tidy" as there is only a single file (~wcb~) to carry.  Neither ~waft~ nor ~waf/wcb~ need to be committed to the WCUP repository.
+
+You may create a WCUP that itself has many sub packages like WCT
+itself in which case you should mimic WCT source layout including
+placing a ~wscript_build~ file in each sub directory.
+
+More simply, a WCUP can represent a single sub package adn so will
+have, eg, ~inc/~, ~src/~ and ~test/~ directories at top level.
+
+Assuming the package name is ~WireCellUser~, the main ~wscript~ file will
+largely be comprised of:
+
+#+begin_src python
+def build(bld):
+    bld.load('wcb')
+    bld.smplpkg('WireCellUser', use='WireCellUtil')
+#+end_src
+
+* Packing waft 
+
+As mentioned above, today ~wcb~ provided by WCT is simply a copy of ~waf~ and the tools are read from the ~waft~ "tooldir".  It is possible to "dump" these tools so that ~wcb = waf + waft~.  This can be done simply as:
+
+#+begin_example
+  $ ./waft/refresh-wcb -o /path/to/my/WCUP/wcb
+  $ cd /path/to/my/WCUP
+  $ ./wcb --help
+#+end_example

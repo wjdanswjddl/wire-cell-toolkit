@@ -109,7 +109,9 @@ local wcls_output = {
       anode: wc.tn(mega_anode),
       digitize: false,  // true means save as RawDigit, else recob::Wire
       frame_tags: ['gauss', 'wiener'],
-      frame_scale: [0.001, 0.001],
+
+      // this may be needed to convert the decon charge [units:e-] to be consistent with the LArSoft default ?unit? e.g. decon charge * 0.005 --> "charge value" to GaussHitFinder
+      frame_scale: [1.0, 1.0],
       // nticks: params.daq.nticks,
       chanmaskmaps: [],
       nticks: -1,
@@ -197,7 +199,7 @@ local sink = g.pnode({ type: 'DumpFrames' }, nin=1, nout=0);
 local graph = g.pipeline([wcls_input.adc_digits, fanpipe, retagger, wcls_output.sp_signals, sink]);
 
 local app = {
-  type: 'Pgrapher',
+  type: 'TbbFlow:',
   data: {
     edges: g.edges(graph),
   },

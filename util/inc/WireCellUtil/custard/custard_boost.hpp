@@ -219,7 +219,9 @@ namespace custard {
             memset(zip.get(), 0, sizeof(mz_zip_archive));
             if (!mz_zip_reader_init_file(zip.get(), inname.c_str(), 0)) {
                 //std::cerr << "miniz_sink: failed to initialize miniz for " << inname << "\n";
-                throw std::runtime_error("failed to initialize miniz reading from " + inname);
+                auto err = mz_zip_get_last_error(zip.get());
+                std::string errs = mz_zip_get_error_string(err);
+                throw std::runtime_error("failed to initialize miniz reading from " + inname + ": " + errs);
             }
             memnum = mz_zip_reader_get_num_files(zip.get());
             memind = 0;

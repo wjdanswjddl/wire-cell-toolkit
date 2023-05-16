@@ -237,19 +237,31 @@ Aux::channel_list Aux::fill(Array::array_xxf& array,
 
 std::string Aux::taginfo(const WireCell::IFrame::pointer& frame)
 {
+    if (! frame) {
+        return "(null frame pointer)";
+    }
+
     std::stringstream info;
     info << "frame " << frame->ident() << " with "
-         << frame->traces()->size() << " traces tagged:[ ";
+         << frame->traces()->size() << " traces.  frame tags:[ ";
     for (const auto& tag : frame->frame_tags()) {
-        info << tag << " ";
+        info << "\"" << tag << "\" ";
     }
 
     auto ttags = frame->trace_tags();
-    info << "] " << ttags.size() << " traces:[ ";
+    info << "] " << ttags.size() << " tagged trace sets:[ ";
     
     for (const auto& tag : ttags) {
         const auto& taglist = frame->tagged_traces(tag);
-        info << tag << ":" << taglist.size() << " ";
+        info << "\"" << tag << "\":" << taglist.size() << " ";
+        const auto& summary = frame->trace_summary(tag);
+        info << "[" << summary.size() << "] ";
+    }
+    info << "]";
+
+    info << " cmm:[ ";
+    for (const auto& [name,cm] : frame->masks()) {
+        info << name << ":" << cm.size() << " ";
     }
     info << "]";
     return info.str();
