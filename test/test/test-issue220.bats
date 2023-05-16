@@ -5,6 +5,8 @@
 
 bats_load_library wct-bats.sh
 
+# bats file_tags=issue:220
+
 @test "no wiener_threshold_tag in cfg" {
 
     local cfgdir=$(srcdir cfg)
@@ -19,13 +21,13 @@ bats_load_library wct-bats.sh
 
     local cfgdir=$(srcdir cfg)
 
-    local found=$( grep -r "'threshold'" $cfgdir )
-    echo -e "found with threshold tags: \n$found"
-    [[ "$found" -eq 0 ]]
+    local found1=$( grep -r "'threshold'" $cfgdir )
+    echo -e "found with 'threshold' tags: \n$found1"
+    [[ -z "$found1" ]]
     
-    found=$( grep -r '"threshold"' $cfgdir )
-    echo -e "found with threshold tags: \n$found"
-    [[ "$found" -eq 0 ]]
+    local found2=$( grep -r '"threshold"' $cfgdir )
+    echo -e "found with \"threshold\" tags:\n$found2"
+    [[ -z "$found2" ]]
     
 }
 

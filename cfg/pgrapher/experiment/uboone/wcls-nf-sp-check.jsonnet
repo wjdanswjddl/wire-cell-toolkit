@@ -105,9 +105,9 @@ local wcls_output = {
         },
     },nin=1, nout=1, uses=[tools.anode]),
 
-    // save "threshold" from normal decon for each channel noise
+    // save wiener (was threshold) from normal decon for each channel noise
     // used in imaging
-    sp_thresholds: wcls.output.thresholds(name="spthresholds", tags=["threshold"]),
+    sp_thresholds: wcls.output.thresholds(name="spthresholds", tags=["wiener"]),
 };
 
 local nf = nf_maker(params, tools, chndb);

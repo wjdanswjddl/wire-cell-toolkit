@@ -115,7 +115,7 @@ local wcls_output = {
       //nticks: params.daq.nticks,
       // nticks: nsample,
       chanmaskmaps: [],
-      summary_tags: ['threshold'],  // retagger makes this tag
+      summary_tags: ['wiener'],  // was threshold
       //  just one threshold value
       summary_operator: { threshold: 'set' },
       nticks: -1,
