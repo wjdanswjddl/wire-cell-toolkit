@@ -1,6 +1,6 @@
 #+title: Blob-Shadow
 #+startup: beamer
-#+setupfile: setup-beamer.org
+#+setupfile: ../../../docs/setup-beamer.org
 #+latex_header: \usepackage{algorithm}
 #+latex_header: \usepackage{algpseudocode}
 
@@ -35,7 +35,7 @@ Notes:
 * 
 
 #+begin_center
-\includegraphics[height=\textheight,page=9]{../../../img/docs/dpf-raytiling.pdf}
+\includegraphics[height=\textheight,page=9]{../../../img/docs/talks/dpf-raytiling.pdf}
 #+end_center
 
 
@@ -114,10 +114,16 @@ A BS graph is \textbf{derived} from an ~ICluster~ graph, with:
 
 * Test
 
-#+begin_example
-./wcb --target=test_blobshadow
-./build/aux/test_blobshadow
-#+end_example
+
+#+begin_src bash :export code :results none :dir ../../..
+    ./wcb --tests --target=test_blobshadow
+    ./build/aux/test_blobshadow
+    for n in blob cdir orig ; do
+      dot -Tpdf -o aux/docs/talks/test_blobshadow_${n}.pdf \
+          build/aux/test_blobshadow_${n}.dot
+    done
+#+end_src
+
 
 **                                                                :B_columns:
 :PROPERTIES:

@@ -1,4 +1,0 @@
-#+options: ':t
-#+LATEX_HEADER: \usepackage[margin=1in]{geometry}
-#+LATEX_HEADER: \usepackage{xcolor}
-
