@@ -145,7 +145,7 @@ function blddir () {
     echo "$(topdir)/build"
 }
 
-# Return the build directory.
+# Return the directory in source.
 function srcdir () {
     local path="$1" ; shift
     local maybe="$(topdir)/$path"
