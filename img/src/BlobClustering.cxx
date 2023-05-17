@@ -1,5 +1,5 @@
 #include "WireCellImg/BlobClustering.h"
-#include "WireCellImg/SimpleGeomClustering.h"
+#include "WireCellImg/GeomClusteringUtil.h"
 
 #include "WireCellAux/SimpleCluster.h"
 
@@ -28,8 +28,9 @@ void Img::BlobClustering::configure(const WireCell::Configuration& cfg)
 {
     // m_spans = get(cfg, "spans", m_spans);
     m_policy = get(cfg, "policy", m_policy);
-    if (m_policy != "simple" and m_policy != "uboone") {
-        THROW(ValueError() << errmsg{String::format("policy %s not implemented!", m_policy)});
+    std::unordered_set<std::string> known_policies = {"simple", "uboone", "uboone_local"};
+    if (known_policies.find(m_policy) == known_policies.end()) {
+        THROW(ValueError() << errmsg{String::format("policy \"%s\" not implemented!", m_policy)});
     }
 }
 
@@ -67,6 +68,7 @@ void add_slice(cluster_indexed_graph_t& grind,
 }
 
 // add blobs to the graph
+// s-b, b-w, w-c
 static 
 void add_blobs(cluster_indexed_graph_t& grind,
                const IBlob::vector& iblobs)
@@ -110,8 +112,10 @@ void Img::BlobClustering::flush(output_queue& clusters)
     auto bsit = m_cache.begin();
     auto bend = m_cache.end();
     while (bsit != bend) {
+        // s-b, b-w, w-c
         add_blobs(grind, (*bsit)->blobs());
-        Img::simple_geom_clustering(grind, bsit, bend, m_policy);
+        // b-b
+        Img::geom_clustering(grind, bsit, bend, m_policy);
         ++bsit;
     }
 

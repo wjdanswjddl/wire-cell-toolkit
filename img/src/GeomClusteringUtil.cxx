@@ -1,5 +1,5 @@
 
-#include "WireCellImg/SimpleGeomClustering.h"
+#include "WireCellImg/GeomClusteringUtil.h"
 
 #include "WireCellUtil/String.h"
 #include "WireCellUtil/Exceptions.h"
@@ -16,23 +16,29 @@ static int rel_time_diff(const IBlobSet::pointer& one, const IBlobSet::pointer& 
     return std::round((two->slice()->start() - here->start()) / here->span());
 }
 
-void simple_geom_clustering(cluster_indexed_graph_t& grind, IBlobSet::vector::iterator beg,
+void WireCell::Img::geom_clustering(cluster_indexed_graph_t& grind, IBlobSet::vector::iterator beg,
                                                   IBlobSet::vector::iterator end, std::string policy)
 {
-    std::cout << "simple_geom_clustering: " << std::endl;
+    std::cout << "geom_clustering: " << std::endl;
     auto next = beg + 1;
 
     if (next == end) {
         return;
     }
 
-    if (policy != "simple" and policy != "uboone") {
-        THROW(ValueError() << errmsg{String::format("policy %s not implemented!", policy)});
+    std::unordered_set<std::string> known_policies = {"simple", "uboone", "uboone_local"};
+    if (known_policies.find(policy) == known_policies.end()) {
+        THROW(ValueError() << errmsg{String::format("policy \"%s\" not implemented!", policy)});
     }
 
     // uboone policy
     int max_rel_diff = 2;
     std::map<int, RayGrid::grid_index_t> map_gap_tol = {{1, 2}, {2, 1}};
+
+    if (policy == "uboone_local") {
+        max_rel_diff = 2;
+        map_gap_tol = {{1, 1}, {2, 1}};
+    }
 
     if (policy == "simple") {
         max_rel_diff = 1;

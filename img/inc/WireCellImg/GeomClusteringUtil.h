@@ -3,8 +3,8 @@
  * make b-b edges using simple geom. based RayGrid::overlap
  */
 
-#ifndef WIRECELLIMG_SIMPLEGEOMCLUSTERING
-#define WIRECELLIMG_SIMPLEGEOMCLUSTERING
+#ifndef WIRECELLIMG_GEOMCLUSTERINGUTIL
+#define WIRECELLIMG_GEOMCLUSTERINGUTIL
 
 #include "WireCellUtil/IndexedGraph.h"
 #include "WireCellIface/IBlobSet.h"
@@ -12,7 +12,7 @@
 
 namespace WireCell {
     namespace Img {
-        void simple_geom_clustering(cluster_indexed_graph_t& grind, IBlobSet::vector::iterator beg,
+        void geom_clustering(cluster_indexed_graph_t& grind, IBlobSet::vector::iterator beg,
                                     IBlobSet::vector::iterator end, std::string policy);
     }
 }  // namespace WireCell
