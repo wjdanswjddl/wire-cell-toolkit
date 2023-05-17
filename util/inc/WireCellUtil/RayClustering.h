@@ -28,7 +28,7 @@ namespace WireCell {
         // Return blobs in projection which overlap with blob along
         // ray lines of given layer and all lower layers.
         blobvec_t overlap(const blobref_t& blob, const blobproj_t& proj, layer_index_t layer, grid_index_t tolerance, const bool verbose);
-        blobvec_t overlap(const blobref_t& blob, const blobproj_t& proj, layer_index_t layer) {
+        inline blobvec_t overlap(const blobref_t& blob, const blobproj_t& proj, layer_index_t layer) {
             return overlap(blob, proj, layer, 0, false);
         };
 
