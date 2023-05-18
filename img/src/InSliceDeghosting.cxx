@@ -1,7 +1,7 @@
 
 #include "WireCellImg/InSliceDeghosting.h"
 #include "WireCellImg/CSGraph.h"
-#include "WireCellImg/Projection2D.h"
+#include "WireCellImg/GeomClusteringUtil.h"
 #include "WireCellAux/ClusterShadow.h"
 #include "WireCellAux/SimpleCluster.h"
 #include "WireCellUtil/GraphTools.h"
@@ -66,6 +66,17 @@ namespace {
                    boost::num_edges(cg), bcount, bval, mcount);
     }
 
+    template <class Map, class Key, class Val>
+    bool exist(const Map& m, const Key& k, const Val& t) {
+        auto er = m.equal_range(k);
+        for (auto it = er.first; it != er.second; ++it) {
+            if (it->second == t) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     // struct pair_hash
     // {
     //     template <class T1, class T2>
@@ -95,14 +106,13 @@ bool Img::InSliceDeghosting::operator()(const input_pointer& in, output_pointer&
     /// 1, Ident good/bad blob groups. in: ICluster out: blob_quality_tags {blob_desc -> quality_tag} TODO: map or
     /// multi-map?
     /// FIXME: place holder. Using simple thresholing.
-    const double good_blob_charge_th = 300.;
     for (const auto& vtx : GraphTools::mir(boost::vertices(in_graph))) {
         const auto& node = in_graph[vtx];
         if (node.code() != 'b') {
             continue;
         }
         const auto iblob = get<cluster_node_t::blob_t>(node.ptr);
-        if (iblob->value() > good_blob_charge_th) {
+        if (iblob->value() > m_good_blob_charge_th) {
             blob_tags.insert({vtx, GOOD});
         }
         else {
@@ -157,24 +167,57 @@ bool Img::InSliceDeghosting::operator()(const input_pointer& in, output_pointer&
 
     /// 3, delete some blobs. in: ICluster + blob_quality_tags out: filtered ICluster
     /// FIXME: need checks.
-    using Filtered =
+    using VFiltered =
         typename boost::filtered_graph<cluster_graph_t, boost::keep_all, std::function<bool(cluster_vertex_t)> >;
-    Filtered fgraph(in_graph, {}, [&](auto vtx) {
-        auto er = blob_tags.equal_range(vtx);
-        for (auto it = er.first; it != er.second; ++it) {
-            if (it->second == TO_BE_REMOVED) {
-                return false;
-            }
-        }
-        return true;
+    // VFiltered fg_rm_bad_blobs(in_graph, {}, [&](auto vtx) {
+    //     auto er = blob_tags.equal_range(vtx);
+    //     for (auto it = er.first; it != er.second; ++it) {
+    //         if (it->second == TO_BE_REMOVED) {
+    //             return false;
+    //         }
+    //     }
+    //     return true;
+    // });
+    VFiltered fg_rm_bad_blobs(in_graph, {}, [&](auto vtx) {
+        return !exist(blob_tags, vtx, TO_BE_REMOVED);
     });
 
     /// 4, in-group clustering. in: ICluster + blob_quality_tags out: filtered ICluster
     /// FIXME: place holder.
+    /// TODO: do we need to call copy_graph?
+    WireCell::cluster_graph_t cg_old_bb;
+    boost::copy_graph(fg_rm_bad_blobs, cg_old_bb);
+    log->debug("cg_old_bb:");
+    dump_cg(cg_old_bb, log);
+    /// rm old b-b edges
+    using EFiltered =
+        typename boost::filtered_graph<cluster_graph_t, std::function<bool(cluster_edge_t)>, boost::keep_all >;
+    EFiltered fg_no_bb(cg_old_bb, [&](auto edge) {
+        auto source = boost::source(edge, cg_old_bb);
+        auto target = boost::target(edge, cg_old_bb);
+        if (cg_old_bb[source].code()=='b' and cg_old_bb[target].code()=='b') {
+            return false;
+        }
+        return true;
+    }, {});
+    WireCell::cluster_graph_t cg_new_bb;
+    boost::copy_graph(fg_no_bb, cg_new_bb);
+    log->debug("cg_new_bb:");
+    dump_cg(cg_new_bb, log);
+    /// make new b-b edges within groups
+    std::vector<gc_filter_t> filters = {
+        [&](const cluster_vertex_t& vtx) { return exist(blob_tags, vtx, GOOD) && !exist(blob_tags, vtx, BAD); },
+        [&](const cluster_vertex_t& vtx) { return !exist(blob_tags, vtx, GOOD) && exist(blob_tags, vtx, BAD); }
+    };
+    /// each filter adds new b-b edges on cg_new_bb
+    for (auto filter : filters) {
+        geom_clustering(cg_new_bb, m_clustering_policy, filter);
+    }
+    log->debug("cg_new_bb:");
+    dump_cg(cg_new_bb, log);
 
-    WireCell::cluster_graph_t out_graph;
-    boost::copy_graph(fgraph, out_graph);
-
+    /// output
+    auto& out_graph = cg_new_bb;
     // debug info
     log->debug("in_graph:");
     dump_cg(in_graph, log);

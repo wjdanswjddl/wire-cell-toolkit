@@ -32,6 +32,8 @@ namespace WireCell {
            private:
             /// TODO: DEBUGONLY
             bool m_dryrun{false};
+            double m_good_blob_charge_th{300.};
+            std::string m_clustering_policy{"uboone"};
         };
 
     }  // namespace Img
