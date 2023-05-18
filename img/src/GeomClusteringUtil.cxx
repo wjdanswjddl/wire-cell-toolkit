@@ -82,7 +82,7 @@ void WireCell::Img::geom_clustering(cluster_indexed_graph_t& grind, IBlobSet::ve
     }
 }
 
-void WireCell::Img::geom_clustering(cluster_graph_t& cg, std::string policy)
+void WireCell::Img::geom_clustering(cluster_graph_t& cg, std::string policy, gc_filter_t filter)
 {
     std::cout << "geom_clustering: " << std::endl;
 
@@ -126,17 +126,6 @@ void WireCell::Img::geom_clustering(cluster_graph_t& cg, std::string policy)
         }
     }
 
-    // struct GenBlobs {
-    //     RayGrid::blobs_t operator()(const cluster_graph_t& cg, const std::vector<cluster_vertex_t>& descs) {
-    //         RayGrid::blobs_t ret(descs.size());
-    //         for (auto desc : descs) {
-    //             const auto iblob = get<cluster_node_t::blob_t>(cg[desc].ptr);
-    //             ret.push_back(iblob->shape());
-    //         }
-    //         return ret;
-    //     }
-    // } gen;
-
     /// make SimpleBlobSet for slice pairs and make edges
     for (auto siter1 = slices.begin(); siter1 != slices.end(); ++siter1) {
         for (auto siter2 = siter1 + 1; siter2 != slices.end(); ++siter2) {
@@ -144,11 +133,20 @@ void WireCell::Img::geom_clustering(cluster_graph_t& cg, std::string policy)
             const auto islice2 = get<cluster_node_t::slice_t>(cg[*siter2].ptr);
             int rel_diff = std::round(fabs((islice1->start() - islice2->start()) / islice1->span()));
             if (map_gap_tol.find(rel_diff) == map_gap_tol.end()) continue;
-
-            auto bdescs1 = neighbors_oftype<cluster_node_t::blob_t>(cg, *siter1);
-            auto bdescs2 = neighbors_oftype<cluster_node_t::blob_t>(cg, *siter2);
+            auto allbdescs1 = neighbors_oftype<cluster_node_t::blob_t>(cg, *siter1);
+            auto allbdescs2 = neighbors_oftype<cluster_node_t::blob_t>(cg, *siter2);
+            auto vfilter = [&](const std::vector<cluster_vertex_t>& descs) {
+                std::vector<cluster_vertex_t> ret;
+                for (auto desc : descs) {
+                    if (!filter(desc)) continue;
+                    ret.push_back(desc);
+                }
+                return ret;
+            };
+            auto bdescs1 = vfilter(allbdescs1);
+            auto bdescs2 = vfilter(allbdescs2);
             auto gen = [&](const std::vector<cluster_vertex_t>& descs) {
-                RayGrid::blobs_t ret(descs.size());
+                RayGrid::blobs_t ret;
                 for (auto desc : descs) {
                     const auto iblob = get<cluster_node_t::blob_t>(cg[desc].ptr);
                     ret.push_back(iblob->shape());
@@ -156,7 +154,7 @@ void WireCell::Img::geom_clustering(cluster_graph_t& cg, std::string policy)
                 return ret;
             };
             RayGrid::blobs_t blobs1 = gen(bdescs1);
-            RayGrid::blobs_t blobs2 = gen(bdescs1);
+            RayGrid::blobs_t blobs2 = gen(bdescs2);
             const auto beg1 = blobs1.begin();
             const auto beg2 = blobs2.begin();
 
