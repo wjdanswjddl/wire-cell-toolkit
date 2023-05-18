@@ -2,7 +2,6 @@
 #include "WireCellImg/InSliceDeghosting.h"
 #include "WireCellImg/CSGraph.h"
 #include "WireCellImg/GeomClusteringUtil.h"
-#include "WireCellAux/ClusterShadow.h"
 #include "WireCellAux/SimpleCluster.h"
 #include "WireCellUtil/GraphTools.h"
 
@@ -44,7 +43,6 @@ void Img::InSliceDeghosting::configure(const WireCell::Configuration& cfg)
 }
 
 namespace {
-
     void dump_cg(const cluster_graph_t& cg, Log::logptr_t& log)
     {
         size_t mcount{0}, bcount{0};
@@ -76,18 +74,6 @@ namespace {
         }
         return false;
     }
-
-    // struct pair_hash
-    // {
-    //     template <class T1, class T2>
-    //     std::size_t operator () (std::pair<T1, T2> const &pair) const
-    //     {
-    //         std::size_t h1 = std::hash<T1>()(pair.first);
-    //         std::size_t h2 = std::hash<T2>()(pair.second);
-    //         return h1 ^ h2;
-    //     }
-    // };
-
 }  // namespace
 
 bool Img::InSliceDeghosting::operator()(const input_pointer& in, output_pointer& out)
@@ -145,13 +131,7 @@ bool Img::InSliceDeghosting::operator()(const input_pointer& in, output_pointer&
                 max_blob = bvtx;
             }
         }
-        // rm the keeper from TO_BE_REMOVED
-        // log->debug("rm {} from TO_BE_REMOVED", max_blob);
-        // erase_if not available until c++20
-        // const auto count = std::erase_if(blob_tags, [](const auto& item) {
-        //     auto const& [key, value] = item;
-        //     return key == max_blob && value == TO_BE_REMOVED;
-        // });
+        /// rm the keeper from TO_BE_REMOVED
         for (auto i = blob_tags.begin(), last = blob_tags.end(); i != last;) {
             auto const& [key, value] = *i;
             if (key == max_blob && value == TO_BE_REMOVED) {
@@ -169,15 +149,6 @@ bool Img::InSliceDeghosting::operator()(const input_pointer& in, output_pointer&
     /// FIXME: need checks.
     using VFiltered =
         typename boost::filtered_graph<cluster_graph_t, boost::keep_all, std::function<bool(cluster_vertex_t)> >;
-    // VFiltered fg_rm_bad_blobs(in_graph, {}, [&](auto vtx) {
-    //     auto er = blob_tags.equal_range(vtx);
-    //     for (auto it = er.first; it != er.second; ++it) {
-    //         if (it->second == TO_BE_REMOVED) {
-    //             return false;
-    //         }
-    //     }
-    //     return true;
-    // });
     VFiltered fg_rm_bad_blobs(in_graph, {}, [&](auto vtx) {
         return !exist(blob_tags, vtx, TO_BE_REMOVED);
     });
