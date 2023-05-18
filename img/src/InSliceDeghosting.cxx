@@ -97,6 +97,9 @@ bool Img::InSliceDeghosting::operator()(const input_pointer& in, output_pointer&
         if (node.code() != 'b') {
             continue;
         }
+        /// XIN: add between slice b-b connection info.
+        /// follow b-b edges -> time, charge of connected blobs
+        /// ...
         const auto iblob = get<cluster_node_t::blob_t>(node.ptr);
         if (iblob->value() > m_good_blob_charge_th) {
             blob_tags.insert({vtx, GOOD});
@@ -117,6 +120,8 @@ bool Img::InSliceDeghosting::operator()(const input_pointer& in, output_pointer&
         cluster_vertex_t max_blob = -1;
         double max_charge = -1e12;
         for (auto bedge : GraphTools::mir(boost::out_edges(svtx, in_graph))) {
+            /// XIN: wire range, dead/alive
+            /// per slice map {wire->ident() -> float}
             auto bvtx = boost::target(bedge, in_graph);
             if (in_graph[bvtx].code() != 'b') {
                 THROW(ValueError() << errmsg{

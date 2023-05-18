@@ -3,7 +3,7 @@
  * 1, Ident good/bad blob groups. in: ICluster out: blob_quality_tags {blob_desc -> quality_tag} TODO: map or multi-map?
  * 2, Local (in-slice) de-ghosting. in: ICluster + blob_quality_tags out: updated blob_quality_tags (remove or not)
  * 3, delete some blobs. in: ICluster + blob_quality_tags out: filtered ICluster
- * 4, in-group clustering. in: ICluster + blob_quality_tags out: filtered ICluster
+ * 4, in-group clustering. in: ICluster + blob_quality_tags out: updated ICluster
  */
 #ifndef WIRECELL_INSLICEDEGHOSTING_H
 #define WIRECELL_INSLICEDEGHOSTING_H
