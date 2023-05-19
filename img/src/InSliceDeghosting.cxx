@@ -76,24 +76,9 @@ namespace {
     }
 }  // namespace
 
-bool Img::InSliceDeghosting::operator()(const input_pointer& in, output_pointer& out)
-{
-    out = nullptr;
-    if (!in) {
-        log->debug("EOS");
-        return true;
-    }
-    const auto in_graph = in->graph();
-    dump_cg(in_graph, log);
-
-    // blob desc -> quality tag
-    std::unordered_multimap<cluster_vertex_t, BLOB_QUALITY> blob_tags;
-
-    /// 1, Ident good/bad blob groups. in: ICluster out: blob_quality_tags {blob_desc -> quality_tag} TODO: map or
-    /// multi-map?
-    /// FIXME: place holder. Using simple thresholing.
-    for (const auto& vtx : GraphTools::mir(boost::vertices(in_graph))) {
-        const auto& node = in_graph[vtx];
+void InSliceDeghosting::blob_quality_ident(const cluster_graph_t& cg, vertex_tags_t& blob_tags) {
+    for (const auto& vtx : GraphTools::mir(boost::vertices(cg))) {
+        const auto& node = cg[vtx];
         if (node.code() != 'b') {
             continue;
         }
@@ -108,28 +93,27 @@ bool Img::InSliceDeghosting::operator()(const input_pointer& in, output_pointer&
             blob_tags.insert({vtx, BAD});
         }
     }
-
-    /// 2, Local (in-slice) de-ghosting. in: ICluster + blob_quality_tags out: updated blob_quality_tags (remove or not)
-    /// FIXME: place holder. Only keep the largest blob in slice
+}
+void InSliceDeghosting::local_deghosting(const cluster_graph_t& cg, vertex_tags_t& blob_tags) {
     int count_keeper = 0;
-    for (const auto& svtx : GraphTools::mir(boost::vertices(in_graph))) {
-        if (in_graph[svtx].code() != 's') {
+    for (const auto& svtx : GraphTools::mir(boost::vertices(cg))) {
+        if (cg[svtx].code() != 's') {
             continue;
         }
         // Loop over the neighbor blobs of current slice. Keep the largest one.
         cluster_vertex_t max_blob = -1;
         double max_charge = -1e12;
-        for (auto bedge : GraphTools::mir(boost::out_edges(svtx, in_graph))) {
+        for (auto bedge : GraphTools::mir(boost::out_edges(svtx, cg))) {
             /// XIN: wire range, dead/alive
             /// per slice map {wire->ident() -> float}
-            auto bvtx = boost::target(bedge, in_graph);
-            if (in_graph[bvtx].code() != 'b') {
+            auto bvtx = boost::target(bedge, cg);
+            if (cg[bvtx].code() != 'b') {
                 THROW(ValueError() << errmsg{
-                          String::format("'s' node connnected to '%s' not implemented!", in_graph[bvtx].code())});
+                          String::format("'s' node connnected to '%s' not implemented!", cg[bvtx].code())});
             }
             // temp tag all TO_BE_REMOVED
             blob_tags.insert({bvtx, TO_BE_REMOVED});
-            const auto iblob = get<cluster_node_t::blob_t>(in_graph[bvtx].ptr);
+            const auto iblob = get<cluster_node_t::blob_t>(cg[bvtx].ptr);
             auto charge = iblob->value();
             if (charge > max_charge) {
                 max_charge = charge;
@@ -149,6 +133,28 @@ bool Img::InSliceDeghosting::operator()(const input_pointer& in, output_pointer&
         }
     }
     log->debug("count_keeper {}", count_keeper);
+}
+bool InSliceDeghosting::operator()(const input_pointer& in, output_pointer& out)
+{
+    out = nullptr;
+    if (!in) {
+        log->debug("EOS");
+        return true;
+    }
+    const auto in_graph = in->graph();
+    dump_cg(in_graph, log);
+
+    // blob desc -> quality tag
+    std::unordered_multimap<cluster_vertex_t, BLOB_QUALITY> blob_tags;
+
+    /// 1, Ident good/bad blob groups. in: ICluster out: blob_quality_tags {blob_desc -> quality_tag} TODO: map or
+    /// multi-map?
+    /// FIXME: place holder. Using simple thresholing.
+    blob_quality_ident(in_graph, blob_tags);
+
+    /// 2, Local (in-slice) de-ghosting. in: ICluster + blob_quality_tags out: updated blob_quality_tags (remove or not)
+    // /// FIXME: place holder. Only keep the largest blob in slice
+    local_deghosting(in_graph, blob_tags);
 
     /// 3, delete some blobs. in: ICluster + blob_quality_tags out: filtered ICluster
     /// FIXME: need checks.

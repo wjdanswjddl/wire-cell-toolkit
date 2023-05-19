@@ -21,6 +21,9 @@ namespace WireCell {
             /// TODO: what is needed here
             enum BLOB_QUALITY { GOOD, BAD, POTENTIAL_GOOD, POTENTIAL_BAD, TO_BE_REMOVED };
 
+            using vertex_tags_t = std::unordered_multimap<cluster_vertex_t, BLOB_QUALITY>;
+            // using vertex_tagging_t = std::function<void(const cluster_graph_t&, vertex_tags_t&)>;
+
             InSliceDeghosting();
             virtual ~InSliceDeghosting();
 
@@ -30,6 +33,9 @@ namespace WireCell {
             virtual bool operator()(const input_pointer& in, output_pointer& out);
 
            private:
+            void blob_quality_ident(const cluster_graph_t& cg, vertex_tags_t& blob_tags);
+            void local_deghosting(const cluster_graph_t& cg, vertex_tags_t& blob_tags);
+
             /// TODO: DEBUGONLY
             bool m_dryrun{false};
             double m_good_blob_charge_th{300.};
