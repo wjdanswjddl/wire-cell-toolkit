@@ -57,8 +57,6 @@ def _options(opt, name, incs=None, libs=None):
 def _configure(ctx, name, incs=(), libs=(), bins=(), pcname=None, mandatory=True, extuses=()):
     lower = name.lower()
     UPPER = name.upper()
-    if pcname is None:
-        pcname = lower
     extuses = list(extuses)
 
     instdir = getattr(ctx.options, 'with_'+lower, None)
@@ -81,7 +79,10 @@ def _configure(ctx, name, incs=(), libs=(), bins=(), pcname=None, mandatory=True
             return
 
     # rely on package config
-    if not any([instdir,incdir,libdir,bindir]) or (instdir and instdir.lower() in ['yes','on','true']):
+    no_dirs = not any([instdir,incdir,libdir,bindir])
+    have_instdir = (instdir and instdir.lower() in ['yes','on','true'])
+    have_pcname = pcname is not None
+    if have_pcname and (no_dirs or have_instdir):
         ctx.start_msg('Checking for %s in PKG_CONFIG_PATH' % name)
         args = "--cflags"
         if libs:                # things like eigen may not have libs
@@ -129,6 +130,8 @@ def _configure(ctx, name, incs=(), libs=(), bins=(), pcname=None, mandatory=True
         if ctx.is_defined('HAVE_'+UPPER+'_LIB'):
             ctx.env['HAVE_'+UPPER] = 1
             debug('%s: HAVE %s libs' % (lower, UPPER))
+            if pcname:
+                ctx.env.REQUIRES += [pcname]
         else:
             debug('%s: NO %s libs' % (lower, UPPER))
             
@@ -143,6 +146,8 @@ def _configure(ctx, name, incs=(), libs=(), bins=(), pcname=None, mandatory=True
         if ctx.is_defined('HAVE_'+UPPER+'_INC'):
             ctx.env['HAVE_'+UPPER] = 1
             debug('%s: HAVE %s includes' % (lower, UPPER))
+            if pcname:
+                ctx.env.REQUIRES += [pcname]
         else:
             debug('%s: NO %s includes' % (lower, UPPER))
 
