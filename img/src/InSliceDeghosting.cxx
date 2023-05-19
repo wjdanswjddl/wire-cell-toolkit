@@ -75,6 +75,23 @@ namespace {
         }
         return false;
     }
+
+    /// b -> connected channel idents
+    std::unordered_set<int> connected_channels(const cluster_graph_t& cg, const cluster_vertex_t& bdesc)
+    {
+        std::unordered_set<int> cidents;
+        const auto wdescs = neighbors_oftype<cluster_node_t::wire_t>(cg, bdesc);
+        for (auto wdesc : wdescs) {
+            const auto cdescs = neighbors_oftype<cluster_node_t::channel_t>(cg, wdesc);
+            /// 'w' can only be connect to 1 'c'
+            if (cdescs.size() != 1) {
+                THROW(ValueError() << errmsg{String::format("'w' connnected to %d 'c's!", cdescs.size())});
+            }
+            const auto ichannel = get<cluster_node_t::channel_t>(cg[cdescs[0]].ptr);
+            cidents.insert(ichannel->ident());
+        }
+        return cidents;
+    }
 }  // namespace
 
 void InSliceDeghosting::blob_quality_ident(const cluster_graph_t& cg, vertex_tags_t& blob_tags)
@@ -146,6 +163,10 @@ void InSliceDeghosting::local_deghosting(const cluster_graph_t& cg, vertex_tags_
                     }
                 }
             }
+
+            /// EXAMPLE: b -> connected channel idents
+            auto cidents = connected_channels(cg, bvtx);
+            log->debug("cidents {}", cidents.size());
 
             /// EXAMPLEONLY: temp tag all as TO_BE_REMOVED
             blob_tags.insert({bvtx, TO_BE_REMOVED});
