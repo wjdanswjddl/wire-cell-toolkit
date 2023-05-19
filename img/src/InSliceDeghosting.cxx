@@ -82,16 +82,29 @@ void InSliceDeghosting::blob_quality_ident(const cluster_graph_t& cg, vertex_tag
         if (node.code() != 'b') {
             continue;
         }
-        /// XIN: add between slice b-b connection info.
-        /// follow b-b edges -> time, charge of connected blobs
-        /// ...
         const auto iblob = get<cluster_node_t::blob_t>(node.ptr);
-        if (iblob->value() > m_good_blob_charge_th) {
+        double current_t = iblob->slice()->start();
+        double current_q = iblob->value();
+        if (current_q > m_good_blob_charge_th) {
             blob_tags.insert({vtx, GOOD});
         }
         else {
             blob_tags.insert({vtx, BAD});
         }
+        /// XIN: add between slice b-b connection info.
+        /// follow b-b edges -> time, charge of connected blobs
+        std::vector<double> fronts, backs;
+        for(auto v : neighbors_oftype<cluster_node_t::blob_t>(cg, vtx)) {
+            const auto ib = get<cluster_node_t::blob_t>(cg[v].ptr);
+            if (ib->slice()->start() > current_t) {
+                backs.push_back(ib->value());
+            }
+            if (ib->slice()->start() < current_t) {
+                fronts.push_back(ib->value());
+            }
+        }
+        /// DEBUGONLY:
+        log->debug("{} fronts {} backs {}", vtx, fronts.size(), backs.size());
     }
 }
 void InSliceDeghosting::local_deghosting(const cluster_graph_t& cg, vertex_tags_t& blob_tags) {
@@ -104,8 +117,8 @@ void InSliceDeghosting::local_deghosting(const cluster_graph_t& cg, vertex_tags_
         cluster_vertex_t max_blob = -1;
         double max_charge = -1e12;
         for (auto bedge : GraphTools::mir(boost::out_edges(svtx, cg))) {
-            /// XIN: wire range, dead/alive
-            /// per slice map {wire->ident() -> float}
+            /// XIN: bvtx -> RayGrid::Strip::grid_range_t, {2views}, {3views}
+            /// CHECK: per slice map {RayGrid::grid_index_t -> float}
             auto bvtx = boost::target(bedge, cg);
             if (cg[bvtx].code() != 'b') {
                 THROW(ValueError() << errmsg{
