@@ -35,7 +35,7 @@ void TensorCluster::configure(const WireCell::Configuration& cfg)
     m_dpre = get(cfg, "dpre", default_dpre);
 
     m_anodes.clear();
-    for (const auto janode : cfg["anodes"]) {
+    for (const auto& janode : cfg["anodes"]) {
         m_anodes.push_back(Factory::find_tn<IAnodePlane>(janode.asString()));
     }
 }

@@ -635,7 +635,7 @@ namespace svg
     private:
         Stroke axis_stroke;
         Dimensions margin;
-        double scale;
+        [[maybe_unused]] double scale; // fixme: can we nuke this?
         std::vector<Polyline> polylines;
 
         optional<Dimensions> getDimensions() const

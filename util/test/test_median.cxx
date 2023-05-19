@@ -24,7 +24,7 @@ int main()
     const int ntimes = 10000;
     em("start scaling tests");
     int sizes[] = {100, 1000, 10000, 0};
-    float dummy = 0;  // don't optimize away
+    float dummy = 0;
     for (int ind = 0; sizes[ind]; ++ind) {
         auto size = sizes[ind];
         std::vector<float> chunk(data.begin(), data.begin() + size);
@@ -49,6 +49,6 @@ int main()
         em("done with chunked test");
     }
 
-    cerr << em.summary() << endl;
+    cerr << em.summary() << " dummy=" << dummy << endl;
     return 0;
 }

@@ -122,8 +122,6 @@ Json::Value slice_jsoner(const cluster_node_t& n)
     ret["start"] = islice->start();
     ret["span"] = islice->span();
 
-    double sigtot = 0;
-
     // note: used to be SOA, now AOS.
     Json::Value jsignal = Json::arrayValue;
     for (const auto& it : islice->activity()) {
@@ -131,7 +129,6 @@ Json::Value slice_jsoner(const cluster_node_t& n)
         jact["ident"] = it.first->ident();
         const double val = it.second.value();
         jact["val"] = val;
-        sigtot += val;
         jact["unc"] = it.second.uncertainty();
         jsignal.append(jact);
     }

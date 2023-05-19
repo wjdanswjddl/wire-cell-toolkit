@@ -151,7 +151,8 @@ struct TFSTensor : public WireCell::ITensor {
         , m_shape(pig.header().shape())
         , m_cfg(cfg)
     {
-        const std::byte* data = reinterpret_cast<const std::byte*>(pig.data().data());
+        auto vec = pig.data();
+        const std::byte* data = reinterpret_cast<const std::byte*>(vec.data());
         m_store.insert(m_store.end(), data, data + pig.data().size());
     }
 
