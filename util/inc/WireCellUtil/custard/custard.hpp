@@ -105,14 +105,19 @@ namespace custard {
         char mtime_[12];               /* 136 */
         char chksum_[8];               /* 148 */
         char typeflag_;                /* 156 */
+        [[maybe_unused]]
         char linkname_[100];           /* 157 */
         char magic_[6];                /* 257 */
         char version_[2];              /* 263 */
         char uname_[32];               /* 265 */
         char gname_[32];               /* 297 */
+        [[maybe_unused]]
         char devmajor_[8];             /* 329 */
+        [[maybe_unused]]
         char devminor_[8];             /* 337 */
+        [[maybe_unused]]
         char prefix_[155];             /* 345 */
+        [[maybe_unused]]
         char padding_[12];             /* 500 */
                                        /* 512 */
       public:
