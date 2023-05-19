@@ -47,10 +47,8 @@ std::vector<double> Gen::GausDesc::binint(double start, double step, int nbins) 
             erfs[ind] = 0.5 * std::erf(x);
         }
 
-        double tot = 0.0;
         for (int ibin = 0; ibin < nbins; ++ibin) {
             const double val = erfs[ibin + 1] - erfs[ibin];
-            tot += val;
             bins[ibin] = val;
         }
     }
@@ -185,12 +183,10 @@ void Gen::GaussianDiffusion::set_sampling(const Binning& tbin,  // overall time 
 
     double fluc_sum = 0;
     if (fluctuate) {
-        double unfluc_sum = 0;
 
         for (size_t ip = 0; ip < npss; ++ip) {
             for (size_t it = 0; it < ntss; ++it) {
                 const double oldval = ret(ip, it);
-                unfluc_sum += oldval;
                 // should be a multinomial distribution, n_i follows binomial distribution
                 // but n_i, n_j has covariance -n_tot * p_i * p_j
                 // normalize later to approximate this multinomial distribution (how precise?)
@@ -210,10 +206,6 @@ void Gen::GaussianDiffusion::set_sampling(const Binning& tbin,  // overall time 
             }
         }
         if (fluc_sum == 0) {
-            // cerr << "No net charge after fluctuation. Total unfluctuated = "
-            //      << unfluc_sum
-            //      << " Qdepo = " << m_deposition->charge()
-            //      << endl;
             return;
         }
         else {

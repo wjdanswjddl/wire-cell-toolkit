@@ -54,6 +54,12 @@ setup_file () {
     cd_tmp file
 
     local wcplot=$(wcb_env_value WCPLOT)
+    if [ -z "$wcplot" ] ; then  # fixme: foist up into wct-bats.sh
+        skip "No wirecell-plot.  Do you have wire-cell-python installed before configuring build?"
+    fi
+
+    echo "WCPLOT: $wcplot"
+    [[ -n "$wcplot" ]]
     for what in spec wave
     do
         local pout="comp1d-${what}.png"

@@ -24,7 +24,7 @@ function comp1d () {
 
     declare -a args=( -s -n "$kind" --transform ac )
     args+=( --chmin ${chmins[$iplane]} --chmax ${chmaxs[$iplane]} )
-    if [ "$src" = noise ] ; then
+    if [ "$src" = "noise" ] ; then
         args+=( --tier '*' )
     else
         args+=( --tier 'orig' )
@@ -33,12 +33,19 @@ function comp1d () {
 
     yell "ARGS: ${args[@]}"
 
+    local deps=()
     for one in ${past[@]}
     do
         deps+=( -s "$one" )
+        [[ -s "$one" ]]
     done
 
+    yell "DEPS: ${deps[@]}"
+
     local wcplot=$(wcb_env_value WCPLOT)
+    if [ -z "$wcplot" ] ; then  # fixme: foist up into wct-bats.sh
+        skip "No wirecell-plot.  Do you have wire-cell-python installed before configuring build?"
+    fi
     run_idempotently ${deps[@]} -t "$fig" -- $wcplot comp1d "${args[@]}" ${past[@]}
     [[ -s "$fig" ]]
     saveout -c reports "$fig"
@@ -49,7 +56,7 @@ function comp1d () {
 
     # The list of files that can be comp1d'ed.  These must be PDSP APA0
     declare -A inputs
-    inputs[noise]="test-addnoise/test-addnoise-empno-6000.tar.gz"
+    inputs[noise]="test-addnoise/frames-adc.tar.gz"
     inputs[simsn]="test-pdsp-simsn/frames-adc.tar.gz"
 
     yell "INPUT KEYS: ${!inputs[@]}"
@@ -62,6 +69,7 @@ function comp1d () {
         do
             for ipln in 0 1 2
             do
+                yell "comp1d $src $infile $kind $ipln"
                 comp1d $src $infile $kind $ipln
             done
         done
