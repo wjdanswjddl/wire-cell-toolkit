@@ -35,11 +35,13 @@ namespace WireCell {
            private:
             void blob_quality_ident(const cluster_graph_t& cg, vertex_tags_t& blob_tags);
             void local_deghosting(const cluster_graph_t& cg, vertex_tags_t& blob_tags);
+	    void local_deghosting1(const cluster_graph_t& cg, vertex_tags_t& blob_tags);
 
             /// TODO: DEBUGONLY
             bool m_dryrun{false};
             double m_good_blob_charge_th{300.};
             std::string m_clustering_policy{"uboone"};
+	    int m_config_round{1};
         };
 
     }  // namespace Img
