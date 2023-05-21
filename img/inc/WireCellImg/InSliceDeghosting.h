@@ -42,6 +42,8 @@ namespace WireCell {
             double m_good_blob_charge_th{300.};
             std::string m_clustering_policy{"uboone"};
 	    int m_config_round{1};
+	    float m_deghost_th{0.75};
+	    float m_deghost_th1{0.5};
         };
 
     }  // namespace Img
