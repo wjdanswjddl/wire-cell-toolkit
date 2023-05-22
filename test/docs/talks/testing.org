@@ -3,25 +3,29 @@
 
 * Topics
 
+\Large
+
 - Quickstart
-- The WCT testing system, code, programs, suite.
-- A focus on WCT test programs and groups.
-- WCT tests in C++ and BATS (bash script) languages.
-- Historical results from multiple WCT software versions.
+- The WCT testing system.
+- Write WCT tests in C++.
+- Write WCT tests in Bash.
+- The WCT test data repository and historical tests.
 
 * Quickstart: 80% of WCT testing
 
 C++
 - Make a C++ file: ~<pkg>/test/test_<mytest>.cxx~
-- Return nonzero from ~main()~ on error (or ~abort()/throw~, etc). 
-- Run: ~./wcb --tests --target=test_<mytest>~ or \\
-   ~./build/<pkg>/test_<mytest>~
+- Return nonzero from ~main()~ on error (or call ~abort/assert/throw~). 
+- Build+run a test ~./wcb --tests --target=test_<mytest>~ \\
+  or run directly:  ~./build/<pkg>/test_<mytest>~
 
 Bash
 - Make a BATS (bash) file: ~<pkg>/test/test_<mytest>.bats~
 - Define special bash functions holding tests: ~@test "test the thing" {...}~ 
-- Run: ~/wcb --tests --target=test_<mytest>_bats~ or \\
-   ~bats <pkg>/test/test_<mytest>.bats~
+- Run via build: ~./wcb --tests --target=test_<mytest>_bats~ \\
+  or run directly: ~bats <pkg>/test/test_<mytest>.bats~
+
+Build and run all tests: ~./wcb --tests~
 
 * 
 
@@ -34,15 +38,13 @@ Now, the remaining 80%....
 
 * WCT Testing System Overview
 
-From the small scale to the large, WCT has:
+WCT testing system is layered.  It has test:
 
-- test code :: block code that asserts some assumption is met.
-- test programs :: a ~main()~ with test code and that exits with error status when any test fails.
-- test suite :: a set of test programs run together.
+- code :: blocks of code that assert that some assumption is met.
+- programs :: a ~main()~ with test code and that exits with error status when any test fails.
+- groups :: a set of test programs run together.
+- suite :: all tests can be run automatically.
 
-\vfill
-
-We will next walk through each of these layers
 
 * 
 
@@ -54,21 +56,21 @@ We will next walk through each of these layers
 \normalsize (and other reasons)
 #+end_center
 
-* Low level testing: exceptions in WCT
+* Low level testing: WCT C++ exceptions
 
 It is okay for WCT library code to throw C++ exceptions.  
 
 #+begin_src c++
   #include "WireCellUtil/Exceptions.h"
   //...
-  if (something == "bad") {
+  if (is_bad(something)) {
       THROW(ValueError() << errmsg{"given something bad"});
   }
 #+end_src
 Note,
 - We use ~THROW()~, a wrapper around C++'s ~throw~.
-  - Adds traceback reporting and other features.
-- A small set of "standard" WCT exceptions are defined.
+  - Uses ~boost~ exceptions, adds traceback reporting and other features.
+- WCT defines a small set of "standard" exceptions....
 
 * WCT exception types
 
@@ -80,7 +82,7 @@ WCT defines exceptions that mimic Python's built-in exceptions:
 
 
 
-- ~ValueError~ some value is found to be outside its allowed domain.
+- ~ValueError~ some value is found to be outside its expected domain.
 - ~IndexError~ is a specific form of ~ValueError~ for when value is used for indexing.
 - ~KeyError~ is a specific form of ~ValueError~ for when value is used for mapping.
 - ~IOError~ is thrown when there is an error with an external resource (file, network).
@@ -94,15 +96,16 @@ Only use ~RuntimeError~ when others truly do not apply.
 
 * When to throw an exception
 
-- In ~configure()~, exhaustively check configuration and ~throw~
-  "liberally".  We want badly configured jobs to abort early.
+- In ~configure()~, exhaustively check configuration and ~throw~ "liberally".
+  - We want truly badly configured jobs to abort early.
+  - Okay to coerce "bad" values to "good" values where reasonable. 
 
-- Prefer throwing exception over returning an "error value".
+- Generally, prefer throwing exception over returning an "error value".
+  - If must return error, use ~[[nodiscard]]~ to force user to handle.
 
-- Whenever code has a "this can never happen" branch, definitely throw
-  an exception in that branch.
+- Whenever code has a "this can never happen" branch, it should throw.
 
-- Do not use ~assert()~ in library code, but it is okay in test programs.
+- Avoid ~assert()~ in library code, but it is okay in test programs.
  
 
 * When to catch an exception
@@ -111,6 +114,9 @@ Only use ~RuntimeError~ when others truly do not apply.
 
 - Never catch exceptions that your code can not handle.
 
+- Sometimes \textbf{catch and rethrow} to add value or reinterpret exception type.
+
+Example C++ exception handling pattern:
 #+begin_src c++
   SomeType val;
   try {
@@ -121,18 +127,22 @@ Only use ~RuntimeError~ when others truly do not apply.
   use_value(val);
 #+end_src
 
+* 
+
 The reality is that most applications using WCT will "handle"
 exceptions by aborting the process.
 
+\vfill
+
 WCT provides \textbf{no strategy} to continue the data-flow graph when
-an exception "escapes" a node's execution.  (likewise /art/).
+an exception "escapes" a node's execution.  (likewise /art/'s event loop).
 
 * 
 
 \Huge
 #+begin_center
-Use \textbf{test programs} to assert proper software behavior and as\\
-\textbf{drivers of new development}.
+Use \textbf{test programs} for external assertions on software behavior and as\\
+\textbf{software development drivers}.
 #+end_center
 
 * WCT test programs
@@ -142,57 +152,60 @@ Any program is a WCT test program if:
 - It \textbf{requires no} command line arguments.
   - It may accept \textbf{optional} command line arguments.
 - It returns \textbf{nonzero error status code} from ~main()~ if a test fails and \textbf{zero on success}.
-- It is written in a supported language (C++, BATS / bash shell, others).
-- It follows WCT \textbf{test group} source file naming convention.
+- It is written in a supported language (C++, BATS / bash shell, Jsonnet, Python).
+- It follows WCT \textbf{test group source file naming} convention.
 - It neither consumes nor produces files that are tracked as build dependencies.
   - It may consume/produce untracked files and consume files implicitly available from the build.
 
-Simple as this is, even simpler test development using WCT support for testing frameworks.
+Simple as this is, WCT provides support for \textbf{testing frameworks} which testing even simpler.
 
 * WCT test groups
 
-WCT test programs are organized into \textbf{test groups}:
+WCT test programs are organized into \textbf{test groups} with unique purposes:
 
 - All tests in one group are executed together (possibly in parallel) by the build system.
 
 - Each group is executed serially, in the order of the groups listed below.
 
-- The group name (or optional alias) defines a recognized \textbf{prefix} for the source file name.
+- The group name (or optional alias) defines allowed \textbf{source file name prefix}.
 
-Groups:
+Groups (in execution order):
 
 - check :: build system will only compile and not (directly) execute.
-- atomic :: basic tests not depending on execution of any other test.  
-- history :: for producing files to save for future use.
-- report :: for producing summary material for human inspection.
+- atomic :: basic tests that do not depend on the execution of any other test.  
+- history :: produce and save out files to the \textbf{test data repository} for future use.
+- report :: produce summary material for human inspection.
 
 
 Notes:
-- The test source file name prefix "\textbf{test}" may also be used for \textbf{atomic} tests (most are).
+- The test source file name prefix ``\textbf{test}'' may also be used for \textbf{atomic} tests.
 - Each group may consume files or use programs from a prior group.
 
 * WCT test program source
 
 A test program source file name must match this pattern:
 
-#+begin_example
-<pkg>/test/<prefix><sep><name>.<ext>
-#+end_example
+#+begin_center
+~<pkg>/test/<prefix><sep><name>.<ext>~
+#+end_center
+
+
 
 - ~<pkg>~ names the sub package directory name, eg ~util~.
-- ~<prefix>~ names the test /group/ or an alias for a group.
+- ~<prefix>~ names the test /group/ or an alias for a group,
+  - ~test~, ~atomic~, ~history~ etc.
 - ~<sep>~ cosmetic, optional separator, may be an underscore ("~_~") or hyphen ("=~=").
-- ~<name>~ brief, uniquely name and should describe the assertion that is tested.
+- ~<name>~ brief, unique name to describe the assertion that is tested.
 - ~<ext>~ defines how the test should be dispatched (compiled or interpreted).
-  - supported exentions: ~.cxx~, ~.bats~, ~.jsonnet~, ~.py~, ~.sh~ and ~.kokkos~.
-  - below we focus only on C++ and BATS.
+  - Supported exentions: ~.cxx~, ~.bats~, ~.jsonnet~, ~.py~, ~.sh~ and ~.kokkos~.
+  - We will focus only on C++ and bash/BATS in later slides.
   
 * 
 
 \Huge
 
 #+begin_center
-Use \textbf{test suites} to run many tests.
+Run \textbf{test suites} with the WCT build system.
 #+end_center
 
 * Running WCT tests
@@ -200,10 +213,11 @@ Use \textbf{test suites} to run many tests.
 
 \scriptsize
 #+begin_example
-./wcb --tests                        # build and run all if not yet already run
+./wcb --tests                        # build and run all tests not already run
+./wcb --tests --alltests             # force also to re-run those already run
 ./wcb --tests list | less            # find available targets, including tests
 ./wcb --tests --target=test_testing  # run a specific test
-                                     # force rerun a test already run:
+                                     # force re-run specific test:
 ./wcb --tests --target=test_testing --alltests
 
 ./build/util/test/test_testing       # run compiled test
@@ -218,7 +232,7 @@ bats test/test/test_bats.bats        # run interpreted test
 - When using using ~./wcb~, tests are only run once unless ~--alltests~ are given.
 - Can also run compiled or interpreted tests directly.
 - An "atomic" test can also accept optional command line arguments.
-  - These are called "variant tests"....
+  - These have been named "variant tests"....
 
 
 * Aside: atomic vs variant tests
@@ -229,7 +243,7 @@ bats test/test/test_bats.bats        # run interpreted test
 Variant tests can be useful to re-use testing code for novel tests
 that expand testing coverage.
 
-Variant tests can be made atomic by "baking" some options into an atomic test script:
+Atomic tests can be made from variant tests by "baking" command line options into an atomic test script:
 
 \scriptsize
 #+begin_example
@@ -243,6 +257,7 @@ cuda/test/test_idft_cufftdft.bats         # bakes args for CUDA, lives in cuda/
 pytorch/test/test_idft_torchdft.bats      # etc for PyTorch
 #+end_example  
 
+More on BATS tests later.
 
 * 
 
@@ -256,14 +271,15 @@ Use \textbf{compiled tests} to test library code units.
 * C++ tests
 
 The basic WCT rules are already stated.
+- If you want to DIY, those are all you need to care about.
 
-WCT provides additional support to make writing C++ tests easier:
+WCT provides additional, optional support to make writing C++ tests easier.
 
-- C++ testing helpers in ~libWireCellUtil~.
-- Automatic build and run support by ~wcb~.
+- C++ helper code in ~libWireCellUtil~.
+
 - Provision of and support for the ~doctest~ C++ testing framework.
 
-* Testing support from WCT "util"
+* Testing helpers from WCT "util" library
 
 Some ~#include "WireCellUtil/*.h"~ headers:
 
@@ -273,14 +289,32 @@ Some ~#include "WireCellUtil/*.h"~ headers:
 
 * WCT C++ testing framework: doctest
 
-DIY C++ tests are fine but WCT also provides [[https://github.com/doctest/doctest][doctest]].  Benefits include:
+** What is a C++ testing framework?
 
-- C++ language facilities to help organize test cases.
-- Installs ~main()~ program holding all doctests for a package: ~wcdoctest-<pkg>~.
-- Selectively run individual tests and provide test timing.
+- Easily form test code \textbf{contexts} (/ie/ functions).
+- Ways to \textbf{assert variables hold expected values}.
+- Assemble tests into executable programs.
+- A variety of means to run tests individually and en masse.
+
+** Why doctest
+
+- Simple for user/developer and provides many helpers.
+- Fast, low overhead runtime.
+- Easy build integration: single header file.
+
+
+* 
+
+#+begin_center
+\Huge Mini-tutorial on doctest
+#+end_center
+
+
+* doctest - build and run
 
 #+begin_example
-./wcb --target=wcdoctest-util   # run from build
+./wcb --target=wcdoctest-util   # build (and run)
+wcdoctest-util                  # run all tests
 wcdoctest-util -ltc             # list available test cases
                                 # run a specific test case
 wcdoctest-util --test-case="test some pca methods"
@@ -288,18 +322,99 @@ wcdoctest-util -d               # include duration timing
 wcdoctest-util -h               # help for the many options
 #+end_example
 
-* Writing doctest
+* doctest - source file
 
-Name source file with tests as ~<pkg>/test/doctest_<name>.cxx~
+** Location
+
+#+begin_example
+wire-cell-toolkit/<pkg>/test/doctest_<name>.cxx
+#+end_example
+
+** How to pick ~<pkg>~
+
+- Use the package holding the code you want to test.
+
+- Use a package providing dependencies needed for the test.
+
+** See also
+
+WCT dependency graph: \scriptsize
+
+https://github.com/WireCell/wire-cell-toolkit/blob/master/wct-deps.png
+
+* doctest - file boilerplate
+
+** Header file
+
+#+begin_example
+#include "WireCellUtil/doctest.h"
+#+end_example
+
+** That's it
+
+- This is simply a copy of upstream ~doctest.h~ header.
+- Of course, ~#include~ more depending on code you call.
+
+* doctest - test case boilerplate
+
+** Provide a name for a test context
+
+#+begin_example
+TEST_CASE("my first test") {
+    // body of the test with assertions
+}
+#+end_example
+
+** Notes
+
+- The ~TEST_CASE()~ is a CPP macro but think of it as a function.
+- Its name can be used to select the test with the command line program.
+
+* doctest - assertions
+
+** A test is asserting an expected value
+
+#+begin_example
+WARN(today == "weekend");      // only print a warning if false
+CHECK(1 + 1 == 2);             // does not halt testing
+REQUIRE(false == true);        // halts testing
+CHECK_EQ( 1 + 1, 2 );
+CHECK_FALSE( 1 + 1 = 3 );
+CHECK(3.14 == doctest::Approx(22.0/7).epsilon(0.01));
+CHECK_MESSAGE(x == 42, "do not know the answer");
+REQUIRE(version == doctest::Contains("0."));
+CHECK_THROWS_AS(func(), ValueError);
+#+end_example
+
+** Notes
+
+See more in doctest's [[https://github.com/doctest/doctest/blob/master/doc/markdown/assertions.md][assertions doc]].
+
+* doctest - logging
+
+** doctest built-in
+
+#+begin_example
+INFO("A message string ", 42, " ", stringifiable_object);
+CAPTURE(some_variable);  // INFO() with var name + value
+WARN(false);             // will cause above to output to log
+FAIL("this wil abort");  // also triggers log output
+#+end_example
+
+** Notes
+- Logging is output only if an assertion fails (including a ~WARN()~).
+- Stringification is lazy, will log value at time of failed assertion.
+  - More details in [[https://github.com/doctest/doctest/blob/master/doc/markdown/logging.md][doctest logging doc]].
+- To see WCT/spdlog messages, set env. var. ~SPDLOG_LEVEL=debug~.
+
+* doctest - subcase
+
+** A subcase is a new, unique code context/scope
 
 \scriptsize
 #+begin_example
-#include "WireCellUtil/doctest.h"
-#include "WireCellUtil/Logging.h"
 TEST_CASE("my first test") {
     bool ok=true;
-    CHECK(1 + 1 == 2);          // does not halt testing
-    REQUIRE(ok == true);        // halts testing
     SUBCASE("a test using above as existing context") {
         ok = false;
         CHECK(!ok);
@@ -309,12 +424,26 @@ TEST_CASE("my first test") {
         CHECK(ok);
     }
 }
-TEST_CASE("my second test") {
-    spdlog::debug("this test is very trivial");
-    CHECK(true);
-} // test/test/doctest-my-first-test.cxx
 #+end_example
-All functions in ~CAPS()~ are provided by doctest.
+
+** Notes
+\footnotesize
+- Changing an outer value (/eg/ ~ok~) in one ~SUBCASE()~ does not affect the value in another ~SUBCASE()~.
+- Can nest ~SUBCASE()~'s.   More info in doctest's [[https://github.com/doctest/doctest/blob/master/doc/markdown/testcases.md][test cases doc]].
+
+* doctest - expert level
+
+- [[https://github.com/doctest/doctest/blob/master/doc/markdown/testcases.md#test-fixtures][Test fixtures]] are user-provided base classes that a test inherits.
+- [[https://github.com/doctest/doctest/blob/master/doc/markdown/testcases.md#test-suites][Test suites]] allow running a subset of tests via a filter.
+- [[https://github.com/doctest/doctest/blob/master/doc/markdown/testcases.md#decorators][Test decorators]] set attributes such as skipping, failure expectations, run time limits.
+
+* 
+
+#+begin_center
+\Huge Intermission... 
+#+end_center
+
+
 * 
 
 \LARGE
@@ -365,20 +494,20 @@ teardown_file () {
 
 #+begin_example
 @test "run something" {
-  run wire-cell --help   
-  echo $output
-  [[ "$status" -eq 0 ]]
-  [[ -n "$(echo $output | grep 'Wire-Cell Toolkit')" ]]
+  run wire-cell --help                                   # 1
+  echo $output                                           # 2
+  [[ "$status" -eq 0 ]]                                  # 3
+  [[ -n "$(echo $output | grep 'Wire-Cell Toolkit')" ]]  # 4
 }
 #+end_example
 
-- The ~run~ command is a BATS helper, sets ~$status~ and ~$output~.
-- The printout of ~echo~ is only seen if any subsequent commands fail.
+1. The ~run~ command is a BATS helper, sets ~$status~ and ~$output~ from command result.
+2. Any free ~echo~ will only print to screen if any subsequent commands fail.
   - Or if using: ~bats --show-output-of-passing-tests [...]~
-- Assure zero ~$status~ code (ie, success).
-- Assure some expected string is found in ~$output~.
+3. Assure zero ~$status~ code (ie, success).
+4. Assure some expected string is found in ~$output~.
 
-* WCT/BATS test basic
+* WCT/BATS basic test
 
 The WCT/BATS library provides simple functions for common operations.
 
@@ -386,8 +515,8 @@ The WCT/BATS library provides simple functions for common operations.
 bats_load_library wct-bats.sh
 
 @test "run something" {
-  wct --help
-  [[ -n "$(echo $output | grep 'Wire-Cell Toolkit')" ]]
+  wct --help                                            # 1,2,3
+  [[ -n "$(echo $output | grep 'Wire-Cell Toolkit')" ]] # 4
 }
 #+end_example
 
@@ -397,17 +526,17 @@ The ~wct~ command calls ~wire-cell~ for us and includes echoing ~$output~ and te
 
 Developers should \textbf{start} with a BATS test and fill it in as they develop new features.
 
-WCT/BATS makes this easier than writing diy development drivers/tests.
+WCT/BATS makes this easier than writing DIY development drivers/tests.
 
-- Capture what you are doing and what you did.
-- Communicate that with other developers.
-- If bug is found, it automatically has a test.
+- Capture what you are doing and what you did in a consistent and communicative way.
+- If/when a bug is found, it automatically has a test.
 - Can use ~setup_file()~ to run a "main job" and many fast ~@test~'s to check different facets of its output.
-- Use ~bats --filter "pattern" <pkg>/test/test_<name>.bats~ to focus attention. Filtered tests still run ~setup_file()~. 
+- Use ~bats --filter "pattern" <pkg>/test/test_<name>.bats~ to focus your attention. Filtered tests still run ~setup_file()~. 
 - Speed up long running commands with \textbf{idempotent} running.
   - Only re-run jobs based on input/output file age.
+- Practice "test driven development" paradigm, if you wish.
 
-* BATS Filtering
+* BATS filtering to exercise focus
 
 Here is a BATS test file  with many test cases.  We can focus on one:
 
@@ -428,7 +557,7 @@ Here is a BATS test file  with many test cases.  We can focus on one:
 A function execution is idempotent if subsequent execution leaves state unchanged.
 #+end_quote
 
-If idempotency can be detected, we may safely skip re-execution and save time.
+Idempotency lets us sometimes safely skip re-execution and save time (simple/mini build system).
 
 \vfill
 
@@ -445,7 +574,7 @@ setup_file() {
 }
 #+end_example
 
-But, to really use this we need to understand BATS temporary directories....
+But, to really use this we need to understand how BATS uses temporary directories....
 
 * BATS temporary directories
 
@@ -665,3 +794,8 @@ WCT provides a testing system that hits on all these qualities.
 -    Usability :: Validating how well a customer can use a system or web application to complete a task.
 
 Cribbed from https://www.ibm.com/topics/software-testing
+
+
+# Local Variables:
+# eval: (fix-latex-previews)
+# End:
