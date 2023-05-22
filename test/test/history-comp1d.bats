@@ -57,7 +57,7 @@ function comp1d () {
     # The list of files that can be comp1d'ed.  These must be PDSP APA0
     declare -A inputs
     inputs[noise]="test-addnoise/frames-adc.tar.gz"
-    inputs[simsn]="test-pdsp-simsn/frames-adc.tar.gz"
+    inputs[simsn]="test-pdsp-simsn-nfsp/frames-adc.tar.gz"
 
     yell "INPUT KEYS: ${!inputs[@]}"
     yell "INPUT VALS: ${inputs[@]}"

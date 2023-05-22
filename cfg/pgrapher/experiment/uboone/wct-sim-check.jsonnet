@@ -154,6 +154,18 @@ local magnifio3 = g.pnode({
     },
 }, nin=1, nout=1);
 
+local magnifio4 = g.pnode({
+    type: "MagnifySink",
+    name: "thresholdmag",
+    data: {
+        output_filename: magout,
+        root_file_mode: "UPDATE",
+        anode: wc.tn(anode),
+        summaries: ["wiener"],
+    },
+}, nin=1, nout=1);
+
+
 local ctreeio3 = g.pnode({
     type: "CelltreeFrameSink",
     name: "deconctree",
@@ -195,7 +207,8 @@ local graph = g.pipeline([depos, drifter, ductor, miscon, noise, digitizer, magn
 // unable to access subgraph pnodes directly
 // "cheat": type:name labels the pnode
 // g.edge_labels()
-local graph2 = g.insert_node(graph, g.edge_labels("OmnibusSigProc", "FrameSplitter:sigsplitter"), name="graph2");
+local graph2 = g.insert_node(graph, g.edge_labels("OmnibusSigProc", "FrameSplitter:sigsplitter"), magnifio4, magnifio4, name="graph2");
+
 
 local app = {
     type: "Pgrapher",

@@ -373,6 +373,7 @@ function compile_jsonnet () {
     # fi
     # [[ -n "$cmd" ]]
 
+    echo "${cmd[@]}"
     run "${cmd[@]}"
     echo "$output"
     [[ "$status" -eq 0 ]]
