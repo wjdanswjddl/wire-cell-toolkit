@@ -14,7 +14,10 @@ namespace boost {
 
 namespace WireCell {
     namespace Testing {
+        // Add a stderr and file log sink based on the argv[0] name.
+        // Bare calls, eg, spdlog::debug() may then be issued.
         void log(const char* argv0);
+
     }
 }  // namespace WireCell
 
