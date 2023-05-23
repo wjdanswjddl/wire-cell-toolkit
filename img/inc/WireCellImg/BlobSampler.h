@@ -95,6 +95,7 @@ namespace WireCell::Img {
 
             /** Config: "extra".  Match potential extra arrays to
              * include in point cloud. */
+            std::vector<std::string> extra = {};
             std::vector<std::regex> extra_re = {};
 
         };
@@ -183,10 +184,7 @@ namespace WireCell::Img {
         struct Sampler;
         std::vector<std::unique_ptr<Sampler>> m_samplers;
 
-
         void add_strategy(Configuration cfg);
-        void add_extra(Configuration extra);
-
     };
 
 };

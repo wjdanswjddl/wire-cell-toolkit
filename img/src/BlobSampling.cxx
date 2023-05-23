@@ -42,7 +42,6 @@ WireCell::Configuration BlobSampling::default_configuration() const
     return cfg;
 }
 
-
 bool BlobSampling::operator()(const input_pointer& blobset, output_pointer& tensorset)
 {
     tensorset = nullptr;

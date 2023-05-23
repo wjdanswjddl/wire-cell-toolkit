@@ -34,6 +34,10 @@ Configuration cpp2cfg(const BlobSampler::CommonConfig& cc)
     cfg["tbins"] = cc.tbinning.nbins();
     cfg["tmin"] = cc.tbinning.min();
     cfg["tmax"] = cc.tbinning.max();
+    cfg["extra"] = Json::arrayValue;
+    for (const auto& res : cc.extra) {
+        cfg["extra"].append(res);
+    }
     return cfg;
 }
 BlobSampler::CommonConfig cfg2cpp(const Configuration& cfg,
@@ -47,6 +51,12 @@ BlobSampler::CommonConfig cfg2cpp(const Configuration& cfg,
         get(cfg, "tbins", def.tbinning.nbins()),
         get(cfg, "tmin", def.tbinning.min()),
         get(cfg, "tmax", def.tbinning.max()));
+    cc.extra = get(cfg, "extra", cc.extra);
+    cc.extra_re.clear();
+    for (const auto& res : get(cfg, "extra", def.extra)) {
+        cc.extra_re.push_back(std::regex(res));
+    }
+
     return cc;
 }
 
@@ -62,7 +72,6 @@ void BlobSampler::configure(const WireCell::Configuration& cfg)
     m_cc = cfg2cpp(cfg, m_cc);
 
     add_strategy(cfg["strategy"]);
-    add_extra(cfg["extra"]);
 }
 
 
@@ -219,6 +228,7 @@ struct BlobSampler::Sampler : public Aux::Logger
 
         std::vector<float> times(npts, time);
         std::vector<Point::coordinate_t> x(npts),y(npts),z(npts);
+
         for (size_t ind=0; ind<npts; ++ind) {
             const auto& pt = pts[ind];
             x[ind] = pt.x();
@@ -232,7 +242,6 @@ struct BlobSampler::Sampler : public Aux::Logger
                 {cc.prefix + "z", Array(z)},
                 {cc.prefix + "t", Array(times)}});
 
-
         // Extra values
         const std::vector<std::string> uvw = {"u","v","w"};
         auto islice = iblob->slice();
@@ -243,7 +252,7 @@ struct BlobSampler::Sampler : public Aux::Logger
             nd("sample_strategy", ident);
             nd("blob_ident", iblob->ident());
             nd("blob_index", blob_index);
-            nd("slice_indent", islice->ident());
+            nd("slice_ident", islice->ident());
             nd("slice_start", islice->start());
             nd("slice_span", islice->span());
         }        
@@ -348,7 +357,7 @@ struct BlobSampler::Sampler : public Aux::Logger
             // log->debug("sampler {} iblob {} intern {} points, ds size {}, tail size {} with binning {}",
             //            ident, iblob->ident(), npts, ds.size_major(), tail.size_major(), bins);
             if (after != before + npts) {
-                THROW(AssertionError() << errmsg{"PointCloud append() is broken"});
+                THROW(LogicError() << errmsg{"PointCloud append() is broken"});
             }
         }
         
@@ -619,21 +628,6 @@ struct Bounds : public BlobSampler::Sampler
 };
 
 
-void BlobSampler::add_extra(Configuration extra)
-{
-    if (extra.isArray()) {
-        for (auto one : extra) {
-            add_extra(one);
-        }
-        return;
-    }
-    if (extra.isString()) {
-        std::string res = extra.asString();
-        m_cc.extra_re.push_back(std::regex(res));
-        return;
-    }
-}
-
 void BlobSampler::add_strategy(Configuration strategy)
 {
     if (strategy.isNull()) {
@@ -663,6 +657,7 @@ void BlobSampler::add_strategy(Configuration strategy)
     for (auto key : strategy.getMemberNames()) {
         full[key] = strategy[key];
     }
+    log->debug("making strategy: {}", full);
 
     std::string name = full["name"].asString();
     // use startswith() to be a little friendly to the user

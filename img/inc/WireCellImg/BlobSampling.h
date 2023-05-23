@@ -42,6 +42,7 @@ namespace WireCell::Img {
         std::string m_datapath = "pointclouds/%d";
 
         size_t m_count{0};
+
     };
 }
 

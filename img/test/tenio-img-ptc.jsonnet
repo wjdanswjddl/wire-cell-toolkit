@@ -23,8 +23,8 @@ function(detector, variant="nominal",
             type: "BlobSampler",
             name: anode.data.ident, 
             data: {
-                strategy: ["center","corner","edge"]
-                #strategy: "center"
+                strategy: ["center","corner","edge"],
+                extra: [".*"] // want all the extra
             }};
 
         pg.pipeline([
