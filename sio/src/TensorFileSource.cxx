@@ -235,9 +235,9 @@ ITensorSet::pointer TensorFileSource::load()
 
         auto pf = parse_fname(m_cur.fname, m_prefix);
 
-        log->debug("read file={} size={} type={} form={} ident={} index={}",
-                   m_cur.fname, m_cur.fsize,
-                   pf.type, pf.form, pf.ident, pf.index);
+        // log->debug("read file={} size={} type={} form={} ident={} index={}",
+        //            m_cur.fname, m_cur.fsize,
+        //            pf.type, pf.form, pf.ident, pf.index);
 
         if (pf.type == ParsedFilename::bad or pf.form == ParsedFilename::unknown) {
             m_in.seekg(m_cur.fsize, m_in.cur);

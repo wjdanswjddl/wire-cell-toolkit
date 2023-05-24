@@ -4,6 +4,7 @@
 #include "WireCellUtil/NamedFactory.h"
 #include "WireCellUtil/Units.h"
 #include "WireCellAux/SimpleBlob.h"
+#include "WireCellAux/BlobTools.h"
 
 WIRECELL_FACTORY(GridTiling, WireCell::Img::GridTiling,
                  WireCell::INamed,
@@ -155,9 +156,15 @@ bool Img::GridTiling::operator()(const input_pointer& slice, output_pointer& out
 
     const float blob_value = 0.0;  // tiling doesn't consider particular charge
     for (const auto& blob : blobs) {
-        Aux::SimpleBlob* sb = new Aux::SimpleBlob(m_blobs_seen++, blob_value,
-                                                  0.0, blob, slice, m_face);
-        sbs->m_blobs.push_back(IBlob::pointer(sb));
+        IBlob::pointer iblob = std::make_shared<Aux::SimpleBlob>(m_blobs_seen++, blob_value,
+                                                                 0.0, blob, slice, m_face);
+        {                       // diagnostic message
+            Aux::BlobCategory bcat(iblob);
+            if (! bcat.ok()) {
+                log->warn("malformed blob: \"{}\"", bcat.str());
+            }
+        }
+        sbs->m_blobs.push_back(iblob);
     }
     SPDLOG_LOGGER_TRACE(log, "anode={} face={} slice={} produced {} blobs",
                         anodeid, faceid, slice->ident(),

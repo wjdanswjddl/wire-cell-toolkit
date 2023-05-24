@@ -1,6 +1,7 @@
 #include "WireCellImg/BlobDeclustering.h"
 
 #include "WireCellAux/SimpleBlob.h"
+#include "WireCellAux/ClusterHelpers.h"
 
 #include "WireCellUtil/NamedFactory.h"
 #include "WireCellUtil/GraphTools.h"
@@ -24,6 +25,7 @@ BlobDeclustering::~BlobDeclustering()
 {
 }
 
+
 bool BlobDeclustering::operator()(const input_pointer& cluster, output_pointer& blobset)
 {
     blobset = nullptr;
@@ -34,6 +36,9 @@ bool BlobDeclustering::operator()(const input_pointer& cluster, output_pointer& 
 
     IBlob::vector blobs;
     const auto& gr = cluster->graph();
+    log->debug("load cluster {} at call={}: {}", cluster->ident(), m_count, dumps(gr));
+
+
     for (const auto& vdesc : mir(boost::vertices(gr))) {
         const char code = gr[vdesc].code();
         if (code == 'b') {
@@ -42,10 +47,9 @@ bool BlobDeclustering::operator()(const input_pointer& cluster, output_pointer& 
         }
     }
 
+    log->debug("declustered {} blobs at call {}", blobs.size(), m_count++);
     blobset = std::make_shared<SimpleBlobSet>(cluster->ident(), nullptr, blobs);
 
-    log->debug("declustered {} blobs at call {}",
-               blobs.size(), m_count++);
     return true;
 }
 

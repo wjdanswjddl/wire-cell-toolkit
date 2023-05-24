@@ -2,12 +2,11 @@
 
 #include "WireCellAux/ClusterHelpers.h"
 #include "WireCellAux/ClusterArrays.h"
+#include "WireCellAux/FrameTools.h"
 
 #include "WireCellUtil/Exceptions.h"
 #include "WireCellUtil/NamedFactory.h"
-
-#include "WireCellAux/FrameTools.h"
-
+#include "WireCellUtil/GraphTools.h"
 #include "WireCellUtil/custard/custard_boost.hpp"
 
 WIRECELL_FACTORY(ClusterFileSink, WireCell::Sio::ClusterFileSink,
@@ -17,6 +16,7 @@ WIRECELL_FACTORY(ClusterFileSink, WireCell::Sio::ClusterFileSink,
 
 using namespace WireCell;
 using namespace WireCell::Aux;
+using WireCell::GraphTools::mir;
 
 Sio::ClusterFileSink::ClusterFileSink()
     : Aux::Logger("ClusterFileSink", "io")
@@ -138,7 +138,9 @@ bool Sio::ClusterFileSink::operator()(const ICluster::pointer& cluster)
         return true;
     }
 
-    log->debug("save cluster {} at call={}: {}", cluster->ident(), m_count, dumps(cluster->graph()));
+    const auto& gr = cluster->graph();
+    log->debug("save cluster {} at call={}: {}", cluster->ident(), m_count, dumps(gr));
+
     m_serializer(*cluster);
 
     ++m_count;

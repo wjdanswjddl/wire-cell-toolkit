@@ -2,6 +2,9 @@
 
 #include "WireCellAux/ClusterHelpers.h"
 #include "WireCellAux/ClusterArrays.h"
+// debugging
+#include "WireCellUtil/GraphTools.h"
+#include "WireCellAux/BlobTools.h"
 
 #include "WireCellUtil/Exceptions.h"
 #include "WireCellUtil/NamedFactory.h"
@@ -19,6 +22,7 @@ WIRECELL_FACTORY(ClusterFileSource, WireCell::Sio::ClusterFileSource,
 
 using namespace WireCell;
 using namespace WireCell::Aux;
+using namespace WireCell::GraphTools;
 using namespace WireCell::Sio;
 using namespace WireCell::String;
 
@@ -327,6 +331,18 @@ bool ClusterFileSource::operator()(ICluster::pointer& cluster)
     }
     else {
         log->debug("load cluster {} at call={}: {}", cluster->ident(), m_count, dumps(cluster->graph()));
+
+        // fixme: debugging. 
+        const auto& cgraph = cluster->graph();
+        for (auto vtx : mir(boost::vertices(cgraph))) {
+            const auto& node = cgraph[vtx];
+            if (node.code() == 'b') {
+                auto iblob = std::get<IBlob::pointer>(cgraph[vtx].ptr);
+                Aux::BlobCategory bcat(iblob);
+                if (bcat.ok()) continue;
+                log->warn("malformed blob: {}", bcat.str());
+            }
+        }
     }
     ++m_count;
     return true;

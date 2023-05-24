@@ -115,8 +115,8 @@ struct BlobSampler::Sampler : public Aux::Logger
     // Hard-wired, common subset of full config.
     BlobSampler::CommonConfig cc;
 
-    // The identity of the sampler
-    size_t ident;
+    // The identity of this sampler
+    size_t my_ident;
 
     // Current blob index in the iterated IBlob::vector
     size_t blob_index;
@@ -125,7 +125,7 @@ struct BlobSampler::Sampler : public Aux::Logger
 
     explicit Sampler(const Configuration& cfg, size_t ident)
         : Aux::Logger("BlobSampler", "img")
-        , cc(cfg2cpp(cfg)), ident(ident)
+        , cc(cfg2cpp(cfg)), my_ident(ident)
     {
         this->configure(cfg);
     }
@@ -185,7 +185,6 @@ struct BlobSampler::Sampler : public Aux::Logger
     Point center_point(const crossings_t& corners)
     {
         Point avg;
-        if (corners.empty()) return avg;
         for (const auto& corner : corners) {
             avg += crossing_point(corner);
         }
@@ -249,7 +248,7 @@ struct BlobSampler::Sampler : public Aux::Logger
         // Per blob, duplicated over all pts.
         {
             npts_dup nd{*this, ds, npts};
-            nd("sample_strategy", ident);
+            nd("sample_strategy", my_ident);
             nd("blob_ident", iblob->ident());
             nd("blob_index", blob_index);
             nd("slice_ident", islice->ident());
@@ -301,8 +300,15 @@ struct BlobSampler::Sampler : public Aux::Logger
             for (size_t ipt=0; ipt<npts; ++ipt) {
                 const Point xwp = pimpos->transform(pts[ipt]);
                 wire_coord[ipt] = xwp[1];
-                pitch_coord[ipt] = xwp[2];
-                wire_index[ipt] = pimpos->closest(pitch_coord[ipt]).first;
+                const double pitch = xwp[2];
+                pitch_coord[ipt] = pitch;
+                int wind = pimpos->closest(pitch).first;
+                if (wind < 0) {
+                    log->debug("sampler={}, point={} cartesian={} pimpos={}", my_ident, ipt, pts[ipt], xwp);
+                    log->error("Negative wire index: {}, will segfault soon", wind);
+
+                }
+                wire_index[ipt] = wind;
         
                 IWire::pointer iwire = iwires[wire_index[ipt]];
                 channel_ident[ipt] = iwire->channel();
@@ -396,8 +402,9 @@ struct Center : public BlobSampler::Sampler
 
     void sample(Dataset& ds)
     {
+        auto corners = iblob->shape().corners();
         std::vector<Point> points(1);
-        points[0] = center_point(iblob->shape().corners());
+        points[0] = center_point(corners);
         intern(ds, points);
     }
 };
@@ -657,7 +664,7 @@ void BlobSampler::add_strategy(Configuration strategy)
     for (auto key : strategy.getMemberNames()) {
         full[key] = strategy[key];
     }
-    log->debug("making strategy: {}", full);
+    // log->debug("making strategy: {}", full);
 
     std::string name = full["name"].asString();
     // use startswith() to be a little friendly to the user

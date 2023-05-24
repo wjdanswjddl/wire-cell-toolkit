@@ -1,5 +1,7 @@
 /** Forward blobs in cluster as a blob set.
-*/
+ *
+ * This will ignore with a warning any blobs that fail to be Blob::valid().
+ */
 #ifndef WIRECELL_IMG_BLOBDECLUSTERING
 #define WIRECELL_IMG_BLOBDECLUSTERING
 
@@ -17,7 +19,7 @@ namespace WireCell::Img {
         virtual bool operator()(const input_pointer& blobset, output_pointer& tensorset);
 
       private:
-        
+
         size_t m_count{0};
     };
 }
