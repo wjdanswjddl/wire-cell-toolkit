@@ -52,6 +52,11 @@ function make_dag () {
     make_dag img ptc 
 }
 
+@test "compile configuration for img to brf" {
+    cd_tmp file
+    make_dag img brf 
+}
+
 function run_dag () {
     local src=$1; shift
     local tgt=$1; shift
@@ -86,6 +91,11 @@ function run_dag () {
 @test "run wire-cell stage img to ptc" {
     cd_tmp file
     run_dag img ptc 
+}
+
+@test "run wire-cell stage img to brf" {
+    cd_tmp file
+    run_dag img brf 
 }
 
 @test "no unexpected empty files" {
