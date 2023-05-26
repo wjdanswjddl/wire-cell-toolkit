@@ -242,7 +242,9 @@ std::string Aux::taginfo(const WireCell::IFrame::pointer& frame)
     }
 
     std::stringstream info;
-    info << "frame " << frame->ident() << " with "
+    info << "frame: ident=" << frame->ident()
+         << " time=" << frame->time() << " tick=" << frame->tick()
+         << " with "
          << frame->traces()->size() << " traces.  frame tags:[ ";
     for (const auto& tag : frame->frame_tags()) {
         info << "\"" << tag << "\" ";

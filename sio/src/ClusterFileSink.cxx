@@ -3,6 +3,7 @@
 #include "WireCellAux/ClusterHelpers.h"
 #include "WireCellAux/ClusterArrays.h"
 #include "WireCellAux/FrameTools.h"
+#include "WireCellAux/BlobTools.h"
 
 #include "WireCellUtil/Exceptions.h"
 #include "WireCellUtil/NamedFactory.h"
@@ -139,6 +140,18 @@ bool Sio::ClusterFileSink::operator()(const ICluster::pointer& cluster)
     }
 
     const auto& gr = cluster->graph();
+    {
+        // fixme: debugging.
+        for (auto vtx : mir(boost::vertices(gr))) {
+            const auto& node = gr[vtx];
+            if (node.code() == 'b') {
+                auto iblob = std::get<IBlob::pointer>(gr[vtx].ptr);
+                Aux::BlobCategory bcat(iblob);
+                if (bcat.ok()) continue;
+                log->warn("malformed blob: {}", bcat.str());
+            }
+        }
+    }
     log->debug("save cluster {} at call={}: {}", cluster->ident(), m_count, dumps(gr));
 
     m_serializer(*cluster);

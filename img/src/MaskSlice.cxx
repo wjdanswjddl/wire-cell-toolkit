@@ -5,6 +5,9 @@
 #include "WireCellAux/FrameTools.h"
 #include "WireCellAux/PlaneTools.h"
 
+// Test to see if we can make slice time absolute
+#undef SLICE_START_TIME_IS_RELATIVE
+
 WIRECELL_FACTORY(MaskSlicer, WireCell::Img::MaskSlicer,
                  WireCell::INamed,
                  WireCell::IFrameSlicer, WireCell::IConfigurable)
@@ -279,7 +282,12 @@ void Img::MaskSliceBase::slice(const IFrame::pointer& in, slice_map_t& svcmap)
             size_t slicebin = (tbin + qind) / m_tick_span;
             auto s = svcmap[slicebin];
             if (!s) {
+#ifdef SLICE_START_TIME_IS_RELATIVE
                 const double start = slicebin * span;  // thus relative to slice frame's time.
+#else
+                // Slice start time is absolute with frame time as origin
+                const double start = in->time() + slicebin * span;  
+#endif
                 s = new Img::Data::Slice(in, slicebin, start, span);
                 svcmap[slicebin] = s;
             }
@@ -301,7 +309,12 @@ void Img::MaskSliceBase::slice(const IFrame::pointer& in, slice_map_t& svcmap)
                 size_t slicebin = (min_tbin + itick) / m_tick_span;
                 auto s = svcmap[slicebin];
                 if (!s) {
+#ifdef SLICE_START_TIME_IS_RELATIVE
                     const double start = slicebin * span;  // thus relative to slice frame's time.
+#else
+                    // Slice start time is absolute with frame time as origin
+                    const double start = in->time() + slicebin * span;  
+#endif
                     s = new Img::Data::Slice(in, slicebin, start, span);
                     svcmap[slicebin] = s;
                 }
@@ -333,7 +346,12 @@ void Img::MaskSliceBase::slice(const IFrame::pointer& in, slice_map_t& svcmap)
                 size_t slicebin = t / m_tick_span;
                 auto s = svcmap[slicebin];
                 if (!s) {
+#ifdef SLICE_START_TIME_IS_RELATIVE
                     const double start = slicebin * span;  // thus relative to slice frame's time.
+#else
+                    // Slice start time is absolute with frame time as origin
+                    const double start = in->time() + slicebin * span;  
+#endif
                     s = new Img::Data::Slice(in, slicebin, start, span);
                     svcmap[slicebin] = s;
                 }

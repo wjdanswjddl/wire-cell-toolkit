@@ -330,8 +330,6 @@ bool ClusterFileSource::operator()(ICluster::pointer& cluster)
         m_eos_sent = true;
     }
     else {
-        log->debug("load cluster {} at call={}: {}", cluster->ident(), m_count, dumps(cluster->graph()));
-
         // fixme: debugging. 
         const auto& cgraph = cluster->graph();
         for (auto vtx : mir(boost::vertices(cgraph))) {
@@ -343,6 +341,8 @@ bool ClusterFileSource::operator()(ICluster::pointer& cluster)
                 log->warn("malformed blob: {}", bcat.str());
             }
         }
+
+        log->debug("load cluster {} at call={}: {}", cluster->ident(), m_count, dumps(cluster->graph()));
     }
     ++m_count;
     return true;

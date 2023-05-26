@@ -206,8 +206,9 @@ bool Img::BlobSetReframer::operator()(const input_pointer& in, output_pointer& o
     std::unordered_map<int, IFrame::trace_list_t> anode_traces;
 
     const int ident = in->ident();
-
     const auto blobs = in->blobs();
+
+    // Find earliest time of all blobs
     double time0 = 0;
     for (size_t ind=0; ind<blobs.size(); ++ind) {
         if (ind) time0 = std::min(time0, blobs[ind]->slice()->start());

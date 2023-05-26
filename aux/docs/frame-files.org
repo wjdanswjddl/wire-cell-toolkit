@@ -64,7 +64,7 @@ We will call "framelet" the trio of arrays of type ~frame~, ~channels~ and
 array, and the summary array if present, must be the same as the
 number of (channel) rows in the ~frame~ array.  The first two entries
 (~time~ and ~tick~) of all ~tickinfo~ are expected to be identical but their
-third (~tbin0~) may differ for each framelet.
+third (~tbin0~) may differ for each framelet.  See [[file:tickinfo.org]].
 
 The rows of the ~frame~ and ~channel~ arrays are added to the ~IFrame~
 traces collection in the order they are encountered in the file.

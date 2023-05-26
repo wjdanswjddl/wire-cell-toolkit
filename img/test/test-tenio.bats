@@ -47,6 +47,11 @@ function make_dag () {
     make_dag sig img 
 }
 
+@test "compile configuration for sig to scp" {
+    cd_tmp file
+    make_dag sig scp 
+}
+
 @test "compile configuration for img to ptc" {
     cd_tmp file
     make_dag img ptc 
@@ -86,6 +91,11 @@ function run_dag () {
 @test "run wire-cell stage sig to img" {
     cd_tmp file
     run_dag sig img 
+}
+
+@test "run wire-cell stage sig to scp" {
+    cd_tmp file
+    run_dag sig scp 
 }
 
 @test "run wire-cell stage img to ptc" {
