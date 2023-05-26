@@ -32,14 +32,16 @@ WireCell::Configuration Img::LocalGeomClustering::default_configuration() const
 {
     WireCell::Configuration cfg;
     cfg["dryrun"] = m_dryrun;
+    cfg["clustering_policy"] = m_clustering_policy;
     return cfg;
 }
 
 void Img::LocalGeomClustering::configure(const WireCell::Configuration& cfg)
 {
-    m_dryrun = get<bool>(cfg, "dryrun", m_dryrun);
     Json::FastWriter jwriter;
     log->debug("{}", jwriter.write(cfg));
+    m_dryrun = get<bool>(cfg, "dryrun", m_dryrun);
+    m_clustering_policy = get<std::string>(cfg, "clustering_policy", m_clustering_policy);
 }
 
 namespace {
