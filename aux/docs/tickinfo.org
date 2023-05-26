@@ -1,0 +1,27 @@
+#+title: Tickinfo
+#+include: ../../docs/include-topic.org
+
+* Introduction
+
+A WCT "frame" represents a readout, either at the ADC tier or the
+signal (output of signal processing) tier.  It is represented as a
+trio of arrays:
+
+- frame :: a 2D array of data in channel (rows) vs tick (columns)
+- channels :: a 1D array of the channel ident number of the rows
+- tickinfo :: a trio of time values: $\{t_{start}, t_{tick}, n_{bin0}\}$
+
+The frame array columns sample time according to the tick info.
+
+* Tick info
+
+The ~tickinfo~ array has three time values,
+
+- $t_{start}$ :: The time of the start of the frame (but not necessarily the time of the frame array column 0).  This measures absolute time from some assumed time origin.  For most simulations, the time origin resets for each event.
+
+- $t_{tick}$ :: The sampling period as relative floating point value.   Often, this is the ADC sampling period but it may differ.  For example, a frame may have been "rebinned" to from the ADC sampling period to a larger $t_{tick}$.  
+
+- $n_{pad}$ :: The number of $t_{tick}$ counts from $t_{start}$ to the time of the lower edge of the first column in the frame array.  This is an integer value (though stored as a double precision floating point).
+
+When $n_{pad}\ne 0$ then the lower edge of column 0 of the frame array is at time  \(t_{col0} \equiv t_{start} + n_{bin0} * t_{tick}\).  When a frame array is required to span from $t_{start}$, the original frame array may be padded, typically with zeros.
+
