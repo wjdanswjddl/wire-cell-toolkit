@@ -1,7 +1,8 @@
 /**
  * LocalGeomClustering
  * 1, divide blobs into old geom. cluster groups
- * 2, do geom_clustering with filters for each group
+ * 2, remove old b-b edges
+ * 3, new b-b edges within groups. geom_clustering with filters for each group
  */
 #ifndef WIRECELL_LOCALGEOMCLUSTERING_H
 #define WIRECELL_LOCALGEOMCLUSTERING_H
@@ -27,6 +28,7 @@ namespace WireCell {
            private:
             /// TODO: DEBUGONLY
             bool m_dryrun{false};
+            std::string m_clustering_policy{"uboone_local"};
         };
 
     }  // namespace Img

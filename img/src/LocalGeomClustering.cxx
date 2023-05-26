@@ -63,7 +63,7 @@ namespace {
         log->debug("cluster graph: vertices={} edges={} #blob={} bval={} #meas={}", boost::num_vertices(cg),
                    boost::num_edges(cg), bcount, bval, mcount);
     }
-}
+}  // namespace
 
 bool LocalGeomClustering::operator()(const input_pointer& in, output_pointer& out)
 {
@@ -75,15 +75,60 @@ bool LocalGeomClustering::operator()(const input_pointer& in, output_pointer& ou
     const auto in_graph = in->graph();
     dump_cg(in_graph, log);
 
-    /// output
-    auto& out_graph = in_graph;
+    /// Find b-b clusters using old edges
+    std::unordered_map<cluster_vertex_t, int> clusters;
+    std::unordered_set<int> clusterids;
+    using Filtered =
+        typename boost::filtered_graph<cluster_graph_t, boost::keep_all, std::function<bool(cluster_vertex_t)> >;
+    {
+        Filtered bcg(in_graph, {}, [&](auto vtx) { return in_graph[vtx].code() == 'b'; });
+        auto nclust = boost::connected_components(bcg, boost::make_assoc_property_map(clusters));
+        std::for_each(clusters.begin(), clusters.end(),
+                      [&clusterids](const auto& pair) { clusterids.insert(pair.second); });
+        log->debug("in #clusters {}", clusterids.size());
+    }
+
+    /// rm old b-b edges
+    using EFiltered =
+        typename boost::filtered_graph<cluster_graph_t, std::function<bool(cluster_edge_t)>, boost::keep_all>;
+    EFiltered fg_no_bb(in_graph,
+                       [&](auto edge) {
+                           auto source = boost::source(edge, in_graph);
+                           auto target = boost::target(edge, in_graph);
+                           if (in_graph[source].code() == 'b' and in_graph[target].code() == 'b') {
+                               return false;
+                           }
+                           return true;
+                       },
+                       {});
+
+    /// make new edges
+    cluster_graph_t cg_new_bb;
+    boost::copy_graph(fg_no_bb, cg_new_bb);
+    /// DEBUGONLY:
+    log->debug("rm bb:");
+    dump_cg(cg_new_bb, log);
+    for (auto clusterid : clusterids) {
+        geom_clustering(cg_new_bb, m_clustering_policy,
+                        [&](const cluster_vertex_t& vtx) { return clusters[vtx] == clusterid; });
+    }
+
+    /// DEBUGONLY:
+    {
+        Filtered bcg(cg_new_bb, {}, [&](auto vtx) { return cg_new_bb[vtx].code() == 'b'; });
+        auto nclust = boost::connected_components(bcg, boost::make_assoc_property_map(clusters));
+        std::for_each(clusters.begin(), clusters.end(),
+                      [&clusterids](const auto& pair) { clusterids.insert(pair.second); });
+        log->debug("out #clusters {}", clusterids.size());
+    }
+
     // debug info
     log->debug("in_graph:");
     dump_cg(in_graph, log);
-    log->debug("out_graph:");
-    dump_cg(out_graph, log);
+    log->debug("out:");
+    dump_cg(cg_new_bb, log);
 
-    out = std::make_shared<Aux::SimpleCluster>(out_graph, in->ident());
+    out = std::make_shared<Aux::SimpleCluster>(cg_new_bb, in->ident());
     if (m_dryrun) {
         out = std::make_shared<Aux::SimpleCluster>(in_graph, in->ident());
     }
