@@ -130,11 +130,14 @@ void WireCell::Img::geom_clustering(cluster_graph_t& cg, std::string policy, gc_
     /// assumes all slices are unique
     std::vector<cluster_vertex_t> slices;
     std::set<double> slice_times;
-    for (const auto& svtx : GraphTools::mir(boost::vertices(cg))) {
-        if (cg[svtx].code() == 's') {
-            slices.push_back(svtx);
-            const auto islice = get<cluster_node_t::slice_t>(cg[svtx].ptr);
-            slice_times.insert(islice->start());
+    for (const auto& bvtx : GraphTools::mir(boost::vertices(cg))) {
+        if (cg[bvtx].code() == 'b') {
+            if (!filter(bvtx)) continue;
+            for (const auto& svtx : neighbors_oftype<cluster_node_t::slice_t>(cg, bvtx)) {
+                slices.push_back(svtx);
+                const auto islice = get<cluster_node_t::slice_t>(cg[svtx].ptr);
+                slice_times.insert(islice->start());
+            }
         }
     }
 
