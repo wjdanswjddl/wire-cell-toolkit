@@ -684,7 +684,10 @@ bool InSliceDeghosting::operator()(const input_pointer& in, output_pointer& out)
         // at some points remove the Non-potential good ... (last round ...)
         using VFiltered =
             typename boost::filtered_graph<cluster_graph_t, boost::keep_all, std::function<bool(cluster_vertex_t)> >;
-        VFiltered fg_rm_bad_blobs(in_graph, {}, [&](auto vtx) { return exist(blob_tags, vtx, POTENTIAL_GOOD); });
+        VFiltered fg_rm_bad_blobs(in_graph, {}, [&](auto vtx) {
+            if (in_graph[vtx].code() != 'b') return true;
+            return exist(blob_tags, vtx, POTENTIAL_GOOD);
+        });
         // do we have to copy this every time ???
         boost::copy_graph(fg_rm_bad_blobs, cg_new_bb);
     }
