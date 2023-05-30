@@ -20,7 +20,6 @@ static int rel_time_diff(const IBlobSet::pointer& one, const IBlobSet::pointer& 
 void WireCell::Img::geom_clustering(cluster_indexed_graph_t& grind, IBlobSet::vector::iterator beg,
                                     IBlobSet::vector::iterator end, std::string policy)
 {
-    std::cout << "geom_clustering: " << std::endl;
     auto next = beg + 1;
 
     if (next == end) {
@@ -84,8 +83,6 @@ void WireCell::Img::geom_clustering(cluster_indexed_graph_t& grind, IBlobSet::ve
 
 void WireCell::Img::geom_clustering(cluster_graph_t& cg, std::string policy, gc_filter_t filter)
 {
-    std::cout << "geom_clustering: " << std::endl;
-
     std::unordered_set<std::string> known_policies = {"simple", "uboone", "uboone_local"};
     if (known_policies.find(policy) == known_policies.end()) {
         THROW(ValueError() << errmsg{String::format("policy \"%s\" not implemented!", policy)});
