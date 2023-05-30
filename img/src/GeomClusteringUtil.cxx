@@ -17,6 +17,18 @@ static int rel_time_diff(const IBlobSet::pointer& one, const IBlobSet::pointer& 
     return std::round((two->slice()->start() - here->start()) / here->span());
 }
 
+static bool adjacent(const std::set<double>& times, const double& time1, const double& time2)
+{
+    double tmin = time1;
+    double tmax = time2;
+    if (time1 > time2) std::swap(tmin, tmax);
+    auto iter1 = times.find(tmin);
+    if (iter1 == times.end()) THROW(ValueError() << errmsg{String::format("tmin \"%d\" not in \"times\"", tmin)});
+    auto iter2 = times.find(tmax);
+    if (iter2 == times.end()) THROW(ValueError() << errmsg{String::format("tmax \"%d\" not in \"times\"", tmin)});
+    return (std::distance(iter1, iter2) == 1);
+}
+
 void WireCell::Img::geom_clustering(cluster_indexed_graph_t& grind, IBlobSet::vector::iterator beg,
                                     IBlobSet::vector::iterator end, std::string policy)
 {
@@ -94,7 +106,7 @@ void WireCell::Img::geom_clustering(cluster_graph_t& cg, std::string policy, gc_
 
     if (policy == "uboone_local") {
         max_rel_diff = 2;
-        map_gap_tol = {{1, 1}, {2, 1}};
+        map_gap_tol = {{1, 2}, {2, 2}};
     }
 
     if (policy == "simple") {
@@ -117,9 +129,12 @@ void WireCell::Img::geom_clustering(cluster_graph_t& cg, std::string policy, gc_
     /// TODO: need sorting?
     /// assumes all slices are unique
     std::vector<cluster_vertex_t> slices;
+    std::set<double> slice_times;
     for (const auto& svtx : GraphTools::mir(boost::vertices(cg))) {
         if (cg[svtx].code() == 's') {
             slices.push_back(svtx);
+            const auto islice = get<cluster_node_t::slice_t>(cg[svtx].ptr);
+            slice_times.insert(islice->start());
         }
     }
 
@@ -128,6 +143,7 @@ void WireCell::Img::geom_clustering(cluster_graph_t& cg, std::string policy, gc_
         for (auto siter2 = siter1 + 1; siter2 != slices.end(); ++siter2) {
             const auto islice1 = get<cluster_node_t::slice_t>(cg[*siter1].ptr);
             const auto islice2 = get<cluster_node_t::slice_t>(cg[*siter2].ptr);
+            if (policy == "uboone_local" && !adjacent(slice_times, islice1->start(), islice2->start())) continue;
             int rel_diff = std::round(fabs((islice1->start() - islice2->start()) / islice1->span()));
             if (map_gap_tol.find(rel_diff) == map_gap_tol.end()) continue;
             auto allbdescs1 = neighbors_oftype<cluster_node_t::blob_t>(cg, *siter1);
