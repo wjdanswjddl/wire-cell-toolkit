@@ -19,6 +19,7 @@ namespace WireCell {
         class InSliceDeghosting : public Aux::Logger, public IClusterFilter, public IConfigurable {
            public:
             /// TODO: what is needed here
+            /// FIXME: bit operation would be better
             enum BLOB_QUALITY { GOOD, BAD, POTENTIAL_GOOD, POTENTIAL_BAD, TO_BE_REMOVED };
 
             using vertex_tags_t = std::unordered_multimap<cluster_vertex_t, BLOB_QUALITY>;

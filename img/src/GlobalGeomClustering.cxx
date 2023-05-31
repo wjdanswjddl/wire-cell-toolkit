@@ -105,7 +105,7 @@ bool GlobalGeomClustering::operator()(const input_pointer& in, output_pointer& o
     /// DEBUGONLY:
     log->debug("rm bb:");
     dump_cg(cg_new_bb, log);
-    geom_clustering(cg_new_bb, m_clustering_policy);
+    grouped_geom_clustering(cg_new_bb, m_clustering_policy);
 
     /// DEBUGONLY:
     {

@@ -658,9 +658,26 @@ bool InSliceDeghosting::operator()(const input_pointer& in, output_pointer& out)
             },
         };
         /// each filter adds new b-b edges on cg_new_bb
-        for (auto filter : filters) {
-            geom_clustering(cg_new_bb, m_clustering_policy, filter);
+        /// this one is too slow and stuck for 0 - 9592 full tick range
+        // for (auto filter : filters) {
+        //     geom_clustering(cg_new_bb, m_clustering_policy, filter);
+        // }
+
+        /// condense multi-map to map
+        std::unordered_map<cluster_vertex_t, int> groups;
+        for (int groupid = 0; groupid < filters.size(); ++groupid) {
+            for (const auto& vtx : oftype(cg_new_bb, 'b')) {
+                if (filters[groupid](vtx)) groups.insert({vtx, groupid});
+            }
         }
+
+        /// DEBUGONLY: 
+        for (const auto& vtx : oftype(cg_new_bb, 'b')) {
+            if (groups.find(vtx) == groups.end()) {
+                log->debug("{} not found in gruops!", vtx);
+            }
+        }
+        grouped_geom_clustering(cg_new_bb, m_clustering_policy, groups);
         log->debug("cg_new_bb:");
         dump_cg(cg_new_bb, log);
     }
