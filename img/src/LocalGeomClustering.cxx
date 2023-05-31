@@ -110,10 +110,11 @@ bool LocalGeomClustering::operator()(const input_pointer& in, output_pointer& ou
     /// DEBUGONLY:
     log->debug("rm bb:");
     dump_cg(cg_new_bb, log);
-    for (auto clusterid : clusterids) {
-        geom_clustering(cg_new_bb, m_clustering_policy,
-                        [&](const cluster_vertex_t& vtx) { return clusters[vtx] == clusterid; });
-    }
+    grouped_geom_clustering(cg_new_bb, m_clustering_policy, clusters);
+    // for (auto clusterid : clusterids) {
+    //     geom_clustering(cg_new_bb, m_clustering_policy,
+    //                     [&](const cluster_vertex_t& vtx) { return clusters[vtx] == clusterid; });
+    // }
 
     /// DEBUGONLY:
     {
