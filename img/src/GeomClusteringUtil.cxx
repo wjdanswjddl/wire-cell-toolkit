@@ -49,7 +49,7 @@ void WireCell::Img::geom_clustering(cluster_indexed_graph_t& grind, IBlobSet::ve
 
     if (policy == "uboone_local") {
         max_rel_diff = 2;
-        map_gap_tol = {{1, 1}, {2, 1}};
+        map_gap_tol = {{1, 2}, {2, 2}};
     }
 
     if (policy == "simple") {
@@ -235,18 +235,6 @@ void WireCell::Img::grouped_geom_clustering(cluster_graph_t& cg, std::string pol
             slice_times.insert(islice->start());
         }
     }
-    // std::unordered_map<cluster_vertex_t, std::vector<cluster_vertex_t> > s2b;
-    // for (const auto& bvtx : GraphTools::mir(boost::vertices(cg))) {
-    //     if (cg[bvtx].code() == 'b') {
-    //         if (!filter(bvtx)) continue;
-    //         for (const auto& svtx : neighbors_oftype<cluster_node_t::slice_t>(cg, bvtx)) {
-    //             slices.push_back(svtx);
-    //             s2b[svtx].push_back(bvtx);
-    //             const auto islice = get<cluster_node_t::slice_t>(cg[svtx].ptr);
-    //             slice_times.insert(islice->start());
-    //         }
-    //     }
-    // }
 
     /// make SimpleBlobSet for slice pairs and make edges
     for (auto siter1 = slices.begin(); siter1 != slices.end(); ++siter1) {
@@ -258,20 +246,6 @@ void WireCell::Img::grouped_geom_clustering(cluster_graph_t& cg, std::string pol
             if (map_gap_tol.find(rel_diff) == map_gap_tol.end()) continue;
             auto bdescs1 = neighbors_oftype<cluster_node_t::blob_t>(cg, *siter1);
             auto bdescs2 = neighbors_oftype<cluster_node_t::blob_t>(cg, *siter2);
-            // auto allbdescs1 = neighbors_oftype<cluster_node_t::blob_t>(cg, *siter1);
-            // auto allbdescs2 = neighbors_oftype<cluster_node_t::blob_t>(cg, *siter2);
-            // auto vfilter = [&](const std::vector<cluster_vertex_t>& descs) {
-            //     std::vector<cluster_vertex_t> ret;
-            //     for (auto desc : descs) {
-            //         if (!filter(desc)) continue;
-            //         ret.push_back(desc);
-            //     }
-            //     return ret;
-            // };
-            // auto bdescs1 = vfilter(allbdescs1);
-            // auto bdescs2 = vfilter(allbdescs2);
-            // auto bdescs1 = s2b[*siter1];
-            // auto bdescs2 = s2b[*siter2];
             auto gen = [&](const std::vector<cluster_vertex_t>& descs) {
                 RayGrid::blobs_t ret;
                 for (auto desc : descs) {
@@ -288,7 +262,13 @@ void WireCell::Img::grouped_geom_clustering(cluster_graph_t& cg, std::string pol
             auto assoc = [&](RayGrid::blobref_t& a, RayGrid::blobref_t& b) {
                 int an = a - beg1;
                 int bn = b - beg2;
-                if (groups.size() != 0 && (groups.at(bdescs1[an]) != groups.at(bdescs2[bn]))) return;
+                if (groups.size() != 0) {
+                    const auto& iter1 = groups.find(bdescs1[an]);
+                    if (iter1 == groups.end()) return;
+                    const auto& iter2 = groups.find(bdescs2[bn]);
+                    if (iter2 == groups.end()) return;
+                    if (iter1->second != iter2->second) return;
+                }
                 boost::add_edge(bdescs1[an], bdescs2[bn], cg);
             };
             bool verbose = false;
