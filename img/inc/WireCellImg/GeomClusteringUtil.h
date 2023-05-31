@@ -11,6 +11,8 @@
 #include "WireCellIface/IBlobSet.h"
 #include "WireCellIface/IClustering.h"
 
+#include <unordered_map>
+
 namespace WireCell {
     namespace Img {
 
@@ -22,9 +24,13 @@ namespace WireCell {
         // blob filter function signature
         using gc_filter_t = std::function<bool(const cluster_vertex_t&)>;
 
+        /// TODO: rm this soon
         // ICluster based one
         void geom_clustering(cluster_graph_t& cg, std::string policy,
                              gc_filter_t filter = [](const cluster_vertex_t&) { return true; });
+        // ICluster based, grouped clusters
+        void grouped_geom_clustering(cluster_graph_t& cg, std::string policy,
+                             const std::unordered_map<cluster_vertex_t, int> groups = {});
     }  // namespace Img
 }  // namespace WireCell
 
