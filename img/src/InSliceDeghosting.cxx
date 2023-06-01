@@ -9,6 +9,7 @@
 #include "WireCellUtil/Logging.h"
 #include "WireCellUtil/String.h"
 #include "WireCellUtil/Exceptions.h"
+#include "WireCellUtil/TimeKeeper.h"
 
 #include <iterator>
 #include <chrono>
@@ -592,6 +593,9 @@ bool InSliceDeghosting::operator()(const input_pointer& in, output_pointer& out)
         log->debug("EOS");
         return true;
     }
+
+    TimeKeeper tk(fmt::format("InSliceDeghosting"));
+
     const auto in_graph = in->graph();
     dump_cg(in_graph, log);
 
@@ -604,15 +608,27 @@ bool InSliceDeghosting::operator()(const input_pointer& in, output_pointer& out)
         /// 1, Ident good/bad blob groups. in: ICluster out: blob_quality_tags {blob_desc -> quality_tag} TODO: map or
         /// multi-map?
         /// FIXME: place holder. Using simple thresholing.
+        log->debug(tk(fmt::format("start blob tagging")));
         blob_quality_ident(in_graph, blob_tags);
+
+        /// DEBUGONLY:
+        std::unordered_map<BLOB_QUALITY, size_t> counters;
+        for (const auto& [vtx, tag] : blob_tags) {
+            counters[tag] += 1;
+        }
+        for (const auto& [tag, counter] : counters) {
+            log->debug("{} : {}", tag, counter);
+        }
 
         /// 2, Local (in-slice) de-ghosting. in: ICluster + blob_quality_tags out: updated blob_quality_tags (remove or
         /// not)
         // /// FIXME: place holder. Only keep the largest blob in slice
+        log->debug(tk(fmt::format("start local (in-slice) de-ghosting")));
         local_deghosting(in_graph, blob_tags);
 
         /// 3, delete some blobs. in: ICluster + blob_quality_tags out: filtered ICluster
         /// FIXME: need checks.
+        log->debug(tk(fmt::format("start delete some blobs")));
         using VFiltered =
             typename boost::filtered_graph<cluster_graph_t, boost::keep_all, std::function<bool(cluster_vertex_t)> >;
         VFiltered fg_rm_bad_blobs(in_graph, {}, [&](auto vtx) { return !exist(blob_tags, vtx, TO_BE_REMOVED); });
@@ -620,6 +636,7 @@ bool InSliceDeghosting::operator()(const input_pointer& in, output_pointer& out)
         /// 4, in-group clustering. in: ICluster + blob_quality_tags out: filtered ICluster
         /// FIXME: place holder.
         /// TODO: do we need to call copy_graph?
+        log->debug(tk(fmt::format("start per group clustering")));
         WireCell::cluster_graph_t cg_old_bb;
         boost::copy_graph(fg_rm_bad_blobs, cg_old_bb);
         log->debug("cg_old_bb:");
@@ -671,13 +688,8 @@ bool InSliceDeghosting::operator()(const input_pointer& in, output_pointer& out)
             }
         }
 
-        /// DEBUGONLY: 
-        for (const auto& vtx : oftype(cg_new_bb, 'b')) {
-            if (groups.find(vtx) == groups.end()) {
-                log->debug("{} not found in gruops!", vtx);
-            }
-        }
         grouped_geom_clustering(cg_new_bb, m_clustering_policy, groups);
+        log->debug(tk(fmt::format("end")));
         log->debug("cg_new_bb:");
         dump_cg(cg_new_bb, log);
     }
