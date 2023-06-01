@@ -479,7 +479,7 @@ void InSliceDeghosting::local_deghosting(const cluster_graph_t& cg, vertex_tags_
 
         // loop over two-good wire cells
         for (auto it = view_groups[2].begin(); it != view_groups[2].end(); it++) {
-            if (exist(blob_tags, *it, POTENTIAL_GOOD)) {
+            if (!exist(blob_tags, *it, POTENTIAL_GOOD)) {
                 auto two_view_chs = connected_channels(cg, *it);
                 std::unordered_map<WireCell::WirePlaneLayer_t, bool> flag_plane;
                 auto& live_planes = blob_planes[*it];
@@ -566,7 +566,7 @@ void InSliceDeghosting::local_deghosting(const cluster_graph_t& cg, vertex_tags_
             }
             if (score_plane[WireCell::kUlayer] <= m_deghost_th1 && score_plane[WireCell::kVlayer] <= m_deghost_th1 &&
                 score_plane[WireCell::kWlayer] <= m_deghost_th1 && (cannot_remove.find(*it) == cannot_remove.end()) &&
-                exist(blob_tags, *it, POTENTIAL_GOOD))
+                (!exist(blob_tags, *it, POTENTIAL_GOOD)))
                 blob_tags.insert({*it, POTENTIAL_BAD});
         }
 
