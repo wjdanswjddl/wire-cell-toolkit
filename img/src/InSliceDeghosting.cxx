@@ -88,6 +88,27 @@ namespace {
         return false;
     }
 
+    template <class Map, class Key, class Pos>
+    void tag(Map& m, const Key& k, const Pos& p, const bool tag)
+    {
+        auto iter = m.find(k);
+        if (iter == m.end()) m[k] = 0;
+        int& pack = m[k];
+        if (tag)
+            pack |= (1 << p);
+        else
+            pack &= (0 << p);
+    }
+
+    template <class Map, class Key, class Pos>
+    bool tag(const Map& m, const Key& k, const Pos& p)
+    {
+        auto iter = m.find(k);
+        if (iter == m.end()) return false;
+        int pack = iter->second >> p;
+        return (pack & 1);
+    }
+
     /// b -> connected channel idents
     std::unordered_map<WireCell::WirePlaneLayer_t, std::set<int> > connected_channels(const cluster_graph_t& cg,
                                                                                       const cluster_vertex_t& bdesc)
@@ -160,8 +181,8 @@ void InSliceDeghosting::blob_quality_ident(const cluster_graph_t& cg, vertex_tag
         //        double current_t = iblob->slice()->start();
         double current_q = iblob->value();  // charge ...
         if (current_q > m_good_blob_charge_th) {
-            blob_tags.insert({vtx, GOOD});
-            blob_tags.insert({vtx, POTENTIAL_GOOD});
+            tag(blob_tags, vtx, GOOD, true);
+            tag(blob_tags, vtx, POTENTIAL_GOOD, true);
         }
         //        else {
         //    blob_tags.insert({vtx, BAD});
@@ -174,7 +195,7 @@ void InSliceDeghosting::blob_quality_ident(const cluster_graph_t& cg, vertex_tag
         for (auto v : neighbors_oftype<cluster_node_t::blob_t>(cg, vtx)) {
             const auto ib = get<cluster_node_t::blob_t>(cg[v].ptr);
             if (ib->value() > m_good_blob_charge_th) {
-                blob_tags.insert({vtx, POTENTIAL_GOOD});
+                tag(blob_tags, vtx, POTENTIAL_GOOD, true);
             }
             //  if (ib->slice()->start() > current_t) {
             //    backs.push_back(ib->value());
@@ -320,7 +341,7 @@ void InSliceDeghosting::local_deghosting1(const cluster_graph_t& cg, vertex_tags
 
             blob_high_score_map[*it] =
                 std::max(std::max(score_plane[kUlayer], score_plane[kVlayer]), score_plane[kWlayer]);
-            if (exist(blob_tags, *it, GOOD)) blob_high_score_map[*it] = 1;
+            if (tag(blob_tags, *it, GOOD)) blob_high_score_map[*it] = 1;
         }
 
         std::unordered_set<cluster_vertex_t> cannot_remove;
@@ -329,7 +350,7 @@ void InSliceDeghosting::local_deghosting1(const cluster_graph_t& cg, vertex_tags
             int count = 0;
             for (auto it1 = view_groups[3].begin(); it1 != view_groups[3].end(); it1++) {
                 auto three_view_chs = connected_channels(cg, *it1);
-                if (exist(blob_tags, *it1, GOOD)) {
+                if (tag(blob_tags, *it1, GOOD)) {
                     if (adjacent(two_view_chs, three_view_chs)) count++;
                     if (count == 2) {
                         cannot_remove.insert(*it);
@@ -388,7 +409,7 @@ void InSliceDeghosting::local_deghosting1(const cluster_graph_t& cg, vertex_tags
                 }
             }
 
-            if (count == 2 && cannot_remove.find(*it) == cannot_remove.end()) blob_tags.insert({*it, TO_BE_REMOVED});
+            if (count == 2 && cannot_remove.find(*it) == cannot_remove.end()) tag(blob_tags, *it, TO_BE_REMOVED, true);
         }
 
     }  // loop over slice
@@ -469,7 +490,7 @@ void InSliceDeghosting::local_deghosting(const cluster_graph_t& cg, vertex_tags_
             int count = 0;
             for (auto it1 = view_groups[3].begin(); it1 != view_groups[3].end(); it1++) {
                 auto three_view_chs = connected_channels(cg, *it1);
-                if (exist(blob_tags, *it1, GOOD)) {
+                if (tag(blob_tags, *it1, GOOD)) {
                     if (adjacent(two_view_chs, three_view_chs)) count++;
                     if (count == 2) {
                         cannot_remove.insert(*it);
@@ -480,7 +501,7 @@ void InSliceDeghosting::local_deghosting(const cluster_graph_t& cg, vertex_tags_
 
         // loop over two-good wire cells
         for (auto it = view_groups[2].begin(); it != view_groups[2].end(); it++) {
-            if (!exist(blob_tags, *it, POTENTIAL_GOOD)) {
+            if (!tag(blob_tags, *it, POTENTIAL_GOOD)) {
                 auto two_view_chs = connected_channels(cg, *it);
                 std::unordered_map<WireCell::WirePlaneLayer_t, bool> flag_plane;
                 auto& live_planes = blob_planes[*it];
@@ -506,13 +527,13 @@ void InSliceDeghosting::local_deghosting(const cluster_graph_t& cg, vertex_tags_
                 }
 
                 if ((!save_flag) && (cannot_remove.find(*it) == cannot_remove.end()))
-                    blob_tags.insert({*it, TO_BE_REMOVED});
+                    tag(blob_tags, *it, TO_BE_REMOVED, true);
             }
         }
 
         std::unordered_map<int, float> wire_score_map;
         for (auto it = view_groups[2].begin(); it != view_groups[2].end(); it++) {
-            if (exist(blob_tags, *it, TO_BE_REMOVED)) continue;
+            if (tag(blob_tags, *it, TO_BE_REMOVED)) continue;
             auto two_view_chs = connected_channels(cg, *it);
             std::unordered_map<WireCell::WirePlaneLayer_t, bool> flag_plane;
             auto& live_planes = blob_planes[*it];
@@ -539,7 +560,7 @@ void InSliceDeghosting::local_deghosting(const cluster_graph_t& cg, vertex_tags_
         }
 
         for (auto it = view_groups[2].begin(); it != view_groups[2].end(); it++) {
-            if (exist(blob_tags, *it, TO_BE_REMOVED)) continue;
+            if (tag(blob_tags, *it, TO_BE_REMOVED)) continue;
             auto two_view_chs = connected_channels(cg, *it);
             std::unordered_map<WireCell::WirePlaneLayer_t, bool> flag_plane;
             auto& live_planes = blob_planes[*it];
@@ -567,8 +588,8 @@ void InSliceDeghosting::local_deghosting(const cluster_graph_t& cg, vertex_tags_
             }
             if (score_plane[WireCell::kUlayer] <= m_deghost_th1 && score_plane[WireCell::kVlayer] <= m_deghost_th1 &&
                 score_plane[WireCell::kWlayer] <= m_deghost_th1 && (cannot_remove.find(*it) == cannot_remove.end()) &&
-                (!exist(blob_tags, *it, POTENTIAL_GOOD)))
-                blob_tags.insert({*it, POTENTIAL_BAD});
+                (!tag(blob_tags, *it, POTENTIAL_GOOD)))
+                tag(blob_tags, *it, POTENTIAL_BAD, true);
         }
 
         /// EXAMPLEONLY: rm 3views from TO_BE_REMOVED
@@ -600,7 +621,7 @@ bool InSliceDeghosting::operator()(const input_pointer& in, output_pointer& out)
     dump_cg(in_graph, log);
 
     // blob desc -> quality tag
-    std::unordered_multimap<cluster_vertex_t, BLOB_QUALITY> blob_tags;
+    vertex_tags_t blob_tags;
 
     WireCell::cluster_graph_t cg_new_bb;
 
@@ -612,9 +633,11 @@ bool InSliceDeghosting::operator()(const input_pointer& in, output_pointer& out)
         blob_quality_ident(in_graph, blob_tags);
 
         /// DEBUGONLY:
-        std::unordered_map<BLOB_QUALITY, size_t> counters;
-        for (const auto& [vtx, tag] : blob_tags) {
-            counters[tag] += 1;
+        std::unordered_map<int, size_t> counters;
+        for (const auto& [vtx, pack] : blob_tags) {
+            for (int pos = static_cast<int>(GOOD); pos != static_cast<int>(TO_BE_REMOVED); ++pos) {
+                if (tag(blob_tags, vtx, pos)) counters[pos] += 1;
+            }
         }
         for (const auto& [tag, counter] : counters) {
             log->debug("{} : {}", tag, counter);
@@ -631,7 +654,7 @@ bool InSliceDeghosting::operator()(const input_pointer& in, output_pointer& out)
         log->debug(tk(fmt::format("start delete some blobs")));
         using VFiltered =
             typename boost::filtered_graph<cluster_graph_t, boost::keep_all, std::function<bool(cluster_vertex_t)> >;
-        VFiltered fg_rm_bad_blobs(in_graph, {}, [&](auto vtx) { return !exist(blob_tags, vtx, TO_BE_REMOVED); });
+        VFiltered fg_rm_bad_blobs(in_graph, {}, [&](auto vtx) { return !tag(blob_tags, vtx, TO_BE_REMOVED); });
 
         /// 4, in-group clustering. in: ICluster + blob_quality_tags out: filtered ICluster
         /// FIXME: place holder.
@@ -662,16 +685,16 @@ bool InSliceDeghosting::operator()(const input_pointer& in, output_pointer& out)
         /// four separated groups, good&bad, good&good, bad&bad  (two of these might not be useful ...)
         std::vector<gc_filter_t> filters = {
             [&](const cluster_vertex_t& vtx) {
-                return exist(blob_tags, vtx, POTENTIAL_GOOD) && !exist(blob_tags, vtx, POTENTIAL_BAD);
+                return tag(blob_tags, vtx, POTENTIAL_GOOD) && !tag(blob_tags, vtx, POTENTIAL_BAD);
             },
             [&](const cluster_vertex_t& vtx) {
-                return exist(blob_tags, vtx, POTENTIAL_GOOD) && exist(blob_tags, vtx, POTENTIAL_BAD);
+                return tag(blob_tags, vtx, POTENTIAL_GOOD) && tag(blob_tags, vtx, POTENTIAL_BAD);
             },
             [&](const cluster_vertex_t& vtx) {
-                return !exist(blob_tags, vtx, POTENTIAL_GOOD) && !exist(blob_tags, vtx, POTENTIAL_BAD);
+                return !tag(blob_tags, vtx, POTENTIAL_GOOD) && !tag(blob_tags, vtx, POTENTIAL_BAD);
             },
             [&](const cluster_vertex_t& vtx) {
-                return !exist(blob_tags, vtx, POTENTIAL_GOOD) && exist(blob_tags, vtx, POTENTIAL_BAD);
+                return !tag(blob_tags, vtx, POTENTIAL_GOOD) && tag(blob_tags, vtx, POTENTIAL_BAD);
             },
         };
         /// each filter adds new b-b edges on cg_new_bb
@@ -702,7 +725,7 @@ bool InSliceDeghosting::operator()(const input_pointer& in, output_pointer& out)
 
         using VFiltered =
             typename boost::filtered_graph<cluster_graph_t, boost::keep_all, std::function<bool(cluster_vertex_t)> >;
-        VFiltered fg_rm_bad_blobs(in_graph, {}, [&](auto vtx) { return !exist(blob_tags, vtx, TO_BE_REMOVED); });
+        VFiltered fg_rm_bad_blobs(in_graph, {}, [&](auto vtx) { return !tag(blob_tags, vtx, TO_BE_REMOVED); });
         // do we have to copy this every time ???
         boost::copy_graph(fg_rm_bad_blobs, cg_new_bb);
     }
@@ -715,7 +738,7 @@ bool InSliceDeghosting::operator()(const input_pointer& in, output_pointer& out)
             typename boost::filtered_graph<cluster_graph_t, boost::keep_all, std::function<bool(cluster_vertex_t)> >;
         VFiltered fg_rm_bad_blobs(in_graph, {}, [&](auto vtx) {
             if (in_graph[vtx].code() != 'b') return true;
-            return exist(blob_tags, vtx, POTENTIAL_GOOD);
+            return tag(blob_tags, vtx, POTENTIAL_GOOD);
         });
         // do we have to copy this every time ???
         boost::copy_graph(fg_rm_bad_blobs, cg_new_bb);
