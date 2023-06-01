@@ -212,6 +212,17 @@ namespace WireCell {
         return ret;
     }
 
+    // descriptor version of oftype
+    inline std::vector<cluster_vertex_t> oftype(const WireCell::cluster_graph_t& cg, const char typecode)
+    {
+        std::vector<cluster_vertex_t> ret;
+        for (const auto& vtx : boost::make_iterator_range(boost::vertices(cg))) {
+            if (cg[vtx].code() != typecode) continue;
+            ret.push_back(vtx);
+        }
+        return ret;
+    }
+
     // descriptor version of neighbors/neighbors_oftype
     inline std::vector<cluster_vertex_t> neighbors(const WireCell::cluster_graph_t& cg, const cluster_vertex_t& vd)
     {
