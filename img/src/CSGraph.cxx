@@ -71,7 +71,10 @@ graph_t CS::solve(const graph_t& csg, const SolveParams& params, const bool verb
         const auto valerr = meas_in.value;
         measure(mind) = valerr.value();
         mcov(mind, mind) = valerr.uncertainty()*valerr.uncertainty();
-
+        /// TODO: rm debug info
+        // if (verbose) {
+        //     SPDLOG_INFO("val {} unc {}", valerr.value(), valerr.uncertainty());
+        // }
         auto desc_out = boost::add_vertex(meas_in, csg_out);
         meas_descs_out(desc_out);        
     }
@@ -161,10 +164,10 @@ graph_t CS::solve(const graph_t& csg, const SolveParams& params, const bool verb
     if (verbose) {
         SPDLOG_INFO("CS params {} {}", params.scale, params.whiten);
         SPDLOG_INFO("ress param {} {}", rparams.lambda, rparams.tolerance);
-        SPDLOG_INFO("R_mat {}", String::stringify(R_mat));
-        SPDLOG_INFO("m_vec {}", String::stringify(m_vec));
-        SPDLOG_INFO("source {}", String::stringify(source));
-        SPDLOG_INFO("weight {} {}", weight.size(), weight[0]);
+        SPDLOG_INFO("R_mat \n{}", String::stringify(R_mat));
+        SPDLOG_INFO("m_vec \n{}", String::stringify(m_vec));
+        SPDLOG_INFO("source \n{}", String::stringify(source));
+        SPDLOG_INFO("weight \n{}", String::stringify(weight));
     }
     // std::cerr << "R:\n" << R_mat << "\nm:\n" << m_vec << std::endl;
     auto solution = Ress::solve(R_mat, m_vec, rparams,
