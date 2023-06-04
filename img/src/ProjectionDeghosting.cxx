@@ -180,6 +180,7 @@ bool Img::ProjectionDeghosting::operator()(const input_pointer& in, output_point
         log->debug("EOS");
         return true;
     }
+
     const auto in_graph = in->graph();
     dump_cg(in_graph, log);
     // blob shadow ... vertex = blob, edge --> wire/channel, plane
@@ -201,7 +202,7 @@ bool Img::ProjectionDeghosting::operator()(const input_pointer& in, output_point
     std::map<std::string, int> counters = {{"cs_edges", 0},      {"cs_vertices", 0},         {"nblobs", 0},
                                            {"nblobs_filter", 0}, {"nblobs_clusters_tmp", 0}, {"nblobs_clusters", 0}};
 
-    std::ofstream fout("ProjectionDeghosting.log");
+    //    std::ofstream fout("ProjectionDeghosting.log");
     // using pairset_t = std::unordered_set<std::pair<ClusterShadow::vdesc_t, ClusterShadow::vdesc_t>, pair_hash>;
     // using layer2pairset_t = std::unordered_map<WireCell::WirePlaneLayer_t, pairset_t>;
     // layer2pairset_t layer2compared;
@@ -225,6 +226,7 @@ bool Img::ProjectionDeghosting::operator()(const input_pointer& in, output_point
     // auto nclust =
     boost::connected_components(cs_graph, boost::make_assoc_property_map(cluster2id));
 
+    
     // store the three maps in terms of group number?
     std::unordered_map<WireCell::WirePlaneLayer_t,
                        std::unordered_map<ClusterShadow::vdesc_t, std::vector<ClusterShadow::vdesc_t>>>
@@ -285,8 +287,7 @@ bool Img::ProjectionDeghosting::operator()(const input_pointer& in, output_point
 
                     Projection2D::Projection2D& proj2D_clust3D = proj_clust3D.m_layer_proj[layer_cluster];
 
-                    int coverage = Projection2D::judge_coverage(proj2D_clust3D, proj2D_cluster,
-                                                                m_uncer_cut);  // ref is eixsting, tar is new clust ...
+		    int coverage = Projection2D::judge_coverage(proj2D_clust3D, proj2D_cluster,   m_uncer_cut);  // ref is eixsting, tar is new clust ...
                     // if (coverage == 1){ // tar is part of ref
                     if (coverage == Projection2D::REF_COVERS_TAR) {
                         flag_save = false;
@@ -392,6 +393,9 @@ bool Img::ProjectionDeghosting::operator()(const input_pointer& in, output_point
         }
 
     }  // loop over plane
+
+    log->debug("2D --> 3D size: {} {} {}", wp_2D_3D_clus_map[kUlayer].size(), wp_2D_3D_clus_map[kVlayer].size(),
+               wp_2D_3D_clus_map[kWlayer].size());
 
     // summarize the results ...
     for (auto it = wp_2D_3D_clus_map.begin(); it != wp_2D_3D_clus_map.end(); it++) {
@@ -555,7 +559,7 @@ bool Img::ProjectionDeghosting::operator()(const input_pointer& in, output_point
    }
     */
 
-    fout.close();
+    //    fout.close();
     // for (auto c : counters) {
     //    log->debug("{} : {} ", c.first, c.second);
     // }
