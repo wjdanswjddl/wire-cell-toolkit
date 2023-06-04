@@ -196,6 +196,7 @@ bool Img::ProjectionDeghosting::operator()(const input_pointer& in, output_point
     for (auto p : clusters) {
         c2b[p.second].insert(p.first);
     }
+    log->debug("c2b.size(): {} ", c2b.size());
 
     // Count edges
     std::map<std::string, int> counters = {{"cs_edges", 0},      {"cs_vertices", 0},         {"nblobs", 0},
@@ -392,6 +393,9 @@ bool Img::ProjectionDeghosting::operator()(const input_pointer& in, output_point
         }
 
     }  // loop over plane
+
+    log->debug("2D --> 3D size: {} {} {}", wp_2D_3D_clus_map[kUlayer].size(), wp_2D_3D_clus_map[kVlayer].size(),
+               wp_2D_3D_clus_map[kWlayer].size());
 
     // summarize the results ...
     for (auto it = wp_2D_3D_clus_map.begin(); it != wp_2D_3D_clus_map.end(); it++) {
