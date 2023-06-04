@@ -38,6 +38,7 @@ namespace WireCell {
             int max_iter = 100000;
             double tolerance = 1e-3;
             bool non_negative = true;
+	  bool set_init = false;
             double alpha = 1.0;
         };
 

@@ -471,7 +471,7 @@ void InSliceDeghosting::local_deghosting(const cluster_graph_t& cg, vertex_tags_
             /// EXAMPLE: b -> connected channel idents
             // how do we know which plane is channel is?
             auto cidents = connected_channels(cg, bvtx);
-            if (meas.size() == 3) {  // all three plane live ...
+            if (meas.size() == 3 && tag(blob_tags, bvtx, GOOD)) {  // all three plane live ...
                 for (auto it = cidents.begin(); it != cidents.end(); it++) {
                     // int ich = it->first;
                     //		used_plane_channels[it->second].insert(it->first);
@@ -720,6 +720,18 @@ bool InSliceDeghosting::operator()(const input_pointer& in, output_pointer& out)
         // after charge solving ...
         blob_quality_ident(in_graph, blob_tags);
 
+	 /// DEBUGONLY:
+        std::unordered_map<int, size_t> counters;
+        for (const auto& [vtx, pack] : blob_tags) {
+            for (int pos = static_cast<int>(GOOD); pos != static_cast<int>(TO_BE_REMOVED); ++pos) {
+                if (tag(blob_tags, vtx, pos)) counters[pos] += 1;
+            }
+        }
+        for (const auto& [tag, counter] : counters) {
+            log->debug("{} : {}", tag, counter);
+        }
+
+	
         // second round of local deghosting ...
         local_deghosting1(in_graph, blob_tags);
 
@@ -728,11 +740,25 @@ bool InSliceDeghosting::operator()(const input_pointer& in, output_pointer& out)
         VFiltered fg_rm_bad_blobs(in_graph, {}, [&](auto vtx) { return !tag(blob_tags, vtx, TO_BE_REMOVED); });
         // do we have to copy this every time ???
         boost::copy_graph(fg_rm_bad_blobs, cg_new_bb);
+
+	log->debug("cg_2nd_new_bb:");
+        dump_cg(cg_new_bb, log);
     }
     else if (m_config_round == 3) {
         // after charge solving ...
         blob_quality_ident(in_graph, blob_tags);
 
+	 /// DEBUGONLY:
+        std::unordered_map<int, size_t> counters;
+        for (const auto& [vtx, pack] : blob_tags) {
+            for (int pos = static_cast<int>(GOOD); pos != static_cast<int>(TO_BE_REMOVED); ++pos) {
+                if (tag(blob_tags, vtx, pos)) counters[pos] += 1;
+            }
+        }
+        for (const auto& [tag, counter] : counters) {
+            log->debug("{} : {}", tag, counter);
+        }
+	
         // at some points remove the Non-potential good ... (last round ...)
         using VFiltered =
             typename boost::filtered_graph<cluster_graph_t, boost::keep_all, std::function<bool(cluster_vertex_t)> >;
@@ -742,6 +768,9 @@ bool InSliceDeghosting::operator()(const input_pointer& in, output_pointer& out)
         });
         // do we have to copy this every time ???
         boost::copy_graph(fg_rm_bad_blobs, cg_new_bb);
+
+	log->debug("cg_3rd_new_bb:");
+        dump_cg(cg_new_bb, log);
     }
 
     /// output
