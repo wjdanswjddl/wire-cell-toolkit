@@ -66,10 +66,10 @@ int main()
     printGraph(fg1);
 
     graph_t copiedGraph;
-    using desc_map = std::unordered_map<graph_t::vertex_descriptor, graph_t::vertex_descriptor>;
-    using pm_desc_map = boost::associative_property_map<desc_map>;
-    desc_map o2c;
-    boost::copy_graph(fg1, copiedGraph, boost::orig_to_copy(pm_desc_map(o2c)));
+    using desc_map_t = std::unordered_map<graph_t::vertex_descriptor, graph_t::vertex_descriptor>;
+    using pm_desc_map_t = boost::associative_property_map<desc_map_t>;
+    desc_map_t o2c;
+    boost::copy_graph(fg1, copiedGraph, boost::orig_to_copy(pm_desc_map_t(o2c)));
     std::cout << "copiedGraph\n";
     printGraph(copiedGraph);
     for (const auto& [o, c] : o2c) {

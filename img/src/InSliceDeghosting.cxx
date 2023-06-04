@@ -697,11 +697,11 @@ bool InSliceDeghosting::operator()(const input_pointer& in, output_pointer& out)
         /// FIXME: place holder.
         /// TODO: do we need to call copy_graph?
         log->debug(tk(fmt::format("start per group clustering")));
-        using desc_map = std::unordered_map<cluster_vertex_t, cluster_vertex_t>;
-        using pm_desc_map = boost::associative_property_map<desc_map>;
-        desc_map o2c1;
+        using desc_map_t = std::unordered_map<cluster_vertex_t, cluster_vertex_t>;
+        using pm_desc_map_t = boost::associative_property_map<desc_map_t>;
+        desc_map_t o2c1;
         WireCell::cluster_graph_t cg_old_bb;
-        boost::copy_graph(fg_rm_bad_blobs, cg_old_bb, boost::orig_to_copy(pm_desc_map(o2c1)));
+        boost::copy_graph(fg_rm_bad_blobs, cg_old_bb, boost::orig_to_copy(pm_desc_map_t(o2c1)));
         log->debug("cg_old_bb:");
         dump_cg(cg_old_bb, log);
         /// rm old b-b edges
@@ -718,12 +718,12 @@ bool InSliceDeghosting::operator()(const input_pointer& in, output_pointer& out)
                            },
                            {});
 
-        desc_map o2c2;
-        boost::copy_graph(fg_no_bb, cg_new_bb, boost::orig_to_copy(pm_desc_map(o2c2)));
+        desc_map_t o2c2;
+        boost::copy_graph(fg_no_bb, cg_new_bb, boost::orig_to_copy(pm_desc_map_t(o2c2)));
 
         /// reverse the mapping
         /// TODO: need protection?
-        desc_map c2o;
+        desc_map_t c2o;
         for (const auto [o, c1] : o2c1) {
             const auto c2 = o2c2[c1];
             c2o[c2] = o;
