@@ -106,6 +106,7 @@ bool LocalGeomClustering::operator()(const input_pointer& in, output_pointer& ou
 
     /// make new edges
     cluster_graph_t cg_new_bb;
+    /// FIXME: guaranteed identical vdesc?
     boost::copy_graph(fg_no_bb, cg_new_bb);
     /// DEBUGONLY:
     log->debug("rm bb:");
