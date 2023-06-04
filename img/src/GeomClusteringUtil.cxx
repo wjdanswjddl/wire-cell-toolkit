@@ -238,42 +238,44 @@ void WireCell::Img::grouped_geom_clustering(cluster_graph_t& cg, std::string pol
 
     /// make SimpleBlobSet for slice pairs and make edges
     for (auto siter1 = slices.begin(); siter1 != slices.end(); ++siter1) {
-        for (auto siter2 = siter1 + 1; siter2 != slices.end(); ++siter2) {
-            const auto islice1 = get<cluster_node_t::slice_t>(cg[*siter1].ptr);
-            const auto islice2 = get<cluster_node_t::slice_t>(cg[*siter2].ptr);
-            if (policy == "uboone_local" && !adjacent(slice_times, islice1->start(), islice2->start())) continue;
-            int rel_diff = std::round(fabs((islice1->start() - islice2->start()) / islice1->span()));
-            if (map_gap_tol.find(rel_diff) == map_gap_tol.end()) continue;
-            auto bdescs1 = neighbors_oftype<cluster_node_t::blob_t>(cg, *siter1);
-            auto bdescs2 = neighbors_oftype<cluster_node_t::blob_t>(cg, *siter2);
-            auto gen = [&](const std::vector<cluster_vertex_t>& descs) {
-                RayGrid::blobs_t ret;
-                for (auto desc : descs) {
-                    const auto iblob = get<cluster_node_t::blob_t>(cg[desc].ptr);
-                    ret.push_back(iblob->shape());
-                }
-                return ret;
-            };
-            RayGrid::blobs_t blobs1 = gen(bdescs1);
-            RayGrid::blobs_t blobs2 = gen(bdescs2);
-            const auto beg1 = blobs1.begin();
-            const auto beg2 = blobs2.begin();
-
-            auto assoc = [&](RayGrid::blobref_t& a, RayGrid::blobref_t& b) {
-                int an = a - beg1;
-                int bn = b - beg2;
-                if (groups.size() != 0) {
-                    const auto& iter1 = groups.find(bdescs1[an]);
-                    if (iter1 == groups.end()) return;
-                    const auto& iter2 = groups.find(bdescs2[bn]);
-                    if (iter2 == groups.end()) return;
-                    if (iter1->second != iter2->second) return;
-                }
-                boost::add_edge(bdescs1[an], bdescs2[bn], cg);
-            };
-            bool verbose = false;
-            TolerantVisitor tv{map_gap_tol[rel_diff], verbose};
-            RayGrid::associate(blobs1, blobs2, assoc, tv);
-        }
+      auto& islice1 = get<cluster_node_t::slice_t>(cg[*siter1].ptr);
+      auto bdescs1 = neighbors_oftype<cluster_node_t::blob_t>(cg, *siter1);
+      auto gen = [&](const std::vector<cluster_vertex_t>& descs) {
+	RayGrid::blobs_t ret;
+	for (auto desc : descs) {
+	  const auto iblob = get<cluster_node_t::blob_t>(cg[desc].ptr);
+	  ret.push_back(iblob->shape());
+	}
+	return ret;
+      };
+      RayGrid::blobs_t blobs1 = gen(bdescs1);
+      const auto beg1 = blobs1.begin();
+      
+      for (auto siter2 = siter1 + 1; siter2 != slices.end(); ++siter2) {
+	auto& islice2 = get<cluster_node_t::slice_t>(cg[*siter2].ptr);
+	int rel_diff = std::round(fabs((islice1->start() - islice2->start()) / islice1->span()));
+	if (map_gap_tol.find(rel_diff) == map_gap_tol.end()) continue;
+	if (policy == "uboone_local" && !adjacent(slice_times, islice1->start(), islice2->start())) continue;
+	auto bdescs2 = neighbors_oftype<cluster_node_t::blob_t>(cg, *siter2);
+        
+	RayGrid::blobs_t blobs2 = gen(bdescs2);
+	const auto beg2 = blobs2.begin();
+	
+	auto assoc = [&](RayGrid::blobref_t& a, RayGrid::blobref_t& b) {
+	  int an = a - beg1;
+	  int bn = b - beg2;
+	  if (groups.size() != 0) {
+	    const auto& iter1 = groups.find(bdescs1[an]);
+	    if (iter1 == groups.end()) return;
+	    const auto& iter2 = groups.find(bdescs2[bn]);
+	    if (iter2 == groups.end()) return;
+	    if (iter1->second != iter2->second) return;
+	  }
+	  boost::add_edge(bdescs1[an], bdescs2[bn], cg);
+	};
+	bool verbose = false;
+	TolerantVisitor tv{map_gap_tol[rel_diff], verbose};
+	RayGrid::associate(blobs1, blobs2, assoc, tv);
+      }
     }
 }
