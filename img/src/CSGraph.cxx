@@ -339,6 +339,9 @@ void CS::unpack(const cluster_graph_t& cgraph,
                     msum.uncertainty() > meas_thresh.uncertainty()) {
                     continue;
                 }
+                if (!(msum.uncertainty()>0)) {
+                    THROW(ValueError() << errmsg{String::format("uncertainty %d <=0", msum.uncertainty())});
+                }
                 const int ordering = mnode.ident();
                 node_t meas{mvtx, node_t::meas, ordering, msum};
                 meas_desc = boost::add_vertex(meas, slg);

@@ -526,8 +526,9 @@ void InSliceDeghosting::local_deghosting(const cluster_graph_t& cg, vertex_tags_
                     }
                 }
 
-                if ((!save_flag) && (cannot_remove.find(*it) == cannot_remove.end()))
+                if ((!save_flag) && (cannot_remove.find(*it) == cannot_remove.end())) {
                     tag(blob_tags, *it, TO_BE_REMOVED, true);
+                }
             }
         }
 
@@ -588,8 +589,18 @@ void InSliceDeghosting::local_deghosting(const cluster_graph_t& cg, vertex_tags_
             }
             if (score_plane[WireCell::kUlayer] <= m_deghost_th1 && score_plane[WireCell::kVlayer] <= m_deghost_th1 &&
                 score_plane[WireCell::kWlayer] <= m_deghost_th1 && (cannot_remove.find(*it) == cannot_remove.end()) &&
-                (!tag(blob_tags, *it, POTENTIAL_GOOD)))
+                (!tag(blob_tags, *it, POTENTIAL_GOOD))) {
                 tag(blob_tags, *it, POTENTIAL_BAD, true);
+
+                /// DEBUGONLY:
+                // const auto islice = get<cluster_node_t::slice_t>(cg[svtx].ptr);
+                // log->debug("start: {} three {} two {} used {} {} {} cnrm {} score {} {} {}", islice->start() /
+                // islice->span(),
+                //            view_groups[3].size(), view_groups[2].size(), used_plane_channels[kUlayer].size(),
+                //            used_plane_channels[kVlayer].size(), used_plane_channels[kWlayer].size(),
+                //            cannot_remove.size(), score_plane[WireCell::kUlayer], score_plane[WireCell::kVlayer],
+                //            score_plane[WireCell::kWlayer]);
+            }
         }
 
         /// EXAMPLEONLY: rm 3views from TO_BE_REMOVED
@@ -633,14 +644,16 @@ bool InSliceDeghosting::operator()(const input_pointer& in, output_pointer& out)
         blob_quality_ident(in_graph, blob_tags);
 
         /// DEBUGONLY:
-        std::unordered_map<int, size_t> counters;
-        for (const auto& [vtx, pack] : blob_tags) {
-            for (int pos = static_cast<int>(GOOD); pos != static_cast<int>(TO_BE_REMOVED); ++pos) {
-                if (tag(blob_tags, vtx, pos)) counters[pos] += 1;
+        {
+            std::unordered_map<int, size_t> counters;
+            for (const auto& [vtx, pack] : blob_tags) {
+                for (int pos = static_cast<int>(GOOD); pos != static_cast<int>(TO_BE_REMOVED + 1); ++pos) {
+                    if (tag(blob_tags, vtx, pos)) counters[pos] += 1;
+                }
             }
-        }
-        for (const auto& [tag, counter] : counters) {
-            log->debug("{} : {}", tag, counter);
+            for (const auto& [tag, counter] : counters) {
+                log->debug("{} : {}", tag, counter);
+            }
         }
 
         /// 2, Local (in-slice) de-ghosting. in: ICluster + blob_quality_tags out: updated blob_quality_tags (remove or
@@ -648,6 +661,18 @@ bool InSliceDeghosting::operator()(const input_pointer& in, output_pointer& out)
         // /// FIXME: place holder. Only keep the largest blob in slice
         log->debug(tk(fmt::format("start local (in-slice) de-ghosting")));
         local_deghosting(in_graph, blob_tags);
+        /// DEBUGONLY:
+        {
+            std::unordered_map<int, size_t> counters;
+            for (const auto& [vtx, pack] : blob_tags) {
+                for (int pos = static_cast<int>(GOOD); pos != static_cast<int>(TO_BE_REMOVED + 1); ++pos) {
+                    if (tag(blob_tags, vtx, pos)) counters[pos] += 1;
+                }
+            }
+            for (const auto& [tag, counter] : counters) {
+                log->debug("{} : {}", tag, counter);
+            }
+        }
 
         /// 3, delete some blobs. in: ICluster + blob_quality_tags out: filtered ICluster
         /// FIXME: need checks.
@@ -655,13 +680,28 @@ bool InSliceDeghosting::operator()(const input_pointer& in, output_pointer& out)
         using VFiltered =
             typename boost::filtered_graph<cluster_graph_t, boost::keep_all, std::function<bool(cluster_vertex_t)> >;
         VFiltered fg_rm_bad_blobs(in_graph, {}, [&](auto vtx) { return !tag(blob_tags, vtx, TO_BE_REMOVED); });
+        /// DEBUGONLY:
+        {
+            std::unordered_map<int, size_t> counters;
+            for (const auto& [vtx, pack] : blob_tags) {
+                for (int pos = static_cast<int>(GOOD); pos != static_cast<int>(TO_BE_REMOVED + 1); ++pos) {
+                    if (tag(blob_tags, vtx, pos)) counters[pos] += 1;
+                }
+            }
+            for (const auto& [tag, counter] : counters) {
+                log->debug("{} : {}", tag, counter);
+            }
+        }
 
         /// 4, in-group clustering. in: ICluster + blob_quality_tags out: filtered ICluster
         /// FIXME: place holder.
         /// TODO: do we need to call copy_graph?
         log->debug(tk(fmt::format("start per group clustering")));
+        using desc_map = std::unordered_map<cluster_vertex_t, cluster_vertex_t>;
+        using pm_desc_map = boost::associative_property_map<desc_map>;
+        desc_map o2c1;
         WireCell::cluster_graph_t cg_old_bb;
-        boost::copy_graph(fg_rm_bad_blobs, cg_old_bb);
+        boost::copy_graph(fg_rm_bad_blobs, cg_old_bb, boost::orig_to_copy(pm_desc_map(o2c1)));
         log->debug("cg_old_bb:");
         dump_cg(cg_old_bb, log);
         /// rm old b-b edges
@@ -678,7 +718,16 @@ bool InSliceDeghosting::operator()(const input_pointer& in, output_pointer& out)
                            },
                            {});
 
-        boost::copy_graph(fg_no_bb, cg_new_bb);
+        desc_map o2c2;
+        boost::copy_graph(fg_no_bb, cg_new_bb, boost::orig_to_copy(pm_desc_map(o2c2)));
+
+        /// reverse the mapping
+        /// TODO: need protection?
+        desc_map c2o;
+        for (const auto [o, c1] : o2c1) {
+            const auto c2 = o2c2[c1];
+            c2o[c2] = o;
+        } 
         log->debug("cg_new_bb:");
         dump_cg(cg_new_bb, log);
         /// make new b-b edges within groups
@@ -707,7 +756,29 @@ bool InSliceDeghosting::operator()(const input_pointer& in, output_pointer& out)
         std::unordered_map<cluster_vertex_t, int> groups;
         for (int groupid = 0; groupid < filters.size(); ++groupid) {
             for (const auto& vtx : oftype(cg_new_bb, 'b')) {
-                if (filters[groupid](vtx)) groups.insert({vtx, groupid});
+                if (filters[groupid](c2o[vtx])) groups.insert({vtx, groupid});
+            }
+        }
+        /// DEBUGONLY:
+        {
+            std::unordered_map<int, size_t> counters;
+            for (const auto& [vtx, pack] : blob_tags) {
+                for (int pos = static_cast<int>(GOOD); pos != static_cast<int>(TO_BE_REMOVED + 1); ++pos) {
+                    if (tag(blob_tags, vtx, pos)) counters[pos] += 1;
+                }
+            }
+            for (const auto& [tag, counter] : counters) {
+                log->debug("{} : {}", tag, counter);
+            }
+        }
+        /// DEBUGONLY:
+        {
+            std::unordered_map<int, int> group_sizes;
+            for (const auto& [desc, id] : groups) {
+                group_sizes[id] += 1;
+            }
+            for (const auto& [id, count] : group_sizes) {
+                log->debug("group_sizes: {} {}", id, count);
             }
         }
 
@@ -719,6 +790,18 @@ bool InSliceDeghosting::operator()(const input_pointer& in, output_pointer& out)
     else if (m_config_round == 2) {
         // after charge solving ...
         blob_quality_ident(in_graph, blob_tags);
+        /// DEBUGONLY:
+        {
+            std::unordered_map<int, size_t> counters;
+            for (const auto& [vtx, pack] : blob_tags) {
+                for (int pos = static_cast<int>(GOOD); pos != static_cast<int>(TO_BE_REMOVED + 1); ++pos) {
+                    if (tag(blob_tags, vtx, pos)) counters[pos] += 1;
+                }
+            }
+            for (const auto& [tag, counter] : counters) {
+                log->debug("{} : {}", tag, counter);
+            }
+        }
 
 	 /// DEBUGONLY:
         std::unordered_map<int, size_t> counters;
@@ -747,6 +830,18 @@ bool InSliceDeghosting::operator()(const input_pointer& in, output_pointer& out)
     else if (m_config_round == 3) {
         // after charge solving ...
         blob_quality_ident(in_graph, blob_tags);
+        /// DEBUGONLY:
+        {
+            std::unordered_map<int, size_t> counters;
+            for (const auto& [vtx, pack] : blob_tags) {
+                for (int pos = static_cast<int>(GOOD); pos != static_cast<int>(TO_BE_REMOVED + 1); ++pos) {
+                    if (tag(blob_tags, vtx, pos)) counters[pos] += 1;
+                }
+            }
+            for (const auto& [tag, counter] : counters) {
+                log->debug("{} : {}", tag, counter);
+            }
+        }
 
 	 /// DEBUGONLY:
         std::unordered_map<int, size_t> counters;
