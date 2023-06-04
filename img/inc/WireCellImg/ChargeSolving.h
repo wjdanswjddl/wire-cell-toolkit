@@ -55,7 +55,7 @@ namespace WireCell {
             // is placed on the sum of channels in a measure, not on
             // the individual channel components.  Units are numbers
             // of electrons.
-            value_t m_meas_thresh{0,1e9};
+            value_t m_meas_thresh{10,1e9};
 
             // Config: blob_{value,error}_threshold. The value
             // threshold is a lower bound on the solved blob charge
