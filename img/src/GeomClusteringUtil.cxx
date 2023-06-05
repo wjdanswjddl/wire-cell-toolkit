@@ -68,19 +68,19 @@ void WireCell::Img::geom_clustering(cluster_indexed_graph_t& grind, IBlobSet::ve
         }
     };
 
+    IBlob::vector iblobs2 = (*beg)->blobs();
+    RayGrid::blobs_t blobs2 = (*beg)->shapes();
+    const auto beg2 = blobs2.begin();
     for (auto test = next; test != end and rel_time_diff(*beg, *test) <= max_rel_diff; ++test) {
         int rel_diff = rel_time_diff(*beg, *test);
         if (map_gap_tol.find(rel_diff) == map_gap_tol.end()) continue;
 
         // handle each face separately faces
         IBlob::vector iblobs1 = (*test)->blobs();
-        IBlob::vector iblobs2 = (*beg)->blobs();
 
         RayGrid::blobs_t blobs1 = (*test)->shapes();
-        RayGrid::blobs_t blobs2 = (*beg)->shapes();
 
         const auto beg1 = blobs1.begin();
-        const auto beg2 = blobs2.begin();
 
         auto assoc = [&](RayGrid::blobref_t& a, RayGrid::blobref_t& b) {
             int an = a - beg1;
