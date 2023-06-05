@@ -136,7 +136,7 @@ graph_t CS::solve(const graph_t& csg, const SolveParams& params, const bool verb
         double total_wire_charge = m_vec.sum(); // before scale
         double lambda = 3./total_wire_charge/2.*params.scale;
         double tolerance = total_wire_charge/3./params.scale/R_mat.cols()*0.005;
-        rparams = Ress::Params{Ress::lasso, lambda, 100000, tolerance, true};
+        rparams = Ress::Params{Ress::lasso, lambda, 100000, tolerance, true, false};
     }
     // if (verbose) {
         // SPDLOG_INFO("CS params {} {}", params.scale, params.whiten);
@@ -182,11 +182,22 @@ graph_t CS::solve(const graph_t& csg, const SolveParams& params, const bool verb
     gp_out.chi2_l1 = Ress::chi2_l1(m_vec, solution, rparams.lambda);
 
     // Update outgoing blob nodes with their solution
+    //double sum = 0;
+    //int ncount = 0;
+    //int ncount1 = 0;
     for (size_t ind=0; ind<nblob; ++ind) {
         auto& bvalue = csg_out[blob_descs_out.collection[ind]];
         //bvalue.value.value(solution[ind]);
         bvalue.value = solution[ind]*params.scale; // drops weight
+	//sum += bvalue.value;
+	//if (bvalue.value > 300) ncount ++;
+	//	ncount1++;
     }
+
+    //DEBUG ...
+    //auto time = gp_out.islice->start()/gp_out.islice->span();
+    //SPDLOG_INFO("Summed Charge {} {} {} {} ", time, sum, ncount, ncount1);
+    
     return csg_out;
 }
 

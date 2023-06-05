@@ -222,7 +222,8 @@ void InSliceDeghosting::local_deghosting1(const cluster_graph_t& cg, vertex_tags
         std::unordered_map<size_t, std::unordered_set<cluster_vertex_t> > view_groups;
         // std::unordered_map<RayGrid::grid_index_t, size_t> grid_occupancy;
         std::unordered_map<cluster_vertex_t, std::unordered_set<WireCell::WirePlaneLayer_t> > blob_planes;
-
+	std::unordered_map<cluster_vertex_t, std::unordered_map<WireCell::WirePlaneLayer_t, std::set<int> > > blob_channels;
+	
         for (auto bedge : GraphTools::mir(boost::out_edges(svtx, cg))) {
             auto bvtx = boost::target(bedge, cg);
             if (cg[bvtx].code() != 'b') {
@@ -243,8 +244,9 @@ void InSliceDeghosting::local_deghosting1(const cluster_graph_t& cg, vertex_tags
                 // live_planes.insert(imeasure->planeid().layer());
             }
 
+	   blob_channels[bvtx] = connected_channels(cg, bvtx);
             if (meas.size() == 3) {  // all three plane live ...
-                auto cidents = connected_channels(cg, bvtx);
+	      auto& cidents = blob_channels[bvtx];
                 for (auto it = cidents.begin(); it != cidents.end(); it++) {
                     for (auto it1 = it->second.begin(); it1 != it->second.end(); it1++) {
                         if (wire_score_map.find(*it1) == wire_score_map.end()) {
@@ -260,7 +262,7 @@ void InSliceDeghosting::local_deghosting1(const cluster_graph_t& cg, vertex_tags
 
         // loop over two-wire blobs ...
         for (auto it = view_groups[2].begin(); it != view_groups[2].end(); it++) {
-            auto two_view_chs = connected_channels(cg, *it);
+	  auto& two_view_chs = blob_channels[*it];//connected_channels(cg, *it);
             std::unordered_map<WireCell::WirePlaneLayer_t, bool> flag_plane;
             auto& live_planes = blob_planes[*it];
             for (auto it1 = two_view_chs.begin(); it1 != two_view_chs.end(); it1++) {
@@ -283,84 +285,92 @@ void InSliceDeghosting::local_deghosting1(const cluster_graph_t& cg, vertex_tags
             }
         }
 
-        std::unordered_map<cluster_vertex_t, float> blob_high_score_map;
-
+	std::unordered_set<cluster_vertex_t> cannot_remove;
         for (auto it = view_groups[2].begin(); it != view_groups[2].end(); it++) {
-            auto two_view_chs = connected_channels(cg, *it);
-            std::unordered_map<WireCell::WirePlaneLayer_t, bool> flag_plane;
-            auto& live_planes = blob_planes[*it];
-
-            std::map<WireCell::WirePlaneLayer_t, float> score_plane;
-            for (auto it1 = two_view_chs.begin(); it1 != two_view_chs.end(); it1++) {
-                if (live_planes.find(it1->first) != live_planes.end()) {
-                    flag_plane[it1->first] = true;
-                }
-                else {
-                    flag_plane[it1->first] = false;
-                }
-                score_plane[it1->first] = -1;
-                if (flag_plane[it1->first]) {
-                    float sum1 = 0;
-                    float sum2 = 0;
-                    for (auto it2 = it1->second.begin(); it2 != it1->second.end(); it2++) {
-                        sum2++;
-                        sum1 += 1. / wire_score_map[*it2];
-                    }
-                    score_plane[it1->first] = sum1 / sum2;
-                }
-            }
-
-            blob_high_score_map[*it] =
-                std::max(std::max(score_plane[kUlayer], score_plane[kVlayer]), score_plane[kWlayer]);
-        }
-
-        for (auto it = view_groups[3].begin(); it != view_groups[3].end(); it++) {
-            auto two_view_chs = connected_channels(cg, *it);
-            std::unordered_map<WireCell::WirePlaneLayer_t, bool> flag_plane;
-            auto& live_planes = blob_planes[*it];
-
-            std::map<WireCell::WirePlaneLayer_t, float> score_plane;
-            for (auto it1 = two_view_chs.begin(); it1 != two_view_chs.end(); it1++) {
-                if (live_planes.find(it1->first) != live_planes.end()) {
-                    flag_plane[it1->first] = true;
-                }
-                else {
-                    flag_plane[it1->first] = false;
-                }
-                score_plane[it1->first] = -1;
-                if (flag_plane[it1->first]) {
-                    float sum1 = 0;
-                    float sum2 = 0;
-                    for (auto it2 = it1->second.begin(); it2 != it1->second.end(); it2++) {
-                        sum2++;
-                        sum1 += 1. / wire_score_map[*it2];
-                    }
-                    score_plane[it1->first] = sum1 / sum2;
-                }
-            }
-
-            blob_high_score_map[*it] =
-                std::max(std::max(score_plane[kUlayer], score_plane[kVlayer]), score_plane[kWlayer]);
-            if (tag(blob_tags, *it, GOOD)) blob_high_score_map[*it] = 1;
-        }
-
-        std::unordered_set<cluster_vertex_t> cannot_remove;
-        for (auto it = view_groups[2].begin(); it != view_groups[2].end(); it++) {
-            auto two_view_chs = connected_channels(cg, *it);
+	  auto& two_view_chs = blob_channels[*it];//connected_channels(cg, *it);
             int count = 0;
             for (auto it1 = view_groups[3].begin(); it1 != view_groups[3].end(); it1++) {
-                auto three_view_chs = connected_channels(cg, *it1);
-                if (tag(blob_tags, *it1, GOOD)) {
+	      auto& three_view_chs = blob_channels[*it1];//connected_channels(cg, *it1);
+                if (tag(blob_tags, *it1, POTENTIAL_GOOD)) {
                     if (adjacent(two_view_chs, three_view_chs)) count++;
                     if (count == 2) {
                         cannot_remove.insert(*it);
+			break;
                     }
                 }
             }
         }
 
+        std::unordered_map<cluster_vertex_t, float> blob_high_score_map;
+
         for (auto it = view_groups[2].begin(); it != view_groups[2].end(); it++) {
-            auto two_view_chs = connected_channels(cg, *it);
+	  auto& two_view_chs = blob_channels[*it];//connected_channels(cg, *it);
+            std::unordered_map<WireCell::WirePlaneLayer_t, bool> flag_plane;
+            auto& live_planes = blob_planes[*it];
+
+            std::map<WireCell::WirePlaneLayer_t, float> score_plane;
+            for (auto it1 = two_view_chs.begin(); it1 != two_view_chs.end(); it1++) {
+                if (live_planes.find(it1->first) != live_planes.end()) {
+                    flag_plane[it1->first] = true;
+                }
+                else {
+                    flag_plane[it1->first] = false;
+                }
+                score_plane[it1->first] = -1;
+                if (flag_plane[it1->first]) {
+                    float sum1 = 0;
+                    float sum2 = 0;
+                    for (auto it2 = it1->second.begin(); it2 != it1->second.end(); it2++) {
+                        sum2++;
+                        sum1 += 1. / wire_score_map[*it2];
+                    }
+                    score_plane[it1->first] = sum1 / sum2;
+                }
+            }
+
+            blob_high_score_map[*it] =
+                std::max(std::max(score_plane[kUlayer], score_plane[kVlayer]), score_plane[kWlayer]);
+
+	    
+
+	}
+
+        for (auto it = view_groups[3].begin(); it != view_groups[3].end(); it++) {
+	  auto& two_view_chs = blob_channels[*it];//connected_channels(cg, *it);
+            std::unordered_map<WireCell::WirePlaneLayer_t, bool> flag_plane;
+            auto& live_planes = blob_planes[*it];
+
+            std::map<WireCell::WirePlaneLayer_t, float> score_plane;
+            for (auto it1 = two_view_chs.begin(); it1 != two_view_chs.end(); it1++) {
+                if (live_planes.find(it1->first) != live_planes.end()) {
+                    flag_plane[it1->first] = true;
+                }
+                else {
+                    flag_plane[it1->first] = false;
+                }
+                score_plane[it1->first] = -1;
+                if (flag_plane[it1->first]) {
+                    float sum1 = 0;
+                    float sum2 = 0;
+                    for (auto it2 = it1->second.begin(); it2 != it1->second.end(); it2++) {
+                        sum2++;
+                        sum1 += 1. / wire_score_map[*it2];
+                    }
+                    score_plane[it1->first] = sum1 / sum2;
+                }
+            }
+
+            blob_high_score_map[*it] =
+                std::max(std::max(score_plane[kUlayer], score_plane[kVlayer]), score_plane[kWlayer]);
+            if (tag(blob_tags, *it, POTENTIAL_GOOD)) blob_high_score_map[*it] = 1;
+
+	    
+        }
+
+      
+
+        for (auto it = view_groups[2].begin(); it != view_groups[2].end(); it++) {
+	  auto& two_view_chs = blob_channels[*it];//connected_channels(cg, *it);
             std::unordered_map<WireCell::WirePlaneLayer_t, bool> flag_plane;
             const auto iblob1 = get<cluster_node_t::blob_t>(cg[*it].ptr);
             double current_q1 = iblob1->value();  // charge ...
@@ -389,7 +399,7 @@ void InSliceDeghosting::local_deghosting1(const cluster_graph_t& cg, vertex_tags
                     auto blobs = neighbors_oftype<cluster_node_t::blob_t>(cg, mea);
                     for (auto blob : blobs) {
                         if (blob == *it) continue;
-                        auto blob_chs = connected_channels(cg, blob);
+                        auto& blob_chs = blob_channels[blob];//connected_channels(cg, blob);
                         const auto iblob2 = get<cluster_node_t::blob_t>(cg[blob].ptr);
                         double current_q2 = iblob2->value();  // charge ...
 
@@ -398,6 +408,14 @@ void InSliceDeghosting::local_deghosting1(const cluster_graph_t& cg, vertex_tags
                             int mcell1_hwire = *blob_chs[imeasure->planeid().layer()].rbegin();
                             int min_wire = std::max(mcell_lwire, mcell1_lwire);
                             int max_wire = std::min(mcell_hwire, mcell1_hwire);
+
+			    // /// DEBUGONLY:
+			    // const auto islice = get<cluster_node_t::slice_t>(cg[svtx].ptr);
+
+			    // log->debug("start: {} three {} two {} cnrm {} score {} {} {} {} {} {} ", islice->start() /   islice->span(),
+			    // 	       view_groups[3].size(), view_groups[2].size(), cannot_remove.size(),
+			    // 	       current_q1, imeasure->planeid().layer(), 
+			    // 	       current_q2, min_wire, max_wire, (max_wire - min_wire + 1.0) / (mcell_hwire - mcell_lwire + 1.0) );
 
                             if ((max_wire - min_wire + 1.0) / (mcell_hwire - mcell_lwire + 1.0) >= m_deghost_th &&
                                 current_q2 > current_q1 * m_deghost_th) {
@@ -409,7 +427,7 @@ void InSliceDeghosting::local_deghosting1(const cluster_graph_t& cg, vertex_tags
                 }
             }
 
-            if (count == 2 && cannot_remove.find(*it) == cannot_remove.end()) tag(blob_tags, *it, TO_BE_REMOVED, true);
+	    if (count == 2 && cannot_remove.find(*it) == cannot_remove.end()) tag(blob_tags, *it, TO_BE_REMOVED, true);
         }
 
     }  // loop over slice
@@ -430,7 +448,8 @@ void InSliceDeghosting::local_deghosting(const cluster_graph_t& cg, vertex_tags_
         std::unordered_map<size_t, std::unordered_set<cluster_vertex_t> > view_groups;
         // std::unordered_map<RayGrid::grid_index_t, size_t> grid_occupancy;
         std::unordered_map<cluster_vertex_t, std::unordered_set<WireCell::WirePlaneLayer_t> > blob_planes;
-
+	std::unordered_map<cluster_vertex_t, std::unordered_map<WireCell::WirePlaneLayer_t, std::set<int> > > blob_channels;
+	
         for (auto bedge : GraphTools::mir(boost::out_edges(svtx, cg))) {
             /// XIN: bvtx -> RayGrid::Strip::grid_range_t, {2views}, {3views}
             /// CHECK: per slice map {RayGrid::grid_index_t -> float}
@@ -470,7 +489,9 @@ void InSliceDeghosting::local_deghosting(const cluster_graph_t& cg, vertex_tags_
 
             /// EXAMPLE: b -> connected channel idents
             // how do we know which plane is channel is?
-            auto cidents = connected_channels(cg, bvtx);
+            blob_channels[bvtx] = connected_channels(cg, bvtx);
+	    auto& cidents = blob_channels[bvtx];
+	    
             if (meas.size() == 3 && tag(blob_tags, bvtx, GOOD)) {  // all three plane live ...
                 for (auto it = cidents.begin(); it != cidents.end(); it++) {
                     // int ich = it->first;
@@ -486,10 +507,10 @@ void InSliceDeghosting::local_deghosting(const cluster_graph_t& cg, vertex_tags_
 
         std::unordered_set<cluster_vertex_t> cannot_remove;
         for (auto it = view_groups[2].begin(); it != view_groups[2].end(); it++) {
-            auto two_view_chs = connected_channels(cg, *it);
+	  auto& two_view_chs = blob_channels[*it];//connected_channels(cg, *it);
             int count = 0;
             for (auto it1 = view_groups[3].begin(); it1 != view_groups[3].end(); it1++) {
-                auto three_view_chs = connected_channels(cg, *it1);
+	      auto& three_view_chs = blob_channels[*it1];//connected_channels(cg, *it1);
                 if (tag(blob_tags, *it1, GOOD)) {
                     if (adjacent(two_view_chs, three_view_chs)) count++;
                     if (count == 2) {
@@ -498,44 +519,44 @@ void InSliceDeghosting::local_deghosting(const cluster_graph_t& cg, vertex_tags_
                 }
             }
         }
-
+	
         // loop over two-good wire cells
         for (auto it = view_groups[2].begin(); it != view_groups[2].end(); it++) {
-            if (!tag(blob_tags, *it, POTENTIAL_GOOD)) {
-                auto two_view_chs = connected_channels(cg, *it);
-                std::unordered_map<WireCell::WirePlaneLayer_t, bool> flag_plane;
-                auto& live_planes = blob_planes[*it];
-                bool save_flag = false;
-
-                for (auto it1 = two_view_chs.begin(); it1 != two_view_chs.end(); it1++) {
-                    if (live_planes.find(it1->first) != live_planes.end()) {
-                        flag_plane[it1->first] = true;
-                    }
-                    else {
-                        flag_plane[it1->first] = false;
-                    }
-                    if (flag_plane[it1->first] && !save_flag) {
-                        int nwire = 0;
-                        int nwire_common = 0;
-                        auto& used_chs = used_plane_channels[it1->first];
-                        for (auto it2 = it1->second.begin(); it2 != it1->second.end(); it2++) {
-                            nwire++;
-                            if (used_chs.find(*it2) != used_chs.end()) nwire_common++;
-                        }
-                        if (nwire_common != nwire) save_flag = true;
-                    }
-                }
-
-                if ((!save_flag) && (cannot_remove.find(*it) == cannot_remove.end())) {
-                    tag(blob_tags, *it, TO_BE_REMOVED, true);
-                }
-            }
+	  if (!tag(blob_tags, *it, POTENTIAL_GOOD)) {
+	    auto& two_view_chs = blob_channels[*it];//connected_channels(cg, *it);
+	    std::unordered_map<WireCell::WirePlaneLayer_t, bool> flag_plane;
+	    auto& live_planes = blob_planes[*it];
+	    bool save_flag = false;
+	    for (auto it1 = two_view_chs.begin(); it1 != two_view_chs.end(); it1++) {
+	      if (live_planes.find(it1->first) != live_planes.end()) {
+		flag_plane[it1->first] = true;
+	      }
+	      else {
+		flag_plane[it1->first] = false;
+	      }
+	      if (flag_plane[it1->first] && !save_flag) {
+		int nwire = 0;
+		int nwire_common = 0;
+		auto& used_chs = used_plane_channels[it1->first];
+		for (auto it2 = it1->second.begin(); it2 != it1->second.end(); it2++) {
+		  nwire++;
+		  if (used_chs.find(*it2) != used_chs.end()) nwire_common++;
+		}
+		if (nwire_common != nwire) save_flag = true;
+	      }
+	    }
+	    
+	    if ((!save_flag) && (cannot_remove.find(*it) == cannot_remove.end())) {
+	      tag(blob_tags, *it, TO_BE_REMOVED, true);
+	    }
+	  }
         }
 
+	
         std::unordered_map<int, float> wire_score_map;
         for (auto it = view_groups[2].begin(); it != view_groups[2].end(); it++) {
             if (tag(blob_tags, *it, TO_BE_REMOVED)) continue;
-            auto two_view_chs = connected_channels(cg, *it);
+            auto& two_view_chs = blob_channels[*it];//connected_channels(cg, *it);
             std::unordered_map<WireCell::WirePlaneLayer_t, bool> flag_plane;
             auto& live_planes = blob_planes[*it];
             // std::unordered_map<WireCell::WirePlaneLayer_t, float> score_plane;
@@ -562,7 +583,7 @@ void InSliceDeghosting::local_deghosting(const cluster_graph_t& cg, vertex_tags_
 
         for (auto it = view_groups[2].begin(); it != view_groups[2].end(); it++) {
             if (tag(blob_tags, *it, TO_BE_REMOVED)) continue;
-            auto two_view_chs = connected_channels(cg, *it);
+            auto& two_view_chs = blob_channels[*it];//connected_channels(cg, *it);
             std::unordered_map<WireCell::WirePlaneLayer_t, bool> flag_plane;
             auto& live_planes = blob_planes[*it];
             std::unordered_map<WireCell::WirePlaneLayer_t, float> score_plane;
@@ -615,6 +636,8 @@ void InSliceDeghosting::local_deghosting(const cluster_graph_t& cg, vertex_tags_
         //     ++i;
         // }
         // }
+
+	
     }
     //    log->debug("count_keeper {}", count_keeper);
 }
@@ -802,7 +825,7 @@ bool InSliceDeghosting::operator()(const input_pointer& in, output_pointer& out)
                 log->debug("{} : {}", tag, counter);
             }
         }
-
+	
         // second round of local deghosting ...
         local_deghosting1(in_graph, blob_tags);
 
@@ -811,10 +834,16 @@ bool InSliceDeghosting::operator()(const input_pointer& in, output_pointer& out)
         VFiltered fg_rm_bad_blobs(in_graph, {}, [&](auto vtx) { return !tag(blob_tags, vtx, TO_BE_REMOVED); });
         // do we have to copy this every time ???
         boost::copy_graph(fg_rm_bad_blobs, cg_new_bb);
+
+	log->debug("cg_2nd_new_bb:");
+        dump_cg(cg_new_bb, log);
     }
     else if (m_config_round == 3) {
         // after charge solving ...
         blob_quality_ident(in_graph, blob_tags);
+
+	
+	
         /// DEBUGONLY:
         {
             std::unordered_map<int, size_t> counters;
@@ -828,6 +857,39 @@ bool InSliceDeghosting::operator()(const input_pointer& in, output_pointer& out)
             }
         }
 
+	// for (const auto& svtx : GraphTools::mir(boost::vertices(in_graph))) {
+	//   if (in_graph[svtx].code() != 's') {
+        //     continue;
+	//   }
+	//   int count = 0;
+	//   float sum = 0;
+	//   int count1 = 0;
+	//   for (auto bedge : GraphTools::mir(boost::out_edges(svtx, in_graph))) {
+        //     auto bvtx = boost::target(bedge, in_graph);
+	//     const auto& node = in_graph[bvtx];
+	//     if (node.code() != 'b') {
+	//       continue;
+	//     }
+	//     const auto iblob = get<cluster_node_t::blob_t>(node.ptr);
+	//     //        double current_t = iblob->slice()->start();
+	//     double current_q = iblob->value();  // charge ...
+
+	//     count ++;
+	//     if (current_q > 300) count1 ++;
+	//     sum += current_q;
+	//   }
+
+
+	//   const auto islice = get<cluster_node_t::slice_t>(in_graph[svtx].ptr);
+	//   log->debug("Summed Charge: {} {} {} {}", islice->start() / islice->span(),
+	// 	     sum, count1, count);
+	// }
+	  
+	  
+    
+
+	
+	
         // at some points remove the Non-potential good ... (last round ...)
         using VFiltered =
             typename boost::filtered_graph<cluster_graph_t, boost::keep_all, std::function<bool(cluster_vertex_t)> >;
@@ -837,6 +899,9 @@ bool InSliceDeghosting::operator()(const input_pointer& in, output_pointer& out)
         });
         // do we have to copy this every time ???
         boost::copy_graph(fg_rm_bad_blobs, cg_new_bb);
+
+	log->debug("cg_3rd_new_bb:");
+        dump_cg(cg_new_bb, log);
     }
 
     /// output
