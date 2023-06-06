@@ -163,96 +163,7 @@ LayerProjection2DMap WireCell::Img::Projection2D::get_projection(const WireCell:
     // use b-w-c to find all channels linked to the blob
     std::unordered_map<slice_t, std::vector<cluster_vertex_t> > map_slice_vertices;
     for (const auto& blob_desc : group) {
-      const auto& node = cg[blob_desc];
-      if (node.code() == 'b') {
-	number_blobs++;
-	const auto slice_descs = neighbors_oftype<slice_t>(cg, blob_desc);
-	if (slice_descs.size() != 1) {
-	  THROW(ValueError() << errmsg{"slice_descs.size()!=1"});
-	}
-	auto& slice = std::get<slice_t>(cg[slice_descs.front()].ptr);
-	map_slice_vertices[slice].push_back(blob_desc);
-      }
-    }
-
-    for (auto it = map_slice_vertices.begin(); it!= map_slice_vertices.end(); it++){
-      auto& slice = it->first;
-      int start = slice->start()/slice->span();//int(slice->start() / (500 * units::nanosecond));
-      //      filled_slices.insert(start);
-      auto activity = slice->activity();
-
-      for (auto it1 = it->second.begin(); it1 != it->second.end(); it1++){
-	std::unordered_map<WirePlaneLayer_t, double> layer_charge;
-        // initialization ...
-        layer_charge[kUlayer] = 0;
-        layer_charge[kVlayer] = 0;
-        layer_charge[kWlayer] = 0;
-
-	const auto wire_descs = neighbors_oftype<wire_t>(cg, *it1);
-	for (auto& wire_desc : wire_descs) {
-	  const auto chan_descs = neighbors_oftype<channel_t>(cg, wire_desc);
-	  for (auto& chan_desc : chan_descs) {
-	    auto& chan = std::get<channel_t>(cg[chan_desc].ptr);
-	    WirePlaneLayer_t layer = chan->planeid().layer();
-	    int index = chan->ident();
-	    auto charge = activity[chan].value();
-	    auto unc = activity[chan].uncertainty();
-	    //auto charge = val;
-	    // TODO: make this configurable and robust
-	    
-	    if (unc > uncer_cut) {
-	      charge = dead_default_charge;
-	    }
-	    else {
-	      // TODO: double check this
-	      layer_charge[layer] += charge;
-	      layer_nslices[layer].insert(start);
-	    }
-	    
-	    // if (charge < 10 && charge > -uncer_cut) std::cout << layer << " " << index << " " << start << " "
-	    // << charge << " " << unc << std::endl;
-	    // if filled, skip
-	    if (filled.find({index, start}) != filled.end()) {
-	      continue;
-	    }
-	    filled.insert({index, start});
-	    // TODO: validate this
-	    lcoeff[layer].push_back({index, start, charge});
-	    // if (ret.m_layer_proj.find(layer) == ret.m_layer_proj.end()) {
-	    //  ret.m_layer_proj.insert({layer, Projection2D(nchan, nslice)});
-	    //}
-	    //ret.m_layer_proj[layer].m_proj.setFromTriplets({index, start, charge});
-	  } // loop over channel
-	} // loop over wire
-
-	double sum_charge = 0;
-        int sum_n = 0;
-        double min_charge = 1e12;
-        for (auto it = layer_charge.begin(); it != layer_charge.end(); it++) {
-            if (it->second != 0) {
-                sum_charge += it->second;
-                sum_n++;
-                if (it->second < min_charge) min_charge = it->second;
-            }
-        }
-        // protection ...
-        if (min_charge == 1e12) min_charge = 0;
-        if (sum_n > 0) estimated_total_charge = sum_charge / sum_n;
-        estimated_minimum_charge += min_charge;  // min_iter->second;
-	
-      } // loop over blobs
-    } // loop over slices
-
-    /*
-    for (const auto& blob_desc : group) {
         const auto& node = cg[blob_desc];
-        std::unordered_map<WirePlaneLayer_t, double> layer_charge;
-        // initialization ...
-        layer_charge[kUlayer] = 0;
-        layer_charge[kVlayer] = 0;
-        layer_charge[kWlayer] = 0;
-
-        // initialization ...
         if (node.code() == 'b') {
             number_blobs++;
             const auto slice_descs = neighbors_oftype<slice_t>(cg, blob_desc);
@@ -260,14 +171,24 @@ LayerProjection2DMap WireCell::Img::Projection2D::get_projection(const WireCell:
                 THROW(ValueError() << errmsg{"slice_descs.size()!=1"});
             }
             auto& slice = std::get<slice_t>(cg[slice_descs.front()].ptr);
-            // TODO: make this tick duration configurable
-            // FIXME: it only fills the start time bin for now
-            int start = slice->start()/slice->span();//int(slice->start() / (500 * units::nanosecond));
-            // int span = int(slice->span() / (500 * units::nanosecond));
-            filled_slices.insert(start);
-            auto activity = slice->activity();
-            const auto wire_descs = neighbors_oftype<wire_t>(cg, blob_desc);
-            // std::cout << " #wire " << wire_descs.size();
+            map_slice_vertices[slice].push_back(blob_desc);
+        }
+    }
+
+    for (auto it = map_slice_vertices.begin(); it != map_slice_vertices.end(); it++) {
+        auto& slice = it->first;
+        int start = slice->start() / slice->span();  // int(slice->start() / (500 * units::nanosecond));
+        //      filled_slices.insert(start);
+        auto activity = slice->activity();
+
+        for (auto it1 = it->second.begin(); it1 != it->second.end(); it1++) {
+            std::unordered_map<WirePlaneLayer_t, double> layer_charge;
+            // initialization ...
+            layer_charge[kUlayer] = 0;
+            layer_charge[kVlayer] = 0;
+            layer_charge[kWlayer] = 0;
+
+            const auto wire_descs = neighbors_oftype<wire_t>(cg, *it1);
             for (auto& wire_desc : wire_descs) {
                 const auto chan_descs = neighbors_oftype<channel_t>(cg, wire_desc);
                 for (auto& chan_desc : chan_descs) {
@@ -276,7 +197,7 @@ LayerProjection2DMap WireCell::Img::Projection2D::get_projection(const WireCell:
                     int index = chan->ident();
                     auto charge = activity[chan].value();
                     auto unc = activity[chan].uncertainty();
-                    //auto charge = val;
+                    // auto charge = val;
                     // TODO: make this configurable and robust
 
                     if (unc > uncer_cut) {
@@ -290,44 +211,33 @@ LayerProjection2DMap WireCell::Img::Projection2D::get_projection(const WireCell:
 
                     // if (charge < 10 && charge > -uncer_cut) std::cout << layer << " " << index << " " << start << " "
                     // << charge << " " << unc << std::endl;
-
                     // if filled, skip
                     if (filled.find({index, start}) != filled.end()) {
                         continue;
                     }
-		    filled.insert({index, start});
-		    
+                    filled.insert({index, start});
                     // TODO: validate this
                     lcoeff[layer].push_back({index, start, charge});
-		    // if (ret.m_layer_proj.find(layer) == ret.m_layer_proj.end()) {
-		    //  ret.m_layer_proj.insert({layer, Projection2D(nchan, nslice)});
-		    //}
-		    //ret.m_layer_proj[layer].m_proj.setFromTriplets({index, start, charge});
+                } // loop over channel
+            } // loop over wire
+
+            double sum_charge = 0;
+            int sum_n = 0;
+            double min_charge = 1e12;
+            for (auto it = layer_charge.begin(); it != layer_charge.end(); it++) {
+                if (it->second != 0) {
+                    sum_charge += it->second;
+                    sum_n++;
+                    if (it->second < min_charge) min_charge = it->second;
                 }
             }
-        }  // for each blob
-        //        auto min_iter = std::min_element(layer_charge.begin(), layer_charge.end(),
-        //                               [](const auto& a, const auto& b) { return a.second < b.second; });
+            // protection ...
+            if (min_charge == 1e12) min_charge = 0;
+            if (sum_n > 0) estimated_total_charge = sum_charge / sum_n;
+            estimated_minimum_charge += min_charge;  // min_iter->second;
 
-        // calculate the total charge ...
-        double sum_charge = 0;
-        int sum_n = 0;
-        double min_charge = 1e12;
-        for (auto it = layer_charge.begin(); it != layer_charge.end(); it++) {
-            if (it->second != 0) {
-                sum_charge += it->second;
-                sum_n++;
-                if (it->second < min_charge) min_charge = it->second;
-            }
-        }
-        // protection ...
-        if (min_charge == 1e12) min_charge = 0;
-        if (sum_n > 0) estimated_total_charge = sum_charge / sum_n;
-
-        estimated_minimum_charge += min_charge;  // min_iter->second;
-    }
-    */    
-    //    number_slices = filled_slices.size();
+        }  // loop over blobs
+    }      // loop over slices
 
     for (auto it = layer_nslices.begin(); it != layer_nslices.end(); it++) {
         ret.m_number_layer_slices[it->first] = it->second.size();
@@ -336,7 +246,7 @@ LayerProjection2DMap WireCell::Img::Projection2D::get_projection(const WireCell:
     ret.m_layer_proj.insert({kUlayer, Projection2D(nchan, nslice)});
     ret.m_layer_proj.insert({kVlayer, Projection2D(nchan, nslice)});
     ret.m_layer_proj.insert({kWlayer, Projection2D(nchan, nslice)});
-    
+
     for (auto lc : lcoeff) {
         auto& l = lc.first;
         auto& c = lc.second;
@@ -345,11 +255,11 @@ LayerProjection2DMap WireCell::Img::Projection2D::get_projection(const WireCell:
         // }
         ret.m_layer_proj[l].m_proj.setFromTriplets(c.begin(), c.end());
     }
-    
+
     ret.m_estimated_minimum_charge = estimated_minimum_charge;
     ret.m_estimated_total_charge = estimated_total_charge;
     ret.m_number_blobs = number_blobs;
-    ret.m_number_slices = map_slice_vertices.size();//filled_slices.size();
+    ret.m_number_slices = map_slice_vertices.size();  // filled_slices.size();
     return ret;
 }
 
