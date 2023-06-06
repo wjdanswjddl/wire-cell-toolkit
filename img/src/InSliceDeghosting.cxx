@@ -114,17 +114,9 @@ namespace {
                                                                                       const cluster_vertex_t& bdesc)
     {
         std::unordered_map<WireCell::WirePlaneLayer_t, std::set<int> > cidents;
-        const auto wdescs = neighbors_oftype<cluster_node_t::wire_t>(cg, bdesc);
-        for (auto wdesc : wdescs) {
-            const auto cdescs = neighbors_oftype<cluster_node_t::channel_t>(cg, wdesc);
-            /// 'w' can only be connect to 1 'c'
-            if (cdescs.size() != 1) {
-                THROW(ValueError() << errmsg{String::format("'w' connnected to %d 'c's!", cdescs.size())});
-            }
-            const auto ichannel = get<cluster_node_t::channel_t>(cg[cdescs[0]].ptr);
-            // cidents.insert(std::make_pair(ichannel->ident(), ichannel->planeid().layer()) );
-            //	    cidents[ichannel->ident()] = ichannel->planeid().layer();
-            cidents[ichannel->planeid().layer()].insert(ichannel->ident());
+        for (const auto& wdesc : neighbors_oftype<cluster_node_t::wire_t>(cg, bdesc)) {
+            const auto iwire = get<cluster_node_t::wire_t>(cg[wdesc].ptr);
+            cidents[iwire->planeid().layer()].insert(iwire->channel());
         }
         return cidents;
     }
