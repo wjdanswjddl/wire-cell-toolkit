@@ -56,18 +56,6 @@ void Img::InSliceDeghosting::configure(const WireCell::Configuration& cfg)
 }
 
 namespace {
-    template <class Map, class Key, class Val>
-    bool exist(const Map& m, const Key& k, const Val& t)
-    {
-        auto er = m.equal_range(k);
-        for (auto it = er.first; it != er.second; ++it) {
-            if (it->second == t) {
-                return true;
-            }
-        }
-        return false;
-    }
-
     template <class Map, class Key, class Pos>
     void tag(Map& m, const Key& k, const Pos& p, const bool tag)
     {
@@ -87,6 +75,23 @@ namespace {
         if (iter == m.end()) return false;
         int pack = iter->second >> p;
         return (pack & 1);
+    }
+
+    std::string dump_blob_tags(const InSliceDeghosting::vertex_tags_t& blob_tags)
+    {
+        std::stringstream ss;
+        ss << "blob_tags ";
+        std::unordered_map<int, size_t> counters;
+        for (const auto& [vtx, pack] : blob_tags) {
+            for (int pos = static_cast<int>(InSliceDeghosting::GOOD);
+                 pos != static_cast<int>(InSliceDeghosting::TO_BE_REMOVED + 1); ++pos) {
+                if (tag(blob_tags, vtx, pos)) counters[pos] += 1;
+            }
+        }
+        for (const auto& [tag, counter] : counters) {
+            ss << " " << tag << " " << counter;
+        }
+        return ss.str();
     }
 
     /// b -> connected channel idents
@@ -194,8 +199,9 @@ void InSliceDeghosting::local_deghosting1(const cluster_graph_t& cg, vertex_tags
         std::unordered_map<size_t, std::unordered_set<cluster_vertex_t> > view_groups;
         // std::unordered_map<RayGrid::grid_index_t, size_t> grid_occupancy;
         std::unordered_map<cluster_vertex_t, std::unordered_set<WireCell::WirePlaneLayer_t> > blob_planes;
-	std::unordered_map<cluster_vertex_t, std::unordered_map<WireCell::WirePlaneLayer_t, std::set<int> > > blob_channels;
-	
+        std::unordered_map<cluster_vertex_t, std::unordered_map<WireCell::WirePlaneLayer_t, std::set<int> > >
+            blob_channels;
+
         for (auto bedge : GraphTools::mir(boost::out_edges(svtx, cg))) {
             auto bvtx = boost::target(bedge, cg);
             if (cg[bvtx].code() != 'b') {
@@ -216,9 +222,9 @@ void InSliceDeghosting::local_deghosting1(const cluster_graph_t& cg, vertex_tags
                 // live_planes.insert(imeasure->planeid().layer());
             }
 
-	   blob_channels[bvtx] = connected_channels(cg, bvtx);
+            blob_channels[bvtx] = connected_channels(cg, bvtx);
             if (meas.size() == 3) {  // all three plane live ...
-	      auto& cidents = blob_channels[bvtx];
+                auto& cidents = blob_channels[bvtx];
                 for (auto it = cidents.begin(); it != cidents.end(); it++) {
                     for (auto it1 = it->second.begin(); it1 != it->second.end(); it1++) {
                         if (wire_score_map.find(*it1) == wire_score_map.end()) {
@@ -234,7 +240,7 @@ void InSliceDeghosting::local_deghosting1(const cluster_graph_t& cg, vertex_tags
 
         // loop over two-wire blobs ...
         for (auto it = view_groups[2].begin(); it != view_groups[2].end(); it++) {
-	  auto& two_view_chs = blob_channels[*it];//connected_channels(cg, *it);
+            auto& two_view_chs = blob_channels[*it];  // connected_channels(cg, *it);
             std::unordered_map<WireCell::WirePlaneLayer_t, bool> flag_plane;
             auto& live_planes = blob_planes[*it];
             for (auto it1 = two_view_chs.begin(); it1 != two_view_chs.end(); it1++) {
@@ -257,17 +263,17 @@ void InSliceDeghosting::local_deghosting1(const cluster_graph_t& cg, vertex_tags
             }
         }
 
-	std::unordered_set<cluster_vertex_t> cannot_remove;
+        std::unordered_set<cluster_vertex_t> cannot_remove;
         for (auto it = view_groups[2].begin(); it != view_groups[2].end(); it++) {
-	  auto& two_view_chs = blob_channels[*it];//connected_channels(cg, *it);
+            auto& two_view_chs = blob_channels[*it];  // connected_channels(cg, *it);
             int count = 0;
             for (auto it1 = view_groups[3].begin(); it1 != view_groups[3].end(); it1++) {
-	      auto& three_view_chs = blob_channels[*it1];//connected_channels(cg, *it1);
+                auto& three_view_chs = blob_channels[*it1];  // connected_channels(cg, *it1);
                 if (tag(blob_tags, *it1, POTENTIAL_GOOD)) {
                     if (adjacent(two_view_chs, three_view_chs)) count++;
                     if (count == 2) {
                         cannot_remove.insert(*it);
-			break;
+                        break;
                     }
                 }
             }
@@ -276,7 +282,7 @@ void InSliceDeghosting::local_deghosting1(const cluster_graph_t& cg, vertex_tags
         std::unordered_map<cluster_vertex_t, float> blob_high_score_map;
 
         for (auto it = view_groups[2].begin(); it != view_groups[2].end(); it++) {
-	  auto& two_view_chs = blob_channels[*it];//connected_channels(cg, *it);
+            auto& two_view_chs = blob_channels[*it];  // connected_channels(cg, *it);
             std::unordered_map<WireCell::WirePlaneLayer_t, bool> flag_plane;
             auto& live_planes = blob_planes[*it];
 
@@ -302,13 +308,10 @@ void InSliceDeghosting::local_deghosting1(const cluster_graph_t& cg, vertex_tags
 
             blob_high_score_map[*it] =
                 std::max(std::max(score_plane[kUlayer], score_plane[kVlayer]), score_plane[kWlayer]);
-
-	    
-
-	}
+        }
 
         for (auto it = view_groups[3].begin(); it != view_groups[3].end(); it++) {
-	  auto& two_view_chs = blob_channels[*it];//connected_channels(cg, *it);
+            auto& two_view_chs = blob_channels[*it];  // connected_channels(cg, *it);
             std::unordered_map<WireCell::WirePlaneLayer_t, bool> flag_plane;
             auto& live_planes = blob_planes[*it];
 
@@ -335,14 +338,10 @@ void InSliceDeghosting::local_deghosting1(const cluster_graph_t& cg, vertex_tags
             blob_high_score_map[*it] =
                 std::max(std::max(score_plane[kUlayer], score_plane[kVlayer]), score_plane[kWlayer]);
             if (tag(blob_tags, *it, POTENTIAL_GOOD)) blob_high_score_map[*it] = 1;
-
-	    
         }
 
-      
-
         for (auto it = view_groups[2].begin(); it != view_groups[2].end(); it++) {
-	  auto& two_view_chs = blob_channels[*it];//connected_channels(cg, *it);
+            auto& two_view_chs = blob_channels[*it];  // connected_channels(cg, *it);
             std::unordered_map<WireCell::WirePlaneLayer_t, bool> flag_plane;
             const auto iblob1 = get<cluster_node_t::blob_t>(cg[*it].ptr);
             double current_q1 = iblob1->value();  // charge ...
@@ -371,7 +370,7 @@ void InSliceDeghosting::local_deghosting1(const cluster_graph_t& cg, vertex_tags
                     auto blobs = neighbors_oftype<cluster_node_t::blob_t>(cg, mea);
                     for (auto blob : blobs) {
                         if (blob == *it) continue;
-                        auto& blob_chs = blob_channels[blob];//connected_channels(cg, blob);
+                        auto& blob_chs = blob_channels[blob];  // connected_channels(cg, blob);
                         const auto iblob2 = get<cluster_node_t::blob_t>(cg[blob].ptr);
                         double current_q2 = iblob2->value();  // charge ...
 
@@ -381,13 +380,13 @@ void InSliceDeghosting::local_deghosting1(const cluster_graph_t& cg, vertex_tags
                             int min_wire = std::max(mcell_lwire, mcell1_lwire);
                             int max_wire = std::min(mcell_hwire, mcell1_hwire);
 
-			    // /// DEBUGONLY:
-			    // const auto islice = get<cluster_node_t::slice_t>(cg[svtx].ptr);
-
-			    // log->debug("start: {} three {} two {} cnrm {} score {} {} {} {} {} {} ", islice->start() /   islice->span(),
-			    // 	       view_groups[3].size(), view_groups[2].size(), cannot_remove.size(),
-			    // 	       current_q1, imeasure->planeid().layer(), 
-			    // 	       current_q2, min_wire, max_wire, (max_wire - min_wire + 1.0) / (mcell_hwire - mcell_lwire + 1.0) );
+                            // /// DEBUGONLY:
+                            // const auto islice = get<cluster_node_t::slice_t>(cg[svtx].ptr);
+                            // log->debug("start: {} three {} two {} cnrm {} score {} {} {} {} {} {} ", islice->start()
+                            // /   islice->span(), 	       view_groups[3].size(), view_groups[2].size(), cannot_remove.size(),
+                            // 	       current_q1, imeasure->planeid().layer(),
+                            // 	       current_q2, min_wire, max_wire, (max_wire - min_wire + 1.0) / (mcell_hwire -
+                            // mcell_lwire + 1.0) );
 
                             if ((max_wire - min_wire + 1.0) / (mcell_hwire - mcell_lwire + 1.0) >= m_deghost_th &&
                                 current_q2 > current_q1 * m_deghost_th) {
@@ -399,7 +398,7 @@ void InSliceDeghosting::local_deghosting1(const cluster_graph_t& cg, vertex_tags
                 }
             }
 
-	    if (count == 2 && cannot_remove.find(*it) == cannot_remove.end()) tag(blob_tags, *it, TO_BE_REMOVED, true);
+            if (count == 2 && cannot_remove.find(*it) == cannot_remove.end()) tag(blob_tags, *it, TO_BE_REMOVED, true);
         }
 
     }  // loop over slice
@@ -420,8 +419,9 @@ void InSliceDeghosting::local_deghosting(const cluster_graph_t& cg, vertex_tags_
         std::unordered_map<size_t, std::unordered_set<cluster_vertex_t> > view_groups;
         // std::unordered_map<RayGrid::grid_index_t, size_t> grid_occupancy;
         std::unordered_map<cluster_vertex_t, std::unordered_set<WireCell::WirePlaneLayer_t> > blob_planes;
-	std::unordered_map<cluster_vertex_t, std::unordered_map<WireCell::WirePlaneLayer_t, std::set<int> > > blob_channels;
-	
+        std::unordered_map<cluster_vertex_t, std::unordered_map<WireCell::WirePlaneLayer_t, std::set<int> > >
+            blob_channels;
+
         for (auto bedge : GraphTools::mir(boost::out_edges(svtx, cg))) {
             /// XIN: bvtx -> RayGrid::Strip::grid_range_t, {2views}, {3views}
             /// CHECK: per slice map {RayGrid::grid_index_t -> float}
@@ -462,8 +462,8 @@ void InSliceDeghosting::local_deghosting(const cluster_graph_t& cg, vertex_tags_
             /// EXAMPLE: b -> connected channel idents
             // how do we know which plane is channel is?
             blob_channels[bvtx] = connected_channels(cg, bvtx);
-	    auto& cidents = blob_channels[bvtx];
-	    
+            auto& cidents = blob_channels[bvtx];
+
             if (meas.size() == 3 && tag(blob_tags, bvtx, GOOD)) {  // all three plane live ...
                 for (auto it = cidents.begin(); it != cidents.end(); it++) {
                     // int ich = it->first;
@@ -479,10 +479,10 @@ void InSliceDeghosting::local_deghosting(const cluster_graph_t& cg, vertex_tags_
 
         std::unordered_set<cluster_vertex_t> cannot_remove;
         for (auto it = view_groups[2].begin(); it != view_groups[2].end(); it++) {
-	  auto& two_view_chs = blob_channels[*it];//connected_channels(cg, *it);
+            auto& two_view_chs = blob_channels[*it];  // connected_channels(cg, *it);
             int count = 0;
             for (auto it1 = view_groups[3].begin(); it1 != view_groups[3].end(); it1++) {
-	      auto& three_view_chs = blob_channels[*it1];//connected_channels(cg, *it1);
+                auto& three_view_chs = blob_channels[*it1];  // connected_channels(cg, *it1);
                 if (tag(blob_tags, *it1, GOOD)) {
                     if (adjacent(two_view_chs, three_view_chs)) count++;
                     if (count == 2) {
@@ -491,44 +491,43 @@ void InSliceDeghosting::local_deghosting(const cluster_graph_t& cg, vertex_tags_
                 }
             }
         }
-	
+
         // loop over two-good wire cells
         for (auto it = view_groups[2].begin(); it != view_groups[2].end(); it++) {
-	  if (!tag(blob_tags, *it, POTENTIAL_GOOD)) {
-	    auto& two_view_chs = blob_channels[*it];//connected_channels(cg, *it);
-	    std::unordered_map<WireCell::WirePlaneLayer_t, bool> flag_plane;
-	    auto& live_planes = blob_planes[*it];
-	    bool save_flag = false;
-	    for (auto it1 = two_view_chs.begin(); it1 != two_view_chs.end(); it1++) {
-	      if (live_planes.find(it1->first) != live_planes.end()) {
-		flag_plane[it1->first] = true;
-	      }
-	      else {
-		flag_plane[it1->first] = false;
-	      }
-	      if (flag_plane[it1->first] && !save_flag) {
-		int nwire = 0;
-		int nwire_common = 0;
-		auto& used_chs = used_plane_channels[it1->first];
-		for (auto it2 = it1->second.begin(); it2 != it1->second.end(); it2++) {
-		  nwire++;
-		  if (used_chs.find(*it2) != used_chs.end()) nwire_common++;
-		}
-		if (nwire_common != nwire) save_flag = true;
-	      }
-	    }
-	    
-	    if ((!save_flag) && (cannot_remove.find(*it) == cannot_remove.end())) {
-	      tag(blob_tags, *it, TO_BE_REMOVED, true);
-	    }
-	  }
+            if (!tag(blob_tags, *it, POTENTIAL_GOOD)) {
+                auto& two_view_chs = blob_channels[*it];  // connected_channels(cg, *it);
+                std::unordered_map<WireCell::WirePlaneLayer_t, bool> flag_plane;
+                auto& live_planes = blob_planes[*it];
+                bool save_flag = false;
+                for (auto it1 = two_view_chs.begin(); it1 != two_view_chs.end(); it1++) {
+                    if (live_planes.find(it1->first) != live_planes.end()) {
+                        flag_plane[it1->first] = true;
+                    }
+                    else {
+                        flag_plane[it1->first] = false;
+                    }
+                    if (flag_plane[it1->first] && !save_flag) {
+                        int nwire = 0;
+                        int nwire_common = 0;
+                        auto& used_chs = used_plane_channels[it1->first];
+                        for (auto it2 = it1->second.begin(); it2 != it1->second.end(); it2++) {
+                            nwire++;
+                            if (used_chs.find(*it2) != used_chs.end()) nwire_common++;
+                        }
+                        if (nwire_common != nwire) save_flag = true;
+                    }
+                }
+
+                if ((!save_flag) && (cannot_remove.find(*it) == cannot_remove.end())) {
+                    tag(blob_tags, *it, TO_BE_REMOVED, true);
+                }
+            }
         }
 
-	
         std::unordered_map<int, float> wire_score_map;
         for (auto it = view_groups[2].begin(); it != view_groups[2].end(); it++) {
             if (tag(blob_tags, *it, TO_BE_REMOVED)) continue;
-            auto& two_view_chs = blob_channels[*it];//connected_channels(cg, *it);
+            auto& two_view_chs = blob_channels[*it];  // connected_channels(cg, *it);
             std::unordered_map<WireCell::WirePlaneLayer_t, bool> flag_plane;
             auto& live_planes = blob_planes[*it];
             // std::unordered_map<WireCell::WirePlaneLayer_t, float> score_plane;
@@ -555,7 +554,7 @@ void InSliceDeghosting::local_deghosting(const cluster_graph_t& cg, vertex_tags_
 
         for (auto it = view_groups[2].begin(); it != view_groups[2].end(); it++) {
             if (tag(blob_tags, *it, TO_BE_REMOVED)) continue;
-            auto& two_view_chs = blob_channels[*it];//connected_channels(cg, *it);
+            auto& two_view_chs = blob_channels[*it];  // connected_channels(cg, *it);
             std::unordered_map<WireCell::WirePlaneLayer_t, bool> flag_plane;
             auto& live_planes = blob_planes[*it];
             std::unordered_map<WireCell::WirePlaneLayer_t, float> score_plane;
@@ -608,8 +607,6 @@ void InSliceDeghosting::local_deghosting(const cluster_graph_t& cg, vertex_tags_
         //     ++i;
         // }
         // }
-
-	
     }
     //    log->debug("count_keeper {}", count_keeper);
 }
@@ -632,64 +629,28 @@ bool InSliceDeghosting::operator()(const input_pointer& in, output_pointer& out)
     WireCell::cluster_graph_t cg_new_bb;
 
     if (m_config_round == 1) {
-        /// 1, Ident good/bad blob groups. in: ICluster out: blob_quality_tags {blob_desc -> quality_tag} TODO: map or
-        /// multi-map?
-        /// FIXME: place holder. Using simple thresholing.
+        /// 1, Ident good/bad blob groups. in: ICluster out: blob_quality_tags {blob_desc -> quality_tag}
         log->debug(tk(fmt::format("start blob tagging")));
         blob_quality_ident(in_graph, blob_tags);
-
         /// DEBUGONLY:
-        {
-            std::unordered_map<int, size_t> counters;
-            for (const auto& [vtx, pack] : blob_tags) {
-                for (int pos = static_cast<int>(GOOD); pos != static_cast<int>(TO_BE_REMOVED + 1); ++pos) {
-                    if (tag(blob_tags, vtx, pos)) counters[pos] += 1;
-                }
-            }
-            for (const auto& [tag, counter] : counters) {
-                log->debug("{} : {}", tag, counter);
-            }
-        }
+        log->debug("conf 1 step 1 {}", dump_blob_tags(blob_tags));
 
         /// 2, Local (in-slice) de-ghosting. in: ICluster + blob_quality_tags out: updated blob_quality_tags (remove or
         /// not)
-        // /// FIXME: place holder. Only keep the largest blob in slice
         log->debug(tk(fmt::format("start local (in-slice) de-ghosting")));
         local_deghosting(in_graph, blob_tags);
         /// DEBUGONLY:
-        {
-            std::unordered_map<int, size_t> counters;
-            for (const auto& [vtx, pack] : blob_tags) {
-                for (int pos = static_cast<int>(GOOD); pos != static_cast<int>(TO_BE_REMOVED + 1); ++pos) {
-                    if (tag(blob_tags, vtx, pos)) counters[pos] += 1;
-                }
-            }
-            for (const auto& [tag, counter] : counters) {
-                log->debug("{} : {}", tag, counter);
-            }
-        }
+        log->debug("conf 1 step 2 {}", dump_blob_tags(blob_tags));
 
         /// 3, delete some blobs. in: ICluster + blob_quality_tags out: filtered ICluster
-        /// FIXME: need checks.
         log->debug(tk(fmt::format("start delete some blobs")));
         using VFiltered =
             typename boost::filtered_graph<cluster_graph_t, boost::keep_all, std::function<bool(cluster_vertex_t)> >;
         VFiltered fg_rm_bad_blobs(in_graph, {}, [&](auto vtx) { return !tag(blob_tags, vtx, TO_BE_REMOVED); });
         /// DEBUGONLY:
-        {
-            std::unordered_map<int, size_t> counters;
-            for (const auto& [vtx, pack] : blob_tags) {
-                for (int pos = static_cast<int>(GOOD); pos != static_cast<int>(TO_BE_REMOVED + 1); ++pos) {
-                    if (tag(blob_tags, vtx, pos)) counters[pos] += 1;
-                }
-            }
-            for (const auto& [tag, counter] : counters) {
-                log->debug("{} : {}", tag, counter);
-            }
-        }
+        log->debug("conf 1 step 3 {}", dump_blob_tags(blob_tags));
 
         /// 4, in-group clustering. in: ICluster + blob_quality_tags out: filtered ICluster
-        /// FIXME: place holder.
         /// TODO: do we need to call copy_graph?
         log->debug(tk(fmt::format("start per group clustering")));
         using desc_map_t = std::unordered_map<cluster_vertex_t, cluster_vertex_t>;
@@ -721,7 +682,7 @@ bool InSliceDeghosting::operator()(const input_pointer& in, output_pointer& out)
         for (const auto [o, c1] : o2c1) {
             const auto c2 = o2c2[c1];
             c2o[c2] = o;
-        } 
+        }
         log->debug("cg_new_bb: {}", dumps(cg_new_bb));
         /// make new b-b edges within groups
         /// four separated groups, good&bad, good&good, bad&bad  (two of these might not be useful ...)
@@ -747,23 +708,13 @@ bool InSliceDeghosting::operator()(const input_pointer& in, output_pointer& out)
 
         /// condense multi-map to map
         std::unordered_map<cluster_vertex_t, int> groups;
-        for (int groupid = 0; groupid < filters.size(); ++groupid) {
+        for (size_t groupid = 0; groupid < filters.size(); ++groupid) {
             for (const auto& vtx : oftype(cg_new_bb, 'b')) {
                 if (filters[groupid](c2o[vtx])) groups.insert({vtx, groupid});
             }
         }
         /// DEBUGONLY:
-        {
-            std::unordered_map<int, size_t> counters;
-            for (const auto& [vtx, pack] : blob_tags) {
-                for (int pos = static_cast<int>(GOOD); pos != static_cast<int>(TO_BE_REMOVED + 1); ++pos) {
-                    if (tag(blob_tags, vtx, pos)) counters[pos] += 1;
-                }
-            }
-            for (const auto& [tag, counter] : counters) {
-                log->debug("{} : {}", tag, counter);
-            }
-        }
+        log->debug("conf 1 step 4 {}", dump_blob_tags(blob_tags));
         /// DEBUGONLY:
         {
             std::unordered_map<int, int> group_sizes;
@@ -783,18 +734,8 @@ bool InSliceDeghosting::operator()(const input_pointer& in, output_pointer& out)
         // after charge solving ...
         blob_quality_ident(in_graph, blob_tags);
         /// DEBUGONLY:
-        {
-            std::unordered_map<int, size_t> counters;
-            for (const auto& [vtx, pack] : blob_tags) {
-                for (int pos = static_cast<int>(GOOD); pos != static_cast<int>(TO_BE_REMOVED + 1); ++pos) {
-                    if (tag(blob_tags, vtx, pos)) counters[pos] += 1;
-                }
-            }
-            for (const auto& [tag, counter] : counters) {
-                log->debug("{} : {}", tag, counter);
-            }
-        }
-	
+        log->debug("conf 2 {}", dump_blob_tags(blob_tags));
+
         // second round of local deghosting ...
         local_deghosting1(in_graph, blob_tags);
 
@@ -808,55 +749,9 @@ bool InSliceDeghosting::operator()(const input_pointer& in, output_pointer& out)
     else if (m_config_round == 3) {
         // after charge solving ...
         blob_quality_ident(in_graph, blob_tags);
-
-	
-	
         /// DEBUGONLY:
-        {
-            std::unordered_map<int, size_t> counters;
-            for (const auto& [vtx, pack] : blob_tags) {
-                for (int pos = static_cast<int>(GOOD); pos != static_cast<int>(TO_BE_REMOVED + 1); ++pos) {
-                    if (tag(blob_tags, vtx, pos)) counters[pos] += 1;
-                }
-            }
-            for (const auto& [tag, counter] : counters) {
-                log->debug("{} : {}", tag, counter);
-            }
-        }
+        log->debug("conf 3 {}", dump_blob_tags(blob_tags));
 
-	// for (const auto& svtx : GraphTools::mir(boost::vertices(in_graph))) {
-	//   if (in_graph[svtx].code() != 's') {
-        //     continue;
-	//   }
-	//   int count = 0;
-	//   float sum = 0;
-	//   int count1 = 0;
-	//   for (auto bedge : GraphTools::mir(boost::out_edges(svtx, in_graph))) {
-        //     auto bvtx = boost::target(bedge, in_graph);
-	//     const auto& node = in_graph[bvtx];
-	//     if (node.code() != 'b') {
-	//       continue;
-	//     }
-	//     const auto iblob = get<cluster_node_t::blob_t>(node.ptr);
-	//     //        double current_t = iblob->slice()->start();
-	//     double current_q = iblob->value();  // charge ...
-
-	//     count ++;
-	//     if (current_q > 300) count1 ++;
-	//     sum += current_q;
-	//   }
-
-
-	//   const auto islice = get<cluster_node_t::slice_t>(in_graph[svtx].ptr);
-	//   log->debug("Summed Charge: {} {} {} {}", islice->start() / islice->span(),
-	// 	     sum, count1, count);
-	// }
-	  
-	  
-    
-
-	
-	
         // at some points remove the Non-potential good ... (last round ...)
         using VFiltered =
             typename boost::filtered_graph<cluster_graph_t, boost::keep_all, std::function<bool(cluster_vertex_t)> >;

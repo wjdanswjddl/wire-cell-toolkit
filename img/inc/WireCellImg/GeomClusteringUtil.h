@@ -26,8 +26,8 @@ namespace WireCell {
 
         /// TODO: rm this soon
         // ICluster based one
-        void geom_clustering(cluster_graph_t& cg, std::string policy,
-                             gc_filter_t filter = [](const cluster_vertex_t&) { return true; });
+        // void geom_clustering(cluster_graph_t& cg, std::string policy,
+        //                      gc_filter_t filter = [](const cluster_vertex_t&) { return true; });
         // ICluster based, grouped clusters
         void grouped_geom_clustering(cluster_graph_t& cg, std::string policy,
                              const std::unordered_map<cluster_vertex_t, int> groups = {});
