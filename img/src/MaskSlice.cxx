@@ -149,17 +149,17 @@ bool Img::MaskSliceBase::thresholding(const WireCell::ITrace::ChargeSequence& wi
     const int sbin_prev = sbin - 1;
     double q_next = 0;
     double q_prev = 0;
-    if (sbin_next * 4 > 0 && sbin_next * 4 < nq) {
+    if (sbin_next * tick_span > 0 && sbin_next * tick_span < nq) {
         int count = 0;
-        for (int i = sbin_next * 4; i < (sbin_next + 1) * 4 && i < nq; ++i) {
+        for (int i = sbin_next * tick_span; i < (sbin_next + 1) * tick_span && i < nq; ++i) {
             q_next += wiener_charge[i];
             ++count;
         }
         q_next /= count;
     }
-    if (sbin_prev * 4 > 0 && sbin_prev * 4 < nq) {
+    if (sbin_prev * tick_span > 0 && sbin_prev * tick_span < nq) {
         int count = 0;
-        for (int i = sbin_prev * 4; i < (sbin_prev + 1) * 4 && i < nq; ++i) {
+        for (int i = sbin_prev * tick_span; i < (sbin_prev + 1) * tick_span && i < nq; ++i) {
             q_prev += wiener_charge[i];
             ++count;
         }
