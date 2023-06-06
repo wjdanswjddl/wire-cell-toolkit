@@ -3,6 +3,7 @@
 #include "WireCellImg/CSGraph.h"
 #include "WireCellImg/GeomClusteringUtil.h"
 #include "WireCellAux/SimpleCluster.h"
+#include "WireCellAux/ClusterHelpers.h"
 #include "WireCellUtil/GraphTools.h"
 
 #include "WireCellUtil/NamedFactory.h"
@@ -55,27 +56,6 @@ void Img::InSliceDeghosting::configure(const WireCell::Configuration& cfg)
 }
 
 namespace {
-    void dump_cg(const cluster_graph_t& cg, Log::logptr_t& log)
-    {
-        size_t mcount{0}, bcount{0};
-        CS::value_t bval;
-        for (const auto& vtx : GraphTools::mir(boost::vertices(cg))) {
-            const auto& node = cg[vtx];
-            if (node.code() == 'b') {
-                const auto iblob = get<cluster_node_t::blob_t>(node.ptr);
-                bval += CS::value_t(iblob->value(), iblob->uncertainty());
-                ++bcount;
-                continue;
-            }
-            if (node.code() == 'm') {
-                const auto imeas = get<cluster_node_t::meas_t>(node.ptr);
-                ++mcount;
-            }
-        }
-        log->debug("cluster graph: vertices={} edges={} #blob={} bval={} #meas={}", boost::num_vertices(cg),
-                   boost::num_edges(cg), bcount, bval, mcount);
-    }
-
     template <class Map, class Key, class Val>
     bool exist(const Map& m, const Key& k, const Val& t)
     {
@@ -644,7 +624,7 @@ bool InSliceDeghosting::operator()(const input_pointer& in, output_pointer& out)
     TimeKeeper tk(fmt::format("InSliceDeghosting"));
 
     const auto in_graph = in->graph();
-    dump_cg(in_graph, log);
+    log->debug("in_graph: {}", dumps(in_graph));
 
     // blob desc -> quality tag
     vertex_tags_t blob_tags;
@@ -717,8 +697,7 @@ bool InSliceDeghosting::operator()(const input_pointer& in, output_pointer& out)
         desc_map_t o2c1;
         WireCell::cluster_graph_t cg_old_bb;
         boost::copy_graph(fg_rm_bad_blobs, cg_old_bb, boost::orig_to_copy(pm_desc_map_t(o2c1)));
-        log->debug("cg_old_bb:");
-        dump_cg(cg_old_bb, log);
+        log->debug("cg_old_bb: {}", dumps(cg_old_bb));
         /// rm old b-b edges
         using EFiltered =
             typename boost::filtered_graph<cluster_graph_t, std::function<bool(cluster_edge_t)>, boost::keep_all>;
@@ -743,8 +722,7 @@ bool InSliceDeghosting::operator()(const input_pointer& in, output_pointer& out)
             const auto c2 = o2c2[c1];
             c2o[c2] = o;
         } 
-        log->debug("cg_new_bb:");
-        dump_cg(cg_new_bb, log);
+        log->debug("cg_new_bb: {}", dumps(cg_new_bb));
         /// make new b-b edges within groups
         /// four separated groups, good&bad, good&good, bad&bad  (two of these might not be useful ...)
         std::vector<gc_filter_t> filters = {
@@ -799,8 +777,7 @@ bool InSliceDeghosting::operator()(const input_pointer& in, output_pointer& out)
 
         grouped_geom_clustering(cg_new_bb, m_clustering_policy, groups);
         log->debug(tk(fmt::format("end")));
-        log->debug("cg_new_bb:");
-        dump_cg(cg_new_bb, log);
+        log->debug("cg_new_bb: {}", dumps(cg_new_bb));
     }
     else if (m_config_round == 2) {
         // after charge solving ...
@@ -826,9 +803,7 @@ bool InSliceDeghosting::operator()(const input_pointer& in, output_pointer& out)
         VFiltered fg_rm_bad_blobs(in_graph, {}, [&](auto vtx) { return !tag(blob_tags, vtx, TO_BE_REMOVED); });
         // do we have to copy this every time ???
         boost::copy_graph(fg_rm_bad_blobs, cg_new_bb);
-
-	log->debug("cg_2nd_new_bb:");
-        dump_cg(cg_new_bb, log);
+        log->debug("cg_new_bb 2nd: {}", dumps(cg_new_bb));
     }
     else if (m_config_round == 3) {
         // after charge solving ...
@@ -891,18 +866,14 @@ bool InSliceDeghosting::operator()(const input_pointer& in, output_pointer& out)
         });
         // do we have to copy this every time ???
         boost::copy_graph(fg_rm_bad_blobs, cg_new_bb);
-
-	log->debug("cg_3rd_new_bb:");
-        dump_cg(cg_new_bb, log);
+        log->debug("cg_new_bb 3rd: {}", dumps(cg_new_bb));
     }
 
     /// output
     auto& out_graph = cg_new_bb;
-    // debug info
-    log->debug("in_graph:");
-    dump_cg(in_graph, log);
-    log->debug("out_graph:");
-    dump_cg(out_graph, log);
+    /// TODO: keep this?
+    log->debug("in_graph: {}", dumps(in_graph));
+    log->debug("out_graph: {}", dumps(out_graph));
 
     out = std::make_shared<Aux::SimpleCluster>(out_graph, in->ident());
     if (m_dryrun) {

@@ -4,6 +4,7 @@
 #include "WireCellImg/Projection2D.h"
 #include "WireCellAux/ClusterShadow.h"
 #include "WireCellAux/SimpleCluster.h"
+#include "WireCellAux/ClusterHelpers.h"
 #include "WireCellUtil/GraphTools.h"
 
 #include "WireCellUtil/NamedFactory.h"
@@ -77,28 +78,6 @@ void Img::ProjectionDeghosting::configure(const WireCell::Configuration& cfg)
 }
 
 namespace {
-
-    void dump_cg(const cluster_graph_t& cg, Log::logptr_t& log)
-    {
-        size_t mcount{0}, bcount{0};
-        CS::value_t bval;
-        for (const auto& vtx : GraphTools::mir(boost::vertices(cg))) {
-            const auto& node = cg[vtx];
-            if (node.code() == 'b') {
-                const auto iblob = get<cluster_node_t::blob_t>(node.ptr);
-                bval += CS::value_t(iblob->value(), iblob->uncertainty());
-                ++bcount;
-                continue;
-            }
-            if (node.code() == 'm') {
-                const auto imeas = get<cluster_node_t::meas_t>(node.ptr);
-                ++mcount;
-            }
-        }
-        log->debug("cluster graph: vertices={} edges={} #blob={} bval={} #meas={}", boost::num_vertices(cg),
-                   boost::num_edges(cg), bcount, bval, mcount);
-    }
-
     // struct pair_hash
     // {
     //     template <class T1, class T2>
@@ -151,9 +130,6 @@ namespace {
             }
         }
 
-        std::cout << "nblobs: " << nblobs << std::endl;
-        std::cout << "boost::num_vertices(cg_out): " << boost::num_vertices(cg_out) << std::endl;
-
         for (auto edge : GraphTools::mir(boost::edges(cg))) {
             auto old_tail = boost::source(edge, cg);
             auto old_head = boost::target(edge, cg);
@@ -168,7 +144,7 @@ namespace {
             }
             boost::add_edge(old_tit->second, old_hit->second, cg_out);
         }
-        std::cout << "boost::num_vertices(cg_out): " << boost::num_vertices(cg_out) << std::endl;
+        // std::cout << "boost::num_vertices(cg_out): " << boost::num_vertices(cg_out) << std::endl;
         return cg_out;
     }
 }  // namespace
@@ -182,15 +158,13 @@ bool Img::ProjectionDeghosting::operator()(const input_pointer& in, output_point
     }
 
     const auto in_graph = in->graph();
-    dump_cg(in_graph, log);
+    log->debug("in_graph: {}", dumps(in_graph));
     // blob shadow ... vertex = blob, edge --> wire/channel, plane
     BlobShadow::graph_t bsgraph = BlobShadow::shadow(in_graph, 'w');  // or 'c'
 
     // cluster shadow map, blob to cluster map ???
     ClusterShadow::blob_cluster_map_t clusters;
     auto cs_graph = ClusterShadow::shadow(in_graph, bsgraph, clusters);
-    // is this right ??? blob size ...
-    log->debug("clusters.size(): {} ", clusters.size());
 
     // make a cluster -> blob map
     std::unordered_map<ClusterShadow::vdesc_t, std::set<cluster_vertex_t>> c2b;
@@ -227,7 +201,6 @@ bool Img::ProjectionDeghosting::operator()(const input_pointer& in, output_point
     // auto nclust =
     boost::connected_components(cs_graph, boost::make_assoc_property_map(cluster2id));
 
-    
     // store the three maps in terms of group number?
     std::unordered_map<WireCell::WirePlaneLayer_t,
                        std::unordered_map<ClusterShadow::vdesc_t, std::vector<ClusterShadow::vdesc_t>>>
@@ -288,7 +261,8 @@ bool Img::ProjectionDeghosting::operator()(const input_pointer& in, output_point
 
                     Projection2D::Projection2D& proj2D_clust3D = proj_clust3D.m_layer_proj[layer_cluster];
 
-		    int coverage = Projection2D::judge_coverage(proj2D_clust3D, proj2D_cluster,   m_uncer_cut);  // ref is eixsting, tar is new clust ...
+                    int coverage = Projection2D::judge_coverage(proj2D_clust3D, proj2D_cluster,
+                                                                m_uncer_cut);  // ref is eixsting, tar is new clust ...
                     // if (coverage == 1){ // tar is part of ref
                     if (coverage == Projection2D::REF_COVERS_TAR) {
                         flag_save = false;
@@ -478,88 +452,6 @@ bool Img::ProjectionDeghosting::operator()(const input_pointer& in, output_point
         }
     }
 
-    /*
-   for (const auto& cs_edge : GraphTools::mir(boost::edges(cs_graph))) {
-       counters["cs_edges"] += 1;
-       WireCell::WirePlaneLayer_t layer = cs_graph[cs_edge].wpid.layer();
-       ClusterShadow::vdesc_t tail = boost::source(cs_edge, cs_graph);
-       ClusterShadow::vdesc_t head = boost::target(cs_edge, cs_graph);
-       if (tail == head) {
-           continue;
-       }
-       // // only compare once
-       // auto &compared = layer2compared[layer];
-       // // can head-tail switch?
-       // if (compared.find({tail, head}) != compared.end() || compared.find({head, tail}) != compared.end()) {
-       //     continue;
-       // }
-       // compared.insert({tail, head});
-       // log->debug("layer: {}, compared.size(): {}, tail: {}, head: {}", layer, compared.size(), tail, head);
-       auto b_tail = c2b[tail];
-       auto b_head = c2b[head];
-       log->debug("layer: {}, tail: {}, head: {}", layer, tail, head);
-
-       Projection2D::LayerProjection2DMap& proj_tail =
-           get_projection(id2lproj, tail, in_graph, b_tail, m_nchan, m_nslice);
-       Projection2D::LayerProjection2DMap& proj_head =
-           get_projection(id2lproj, head, in_graph, b_head, m_nchan, m_nslice);
-       log->debug("proj_tail.m_layer_proj.size(): {}", proj_tail.m_layer_proj.size());
-       log->debug("proj_head.m_layer_proj.size(): {}", proj_head.m_layer_proj.size());
-       Projection2D::Projection2D& ref_proj = proj_tail.m_layer_proj[layer];
-       Projection2D::Projection2D& tar_proj = proj_head.m_layer_proj[layer];
-
-       int coverage = Projection2D::judge_coverage(ref_proj, tar_proj);
-       int coverage_alt = Projection2D::judge_coverage_alt(ref_proj, tar_proj);
-       log->debug("coverage: {} alt: {}", coverage, coverage_alt);
-
-       // DEBUGONLY
-       //        coverage = coverage_alt;
-
-       // DEBUGONLY
-       // std::stringstream ss;
-       // ss << tail << " {";
-       // for (auto& b : b_tail) {
-       //     auto bptr = std::get<cluster_node_t::blob_t>(in_graph[b].ptr);
-       //     ss << bptr->ident() << " ";
-       // }
-       // ss << "} " << layer << "-> ";
-       // ss << head << " {";
-       // for (auto& b : b_head) {
-       //     auto bptr = std::get<cluster_node_t::blob_t>(in_graph[b].ptr);
-       //     ss << bptr->ident() << " ";
-       // }
-       // ss << "} cov: " << coverage << std::endl;
-       // fout << ss.str();
-       // std::cout << ss.str();
-
-       // DEBUGONLY
-       // if (head == 7 || head == 9) {
-       //     for (auto& b : b_head) {
-       //         tagged_bs.insert(b);
-       //     }
-       //     for (auto& b : b_tail) {
-       //         tagged_bs.insert(b);
-       //     }
-       //     break;
-       // } else {
-       //     continue;
-       // }
-
-       // tail contains head, remove blobs in head
-       if (coverage == 1) {
-           for (auto& b : b_head) {
-               tagged_bs.insert(b);
-           }
-       }
-       // vice versa
-       if (coverage == -1) {
-           for (auto& b : b_tail) {
-               tagged_bs.insert(b);
-           }
-       }
-   }
-    */
-
     //    fout.close();
     // for (auto c : counters) {
     //    log->debug("{} : {} ", c.first, c.second);
@@ -570,10 +462,8 @@ bool Img::ProjectionDeghosting::operator()(const input_pointer& in, output_point
 
     // debug info
     log->debug("tagged_bs.size(): {}", tagged_bs.size());
-    log->debug("in_graph:");
-    dump_cg(in_graph, log);
-    log->debug("out_graph:");
-    dump_cg(out_graph, log);
+    log->debug("in_graph: {}", dumps(in_graph));
+    log->debug("out_graph: {}", dumps(out_graph));
 
     out = std::make_shared<Aux::SimpleCluster>(out_graph, in->ident());
     if (m_dryrun) {
