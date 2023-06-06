@@ -161,65 +161,67 @@ LayerProjection2DMap WireCell::Img::Projection2D::get_projection(const WireCell:
 
     // assumes one blob linked to one slice
     // use b-w-c to find all channels linked to the blob
-    std::unordered_map<slice_t, std::vector<cluster_vertex_t> > map_slice_vertices;
-    for (const auto& blob_desc : group) {
-        const auto& node = cg[blob_desc];
+    std::unordered_map<slice_t, std::vector<cluster_vertex_t> > map_s2vb;
+    std::unordered_map<cluster_vertex_t, std::vector<cluster_vertex_t> > map_b2c;
+    for (const auto& bdesc : group) {
+        const auto& node = cg[bdesc];
         if (node.code() == 'b') {
             number_blobs++;
-            const auto slice_descs = neighbors_oftype<slice_t>(cg, blob_desc);
-            if (slice_descs.size() != 1) {
-                THROW(ValueError() << errmsg{"slice_descs.size()!=1"});
+            for (auto edge : boost::make_iterator_range(boost::out_edges(bdesc, cg))) {
+                cluster_vertex_t neigh = boost::target(edge, cg);
+                /// ASSUMPTION: only 1 b-s for each b
+                if (cg[neigh].code() == 's') {
+                    auto& slice = std::get<slice_t>(cg[neigh].ptr);
+                    map_s2vb[slice].push_back(bdesc);
+                }
+                /// ASSUMPTION: only 1 w-c for each w
+                if (cg[neigh].code() == 'w') {
+                    for (const auto& wedge : boost::make_iterator_range(boost::out_edges(neigh, cg))) {
+                        cluster_vertex_t cdesc = boost::target(wedge, cg);
+                        if (cg[cdesc].code() == 'c') {
+                            map_b2c[bdesc].push_back(cdesc);
+                            break;
+                        }
+                    }
+                }
             }
-            auto& slice = std::get<slice_t>(cg[slice_descs.front()].ptr);
-            map_slice_vertices[slice].push_back(blob_desc);
         }
     }
 
-    for (auto it = map_slice_vertices.begin(); it != map_slice_vertices.end(); it++) {
-        auto& slice = it->first;
-        int start = slice->start() / slice->span();  // int(slice->start() / (500 * units::nanosecond));
-        //      filled_slices.insert(start);
+    for (const auto& [slice, bdescs] : map_s2vb) {
+        int start = slice->start() / slice->span();
         auto activity = slice->activity();
 
-        for (auto it1 = it->second.begin(); it1 != it->second.end(); it1++) {
+        for (const auto& bdesc : bdescs) {
             std::unordered_map<WirePlaneLayer_t, double> layer_charge;
             // initialization ...
             layer_charge[kUlayer] = 0;
             layer_charge[kVlayer] = 0;
             layer_charge[kWlayer] = 0;
 
-            const auto wire_descs = neighbors_oftype<wire_t>(cg, *it1);
-            for (auto& wire_desc : wire_descs) {
-                const auto chan_descs = neighbors_oftype<channel_t>(cg, wire_desc);
-                for (auto& chan_desc : chan_descs) {
-                    auto& chan = std::get<channel_t>(cg[chan_desc].ptr);
-                    WirePlaneLayer_t layer = chan->planeid().layer();
-                    int index = chan->ident();
-                    auto charge = activity[chan].value();
-                    auto unc = activity[chan].uncertainty();
-                    // auto charge = val;
-                    // TODO: make this configurable and robust
-
-                    if (unc > uncer_cut) {
-                        charge = dead_default_charge;
-                    }
-                    else {
-                        // TODO: double check this
-                        layer_charge[layer] += charge;
-                        layer_nslices[layer].insert(start);
-                    }
-
-                    // if (charge < 10 && charge > -uncer_cut) std::cout << layer << " " << index << " " << start << " "
-                    // << charge << " " << unc << std::endl;
-                    // if filled, skip
-                    if (filled.find({index, start}) != filled.end()) {
-                        continue;
-                    }
-                    filled.insert({index, start});
-                    // TODO: validate this
-                    lcoeff[layer].push_back({index, start, charge});
-                } // loop over channel
-            } // loop over wire
+            for (const auto& chan_desc : map_b2c[bdesc]) {
+                const auto& chan = std::get<channel_t>(cg[chan_desc].ptr);
+                WirePlaneLayer_t layer = chan->planeid().layer();
+                int cident = chan->ident();
+                auto charge = activity[chan].value();
+                auto unc = activity[chan].uncertainty();
+                // TODO: make this configurable and robust
+                if (unc > uncer_cut) {
+                    charge = dead_default_charge;
+                }
+                else {
+                    // TODO: double check this
+                    layer_charge[layer] += charge;
+                    layer_nslices[layer].insert(start);
+                }
+                // if filled, skip
+                if (filled.find({cident, start}) != filled.end()) {
+                    continue;
+                }
+                filled.insert({cident, start});
+                // TODO: validate this
+                lcoeff[layer].push_back({cident, start, charge});
+            }  // loop over channel
 
             double sum_charge = 0;
             int sum_n = 0;
@@ -259,7 +261,7 @@ LayerProjection2DMap WireCell::Img::Projection2D::get_projection(const WireCell:
     ret.m_estimated_minimum_charge = estimated_minimum_charge;
     ret.m_estimated_total_charge = estimated_total_charge;
     ret.m_number_blobs = number_blobs;
-    ret.m_number_slices = map_slice_vertices.size();  // filled_slices.size();
+    ret.m_number_slices = map_s2vb.size();  // filled_slices.size();
     return ret;
 }
 
