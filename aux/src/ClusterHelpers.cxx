@@ -45,12 +45,11 @@ std::string WireCell::Aux::dumps(const cluster_graph_t& cgraph)
     for (const auto& [code, num] : ncounts) {
         ss << " " << code << ":" << num;
     }
-    ss << boost::num_edges(cgraph)
+    ss << " " << boost::num_edges(cgraph)
        << " edges of " << ecounts.size() << " types:";
     for (const auto& [code, num] : ecounts) {
         ss << " " << code << ":" << num;
     }
-    ss << "\n";
 
     return ss.str();
 }
