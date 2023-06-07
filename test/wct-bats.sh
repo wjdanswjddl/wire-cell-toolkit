@@ -12,17 +12,32 @@
 shopt -s extglob
 shopt -s nullglob
 
+# log <message>
+#
+# Echo message into BATS controlled logging.
 function log () {
     echo "$@"
 }
+
+# yell <message>
+#
+# Echo message to terminal, escaping BATS controlled logging.
 function yell () {
     echo "$@" 1>&3
 }
+
+# warn <message>
+#
+# Echo message to log and terminal
 function warn () {
     local msg="warning: $@"
     log "$msg"
     yell "$msg" 
 }
+
+# die <message>
+#
+# Echo message to log and terminal and exit
 function die () {
     local msg="FATAL: $@"
     log "$msg"
@@ -31,10 +46,9 @@ function die () {
 }
 
 
-# Assure a file is larger than given number of bytes
-#
-# usage:
 # file_larger_than <filename> <nbytes>
+#
+# Assert named file is larger than number of bytes.
 function file_larger_than () {
     local filename=$1 ; shift
     local minsize=$1; shift
@@ -47,12 +61,21 @@ function file_larger_than () {
 }
 
 
+# run_idempotently [options] -- <command line>
+#
 # Run command if any target file is missing or older than any source file.
 #
-# usage:
-#   run_idempotently [-v/--verbose] [-s/--source <srcfile>] [-t/--target <dstfile>] -- <command line>
-#
-# May give multiple -s or -t args
+# Options:
+# -v, --verbose
+#   Will "yell" about what it runs.
+# -s, --source <filename>
+#   Name a source file for idempotency checking (multiple okay).
+# -t, --target <filename>
+#   Name a target file for idempotency checking (multiple okay).
+# --
+#   Separate options from command line to run.
+# <command line>
+#   The command line to run.
 function run_idempotently () {
 
     declare -a src
@@ -105,15 +128,25 @@ function run_idempotently () {
     [[ "$status" -eq 0 ]]
 }
 
-# Return shell environment
+# dumpenv
+#
+# Echo shell environment settings.
 function dumpenv () {
     env | grep = | sort
     # warn $BATS_TEST_FILENAME
     # warn $BATS_TEST_SOURCE    
 }
 
-# Return JSON text of flat object formed from given list of key=value arguments.
-# Fixme: this currently requires "jq", perhaps add required functionality into wire-cell-python.
+# tojson
+#
+# A filter reading stdin for lines like:
+#
+#  key1=value1
+#  key2=value2
+#
+# and will emit JSON text for the equivalent JSON object.
+#
+# This requires the "jq" program.
 function tojson () {
     declare -a args=("-n")
     while read line
@@ -127,7 +160,11 @@ function tojson () {
     jq "${args[@]}"
 }
 
-# Return the top level source directory based on this file.
+# topdir
+#
+# Emit the top level source directory.
+#
+# Requries this file (wct-bats.sh) to be in its place in the source.
 function topdir () {
     local name=$BASH_SOURCE
     [[ -n "$name" ]]
@@ -140,12 +177,16 @@ function topdir () {
     echo "$name"
 }    
 
-# Return the build directory.
+# blddir
+#
+# Emit the biuld directory.
 function blddir () {
     echo "$(topdir)/build"
 }
 
-# Return the directory in source.
+# srcdir <pkg>
+# 
+# Emit the sub-package source directory of hte given pkg name.
 function srcdir () {
     local path="$1" ; shift
     local maybe="$(topdir)/$path"
@@ -155,24 +196,26 @@ function srcdir () {
 }
 
 
-# Save out a file to the build/output/ directory
+# saveout [options] <src> ...
 #
-# usage:
+# Save a file out of the test area to the build/tests/ area.
 #
-#  saveout [-c/--category <cat>] [-t/--target <tgt>] <src> [<src> ...]
+# options:
+# -c, --category <cat>
+#   Specify the category in which to save, default is "output".
 #
-# If the optional -c/--category <cat> is given, the file(s) are saved
-# out to a category specific sub directory.  Default category is
-# "output".
-# 
-# If the optional -t/--target <tgt> is given, only the first <src> is
-# saved copied to that target.  <tgt> must be relative.
+# -t, --target <tgt>
+#   Specify an explicit target file name to save.  Only the first
+#   filename is saved out and <tgt> must be a relative path.
 #
-# Files are copied to build/tests/<category>/<version>/<test-name>/
+# <src>
+#   The name of a file to save out.
 #
-# Where:
-# - <version> is the current wire-cell version
-# - <test-name> is from BATS_TEST_FILENAME without the extension.
+# Files are saved to build/tests/<category>/<version>/<test-name>/
+#
+#   <category> is as given or defaults to "output"
+#   <version> is the current wire-cell version
+#   <test-name> is from BATS_TEST_FILENAME without the extension.
 function saveout () {
 
     declare -a src=()
@@ -210,7 +253,9 @@ function saveout () {
     done
 }
 
-# Skip test if no input 
+# skip_if_no_input <path> [...]
+#
+# Skip a test if the given path does not exist in the input area.
 function skip_if_no_input () {
     local paths=( $@ )
     if [ -z "$paths" ] ; then
@@ -225,7 +270,9 @@ function skip_if_no_input () {
     done
 }
 
-# Return full paths given relative paths in input category
+# input_file <relpath> ...
+#
+# Emit full paths given relative paths in input category
 function input_file () {
     local input="$(blddir)/tests/input"
     if [ ! -d "$input" ] ; then
@@ -243,14 +290,18 @@ function input_file () {
     done
 }
 
-# Return the download cache directory
+# downloads
+# 
+# Emit the download cache directory
 function downloads () {
     local d="$(topdir)/downloads"
     mkdir -p "$d"
     echo $d
 }
 
-# Run the Wire-Cell build tool 
+# wcb [options]
+#
+# Run the Wire-Cell build tool in the top directory.
 function wcb () {
     local here="$(pwd)"
     cd "$(topdir)"
@@ -258,6 +309,12 @@ function wcb () {
     cd "$here"
 }
 
+# wcb_env_dump
+#
+# Emit all Waf environment variable settings.
+#
+# Note, these are not necessarily varibable settings of the shell
+# environment.
 function wcb_env_dump () {
     # Keep a cache if running in bats.
     if [ -n "${BATS_FILE_TMPDIR}" ] ; then
@@ -275,17 +332,13 @@ function wcb_env_dump () {
 }    
     
 
-# Return key=var lines from wcb' Waf build variables.
-# With no arguments, all are returned.
-# Otherwise keys may be specified and onlytheir key=var lines are returned.
+# wcb_env_vars [variable] ...
 #
-# usage:
-# echo "dump Waf vars:"
-# wcb_env_vars
+# Emit key=var lines consisting of Waf build environment variables.
 #
-# usage:
-# echo "wire cell version: "
-# wcb_env_vars WIRECELL_VERSION
+# With no arguments, emit all Waf variables, else emit only those named.
+#
+# User may run "./wcb dumpenv" to dump what is available.
 function wcb_env_vars () {
     # Keep a cache if running in bats.
     if [ -z "$1" ] ; then
@@ -298,30 +351,29 @@ function wcb_env_vars () {
 }
 
 
-# Return the value for one variable
-# usage:
-# wcb_env_value WIRECELL_VERSION
+# wcb_env_value <varname>
+#
+# Return the value for the Waf build environment variable named <varname>.
 wcb_env_value () {
     wcb_env_vars $1 | sed -e 's/[^=]*=//' | sed -e 's/^"//' -e 's/"$//'
 }
 
 
-# Forward arguments to wcb_env_vars and eval return.
+# wcb_env <varname> [...]
 #
-# usage:
-# wcb_env WIRECELL_VERSION
-# echo "we have version $WIRECELL_VERSION"
-#
-# usage:
-# wcb_env
-# echo "we build subpackages: $SUBDIRS"
+# Evaluate a Waf build environment variable to become a shell
+# environment variable.
 function wcb_env () {
     eval $(wcb_env_vars $@)
 }
 
 
-# Add package (util, gen, etc) test apps into PATH, etc.  define
-# <pkg>_src to be that sub-package source directory.
+# usepkg <pkgname> [...]
+#
+# Set shell environment variables related to one or more named packages.
+#
+# This adds test program locations into PATH and defines a <pkg>_src
+# variable pointing at the packages source directory.
 function usepkg () {
     for pkg in $@; do
         local pkg=$1 ; shift
@@ -330,15 +382,15 @@ function usepkg () {
         export ${pkg}_src
         PATH="$(blddir)/$pkg:$PATH"
     done
-#    echo $PATH
 }
 
-# Execute the Jsonnet compiler under Bats "run".
-# Tries wcsonnet then jsonnet.
-# The cfg dir is put into the search path and WIRECELL_PATH is ignored.
+# compile_jsonnet <input> <output>
 #
-# usage:
-# compile_jsonnet file.jsonnet file.json [-A/-V etc options, no -J/-P]
+# Compile input Jsonnet file to output JSON file.
+#
+# Execute the Jsonnet compiler under Bats "run".
+# Tries to use wcsonnet then falls back to jsonnet.
+# The cfg dir is put into the search path and WIRECELL_PATH is ignored.
 function compile_jsonnet () {
     local ifile="$1" ; shift
     local ofile="$1" ; shift
@@ -355,24 +407,6 @@ function compile_jsonnet () {
     fi
     declare -a cmd=( "$wcsonnet" -o "$ofile" -P "$cfgdir" "$@" "$ifile" )
 
-    # cmd=( $(wcb_env_value WCSONNET) )
-    # if [ -n "$cmd" -a -x "$cmd" ] ; then
-    #     ## switch to this when wcsonnet gets "-o"
-    #     # cmd="$cmd -P $cfgdir -o $ofile $@ $ifile"
-    #     ## until then
-    #     cmd+=(-o "$ofile" -P "$cfgdir" "$@" "$ifile")
-    # fi
-    # if [ -z "$cmd" ] ; then
-    #     cmd=$(wcb_env_value JSONNET)
-    #     if [ -z "cmd" ] ; then
-    #         cmd="jsonnet"       # hail mary
-    #     fi
-    #     if [ -n "$cmd" -a -x "$cmd" ] ; then        
-    #         cmd="$cmd -o $ofile -J $cfgdir $@ $ifile"
-    #     fi
-    # fi
-    # [[ -n "$cmd" ]]
-
     echo "${cmd[@]}"
     run "${cmd[@]}"
     echo "$output"
@@ -381,11 +415,10 @@ function compile_jsonnet () {
     WIRECELL_PATH="$orig_wcpath"
 }
 
-# Execute wire-cell CLI under Bats "run".
-# This wraps a normal wire-cell CLI in some boilerplate.
-#
-# usage:
-# wct [args]
+# wct [options]
+# 
+# Execute the "wire-cell" CLI under Bats "run", echo output and assert
+# non-zero return value.
 function wct () {
     cli=$(wcb_env_value WIRE_CELL)
     [[ -n "$cli" ]]
@@ -397,18 +430,23 @@ function wct () {
     [[ "$status" -eq 0 ]]    
 }
 
-# Emit version string
-function version() {
+# version
+#
+# Emit the wire-cell version string.
+function version () {
     cli=$(wcb_env_value WIRE_CELL)
     [[ -n "$cli" ]]
     [[ -x "$cli" ]]
     $cli --version
 }
 
-# Execute the "wirecell-pgraph dotify" program under Bats "run".
+# dotify_graph <input> <output>
 #
-# usage:
-# dotify_graph input.{json,jsonnet} output.{svg,png,pdf}
+# Output a GraphViz "dot" graph representation of the input.
+#
+# Input may be Jsonnet or JSON.
+#
+# Output may be PNG, PDF, DOT
 function dotify_graph () {
     local ifile=$1 ; shift
     [[ -n "$ifile" ]]
@@ -431,9 +469,9 @@ function dotify_graph () {
 
 
 
-# Return the Bats context name as divined by the Bats environment.
+# divine_context
 #
-# test, file or run
+# Emit the Bats context.  Will emit: "test", "file" or "run".
 function divine_context () {
     if [ -n "$BATS_TEST_NAME" ] ; then
         echo "test"
@@ -447,15 +485,19 @@ function divine_context () {
 }
 
 
-# Return a Bats temporary directory.
+# tmpdir
+#
+# Emit the Bats temporary directory in the context.
 #
 # With no arguments, this divines the correct one for the current Bats context.
 #
 # With a single argument it will return the temporary directory for that context.
 #
-# To not purge the tmp:  bats --no-tempdir-cleanup
+# Note, to not purge the tmp call:
 #
-# If WCTEST_TMPDIR is defined, it trumps all.
+#   bats --no-tempdir-cleanup
+#
+# Or, set WCTEST_TMPDIR.
 function tmpdir () {
     if [ -n "$WCTEST_TMPDIR" ] ; then
         echo "$WCTEST_TMPDIR"
@@ -476,13 +518,12 @@ function tmpdir () {
     echo $ret
 }
 
+# cd_tmp [context]
+#
 # Change to the context temporary directory.
 #
 # If a context is given, that temporary directory will be used
 # otherwise it will be divined.
-#
-# usage:
-# cd_tmp
 function cd_tmp () {
     ctx="$1"
     if [ -z "$ctx" ] ; then
@@ -493,16 +534,17 @@ function cd_tmp () {
     cd "$t"
 }
 
-# Resolve a file path relative to the path of the BATS test file.
+# relative_path <path>
 #
-# usage:
-# local mycfg=$(relative_path my-cfg-jsonnet)
+# Resolve a file path relative to the path of the BATS test file.
 function relative_path () {
     local want="$1"; shift
     [[ -n "$BATS_TEST_FILENAME" ]]
     realpath "$(dirname $BATS_TEST_FILENAME)/$want"
 }
 
+# resolve_pathlist <pathlist> ...
+#
 # Resolve multiple pathlists to a single list, removing any that do
 # not exist.  Consequitive duplicates are removed.
 #
@@ -524,6 +566,8 @@ function resolve_pathlist () {
 
 }
 
+# resolve_path <path> <pathlist> ...
+#
 # Resolve a file name in in or more path lists.
 # A path list may be a :-separated list
 #
@@ -546,14 +590,14 @@ function resolve_path () {
     done
 }
 
-
+# find_paths <path> <pathlist>
+#
 # Emit all matching paths.
 #
 # usage:
 # resolve_all emacs $PATH
 # /usr/bin/emacs
 # /usr/local/bin/emacso
-#
 function find_paths () {
     local want="$1" ; shift
 
@@ -570,8 +614,9 @@ function find_paths () {
 }
 
 
-
-# Return an absolute path of a relative path found in config areas.
+# config_path <path>
+#
+# Emit an absolute path of a relative path found in config areas.
 function config_path () {
     local path="$1" ; shift
     local maybe="$(topdir)/cfg/$path"
@@ -584,10 +629,9 @@ function config_path () {
     fi
 }
 
-# Emit the absolute path for a given path.
+# resolve_file <file>
 #
-# usage:
-# resolve_file file1.txt
+# Emit the absolute path for a given path.
 #
 # If absolute, emit as given.  If not found, exit.
 #
@@ -633,14 +677,17 @@ function resolve_file () {
 
 
 
+# category_version_paths [options]
+#
 # Emit all versions paths found for category.
 #
-# usage:
-# category_version_paths [-c/--category <cat>] [-d/--dirty]
+# options:
 #
-# Default category is "history".
-# 
-# Default matches only release versions, -d/--dirty will also match locally modified versions
+# -c, --category <cat>
+#   Set the category.  Default is "history".
+#
+# -d, --dirty
+#   If given, will match locally modified versions.
 #
 # Results are emitted in lexical order of version string.
 function find_category_version_paths () {
@@ -685,7 +732,9 @@ function find_category_version_paths () {
     done
 }
 
- # Same as category_version_paths but emit only version string.
+# find_category_version <path> ...
+#
+# Same as category_version_paths but emit only version string.
 function find_category_versions () {
     for one in $(category_version_paths $@)
     do
@@ -693,13 +742,20 @@ function find_category_versions () {
     done
 }
 
-# Emit the category path for the version
+# category_path [options] <path> ...
 #
-# usage:
-# category_path [-c/--category <cat>] [-v/--version <version>] path [path ...]
+# Resolve and emit path to a category path.
 #
-# If no category given, "history" is assumed.
-# If no version given, current version used.
+# options
+#
+# -c, --category <cat>
+#   Set the category, default is "history".
+#
+# -v, --version <version>
+#   Set the version, default uses current version.
+#
+# <path>
+#   A relative path to resolve.
 function category_path () {
     local cat="history"
     local ver=$(version)
@@ -726,23 +782,28 @@ function category_path () {
 }
     
 
-# Emit the versions for which there are known historical files.
+# historical_versions
 #
+# Emit the versions for which there are known historical files.
 function historical_versions () {
     local tdv=$(wcb_env_value TEST_DATA_VERSIONS)
     printf '%s\n' $tdv
 }
 
+# historical_files [options] <path> ...
+#
 # Emit full paths to the files for a relative path across known history
 #
-# usage:
-# historical_files [-v/--version <version>] [-l/--last <number>] <path> [<path> ...]
+# options:
 #
-# One or more -v/--version options can add versions to the list of historical versions.
+# -v, --version <version>
+#   Set the versions to consider.  Multiple -v options are allowed.
 #
-# A -l/--last number will return only the more recent versions (lexical sort)  
+# -l, --last <number>
+#   Set the oldest version to consider.
 #
-# A -c/--current will include the current software version
+# -c, --current
+#   Consider the version for the current software.
 function historical_files () {
     local versions=( $(historical_versions) )
     local last=""
@@ -768,13 +829,16 @@ function historical_files () {
     done
 }
 
+# skip_if_no_category [options] <category>
+#
 # Skip test if category is missing.
 #
-# usage:
-# skip_if_no_category [-v/version <version>] <category>
+# options:
+# -v, --version <version>
+#   Set the version of the category, default to current version.
 #
-# If no version given, use current version.
-# If not category given, use "history"
+# <category>
+#   Set the category.  Defaults to "history".
 function skip_if_no_category () {
     local ver=$(version)
     local cat="history"
@@ -792,15 +856,17 @@ function skip_if_no_category () {
 
     
 
+# download_file <url> [<tgt>]
+#
 # Download a file from a URL.
 #
-# usage:
-# download_file https://www.phy.bnl.gov/~hyu/wct-ci/gen/depos.tar.bz2
-#
-# or with optional target name
-# download_file https://www.phy.bnl.gov/~hyu/wct-ci/gen/depos.tar.bz2 my-depos.tar.bz2
-#
 # Return (echo) a path to the target file.  This will be a location in a cache.
+# 
+# <url>
+#   The URL to download.
+#
+# <tgt>
+#   An optional relative path to the file name the URL content should be saved.
 function download_file () {
     local url="$1"; shift
     local tgt="${1:-$(basename $url)}"
@@ -815,3 +881,26 @@ function download_file () {
     echo "$path"
 }
 
+
+
+function help_one () {
+    local func="$1" ; shift
+    cat "$0" | awk "/^# $func\>/{flag=1}/^function $func /{flag=0}flag" | sed -e 's/^ //g' -e 's/^#//g'
+}
+
+function help_all () {
+    for func in $(grep ^function "$0" | sed -n 's/^function \(\S*\) .*/\1/p'|sort)
+    do
+        help_one $func | head -1
+    done
+}
+
+if [[ "$(basename -- "$0")" == "wct-bats.sh" ]]; then
+    if [ -z "$1" ] ; then
+        help_all
+    else
+        for one in "$@" ; do
+            help_one $one
+        done
+    fi
+fi

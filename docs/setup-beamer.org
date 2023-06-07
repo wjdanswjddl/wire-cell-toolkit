@@ -3,7 +3,7 @@
 #+STARTUP: beamer
 #+options: ':t
 #+LaTeX_CLASS: beamer
-#+LATEX_CLASS_OPTIONS: [serif,professionalfont,colorlinks,aspectratio=169]
+#+LATEX_CLASS_OPTIONS: [colorlinks,aspectratio=169]
 #+latex_header: \usepackage{pdfpages}
 #+latex_header: \usepackage{xcolor}
 #+latex_header: \usepackage{graphicx}
@@ -13,9 +13,11 @@
 #+latex_header: \mode<beamer>{\usetheme{Boadilla}}
 #+latex_header: \setbeamertemplate{navigation symbols}{}
 #+latex_header: \setbeamerfont{alerted text}{series=\bfseries}
-
+#+latex_header: \setbeamercolor{alerted text}{fg=blue}
+#+latex_header: \usecolortheme{default}
+#+latex_header: \usefonttheme{serif}
+#+latex_header: \usefonttheme{professionalfonts}
 #+LaTeX_HEADER: \lstloadlanguages{[ISO]C++}
-
 #+LaTeX_HEADER: \definecolor{codegreen}{rgb}{0,0.6,0}
 #+LaTeX_HEADER: \definecolor{codegray}{rgb}{0.5,0.5,0.5}
 #+LaTeX_HEADER: \definecolor{codepurple}{rgb}{0.50,0,0.82}

@@ -26,51 +26,58 @@ Right?
 
 But, what does that mean?
 
-- Ad-hoc testing /vs/ a "testing system".
+- "Ad-hoc testing" /vs/ a "testing system".
 
 - Why (and how) should I use a "testing system"?
 
-* Ad-hoc testing                                                        :motivation:
+* Ad-hoc testing and its problems                                :motivation:
 
-We often invent our own /ad-hoc/ testing "systems" with these characteristics:
+We often invent our own /ad-hoc/ testing methods that look something like:
 
-- Develop expert ~main()~ programs with complex command line arguments or inputs.
-- Write simple or complicated shell scripts that only work on our computer.
-- Keep our tests "secret" and/or difficult for others to use (perhaps unintentionally).
-- Release buggy code and let our users be the testers.
-- Fix the bug of the moment, unknowingly add new bugs, delete our /ad-hoc/ tests.
+- Develop expert ~main()~ programs.
+  - May have complex command line arguments or inputs.
+  - Continually modify them as we develop the software. 
+- Write simple or complicated shell scripts.
+  - May work only on our own computer or account.
+- Do not expect others to use them.
+  - May have unwritten rules/assumptions.
+- May release untested and buggy code to be found by others.
+- Fix the bug, unknowingly add new bugs, re-add old bugs.
+  - May not keep our ad-hoc tests around, or they may no longer check for old bugs.
 
 * Why a testing "system"                                                :motivation:
 
 
 #+begin_center
-\Huge Enforce desired developer behavior
-
-\normalsize (and make that easy and enjoyable)
+\Huge Assure code is correct by making it easy to develop and evaluate its tests.
 #+end_center
 
 
-* Goals of a testing system                                             :motivation:
+* Requirements and goals for a testing system                    :motivation:
 
-We want a testing system that:
-- Does not require expert knowledge to run the tests.
-- Allows tests to be easily exercised by all developers and users.
-- Automate the running of test code during development and for releases.
-- Enables precise communication of issues found by users and between developers.
-- Helps us fix a bug exactly once (no regressions).
+- All tests must be easy to run by all users and developers.
+  - Expert knowledge is not required to run tests
+- Automates test running to enable frequent testing.
+  - Find and fix problems quickly.
+- Provides drivers for development and bug fixing.
+  - Help simplify development process while generating tests as side-effect.
+  - Fix a bug exactly once, test forever (no regressions).
 - Provides a common "language" in which we may discuss testing itself.
-- Allows tests to compare results between software versions.
-- Allows human inspection of test results that do not fit into a simple pass/fail paradigm.
-- Enables code refactoring while retaining expectations.
-- \textbf{Helps} developers do their thing.
+  - "Test ABC failed, please take a look".
+- Allow tests to compare results between software versions.
+  - Any change may be a regression or intentional, once change is found, categorizing is easy.
+- Allow rich test output (plots, data files, logs).
+  - Reduce human time to triage problems.
+- Allows tests to have sufficient code coverage to assure refactoring does no harm.
+
 
 * WCT Testing System Overview                                           :overview:
 
 We may provide testing code at different "scales" or "levels".  From low to high:
 
-- library :: checks that may throw \textbf{exceptions} in our libraries.
-- unit :: concise checks and assertions outside of our libraries. 
-- programs :: a full C++ ~main()~ or a script.
+- library :: checks that may throw *exceptions* in our libraries.
+- unit :: checks and assertions defined outside of our libraries. 
+- programs :: a full C++ ~main()~ or a script performing multiple checks.
 - groups :: a set of test programs run together for a particular testing goal.
 - suite :: all tests can be run automatically.
 
@@ -80,11 +87,11 @@ Two answers: "all of them" and "it depends".
 
 \vfill
 
-- To develop library code: \textbf{use exceptions}.
-- To test individual functions or maybe a whole class: \textbf{use unit tests}.
-- To test many classes together: \textbf{use test program}.
-- To produce history data, plots and reports: \textbf{use test groups}.
-- To make releases or just test everything: \textbf{use test suite}.
+- To develop library code: *use exceptions*.
+- To test individual functions or maybe a whole class: *use unit tests*.
+- To test many classes together: *use test program*.
+- To produce history data, plots and reports: *use test groups*.
+- To make releases or just test everything: *use test suite*.
 
 \vfill
 
@@ -93,36 +100,36 @@ The rest of this presentation gives a lot of detail about each.
 * Exceptions for library-level testing                           :exceptions:
 
 #+begin_center
-\Huge Use \textbf{exceptions} to test code right inside our libraries.
+\Huge Use *exceptions* to test code right inside our libraries.
 #+end_center
 
 * What are C++ exceptions                                               :exceptions:
 
-- A C++ \textbf{exception} is an instance of a type (usually a ~class~).
+- A C++ *exception* is an instance of a type (usually a ~class~).
 
-- A called function may (or may not) \textbf{throw} an exception to signal that an error has occurred.
+- A called function may (or may not) *throw* an exception to signal that an error has occurred.
 
-- Any caller may \textbf{catch} an exception \textbf{by its type} in order to handle the error.
+- Any caller may *catch* an exception *by its type* in order to handle the error.
 
 
 * The life cycle of an exception                                 :exceptions:
 
-- Some running code \textbf{throws} an exception of some \textbf{type}.
-- A search for a \textbf{type-matched catch} begins.
-  - Start from the initial code context, then traverse the \textbf{call stack} toward ~main()~.
-- If a match is found continue execution from the \textbf{catch code block}.
-- If no match is found, process \textbf{exits with error status code}.
+- Some running code *throws* an exception of some *type*.
+- A search for a *type-matched catch* begins.
+  - Start from the initial code context, then traverse the *call stack* toward ~main()~.
+- If a match is found continue execution from the *catch code block*.
+- If no match is found, process *exits with error status code*.
 
 
 * Why are exceptions good (compared to returning "error" values)? :exceptions:
 
-- Exceptions \textbf{can not be ignored}, return values are often ignored.
+- Exceptions *can not be ignored*, return values are often ignored.
   - C++ provides ~[[nodiscard]]~ which helps to not ignore return values.
-- Exceptions \textbf{imply meaning} through their type.
+- Exceptions *imply meaning* through their type.
   - Return values require inventing /ad-hoc/ interpretations for good/bad values.
-  - ~main()~ must return ~int~, always follow Unix standard: \textbf{zero is success}, non-zero is error.
-- Exceptions \textbf{carry human-oriented messages} through their ~what()~ string
-  - WCT exceptions add \textbf{traceback} information.
+  - ~main()~ must return ~int~, always follow Unix standard: *zero is success*, non-zero is error.
+- Exceptions *carry human-oriented messages* through their ~what()~ string
+  - WCT exceptions add *traceback* information.
 - Direct caller may not be able to handle error, but a (grand)parent caller may.
   - With return value we must complicate all code with "error forwarding".
 
@@ -130,7 +137,7 @@ The rest of this presentation gives a lot of detail about each.
 
 Exceptions are slow!
 - No: modern compilers add essentially no overhead when supporting exceptions.
-- Okay, a ~throw~ is marginally slower than a ~return~ but it is called ... \textbf{exceptionally}.
+- Okay, a ~throw~ is marginally slower than a ~return~ but it is called ... *exceptionally*.
 
 Exceptions cause programs to crash!
 - Good: better to halt a program than to ignore return error codes or allow ~segfault~, etc.
@@ -174,7 +181,7 @@ WCT defines a small subset similar to standard C++/Python exception types.
 
 \vfill
 
-- ~ValueError~ when a value is found to be outside its expected domain (\textbf{most common!}).
+- ~ValueError~ when a value is found to be outside its expected domain (*most common!*).
   - ~IndexError~ the domain is that of some lookup index.
   - ~KeyError~ the domain is that of some lookup key.
 - ~RuntimeError~ due to external events and/or hard to reproduce.
@@ -206,14 +213,14 @@ Can use C++ ~throw~ keyword, but better info when using WCT helpers.
 
 * When to catch an exception                                            :exceptions:
 
-- \textbf{Always catch} an exception that your code \textbf{can handle}.
+- *Always catch* an exception that your code *can handle*.
 
-- \textbf{Never catch} an exception that your code \textbf{can not handle}.
+- *Never catch* an exception that your code *can not handle*.
 
 
 \vfill
 Some rare, special cases:
-- May \textbf{catch and rethrow} to log info from the calling context but otherwise not handle.
+- May *catch and rethrow* to log info from the calling context but otherwise not handle.
 - Convert exception (or return value) types at API boundaries.
 
 
@@ -257,7 +264,7 @@ catch (...)                 { handle_unknown_error(); }
 
 \Huge
 #+begin_center
-Use \textbf{unit tests} for brief, focused assertions.
+Use *unit tests* for brief, focused assertions.
 #+end_center
 
 * What are unit tests and unit test frameworks
@@ -270,25 +277,15 @@ A test of a small chunk (unit) of library code with a small chunk of test code.
 
 A way to develop unit tests in an organized way that allows fast, comprehensive and/or targeted running.
 
-* WCT supports two types of unit tests
+* WCT supports ~doctest~ unit tests for C++
 
-** doctest
+General features and usage motivations:
 
-- Provides ~main()~ and many useful CPP macros.
+- Provides per-package ~main()~ and many useful CPP macros.
 - Defines how to write tests, limiting but simplifying.
-- Best for writing many, small tests.
-
-** programs
-
-- User provides the entire ~main()~ following some conventions.
-- Largely unconstrained, user-provided ~main()~
-- Good for larger, single-test programs.
-- Coarse-grained inter-group file sharing (more on this later).
-
-** Common
-
-All tests may be built and run by WCT build system.
-
+- Helps to easily develop and execute many "small" tests.
+- "Light weight" dependency: a single header file added to WCT.
+- Fits well into WCT's ~wcb~ build-based test running.
 
 * 
 
@@ -299,20 +296,23 @@ All tests may be built and run by WCT build system.
 
 
 
-* doctest - introduction
+* doctest - overview
 
 With [[https://github.com/doctest/doctest][doctest]]:
 
-- we easily write many little tests in one or more C++ files.
-- all tests from each package are built into a single program.
-- we may execute all tests or individual tests in isolation.
+- We write one or more independent C++ files at: ~<pkg>/test/doctest*.cxx~.
+  - Each file has one or more *small code snippets* or "test cases".
+- We build the software as normal (~./wcb --tests~).
+  - Also automatically runs the ~doctest~ programs.
+- We give notice to any failures reported.
+  - May manually re-run failed ~doctest~ program to dig into the problem.
 
 * doctest - source file
 
 ** Location
 
 #+begin_example
-wire-cell-toolkit/<pkg>/test/doctest_<name>.cxx
+wire-cell-toolkit/<pkg>/test/doctest[_-]<name>.cxx
 #+end_example
 
 ** How to pick ~<pkg>~
@@ -330,18 +330,19 @@ https://github.com/WireCell/wire-cell-toolkit/blob/master/wct-deps.png
 * doctest - file boilerplate
 
 #+begin_example
+// in mypkg/test/doctest-mytest.cxx
+
 #include "WireCellUtil/doctest.h"
 #+end_example
 
 \vfill
 
-That's it!
+Besides actual test code and headers it needs, that's it!
 
-- Of course, ~#include~ more depending on what code you call/test.
 
 * doctest - test case boilerplate
 
-** Provide a name for a test context
+** Define a "test case" with a free-form name as a string:
 
 #+begin_example
 TEST_CASE("my first test") {
@@ -351,12 +352,12 @@ TEST_CASE("my first test") {
 
 ** Notes
 
-- The ~TEST_CASE()~ calls a CPP macro but think of it as a function declaration.
-- The name can be used to select the test with the command line program.
+- The ~TEST_CASE("...")~ is a CPP macro but think of as declaring a function of the given free-form name
+- The name can be used later to select the test with the command line program.
 
 * doctest - assertions
 
-** A test is asserting an expected value
+** A test case should *assert* as many *expected values* as possible
 
 #+begin_example
 WARN(today == "weekend");      // only print a warning if false
@@ -376,7 +377,7 @@ See more in doctest's [[https://github.com/doctest/doctest/blob/master/doc/markd
 
 * doctest - logging
 
-** doctest built-in
+** doctest provides built-in logging
 
 #+begin_example
 INFO("A message string ", 42, " ", stringifiable_object);
@@ -386,14 +387,14 @@ FAIL("this wil abort");  // also triggers log output
 #+end_example
 
 ** Notes
-- Logging is output only if an assertion fails (including a ~WARN()~).
+- Log output is triggered by a failed assertion or a ~WARN()~.
 - Stringification is lazy, will log value at time of failed assertion.
   - More details in [[https://github.com/doctest/doctest/blob/master/doc/markdown/logging.md][doctest logging doc]].
 - To see WCT/spdlog messages, set env. var. ~SPDLOG_LEVEL=debug~.
 
 * doctest - subcase
 
-** A subcase is a new, unique code context/scope
+** A code scope that shares its own copy of the outer context
 
 \scriptsize
 #+begin_example
@@ -442,19 +443,45 @@ wcdoctest-util -h               # help for the many options
 
 \Huge
 #+begin_center
-Use \textbf{test programs} for larger, single-test executables and/or to fit into \textbf{test groups}.
+Use *test programs* for larger, single-test executables and/or to fit into *test groups*.
 #+end_center
 
 * WCT test programs
 
 Any program is a WCT test program if:
 
-- All command line arguments are \textbf{optional}.
-- It returns \textbf{nonzero error status code} from ~main()~ if a test fails and \textbf{zero on success}.
+- All command line arguments are *optional*.
+- It returns *nonzero error status code* from ~main()~ if a test fails and *zero on success*.
 - It is written in a supported language (C++, bash, others).
-- It follows WCT \textbf{test group source file naming} convention.
+- It follows WCT *test group source file naming* convention.
 - It neither consumes nor produces files that are tracked as build dependencies.
   - It may consume/produce untracked files and consume files implicitly available from the build.
+
+Types of WCT test programs:
+- ~doctest-<pkg>~ set of C++ unit tests for one package collected into a ~main()~ program.
+- ~test*.cxx~ a C++ ~main()~ test program written with no unit test framework.
+- ~test*.bats~ a Bash shell unit tests run as a full program.
+  
+* 
+
+
+#+begin_center
+\Huge
+Use test programs as development drivers.
+#+end_center
+
+* Test programs as vehicles for development
+
+We all naturally write some kind of /ad-hoc/ program to *drive software development*.
+
+- With slightly more attention, the driver can also serve as a test.
+
+- If you need more than one test program, no problem, go for it.
+
+- Want command line options?  That's okay! (see variants).
+
+- Need to run many programs or post-process program output?  Great!
+  Make a test script (see BATS coming up).
 
 
 
@@ -464,7 +491,7 @@ Any program is a WCT test program if:
 
 - check :: build system will only compile and not (directly) execute.
 - atomic :: basic tests that do not depend on the execution of any other test.  
-- history :: produce and save out files to the \textbf{test data repository} for future use.
+- history :: produce and save out files to the *test data repository* for future use.
 - report :: produce summary material for human inspection.
 
 Inside group, test programs may execute in parallel.
@@ -473,7 +500,7 @@ Inside group, test programs may execute in parallel.
 ** Notes:
 - Group is determined by source file name (see next).
 - Each group may consume files or use programs from a prior group.
-- The ~wcdoctest-<pkg>~ programs are considered in the \textbf{atomic} group.
+- The ~wcdoctest-<pkg>~ programs are considered in the *atomic* group.
 
 
 
@@ -484,8 +511,8 @@ Inside group, test programs may execute in parallel.
 #+end_center
 
 - ~<pkg>~ names the sub package directory name, eg ~util~.
-- ~<prefix>~ names the test \textbf{group} or an alias for a group,
-  - \textbf{test} is an alias for \textbf{atomic}
+- ~<prefix>~ names the test *group* or an alias for a group,
+  - *test* is an alias for *atomic*
 - ~<sep>~ cosmetic, optional separator, may be an underscore ("~_~") or hyphen ("=~=").
 - ~<name>~ brief, unique name to describe the assertion that is tested.
 - ~<ext>~ defines how the test should be dispatched (compiled or interpreted).
@@ -500,8 +527,8 @@ Inside group, test programs may execute in parallel.
 
 * Aside: variant tests
 
-- WCT tests \textbf{shall not require} command line arguments (atomic).
-- WCT tests \textbf{may accept fully optional} arguments (variant).
+- WCT tests *shall not require* command line arguments (atomic).
+- WCT tests *may accept fully optional* arguments (variant).
 
 Variant tests can be useful to re-use testing code for novel tests.
 
@@ -530,7 +557,6 @@ Not much to it
 - Provide the entire ~main()~.
 
 
-
 * Testing helpers from WCT "util" library
 
 Some ~#include "WireCellUtil/*.h"~ headers:
@@ -539,7 +565,7 @@ Some ~#include "WireCellUtil/*.h"~ headers:
 - ~TimeKeeper.h~ provides a "stopwatch" for lapped timing.
 - ~MemUsage~ provides ways to track memory usage.
 
-* Aside: more and high-level helpers needed
+* Aside: more and high-level helpers are needed!
 
 A number of operations are tedious to "bootstrap" in C++ testing code
 
@@ -553,31 +579,7 @@ Want to take some time to develop "helpers" to reduce tedium.
 - Need some "canned" configuration so tests can simply ask:
   - Give me anodes for detector "XYZ".
 
-* 
 
-\Huge
-
-#+begin_center
-Use test programs as development drivers.
-#+end_center
-
-* Test programs as vehicles for development
-
-We all naturally write some kind of /ad-hoc/ program when we develop software.
-
-- Go the extra inch and make that a WCT test program.
-
-- Need more than one test program, no problem, go for it.
-
-- Want command line options?  That's okay! (see variants).
-
-- Need to run many programs or post-process program output?  Great!
-  Make a test script (see BATS coming up).
-
-Start a WCT test program and
-\textbf{commit it} before/during your next development.
-
-Please, no more "private" test programs!
 
 * 
 
@@ -585,10 +587,10 @@ Please, no more "private" test programs!
 \Huge
 
 #+begin_center
-Run \textbf{test suites} with the WCT build system.
+Run *test suites* with the WCT build system.
 #+end_center
 
-* Running \textbf{all} or \textbf{some} WCT tests
+* Running *all* or *some* WCT tests
 
 
 \scriptsize
@@ -608,7 +610,7 @@ bats test/test/test_bats.bats        # run interpreted test
 
 \normalsize
 
-- WCT \textbf{tests are no longer built nor run by default}, need ~--tests~.
+- WCT *tests are no longer built nor run by default*, need ~--tests~.
 - When using using ~./wcb~, tests are only run once unless ~--alltests~ are given.
 - Can also run compiled or interpreted tests directly.
 
@@ -618,7 +620,7 @@ bats test/test/test_bats.bats        # run interpreted test
 \LARGE
 
 #+begin_center
-Use BATS tests for \textbf{interpreted shell script tests} for testing at "job" level and/or for tests requiring multiple programs.
+Use BATS tests for *interpreted shell script tests* for testing at "job" level and/or for tests requiring multiple programs.
 #+end_center
 
 * BATS in WCT
@@ -643,49 +645,99 @@ export BATS_LIB_PATH=/path/to/wire-cell-toolkit/test
 
 - You want to run external programs that can not be run from C++ test program or unit test.
 - You want to run a ~wire-cell~ job and then test its results.
-- You want to make and save plots or historical data to the \textbf{test data repository}.
+- You want to make and save plots or historical data to the *test data repository*.
 - You want to run a chain of test programs which share data and can be rerun efficiently.
 
 * How does a BATS test fit into WCT testing system
 
-A BATS test file is "just" a WCT \textbf{test program}.
+A BATS test file is "just" a WCT *test program* written as a shell script.
 
 - No command line arguments.
 - Follows the source file name convention.
 - Participates in testing groups execution (atomic, history, report).
 
 In addition, WCT provides some extra support:
-- Integration with \textbf{test data repository}.
+- Integration with *test data repository*.
 - Efficient re-running of idempotent steps.
 
+And the ~bats~ runner allows some useful features:
+- Print out management.
+- Run specific test case(s) by pattern matching names.
+- Temporary directory/file management.
 
-* BATS file skeleton 
+
+* Simple BATS file 
 
 #+begin_example
 #!/usr/bin/env bats
-bats_load_library wct-bats.sh     # WCT support library
-setup_file () {
-  # optional, one time initialization
-}
-@test "describe the assertion tested" {
-  # bash shell code with tests that may fail....
-}
-@test "can have multiple tests" {
-  # any command that fails, fails the test
-  /bin/false
-}
-teardown_file () {
-  # optional, one time finalization
+
+@test "boring test" {
+  echo "hi, I am boring and quietly always succeed"
 }
 #+end_example
 
-* BATS basic test
+- The ~@test~ is special (non-Bash) syntax which the ~bats~ runner uses.
+- Think of this as defining a Bash function.
+- The name can be filtered with ~bats~ CLI to run a subset of a files tests.
+
+
+* Simple BATS file that can fail
 
 #+begin_example
-@test "run something" {
+#!/usr/bin/env bats
+
+@test "always fail" {
+  echo "hi, I am boring and always fail and print this message"
+  run false
+  [[ $status -eq 0 ]]
+}
+#+end_example
+
+- The ~run~ command is part of Bats and sets ~$status~
+- The ~/bin/false~ command always fails so ~$status~ is non-zero.
+
+
+* BATS special and optional initial/final functions
+
+#+begin_example
+#!/usr/bin/env bats
+setup_file () {
+  # ...
+}
+
+# ...one or more @test blocks...
+
+teardown_file () {
+  # ...
+}
+#+end_example
+
+- Both functions are optional.
+- ~setup_file~ is run before any ~@test~ functions
+- ~teardown_file~ is run after all ~@test~ functions  
+
+* WCT BATS library
+
+#+begin_example
+#!/usr/bin/env bats
+
+bats_load_library wct-bats.sh
+
+# ...
+#+end_example
+
+- Many BATS-aware and WCT-aware Bash functions.
+- More on this library later.
+
+
+* A simple real test example
+
+#+begin_example
+@test "wire-cell help command" {
   run wire-cell --help                                   # 1
   echo $output                                           # 2
   [[ "$status" -eq 0 ]]                                  # 3
+
   [[ -n "$(echo $output | grep 'Wire-Cell Toolkit')" ]]  # 4
 }
 #+end_example
@@ -696,40 +748,46 @@ teardown_file () {
 3. Assure zero ~$status~ code (ie, success).
 4. Assure some expected string is found in ~$output~.
 
-* WCT/BATS basic test
-
-The WCT/BATS library provides simple functions for common operations.
+* WCT/BATS version simple example
 
 #+begin_example
 bats_load_library wct-bats.sh
 
 @test "run something" {
   wct --help                                            # 1,2,3
+
   [[ -n "$(echo $output | grep 'Wire-Cell Toolkit')" ]] # 4
 }
 #+end_example
 
-The ~wct~ command calls ~wire-cell~ for us and includes echoing ~$output~ and testing ~$status~.
+- The ~wct~ command calls ~wire-cell~ for us via ~run~ and includes echoing ~$output~ and testing ~$status~.
 
-* Leveraging BATS for driving software development
 
-Consider to \textbf{start} with a BATS test and fill it in as you develop library code.
+* Guidance for using BATS to drive your software development
 
-WCT/BATS makes this easier than writing DIY development drivers/tests.
+1. Start new development with a new bats file: ~<pkg>/test/test-<name>.bats~
 
-- Capture what you are doing and what you did in a consistent and communicative way.
-- When a bug is found, you BATS script fails so you automatically have a test for the bug.
-- Can use ~setup_file()~ to run a "main job" and many fast ~@test~'s to check different facets of its output.
-- Use ~bats --filter "pattern" <pkg>/test/test_<name>.bats~ to focus your attention.
-  - Filtered tests still run ~setup_file()~.
-  - Make new ~@test~ for each development facet, run current tests for fast checks.
-- Speed up long running commands with \textbf{idempotent} running.
-  - Only re-run jobs based on input/output file age.
-- Practice "test driven development" paradigm, if you wish.
+2. Start new configuration file with same name: ~<pkg>/test/test-<name>.jsonnet~
 
-* BATS filtering to exercise focus
+3. Add ~wire-cell~ command (via ~wct~ helper) in ~setup_file~ function.
 
-Here is a BATS test file  with many test cases.  We can focus on one:
+4. Add ~@test~ blocks to run code that tests output of ~wire-cell~ (log, data, etc)
+
+5. Use/develop ~wire-cell-python~ commands to process output and make more ~@test~ blocks to run and evaluate their results.
+
+6. If you need to radically change the ~.jsonnet~, start a new ~.bats~ + ~.jsonnet~ pair.
+
+Consider also:
+
+- Focus your attention on one test with:
+  - ~bats --filter "pattern" <pkg>/test/test_<name>.bats~ 
+- Speed up long running commands with *idempotent* running (how to is coming up)
+
+
+
+* Use BATS filtering to focus your attention
+
+Here is a BATS test file with many test cases.  We can focus on one:
 
 #+begin_example
   $ grep -c '@test' test/test/test-pdsp-simsn-nfsp.bats
@@ -745,14 +803,14 @@ Here is a BATS test file  with many test cases.  We can focus on one:
 * Idempotency in BATS
 
 #+begin_quote
-A function execution is idempotent if subsequent execution leaves state unchanged.
+A function execution is *idempotent* if subsequent execution leaves state unchanged.
 #+end_quote
 
-Idempotency lets us sometimes safely skip re-execution and save time (simple/mini build system).
+Idempotency lets us sometimes safely skip re-execution and save some time.
 
 \vfill
 
-WCT/BATS provides ~run_idempotently~ which takes source and target files and
+~wct-bats.sh~ provides ~run_idempotently~ which takes source and target files and
 a command and will run the command only if sources are newer than
 targets or targets do not exist.
 
@@ -761,17 +819,19 @@ bats_load_library wct-bats.sh
 setup_file() {
   # ... define variables pointing to files ...
   run_idempotently -s $dag_file -t $adc_file -t $log_file -- \
-                     wct -l $log_file -L debug -c $dag_file
+               wct -l $log_file -L debug -c $dag_file
 }
 #+end_example
 
-But, to really use this we need to understand how BATS uses temporary directories....
+But, actually gain idempotency we must understand how BATS uses temporary directories....
 
 * BATS temporary directories
 
-A temporary directory is made for each of BATS \textbf{runs, files} and \textbf{tests}.
-- BATS code does \textbf{not} ~cd~ to the temporary directory by default.
-- WCT/BATS provides ~cd_tmp [<context>]~ function to do that.
+- One is automatically created for each of *run, file* and *test*.
+  - By default, all are *removed* when ~bats~ exits.
+- BATS code does *not* ~cd~ to the temporary directory by default.
+  - ~wct-bats.sh~ provides ~cd_tmp [<context>]~ function to do that.
+
 
 #+begin_example
 setup_file () {
@@ -788,7 +848,7 @@ setup_file () {
 
 * Keeping BATS temporary directories
 
-** Retain BATS' randomly generated temporary directories:
+** Tell BATS not to remove them
 #+begin_example
 $ bats --no-tempdir-cleanup test/test/test_bats.bats
 # ...tests run and finally prints:
@@ -796,33 +856,81 @@ BATS_RUN_TMPDIR: /tmp/bats-run-V5XpTD
 $ rm -r /tmp/bats-run-V5XpTD
 #+end_example
 
-** Pre-defining temporary directories for ~cd_tmp~:
+** Override BATS with specific, singular directory for ~cd_tmp~:
 #+begin_example
 $ WCTEST_TMPDIR=$(pwd)/tmp bats test/test/test_bats.bats
 $ rm -r tmp
 #+end_example
 
-** Notes
+* Idempotency with specific temporary directory
+
 It is only when (re)using the fixed ~WCTEST_TMPDIR~ that the ~run_idempotently~ will actually run idempotently!
+
+#+begin_example
+$ rm -rf tmp
+$ export WCTEST_TMPDIR=$(pwd)/tmp
+$ bats gen/test/test-addnoise.bats
+$ bats gen/test/test-addnoise.bats
+#+end_example
+
+- Second running avoids re-running ~wire-cell~.
+- Clean up is user's responsibility.
+
+#+begin_example
+$ rm -rf tmp
+#+end_example
+
 
 * A sampling of WCT BATS functions
 
-- ~wct~ runs the ~wire-cell~ command, ~wcb~ runs the Wire-Cell build command, \\
-   ~version~ gives WCT version string.
-- ~compile_jsonnet~, ~dotify_graph~ work with WCT config files.
-- ~file_larger_than~ tests that a file has at least some amount of data.
-- ~topdir~, ~blddir~, ~srcdir path~, ~relative_dir path~, finds paths in source.
-- ~usepkg <pkg>~, add ~build/<pkg>~ into ~PATH~ and define ~$<pkg>_src~ pointing to source directory.
-- ~wcb_env~ set all Waf environment variables as shell environment variables.
-- ~wcb_env_value <varname>~ echo the Waf environment variable value.
-  - Run ~./wcb dumpenv~ to see what Waf variables are defined.
-  - ~WCxxx~ points to ~wirecell-xxx~ programs from ~wire-cell-python~, if available.
+** Run ~wire-cell~ with some nominal tests
+
+#+begin_example
+  wct [usual wire-cell args]
+#+end_example
+
+** Work with config files
+
+#+begin_example
+  compile_jsonnet in.jsonnet out.json
+  dotify_graph in.{jsonnet,json} out.{png,pdf}
+#+end_example
+
+** Path related
+
+#+begin_example
+topdir, blddir, srcdir <path>, relative_dir <path>
+#+end_example
+** Environment
+
+#+begin_example
+usepkg <pkg>, wcb_env, wcb_env_value <varname>
+#+end_example
+
+* Self-documenting ~wct-bats.sh~
+
+The ~wct-bats.sh~ script is mean to be loaded into our BATS tests but can also be run to get function documentation.
+
+** List available functions and their synopsis:
+
+#+begin_example
+  $ ./test/wct-bats.sh
+#+end_example
+
+** Print help on specific commands
+#+begin_example
+./test/wct-bats.sh version
+ version
+
+ Emit the wire-cell version string.
+#+end_example
+
 
 * The WCT test data repository
 
-Files produced by BATS tests are \textbf{ephemeral} in temporary directories.
+Files produced by BATS tests are *ephemeral* in temporary directories.
 
-But, tests can "save out" files to the \textbf{WCT test data repository} located at:
+But, tests can "save out" files to the *WCT test data repository* located at:
 
 #+begin_example
 build/tests/input/<dirs>/<files>
@@ -830,14 +938,14 @@ build/tests/<category>/<version>/<test-name>/<files>
 #+end_example
 
 - The ~/input/~ provides a few data files purely for consumption.
-- The ~/<category>/~ names intention, eg \textbf{plots}, \textbf{history}, \textbf{reports}.
+- The ~/<category>/~ names intention, eg *plots*, *history*, *reports*.
 - The ~<version>~ is that of the software producing the files (Waf variable ~VERSION~).
 - ~./wcb packrepo~ packs repo to tar files.  ~./wcb --tests~ installs them.
   - for now, remote repo lives [[https://www.phy.bnl.gov/~bviren/tmp/wcttest/data_repo/][here]] and is manually populated from repo packs.
 
 * Saving files to test data repo from BATS
 
-\textbf{The repo is not a dumping ground!}
+*The repo is not a dumping ground!*
 
 Only "save out" files with clear intention how they will be used longer term.
 
@@ -859,7 +967,7 @@ A "save out" is done with WCT's ~wct-bats.sh~ library function ~saveout~:
 - input :: created by hand with special input data files (depos, frames, etc).
 - plots :: for saving data visualizations in PNG, PDF format.
 - history :: for select data files output from each software version.
-- report :: collecting from \textbf{plots} and processing from \textbf{history} to produce files for human inspection (ie, web pages) that cover multiple software versions.
+- report :: collecting from *plots* and processing from *history* to produce files for human inspection (ie, web pages) that cover multiple software versions.
 
 * Using BATS tags
 
@@ -885,8 +993,8 @@ BATS supports placing "tags" on tests in comments and WCT uses them:
 - ~pkg:<name>~ :: The test is part of package named ~<name>~ (~gen~, ~util~, etc)
 - ~topic:<name>~ :: The test relates to topic named ~<name>~ (~wires~, ~response~, etc)
 
-** So far, only \textbf{history} tag is used for anything.
-- Will definitely use \textbf{report} to narrow execution to build reports.
+** So far, only *history* tag is used for anything.
+- Will definitely use *report* to narrow execution to build reports.
 - Others may be useful, but can be ignored for now.
 
 
@@ -900,8 +1008,8 @@ New tests are invented and we want to run them against old WCT software.
    ~/wct/development/master ~/wct/development/0.24.x
 #+end_example
 
-- Runs tests and place all ~saveout~ results in the \textbf{current release area}.
-- Runs tests in 4 named releases, 2 development areas, \textbf{per-release parallelism}.
+- Runs tests and place all ~saveout~ results in the *current release area*.
+- Runs tests in 4 named releases, 2 development areas, *per-release parallelism*.
 - Requires an ~.envrc~ file exists and manages each areas environment.
 - Runs only the tests with a tag of ~history~.
 
@@ -964,7 +1072,7 @@ Executing the software in a way that asserts expected behavior.
 
 - A "test" must require no special knowledge to run.
 
-- A "test" may be defined on a \textbf{spectrum} of code scale:
+- A "test" may be defined on a *spectrum* of code scale:
 
   - a code fragment inside the software,
 
