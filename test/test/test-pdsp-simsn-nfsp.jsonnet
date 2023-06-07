@@ -150,7 +150,7 @@ local sio_sink(output, tags=[]) = pg.pnode({
 
 local sio_tap(output, tags=[]) = pg.fan.tap('FrameFanout', sio_sink(output, tags), wc.basename(output));
 
-local plugins = [ "WireCellSio", "WireCellGen", "WireCellSigProc","WireCellApps", "WireCellPgraph", "WireCellTbb", "WireCellRoot"];
+local plugins = [ "WireCellSio", "WireCellGen", "WireCellSigProc","WireCellApps", "WireCellPgraph", "WireCellTbb"];
 
 function(input="input.npz",
          vltoutput="frames-vlt.npz", adcoutput="frames-adc.npz",

@@ -133,6 +133,7 @@ function do_blobs () {
     local dfile="cluster_6501_graph.json"
     [[ -s "$dfile" ]]
 
+    echo $moo validate -t wirecell.cluster.Cluster -s "$sfile" "$dfile"
     run $moo validate -t wirecell.cluster.Cluster -s "$sfile" "$dfile"
     echo "$output"
     [[ "$status" -eq 0 ]]
