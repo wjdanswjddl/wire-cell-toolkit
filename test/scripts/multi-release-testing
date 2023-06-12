@@ -30,7 +30,6 @@ EOF
 
 SHELL=bash
 
-
 declare -a releases
 declare -a tags
 faker=""
@@ -39,15 +38,16 @@ while [[ $# -gt 0 ]] ; do
         -t|--tag) tags+=( "$2" ); shift 2;;
         -n|--dry-run) faker="echo"; shift;;
         -*) usage;;
-        *) releases+=( "$2" ); shift ;;
+        *) releases+=( "$1" ); shift;;
     esac
 done
 
-# echo "RELEASES: ${releases[@]}"
+echo "RELEASES: ${releases[@]}"
 
 scrdir="$(realpath $(dirname $BASH_SOURCE))"
 topdir="$(realpath ${scrdir}/../..)"
 cd $topdir
+
 
 if [ -z "$releases" ] ; then
     releases=( $topdir )
@@ -94,8 +94,3 @@ parallel --link \
          $faker $scrdir/run-in-direnv {1} $topdir/test/bats/bin/bats ${tag_args[@]} {2} \
          ::: ${rels[@]} \
          ::: ${files[@]}
-
-
-
-
-

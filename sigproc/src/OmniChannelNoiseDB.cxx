@@ -364,13 +364,13 @@ OmniChannelNoiseDB::ChannelInfo& OmniChannelNoiseDB::get_ci(int chid)
     // return m_db.at(chid);
 }
 
-template <typename Type>
-void dump_cfg(const std::string& name, std::vector<int> chans, Type val)
-{
-    std::sort(chans.begin(), chans.end());
-    // std::cerr << "OmniChannelNoiseDB: setting " << name << " to " << val << " on " << chans.size() << ":[" <<
-    // chans.front() << "," << chans.back() << "]\n";
-}
+// template <typename Type>
+// void dump_cfg(const std::string& name, std::vector<int> chans, Type val)
+// {
+//     std::sort(chans.begin(), chans.end());
+//     std::cerr << "OmniChannelNoiseDB: setting " << name << " to " << val << " on " << chans.size() << ":[" <<
+//     chans.front() << "," << chans.back() << "]\n";
+// }
 
 void OmniChannelNoiseDB::update_channels(Json::Value cfg)
 {
@@ -378,7 +378,7 @@ void OmniChannelNoiseDB::update_channels(Json::Value cfg)
 
     if (cfg.isMember("nominal_baseline")) {
         double val = cfg["nominal_baseline"].asDouble();
-        dump_cfg("baseline", chans, val);
+        // dump_cfg("baseline", chans, val);
         for (int ch : chans) {
             // m_db.at(ch).nominal_baseline = val;
             // dbget(ch).nominal_baseline = val;
@@ -387,7 +387,7 @@ void OmniChannelNoiseDB::update_channels(Json::Value cfg)
     }
     if (cfg.isMember("gain_correction")) {
         double val = cfg["gain_correction"].asDouble();
-        dump_cfg("gain", chans, val);
+        // dump_cfg("gain", chans, val);
         for (int ch : chans) {
             // m_db.at(ch).gain_correction = val;
             // dbget(ch).gain_correction = val;
@@ -399,7 +399,7 @@ void OmniChannelNoiseDB::update_channels(Json::Value cfg)
         auto jfilt = cfg["reconfig"];
         if (!jfilt.isNull()) {
             auto val = parse_gain(jfilt);
-            dump_cfg("gain", chans, val);
+            // dump_cfg("gain", chans, val);
             for (int ch : chans) {
                 // m_db.at(ch).gain_correction = val;
                 // dbget(ch).gain_correction = val;
@@ -410,7 +410,7 @@ void OmniChannelNoiseDB::update_channels(Json::Value cfg)
 
     if (cfg.isMember("response_offset")) {
         double val = cfg["response_offset"].asDouble();
-        dump_cfg("offset", chans, val);
+        // dump_cfg("offset", chans, val);
         for (int ch : chans) {
             // m_db.at(ch).response_offset = val;
             // dbget(ch).response_offset = val;
@@ -419,7 +419,7 @@ void OmniChannelNoiseDB::update_channels(Json::Value cfg)
     }
     if (cfg.isMember("min_rms_cut")) {
         double val = cfg["min_rms_cut"].asDouble();
-        dump_cfg("minrms", chans, val);
+        // dump_cfg("minrms", chans, val);
         for (int ch : chans) {
             // m_db.at(ch).min_rms_cut = val;
             // dbget(ch).min_rms_cut = val;
@@ -428,7 +428,7 @@ void OmniChannelNoiseDB::update_channels(Json::Value cfg)
     }
     if (cfg.isMember("max_rms_cut")) {
         double val = cfg["max_rms_cut"].asDouble();
-        dump_cfg("maxrms", chans, val);
+        // dump_cfg("maxrms", chans, val);
         for (int ch : chans) {
             // m_db.at(ch).max_rms_cut = val;
             // dbget(ch).max_rms_cut = val;
@@ -437,7 +437,7 @@ void OmniChannelNoiseDB::update_channels(Json::Value cfg)
     }
     if (cfg.isMember("pad_window_front")) {
         int val = cfg["pad_window_front"].asDouble();
-        dump_cfg("padfront", chans, val);
+        // dump_cfg("padfront", chans, val);
         for (int ch : chans) {
             // m_db.at(ch).pad_window_front = val;
             // dbget(ch).pad_window_front = val;
@@ -446,7 +446,7 @@ void OmniChannelNoiseDB::update_channels(Json::Value cfg)
     }
     if (cfg.isMember("pad_window_back")) {
         int val = cfg["pad_window_back"].asDouble();
-        dump_cfg("padback", chans, val);
+        // dump_cfg("padback", chans, val);
         for (int ch : chans) {
             // m_db.at(ch).pad_window_back = val;
             // dbget(ch).pad_window_back = val;
@@ -456,7 +456,7 @@ void OmniChannelNoiseDB::update_channels(Json::Value cfg)
 
     if (cfg.isMember("decon_limit")) {
         float val = cfg["decon_limit"].asDouble();
-        dump_cfg("deconlimit", chans, val);
+        // dump_cfg("deconlimit", chans, val);
         for (int ch : chans) {
             // m_db.at(ch).decon_limit = val;
             // dbget(ch).decon_limit = val;
@@ -466,7 +466,7 @@ void OmniChannelNoiseDB::update_channels(Json::Value cfg)
 
     if (cfg.isMember("decon_lf_cutoff")) {
         float val = cfg["decon_lf_cutoff"].asDouble();
-        dump_cfg("deconlfcutoff", chans, val);
+        // dump_cfg("deconlfcutoff", chans, val);
         for (int ch : chans) {
             // m_db.at(ch).decon_limit = val;
             // dbget(ch).decon_limit = val;
@@ -476,7 +476,7 @@ void OmniChannelNoiseDB::update_channels(Json::Value cfg)
 
     if (cfg.isMember("decon_limit1")) {
         float val = cfg["decon_limit1"].asDouble();
-        dump_cfg("deconlimit1", chans, val);
+        // dump_cfg("deconlimit1", chans, val);
         for (int ch : chans) {
             // m_db.at(ch).decon_limit1 = val;
             // dbget(ch).decon_limit1 = val;
@@ -485,7 +485,7 @@ void OmniChannelNoiseDB::update_channels(Json::Value cfg)
     }
     if (cfg.isMember("adc_limit")) {
         float val = cfg["adc_limit"].asDouble();
-        dump_cfg("adclimit", chans, val);
+        // dump_cfg("adclimit", chans, val);
         for (int ch : chans) {
             // m_db.at(ch).adc_limit = val;
             // dbget(ch).adc_limit = val;
@@ -494,14 +494,14 @@ void OmniChannelNoiseDB::update_channels(Json::Value cfg)
     }
     if (cfg.isMember("protection_factor")) {
         float val = cfg["protection_factor"].asDouble();
-        dump_cfg("protectionfactor", chans, val);
+        // dump_cfg("protectionfactor", chans, val);
         for (int ch : chans) {
             get_ci(ch).protection_factor = val;
         }
     }
     if (cfg.isMember("min_adc_limit")) {
         float val = cfg["min_adc_limit"].asDouble();
-        dump_cfg("minadclimit", chans, val);
+        // dump_cfg("minadclimit", chans, val);
         for (int ch : chans) {
             // m_db.at(ch).adc_limit = val;
             // dbget(ch).adc_limit = val;
@@ -510,7 +510,7 @@ void OmniChannelNoiseDB::update_channels(Json::Value cfg)
     }
     if (cfg.isMember("roi_min_max_ratio")) {
         float val = cfg["roi_min_max_ratio"].asDouble();
-        dump_cfg("roiminmaxratio", chans, val);
+        // dump_cfg("roiminmaxratio", chans, val);
         for (int ch : chans) {
             get_ci(ch).roi_min_max_ratio = val;
         }
@@ -524,7 +524,7 @@ void OmniChannelNoiseDB::update_channels(Json::Value cfg)
             }
             // std::cerr << "rc_layers = " << m_rc_layers << std::endl;
             auto val = parse_rcrc(jfilt, m_rc_layers);
-            dump_cfg("rcrc", chans, Waveform::sum(*val));
+            // dump_cfg("rcrc", chans, Waveform::sum(*val));
             for (int ch : chans) {
                 // m_db.at(ch).rcrc = val;
                 // dbget(ch).rcrc = val;
@@ -536,7 +536,7 @@ void OmniChannelNoiseDB::update_channels(Json::Value cfg)
         auto jfilt = cfg["reconfig"];
         if (!jfilt.isNull()) {
             auto val = parse_reconfig(jfilt);
-            dump_cfg("reconfig", chans, Waveform::sum(*val));
+            // dump_cfg("reconfig", chans, Waveform::sum(*val));
             for (int ch : chans) {
                 // m_db.at(ch).config = val;
                 // dbget(ch).config = val;
@@ -551,7 +551,7 @@ void OmniChannelNoiseDB::update_channels(Json::Value cfg)
         auto jfilt = cfg["freqmasks"];
         if (!jfilt.isNull()) {
             auto val = parse_freqmasks(jfilt);
-            dump_cfg("freqmasks", chans, Waveform::sum(*val));
+            // dump_cfg("freqmasks", chans, Waveform::sum(*val));
             // std::cerr << jfilt << std::endl;
             for (int ch : chans) {
                 // m_db.at(ch).noise = val;
@@ -564,7 +564,7 @@ void OmniChannelNoiseDB::update_channels(Json::Value cfg)
         auto jfilt = cfg["response"];
         if (!jfilt.isNull()) {
             auto val = parse_response(jfilt);
-            dump_cfg("response", chans, Waveform::sum(*val));
+            // dump_cfg("response", chans, Waveform::sum(*val));
             for (int ch : chans) {
                 // m_db.at(ch).response = val;
                 // dbget(ch).response = val;
