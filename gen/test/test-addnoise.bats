@@ -30,7 +30,7 @@ setup_file () {
                      -A nsamples=$nsamples -A noise=$noise -A outfile="$adc_file"
 
     run_idempotently -s $dag_file -t $adc_file -t $log_file -- \
-                     wct -l $log_file -L debug -c $dag_file
+                     wire-cell -l $log_file -L debug -c $dag_file
 
 
     # run wire-cell -l "$logfile" -L debug \
@@ -53,23 +53,14 @@ setup_file () {
 
     cd_tmp file
 
-    local wcplot=$(wcb_env_value WCPLOT)
-    if [ -z "$wcplot" ] ; then  # fixme: foist up into wct-bats.sh
-        skip "No wirecell-plot.  Do you have wire-cell-python installed before configuring build?"
-    fi
-
-    echo "WCPLOT: $wcplot"
-    [[ -n "$wcplot" ]]
     for what in spec wave
     do
         local pout="comp1d-${what}.png"
-        $wcplot comp1d \
+        check wcpy plot comp1d \
                 -o $pout \
                 -t '*' -n $what \
                 --chmin 0 --chmax 800 -s --transform ac \
                 "${adc_file}"
-        echo "$output"
-        [[ "$status" -eq 0 ]]
         [[ -s "$pout" ]]
         saveout -c plots "$pout"
     done

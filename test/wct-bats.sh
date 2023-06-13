@@ -12,12 +12,29 @@
 shopt -s extglob
 shopt -s nullglob
 
-# log <message>
+# User may set these to control logging.
 #
-# Echo message into BATS controlled logging.
-function log () {
-    echo "$@"
-}
+# Emit log message only if greater or equal to the level.
+#
+# The following are the interpretations of levels:
+#
+# - debug :: possibly verbose informaiton for debugging tests themselves
+#
+# - info :: default, for indicating normal events.
+# 
+# - warn :: for aberrant events but that do not impede nor negate further running.
+#
+# - error :: for events which may invalidate test results but testing may continue.
+#
+# - fatal :: events for which the testing can not continue.
+WCT_BATS_LOG_LEVEL=${WCT_BATS_LOG_LEVEL:-info}      
+
+# User may determine where logging goes.
+#
+# - "capture" is default and allows BATS to capture.
+# - "terminal" will bypass BATS capturing.
+# - anything else is interpreted as a file to which messages are concatenated.
+WCT_BATS_LOG_SINK=${WCT_BATS_LOG_SINK:-capture}
 
 # yell <message>
 #
@@ -26,25 +43,96 @@ function yell () {
     echo "$@" 1>&3
 }
 
+# index_of <entry> <array>
+#
+# Return array index of entry
+function index_of () {
+    # yell "index_of given: $@"
+    local entry=$1 ; shift
+    declare -A arr=$@
+    # yell "index_of: $entry in |${arr[@]}| -> |${arr[@]/$1//}|"
+    echo "${arr[@]/$entry//}" | cut -d/ -f1 | wc -w
+}
+
+declare -g -a log_levels=( debug info warn error fatal )
+declare -g log_level=$(index_of $WCT_BATS_LOG_LEVEL "${log_levels[@]}")
+
+# log_ilevel <level>
+#
+# Emit the numerical value of a log level
+function log_ilevel () {
+    local lvl=$1 ; shift
+    # yell "lvl=$lvl log_level=$log_level WCT_BATS_LOG_LEVEL=$WCT_BATS_LOG_LEVEL"
+    # yell "log_levels=${log_levels[@]}"
+    index_of $lvl "${log_levels[@]}"
+}
+
+# log_at_level <level> <message>
+#
+# Log at given level
+function log_at_level () {
+    local lvl="$1" ; shift
+    local ilvl=$(log_ilevel $lvl)
+    if [ $ilvl -lt $log_level ] ; then
+        return
+    fi
+    local L=${lvl:0:1}
+    local pre="$(date +"%Y-%m-%d %H:%M:%S.%N") [ ${L^^} ]"
+
+    if [ $WCT_BATS_LOG_SINK = capture ] ; then
+        echo -e "$pre $@"
+    elif [ $WCT_BATS_LOG_SINK = terminal ] ; then
+        echo -e "$pre $@" 1>&3
+    else
+        echo -e "$pre $@" >> $WCT_BATS_LOG_SINK 
+    fi
+}
+
+# debug <message>
+#
+# Log at "debug" level
+function debug () {
+    log_at_level debug "$@"
+}
+
+
+# log <message>
+#
+# Log at "info" level.
+#
+# Note, this shadows the GNU info program.
+function info () {
+    log_at_level info "$@"
+}
+
 # warn <message>
 #
-# Echo message to log and terminal
+# Log at warn level
 function warn () {
-    local msg="warning: $@"
-    log "$msg"
-    yell "$msg" 
+    log_at_level warn "$@"
+}
+
+# error <message>
+#
+# Log at error level
+function error () {
+    log_at_level error "$@"
+}
+
+# fatal <message>
+#
+# Log at fatal level
+function fatal () {
+    log_at_level fatal "$@"
 }
 
 # die <message>
 #
-# Echo message to log and terminal and exit
+# Log at fatal error and exit
 function die () {
-    local msg="FATAL: $@"
-    log "$msg"
-    yell "$msg" 
+    info "$msg"
     exit 1
 }
-
 
 # file_larger_than <filename> <nbytes>
 #
@@ -61,13 +149,28 @@ function file_larger_than () {
 }
 
 
+# check <command line>
+#
+# Use BATS run but add some standard boilerplate.
+#
+# Logs to debug the command, logs $output to info and assert zero
+# return status code.
+function check () {
+    info "RUNNING: $@"
+    run "$@"
+    if [ -n "$output" ] ; then
+        info "OUTPUT:\n$output"
+    else
+        info "OUTPUT: (none)"
+    fi
+    [[ $status -eq 0 ]]
+}
+
 # run_idempotently [options] -- <command line>
 #
 # Run command if any target file is missing or older than any source file.
 #
 # Options:
-# -v, --verbose
-#   Will "yell" about what it runs.
 # -s, --source <filename>
 #   Name a source file for idempotency checking (multiple okay).
 # -t, --target <filename>
@@ -80,13 +183,12 @@ function run_idempotently () {
 
     declare -a src
     declare -a tgt
-    local verbose="no"
     while [[ $# -gt 0 ]] ; do
         case $1 in
             -s|--source) src+=( $2 ) ; shift 2;;
             -t|--target) tgt+=( $2 ) ; shift 2;;
-            -v|--verbose) verbose="yes"; shift;;
-            --) shift; break;
+            --) shift; break;;
+            *) die "unknown argument: $1"
         esac
     done
 
@@ -94,6 +196,7 @@ function run_idempotently () {
     if [ -z "$src" -o -z "$tgt" ] ; then
         # Always run if sink, source or atomic.
         need_to_run="yes"
+        debug "running because source \"$src\" or sink \"$tgt\" are empty"
     fi
     if [ "$need_to_run" = "no" ] ; then
         # Run if missing any targets
@@ -101,6 +204,7 @@ function run_idempotently () {
         do
             if [ ! -f "$one" ] ; then
                 need_to_run="yes"
+                debug "running because of missing target: $one"
             fi
         done
     fi
@@ -111,21 +215,16 @@ function run_idempotently () {
 
         if [ "$src_newest" -nt "$tgt_oldest" ] ; then
             need_to_run="yes"
+            debug "running because newest src \"$src_newest\" newer than oldest tgt \"$tgt_oldest\""
         fi
     fi
     
     if [ "$need_to_run" = "no" ] ; then
-        yell "target newer than source not running: $@"
+        warn "not running idempotent command: $@"
         return
     fi
 
-    echo "running: $@"
-    if [ "$verbose" = "yes" ] ; then
-        yell "running: $@"
-    fi
-    run "$@"
-    echo "$output"
-    [[ "$status" -eq 0 ]]
+    check "$@"
 }
 
 # dumpenv
@@ -353,7 +452,7 @@ function wcb_env_vars () {
 
 # wcb_env_value <varname>
 #
-# Return the value for the Waf build environment variable named <varname>.
+# Emit the value for the Waf build environment variable named <varname>.
 wcb_env_value () {
     wcb_env_vars $1 | sed -e 's/[^=]*=//' | sed -e 's/^"//' -e 's/"$//'
 }
@@ -402,32 +501,43 @@ function compile_jsonnet () {
     local wcsonnet=$(wcb_env_value WCSONNET)
     [[ -n "$wcsonnet" ]]
     if [ -z "$wcsonnet" ] ; then
-        yell "Failed to get WCSONNET!  Cache problem?"
-        exit 1
+        fatal "Failed to get WCSONNET!  Cache problem?"
     fi
     declare -a cmd=( "$wcsonnet" -o "$ofile" -P "$cfgdir" "$@" "$ifile" )
 
-    echo "${cmd[@]}"
-    run "${cmd[@]}"
-    echo "$output"
-    [[ "$status" -eq 0 ]]
+    check "${cmd[@]}"
     [[ -s "$ofile" ]]
     WIRECELL_PATH="$orig_wcpath"
 }
 
-# wct [options]
+# wire-cell [options]
 # 
-# Execute the "wire-cell" CLI under Bats "run", echo output and assert
-# non-zero return value.
-function wct () {
+# Execute the "wire-cell" CLI with standard handling.
+function wire-cell () {
     cli=$(wcb_env_value WIRE_CELL)
     [[ -n "$cli" ]]
     [[ -x "$cli" ]]
+    check $cli $@
+}
 
-    echo "$cli $@"              # for output on failure
-    run $cli $@
-    echo "$output"
-    [[ "$status" -eq 0 ]]    
+# wcsonnet [options]
+# 
+# Execute the "wcsonnet" CLI with standard handling.
+function wcsonnet () {
+    cli=$(wcb_env_value WCSONNET)
+    [[ -n "$cli" ]]
+    [[ -x "$cli" ]]
+    check $cli $@
+}
+
+# wcwires [options]
+# 
+# Execute the "wcwires" CLI with standard handling.
+function wcwires () {
+    cli=$(wcb_env_value WCwires)
+    [[ -n "$cli" ]]
+    [[ -x "$cli" ]]
+    check $cli $@
 }
 
 # version
@@ -439,6 +549,24 @@ function version () {
     [[ -x "$cli" ]]
     $cli --version
 }
+
+# wcpy <pkg> <command> [options]
+#
+# Execute the wirecell-<pkg> program with command and optoins.
+#
+# If the command is not found, the test will be skipped.
+function wcpy () {
+    local pkg="$1" ; shift
+    local wcp=$(which wirecell-$pkg)
+    if [ -z "$wcp" ] ; then
+        warn "No wirecell-$pkg found, install wire-cell-python.  Will 'skip' the current test."
+        skip "No wirecell-$pkg found"
+        return
+    fi
+    check $wcp "$@"    
+}
+
+
 
 # dotify_graph <input> <output>
 #
@@ -461,10 +589,8 @@ function dotify_graph () {
     [[ -x "$cmd" ]]    
     
     cmd="$cmd dotify -J $cfgdir $@ $ifile $ofile"
-    echo "$cmd"
-    run $cmd
-    echo "$output"
-    [[ "$status" -eq 0 ]]
+
+    check $cmd
 }
 
 
@@ -491,7 +617,7 @@ function divine_context () {
 #
 # With no arguments, this divines the correct one for the current Bats context.
 #
-# With a single argument it will return the temporary directory for that context.
+# With a single argument it will emit the temporary directory for that context.
 #
 # Note, to not purge the tmp call:
 #
@@ -824,7 +950,7 @@ function historical_files () {
     fi
     for ver in ${versions[@]}
     do
-        # yell "historical files: $ver $@"
+        debug "historical files: $ver $@"
         category_path -c history -v $ver ${paths[@]}
     done
 }
@@ -860,7 +986,7 @@ function skip_if_no_category () {
 #
 # Download a file from a URL.
 #
-# Return (echo) a path to the target file.  This will be a location in a cache.
+# Emit (echo) a path to the target file.  This will be a location in a cache.
 # 
 # <url>
 #   The URL to download.

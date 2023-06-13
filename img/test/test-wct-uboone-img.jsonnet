@@ -377,15 +377,11 @@ local imgpipe =
     }.ret;
 local graph = pg.pipeline([
     filesource(infile, tags=["gauss","wiener"]),
-    // frame_quality_tagging, // event level tagging
     cmm_mod, // CMM modification
     frame_masking, // apply CMM
     charge_err, // calculate charge error
-    // magdecon, // magnify out
-    // dumpframes,
     imgpipe,
     pg.fan.fanout("ClusterFanout", [img.dump(outpat%fmt, fmt) for fmt in std.split(formats, ',')], "")
-//    img.dump(outfile, fmt),
 ], "main");
 
 local app = {

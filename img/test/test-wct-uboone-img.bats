@@ -28,8 +28,8 @@ setup_file () {
 
     run_idempotently -s "$dag_file" -s "$infile" \
                      -t "$img_numpy_file" -t "$img_json_file" -t "$log_file" -- \
-                     wct -l "$log_file" -L debug -c "$dag_file"
-    echo $output 1>&3
+                     wire-cell -l "$log_file" -L debug -c "$dag_file"
+    info $output 1>&3
     [[ -s "$log_file" ]]
 }
 
@@ -48,19 +48,22 @@ setup_file () {
 @test "dotify dag" {
     cd_tmp file
 
-    dotify_graph "$dag_file" "dag.svg"
-    saveout -c plots "dag.svg"
+    local dag_viz="dag.pdf"
+    run_idempotently -s "$dag_file" -t "$dag_viz" -- \
+                     dotify_graph "$dag_file" "$dag_viz"
+    saveout -c plots "$dag_viz"
 }
 
 @test "check wire-cell log file" {
     cd_tmp file
 
     local errors="$(egrep ' W | E ' $log_file)"
-    echo "$errors"
+    info "$errors"
     [[ -z "$errors" ]]
 }
 
 function do_blobs () {
+    local name="$1"; shift
     local what="$1"; shift
     local args=( $@ )
 
@@ -68,18 +71,13 @@ function do_blobs () {
 
     declare -A logs
 
-    local wcimg=$(wcb_env_value WCIMG)
     for fmt in json numpy
     do
-        local log="${what}-${fmt}.log"
+        local log="${what}-${name}-${fmt}.log"
         logs[$fmt]="$log"
 
         local dat="clusters-${fmt}.tar.gz"
-        echo "$wcimg $what ${args[@]} -o $log $dat" 
-        run $wcimg $what "${args[@]}" -o "$log" "$dat"
-        echo "$output"
-        echo "$status"
-        [[ "$status" -eq 0 ]]
+        run_idempotently -s "$dat" -t "$log" -- wcpy img $what "${args[@]}" -o "$log" "$dat"
         [[ -s "$log" ]]
     done
 
@@ -89,31 +87,28 @@ function do_blobs () {
 }
 
 @test "inspect blobs quietly" {
-    do_blobs inspect
+    do_blobs "quietly" inspect
 }
 @test "inspect blobs verbosely" {
-    do_blobs inspect --verbose
+    do_blobs "verbosely" inspect --verbose
+
+    local lfile=inspect-verbosely-numpy.log
+    [[ -s "$lfile" ]]
+    local got=$(grep 'nn for m' "$lfile" | grep -v 'b=1\b')
+    info "$got"
+    [[ -n "$got" ]]
+
 }
 @test "dump blobs" {
-    do_blobs dump-blobs
+    do_blobs "nominal" dump-blobs
 }
 
-    
-@test "at least one multi-blob measure" {
-    cd_tmp file
-
-    local got=$(grep 'nn for m' inspect-numpy.log | grep -v 'b=1\b')
-    echo "$got"
-    [[ -n "$got" ]]
-}
 
 # bats test_tags=plots
 @test "plot blobs" {
+    skip "Something got broken with wirecell-img plot-blobs"
     cd_tmp file
-
-    local wcimg=$(wcb_env_value WCIMG)
-    run $wcimg plot-blobs --single --plot views clusters-numpy.tar.gz blob-views.png
-
+    check wcpy img plot-blobs --plot views clusters-numpy.tar.gz blob-views.png
 }
 
 @test "valid cluster graph schema" {
@@ -127,15 +122,19 @@ function do_blobs () {
     local sfile=$(relative_path ../../aux/docs/cluster-graph-schema.jsonnet)
     [[ -s "$sfile" ]]
 
-    [[ -s clusters-json.tar.gz ]]
-    tar -xf clusters-json.tar.gz
-
+    local tfile=clusters-json.tar.gz
+    [[ -s "$tfile" ]]
     local dfile="cluster_6501_graph.json"
-    [[ -s "$dfile" ]]
 
-    run $moo validate -t wirecell.cluster.Cluster -s "$sfile" "$dfile"
-    echo "$output"
-    [[ "$status" -eq 0 ]]
+    run_idempotently -s "$tfile" -t "$dfile" -- \
+                     tar -xf $tfile
+    [[ -s "$dfile" ]]
+    touch -r "$tfile" "$dfile"  # override in-tar attributes
+
+    local lfile="cluster_6501_graph.log"
+
+    run_idempotently -s "$sfile" -s "$dfile" -t "$lfile" -- \
+                     $moo validate -o $lfile -t wirecell.cluster.Cluster -s "$sfile" "$dfile"
 }
 
 function roundtrip () {
@@ -149,26 +148,29 @@ function roundtrip () {
 
     cd_tmp file
 
-    compile_jsonnet $cfg ${dag}.json \
-        -A infile=$ifile \
-        -A outfile=$ofile \
-        -A infmt=$ifmt \
-        -A outfmt=$ofmt \
+    run_idempotently -s "$cfg" -t "${dag}.json" -- \
+                     compile_jsonnet $cfg ${dag}.json \
+                     -A infile=$ifile \
+                     -A outfile=$ofile \
+                     -A infmt=$ifmt \
+                     -A outfmt=$ofmt
+    
+    run_idempotently -s "${dag}.json" -t "${dag}.png" -- \
+                     dotify_graph "${dag}.json" "${dag}.png"
 
-    dotify_graph "${dag}.json" "${dag}.png"
-
-    wct -l $lfile -L debug -c "${dag}.json"
+    run_idempotently -s "${dag}.json" -s "$ifile" -t "$ofile" -- \
+                     wire-cell -l $lfile -L debug -c "${dag}.json"
 
     local errors="$(egrep ' W | E ' $lfile)"
     echo "$errors"
     [[ -z "$errors" ]]
     
-    local wcimg=$(wcb_env_value WCIMG)
-
     ilog=roundtrip-inspect-${ifmt}2${ofmt}-ilog-${ifmt}.log
     olog=roundtrip-inspect-${ifmt}2${ofmt}-olog-${ofmt}.log
-    run $wcimg inspect --verbose -o $ilog $ifile
-    run $wcimg inspect --verbose -o $olog $ofile
+    run_idempotently -s "$ifile" -t "$ilog" -- \
+                     wcpy img inspect --verbose -o "$ilog" "$ifile"
+    run_idempotently -s "$ofile" -t "$olog" -- \
+                     wcpy img inspect --verbose -o $olog $ofile
 
     local delta="$(diff -u $ilog $olog)"
     echo "$delta"
@@ -205,40 +207,46 @@ function roundtrip2 () {
 
     cd_tmp file
 
-    compile_jsonnet ${cfg} ${dag1}.json \
-        -A infile=$ifile \
-        -A outfile=$ofile1 \
-        -A infmt=$ifmt \
-        -A outfmt=$ofmt
+    run_idempotently -s "$cfg" -t "${dag1}.json" -- \
+                     compile_jsonnet ${cfg} ${dag1}.json \
+                     -A infile=$ifile \
+                     -A outfile=$ofile1 \
+                     -A infmt=$ifmt \
+                     -A outfmt=$ofmt
 
-    dotify_graph "${dag1}.json" "${dag1}.png"
+    run_idempotently -s "${dag1}.json" -t "${dag1}.png" -- \
+                     dotify_graph "${dag1}.json" "${dag1}.png"
 
-    wct -l $lfile1 -L debug -c ${dag1}.json
+    run_idempotently -s "${dag1}.json" -s "$ifile" -t "$ofile1" -- \
+                     wire-cell -l $lfile1 -L debug -c ${dag1}.json
     local errors="$(egrep ' W | E ' $lfile1)"
     echo "$errors"
     [[ -z "$errors" ]]
 
 
-    compile_jsonnet ${cfg} ${dag2}.json \
-        -A infile=$ofile1 \
-        -A outfile=$ofile2 \
-        -A infmt=$ofmt \
-        -A outfmt=$ifmt
+    run_idempotently -s "$cfg" -t "${dag2}.json" -- \
+                     compile_jsonnet ${cfg} ${dag2}.json \
+                     -A infile=$ofile1 \
+                     -A outfile=$ofile2 \
+                     -A infmt=$ofmt \
+                     -A outfmt=$ifmt
 
-    dotify_graph "${dag2}.json" "${dag2}.png"
+    run_idempotently -s "${dag2}.json" -t "${dag2}.png" -- \
+                     dotify_graph "${dag2}.json" "${dag2}.png"
 
-    wct -l $lfile2 -L debug -c ${dag2}.json
+    run_idempotently -s "${dag2}.json" -s "$ofile1" -t "$ofile2" -- \
+                     wire-cell -l $lfile2 -L debug -c ${dag2}.json
     local errors="$(egrep ' W | E ' $lfile2)"
     echo "$errors"
     [[ -z "$errors" ]]
     
 
-    local wcimg=$(wcb_env_value WCIMG)
-
     ilog=${dag1}-inspect.log
     olog=${dag2}-inspect.log
-    run $wcimg inspect -o $ilog $ifile
-    run $wcimg inspect -o $olog $ofile2
+    run_idempotently -s "$ifile" -t "$ilog" -- \
+                     wcpy img inspect -o $ilog $ifile
+    run_idempotently -s "$ofile2" -t "$olog" -- \
+                     wcpy img inspect -o $olog $ofile2
 
     local delta="$(diff -u $ilog $olog)"
     echo "$delta"

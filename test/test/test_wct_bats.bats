@@ -1,7 +1,16 @@
 bats_load_library wct-bats.sh
 
-@test "check usepkg" {
+@test "logging" {
+    debug "debug"
+    info "info"
+    warn "warn"
+    error "error"
+    fatal "fatal"
+#    die "die"
+}
+    
 
+@test "check usepkg" {
     usepkg cfg
     [[ -n "$cfg_src" ]]
     [[ -d "$cfg_src" ]]
@@ -16,17 +25,15 @@ bats_load_library wct-bats.sh
     local got="$(resolve_file test/test/test_wct_bats.bats)"
     [[ -n "$got" ]]
     [[ -n "$BATS_TEST_FILENAME" ]]
-    a="$(cat $BATS_TEST_FILENAME | md5sum)"
-    b="$(cat $got | md5sum)"
-    echo "$a"
-    echo "$b"
+    a="$(cat $BATS_TEST_FILENAME | md5sum | awk '{print $1}')"
+    b="$(cat $got | md5sum | awk '{print $1}')"
+    debug "md5: $a $BATS_TEST_FILENAME"
+    debug "md5: $b $got"
     [[ "$a" = "$b" ]]
 }
 
 @test "tojson" {
-    run tojson foo=42 bar="baz=quax quax"
-    echo "$output"
-    [[ "$status" -eq 0 ]]
+    check tojson foo=42 bar="baz=quax quax"
     [[ -n "$(echo $output | grep '"foo": "42"')" ]]
     [[ -n "$(echo $output | grep '"bar": "baz=quax quax"')" ]]
 }
@@ -38,16 +45,12 @@ bats_load_library wct-bats.sh
     [[ -z "$PREFIX" ]]
 
     # only one var
-    run wcb_env_vars VERSION
-    echo $output
-    [[ "$status" -eq 0 ]]
+    check wcb_env_vars VERSION
     [[ -n "$(echo $output | grep VERSION)" ]]
     [[ -z "$(echo $output | grep SUBDIRS)" ]]
 
     # all vars
-    run wcb_env_vars 
-    echo $output
-    [[ "$status" -eq 0 ]]
+    check wcb_env_vars 
     [[ -n "$(echo $output | grep VERSION)" ]]
     [[ -n "$(echo $output | grep SUBDIRS)" ]]
 
@@ -70,12 +73,6 @@ bats_load_library wct-bats.sh
     local prefix=$(wcb_env_value PREFIX)
     [[ -z "$(echo $prefix | grep '"')" ]]
     [[ -z "$PREFIX" ]]
-
-    # note to any users reading this test for examples, don't use
-    # wcsonnet directly but instead call compile_jsonnet.
-    wcsonnet=$(wcb_env_value WCSONNET)
-    echo "wcsonnet=|$wcsonnet|"
-    [[ -n "$wcsonnet" ]]
 }
 
 
@@ -125,7 +122,7 @@ bats_load_library wct-bats.sh
 
 
 @test "bats run command env var" {
-    run env
+    check env
     echo "run command: $BATS_RUN_COMMAND"
     [[ -n "$BATS_RUN_COMMAND" ]]
     # why is it not in env?

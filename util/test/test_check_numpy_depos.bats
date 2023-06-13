@@ -10,9 +10,7 @@ bats_load_library wct-bats.sh
     npz=$(input_file depos/muon.npz)
     [[ -n "$npz" ]]
 
-    run check_numpy_depos "$npz"
-    echo "$output"
-    [ "$status" -eq 0 ]
+    check check_numpy_depos "$npz"
     [ $(echo "$output" | grep 'row=' | wc -l) = 32825 ]
 }
 

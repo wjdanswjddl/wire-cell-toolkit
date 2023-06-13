@@ -42,11 +42,7 @@ function comp1d () {
 
     yell "DEPS: ${deps[@]}"
 
-    local wcplot=$(wcb_env_value WCPLOT)
-    if [ -z "$wcplot" ] ; then  # fixme: foist up into wct-bats.sh
-        skip "No wirecell-plot.  Do you have wire-cell-python installed before configuring build?"
-    fi
-    run_idempotently ${deps[@]} -t "$fig" -- $wcplot comp1d "${args[@]}" ${past[@]}
+    run_idempotently ${deps[@]} -t "$fig" -- wcpy plot comp1d "${args[@]}" ${past[@]}
     [[ -s "$fig" ]]
     saveout -c reports "$fig"
 }

@@ -66,7 +66,7 @@ function run_dag () {
     local src=$1; shift
     local tgt=$1; shift
     run_idempotently -s apa-0-${src}.${data_ext} -t apa-0-${tgt}.${data_ext} -- \
-        wct -l dag-${tgt}.log -L debug dag-${tgt}.json
+        wire-cell -l dag-${tgt}.log -L debug dag-${tgt}.json
     local warnings=$(grep '\bW\b' dag-${tgt}.log)
     echo "$warnings" 1>&3
     local errors=$(grep '\bE\b' dag-${tgt}.log)

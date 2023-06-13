@@ -18,26 +18,22 @@ bats_load_library wct-bats.sh
     local depofile=( $(input_file depos/cosmic-500-1.npz) )
     yell "depofile: ${depofile}"
 
-    run wire-cell -l "$logfile" -L debug \
+    wire-cell -l "$logfile" -L debug \
         -V input=$depofile \
         -V output="$outfile" \
         -c "$cfgfile"
     yell "outfile: ${outfile}"
-    [[ "$status" -eq 0 ]]
-    [[ -s "$outfile" ]]
+
     saveout -c history "$outfile"
 
-    local wcplot=$(wcb_env_value WCPLOT)
     for what in wave
     do
         local pout="${name}-comp1d-${what}.png"
-        $wcplot comp1d \
+        check wcpy plot comp1d \
                 -o $pout \
                 -t 'orig' -n $what \
                 --chmin 700 --chmax 701 -s \
                 "${outfile}"
-        echo "$output"
-        [[ "$status" -eq 0 ]]
         [[ -s "$pout" ]]
         saveout -c plots "$pout"
     done

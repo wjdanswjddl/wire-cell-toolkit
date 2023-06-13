@@ -8,8 +8,7 @@ bats_load_library wct-bats.sh
 
 @test "historical pdsp_sim_sp comp1d plots" {
 
-    local wcplot=$(wcb_env_value WCPLOT)
-    
+
     # will cd here to make plots have minimal filename labels 
     local rundir=$(blddir)/tests/history
     # but will deposite plot files to our temp dir
@@ -26,14 +25,14 @@ bats_load_library wct-bats.sh
     for plot in wave
     do
         local plotfile="$outdir/comp1d-${plot}-history.png"
-        $wcplot \
+        check wcpy plot \
             comp1d -n $plot --markers 'o + x .' -t 'orig' \
             --chmin 700 --chmax 701 -s \
             -o $plotfile ${frame_files[*]}
         saveout -c reports $plotfile
 
         local plotfile="$outdir/comp1d-${plot}-history-zoom1.png"
-        $wcplot \
+        check wcpy plot \
             comp1d -n $plot --markers 'o + x .' -t 'orig' \
             --chmin 700 --chmax 701 -s \
             --xrange 2000 3200 \
@@ -41,7 +40,7 @@ bats_load_library wct-bats.sh
         saveout -c reports $plotfile
 
         local plotfile="$outdir/comp1d-${plot}-history-zoom2.png"
-        $wcplot \
+        check wcpy plot \
             comp1d -n $plot --markers 'o + x .' -t 'orig' \
             --chmin 700 --chmax 701 -s \
             --xrange 4400 5200 \

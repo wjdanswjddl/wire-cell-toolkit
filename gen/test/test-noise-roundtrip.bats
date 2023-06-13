@@ -16,9 +16,7 @@ setup_file () {
 
     cd_tmp
 
-    run bash -c "wcsonnet $cfgfile > ${jsonfile}"
-    echo "$output"
-    [[ "$status" -eq 0 ]]
+    check bash -c "wcsonnet $cfgfile > ${jsonfile}"
 
     # representative output file
     if [ -f "$logfile" ] ; then
@@ -27,9 +25,7 @@ setup_file () {
     fi
 
     # run actual job on pre-compiled config
-    run wire-cell -l "${logfile}" -L debug "${jsonfile}"
-    echo "$output"
-    [[ "$status" -eq 0 ]]
+    check wire-cell -l "${logfile}" -L debug "${jsonfile}"
     [[ -s "$logfile" ]]
 
 }
@@ -52,8 +48,6 @@ setup_file () {
     # V c 800 0.24620086669921876 0.43083546962103825 800 198 0 0 0 0 0 0 0 0 0
     # W t 4096 0.23283335367838542 0.20440386815418213 4096 39 26 15 14 14 14 13 11 10 10
     # W c 960 0.23283335367838542 0.4332668683930272 960 249 0 0 0 0 0 0 0 0 0    
-
-    local wcgen=$(wcb_env_value WCGEN)
 
     for noise in empno inco
     do
@@ -81,7 +75,7 @@ setup_file () {
             # rms should be small.
             [[ -n "$(echo ${parts[4]} | grep '^0\.0')" ]]
             
-        done < <($wcgen frame_stats "$adcfile")
+        done < <(wcpy gen frame_stats "$adcfile")
     done
 }
 
@@ -89,8 +83,7 @@ setup_file () {
 # bats test_tags=implicit,plots
 @test "plot spectra" {
 
-    local wcsigproc="$(wcb_env_value WCSIGPROC)"
-    
+
     cd_tmp file
 
     for ntype in inco empno
@@ -99,9 +92,7 @@ setup_file () {
 
         # Plot OUTPUT spectra
         local ofile="$(basename $sfile .json.bz2)-output.pdf"
-        run $wcsigproc plot-noise-spectra -z "${sfile}" "${ofile}"
-        echo "$output"
-        [[ "$status" -eq 0 ]]
+        check wcpy sigproc plot-noise-spectra -z "${sfile}" "${ofile}"
 
         # Plot INPUT spectra.
         local ifile="$(basename $sfile .json.bz2)-input.pdf"
@@ -109,17 +100,13 @@ setup_file () {
         
         # Spectra is inside configuration
         if [ "$ntype" = "inco" ] ; then
-            run $wcsigproc plot-configured-spectra -c ac -n "$ntype" test-noise-roundtrip.json "${ifile}" 
-            echo "$output"
-            [[ "$status" -eq 0 ]]
+            check wcpy sigproc plot-configured-spectra -c ac -n "$ntype" test-noise-roundtrip.json "${ifile}" 
         fi
         # Spectra is in auxiliary file
         if [ "$ntype" = "empno" ] ; then
             # warning: hard-coding empno spectra out of laziness
             # and assuming it's the one used in the Jsonnet!
-            run $wcsigproc plot-noise-spectra -z protodune-noise-spectra-v1.json.bz2 "${ifile}"
-            echo "$output"
-            [[ "$status" -eq 0 ]]
+            check wcpy sigproc plot-noise-spectra -z protodune-noise-spectra-v1.json.bz2 "${ifile}"
         fi
 
         saveout -c plots "$ifile" "$ofile"

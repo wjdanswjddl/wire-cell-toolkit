@@ -32,10 +32,6 @@ bats_load_library wct-bats.sh
         echo "$jsonfile took $dt seconds"
         [[ $dt -le 2 ]]
 
-        if [ -z "$(wcb_env_value WCPGRAPH)" ] ; then
-            continue;
-        fi
-
         local svgfile="$(basename $jsonfile .json).svg"
         dotify_graph "$jsonfile" "$svgfile"
         saveout $svgfile
