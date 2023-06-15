@@ -339,13 +339,13 @@ The path to the temporary directory will be printed to the terminal and it becom
 
 WCT adds an alternative temporary context directory scheme which combines all contexts into a single directory that is named by the user setting an environment variable:
 #+begin_example
-  $ WCTEST_TMPDIR=$HOME/my-wct-tmp-dir bats [...]
+  $ WCT_BATS_TMPDIR=$HOME/my-wct-tmp-dir bats [...]
 #+end_example
 
 #+begin_note
 Only define this variable in your shell and never in a test file.  It is up to the user to remove it so it may survive multiple test runs.  This can be desirable when developing or debugging a specific test but likely leads to problems if this setting is maintained during a larger test run over many BATS test files.
 
-In the tips and tricks below, we will use ~WCTEST_TMPDIR~ to implement /idempotent/ tests.
+In the tips and tricks below, we will use ~WCT_BATS_TMPDIR~ to implement /idempotent/ tests.
 #+end_note
 
 ** Finding source files
@@ -469,7 +469,7 @@ When all of these conditions are not met, the ~run_idempotently~ will return wit
 
 Otherwise, the ~<command line>~ is run and the ~$status~ code is checked before returning.
 
-Nominally, ~run_idempotently~ will always run the command as the ~bats~ command will run the tests in a fresh temporary context.  Thus to allow idempotent running the user must set ~WCTEST_TMPDIR~.  As that directory may start empty, the first test run will always run the ~<command line>~ while subsequent runs may exhibit idempotency. 
+Nominally, ~run_idempotently~ will always run the command as the ~bats~ command will run the tests in a fresh temporary context.  Thus to allow idempotent running the user must set ~WCT_BATS_TMPDIR~.  As that directory may start empty, the first test run will always run the ~<command line>~ while subsequent runs may exhibit idempotency. 
 
 This pattern works well with the use of a ~setup_file~ and with the ~bats -f <filter>~ option.  A long running command may be run idempotently from ~setup_file~ withh a number of ~@test~ cases checking some aspect.  The developer may then narrow investigation to one or a few test cases.  Each run will then be fast.
 
@@ -564,7 +564,7 @@ We explain each:
 
 ** Using ~setup_file~
 
-Another method to run tests in an idempotent manner is to place common, perhaps long running, tasks in the ~setup_file~ function,  run the entire test with ~WCTEST_TMPDIR~ set and then re-run specific tests with ~bats -f <filter>~.  When a specific test is exercising some issue, this lets the developer focus on just that issue and reuse prior results.  Consider the example:
+Another method to run tests in an idempotent manner is to place common, perhaps long running, tasks in the ~setup_file~ function,  run the entire test with ~WCT_BATS_TMPDIR~ set and then re-run specific tests with ~bats -f <filter>~.  When a specific test is exercising some issue, this lets the developer focus on just that issue and reuse prior results.  Consider the example:
 
 #+begin_example
   function setup_file () {
@@ -586,11 +586,11 @@ Another method to run tests in an idempotent manner is to place common, perhaps 
 
 Then the developer may do something like:
 #+begin_example
-  $ WCTEST_TEMPDIR=/tmp/my-test bats my-test.bats
-  $ WCTEST_TEMPDIR=/tmp/my-test bats -f one my-test.bats  
+  $ WCT_BATS_TMPDIR=/tmp/my-test bats my-test.bats
+  $ WCT_BATS_TMPDIR=/tmp/my-test bats -f one my-test.bats  
 #+end_example
 
-To force a full re-run simply remove the ~/tmp/my-test~ and perhaps run after unseting ~WCTEST_TMPDIR~.
+To force a full re-run simply remove the ~/tmp/my-test~ and perhaps run after unseting ~WCT_BATS_TMPDIR~.
 
 ** Test tags
 

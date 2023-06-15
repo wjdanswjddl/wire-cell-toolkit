@@ -3,10 +3,10 @@
 #+STARTUP: beamer
 #+options: ':t
 #+LaTeX_CLASS: beamer
-#+LATEX_CLASS_OPTIONS: [colorlinks,aspectratio=169]
+#+LATEX_CLASS_OPTIONS: [dvipsnames,colorlinks,aspectratio=169]
 #+latex_header: \usepackage{pdfpages}
-#+latex_header: \usepackage{xcolor}
 #+latex_header: \usepackage{graphicx}
+#+latex_header: \usepackage{xcolor}
 #+latex_header: \usepackage{xspace}
 #+latex_header: \usepackage{libertine}
 #+latex_header: \usepackage{fontawesome}
