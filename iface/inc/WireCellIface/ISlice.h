@@ -50,9 +50,9 @@ namespace WireCell {
         };
         typedef std::pair<IChannel::pointer, value_t> pair_t;
         // typedef std::unordered_map<IChannel::pointer, value_t> map_t;
-        // typedef std::unordered_map<IChannel::pointer, value_t, IdentHash, IdentEq> map_t;
+        typedef std::unordered_map<IChannel::pointer, value_t, IdentHash, IdentEq> map_t;
         // typedef std::map<IChannel::pointer, value_t> map_t;
-        typedef std::map<IChannel::pointer, value_t, IdentLess> map_t;
+        // typedef std::map<IChannel::pointer, value_t, IdentLess> map_t;
 
         // Pointer back to IFrame from which this ISlice was created.
         virtual IFrame::pointer frame() const = 0;
