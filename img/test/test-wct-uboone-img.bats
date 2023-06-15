@@ -137,6 +137,20 @@ function do_blobs () {
                      $moo validate -o $lfile -t wirecell.cluster.Cluster -s "$sfile" "$dfile"
 }
 
+@test "check view projections" {
+    run_idempotently -s clusters-json.tar.gz -t found-projection.pdf -- \
+                     wcpy img blob-activity-mask \
+                     -o found-projection.pdf --found clusters-json.tar.gz --vmin=0.001
+    run_idempotently -s clusters-json.tar.gz -t found-projection.json -- \
+                     wirecell-img blob-activity-stats \
+                     -f json -o found-projection.json clusters-json.tar.gz
+    [[ "$(cat found-projection.json | jq '.pqtot > 0.91')" = "true" ]]
+    [[ "$(cat found-projection.json | jq '.pqfound > 0.98')" = "true" ]]
+    [[ "$(cat found-projection.json | jq '.nchan')" = "8256" ]] 
+    [[ "$(cat found-projection.json | jq '.nslice')" = "88" ]] 
+    
+}
+
 function roundtrip () {
     local ifmt=$1; shift
     local ofmt=$1; shift
@@ -168,9 +182,9 @@ function roundtrip () {
     ilog=roundtrip-inspect-${ifmt}2${ofmt}-ilog-${ifmt}.log
     olog=roundtrip-inspect-${ifmt}2${ofmt}-olog-${ofmt}.log
     run_idempotently -s "$ifile" -t "$ilog" -- \
-                     wcpy img inspect --verbose -o "$ilog" "$ifile"
+                     wcpy img inspect -o "$ilog" "$ifile"
     run_idempotently -s "$ofile" -t "$olog" -- \
-                     wcpy img inspect --verbose -o $olog $ofile
+                     wcpy img inspect -o $olog $ofile
 
     local delta="$(diff -u $ilog $olog)"
     echo "$delta"

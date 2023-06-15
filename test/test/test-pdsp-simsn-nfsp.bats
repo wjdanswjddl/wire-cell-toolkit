@@ -42,7 +42,7 @@ setup_file () {
         args1+=( -A "${tier}output=${ff}" )
         deps2+=( -t $ff )
     done        
-    run_idempotently --verbose ${deps1[@]} -- compile_jsonnet ${args1[@]}
+    run_idempotently ${deps1[@]} -- compile_jsonnet ${args1[@]}
     [[ -s "$dag_file" ]]
 
     run_idempotently ${deps2[@]} -- wire-cell -l $log_file -L debug -c $dag_file

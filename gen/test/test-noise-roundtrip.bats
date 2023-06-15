@@ -54,6 +54,11 @@ setup_file () {
 
         local adcfile="test-noise-roundtrip-${noise}-adc.npz"
         [[ -s "$adcfile" ]]
+        info "adcfile for frame stats: $adcfile"
+
+        wcpy gen frame-stats "$adcfile"
+        local frame_stats="$output"
+        info "$frame_stats"
 
         while read line ; do
             parts=($line)
@@ -75,7 +80,7 @@ setup_file () {
             # rms should be small.
             [[ -n "$(echo ${parts[4]} | grep '^0\.0')" ]]
             
-        done < <(wcpy gen frame_stats "$adcfile")
+        done <<< "$frame_stats"
     done
 }
 

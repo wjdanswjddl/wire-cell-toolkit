@@ -1,7 +1,10 @@
+#!/usr/bin/env bats
+
 bats_load_library wct-bats.sh
 
 @test "logging" {
     debug "debug"
+#    log "log"
     info "info"
     warn "warn"
     error "error"
@@ -94,8 +97,8 @@ bats_load_library wct-bats.sh
 }
 
 @test "tmp dirs" {
-    if [ -n "$WCTEST_TMPDIR" ] ; then
-        [[ "$(tmpdir)" = "$WCTEST_TMPDIR" ]]
+    if [ -n "$WCT_BATS_TMPDIR" ] ; then
+        [[ "$(tmpdir)" = "$WCT_BATS_TMPDIR" ]]
         return
     fi
 

@@ -130,7 +130,8 @@ function fatal () {
 #
 # Log at fatal error and exit
 function die () {
-    info "$msg"
+    yell "$@"
+    info "$@"
     exit 1
 }
 
@@ -623,10 +624,10 @@ function divine_context () {
 #
 #   bats --no-tempdir-cleanup
 #
-# Or, set WCTEST_TMPDIR.
+# Or, set WCT_BATS_TMPDIR.
 function tmpdir () {
-    if [ -n "$WCTEST_TMPDIR" ] ; then
-        echo "$WCTEST_TMPDIR"
+    if [ -n "$WCT_BATS_TMPDIR" ] ; then
+        echo "$WCT_BATS_TMPDIR"
         return
     fi
 
