@@ -103,12 +103,11 @@ function do_blobs () {
     do_blobs "nominal" dump-blobs
 }
 
-
 # bats test_tags=plots
 @test "plot blobs" {
-    skip "Something got broken with wirecell-img plot-blobs"
     cd_tmp file
-    check wcpy img plot-blobs --plot views clusters-numpy.tar.gz blob-views.png
+    run_idempotently -t blob-views.pdf -s clusters-numpy.tar.gz -- \
+                     wcpy img plot-blobs -o blob-views.pdf --plot views clusters-numpy.tar.gz 
 }
 
 @test "valid cluster graph schema" {
