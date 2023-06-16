@@ -221,7 +221,7 @@ function run_idempotently () {
     fi
     
     if [ "$need_to_run" = "no" ] ; then
-        warn "not running idempotent command: $@"
+        warn "idempotent: $@"
         return
     fi
 
@@ -551,6 +551,25 @@ function version () {
     $cli --version
 }
 
+# skip_if_missing <program> ...
+#
+# Check if the running environment has access to the given programs.
+#
+# One or more programs may be checked.  First one that is not found
+# will lead to the test being skipped.
+function skip_if_missing ()  {
+    for one in "$@"
+    do
+        local path="$(which $one)"
+        if [ -n "$path" ] ; then
+            continue
+        fi
+        skip "No program: \"$one\""
+        return
+    done
+}
+               
+
 # wcpy <pkg> <command> [options]
 #
 # Execute the wirecell-<pkg> program with command and optoins.
@@ -566,7 +585,6 @@ function wcpy () {
     fi
     check $wcp "$@"    
 }
-
 
 
 # dotify_graph <input> <output>
