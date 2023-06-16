@@ -13,6 +13,17 @@ bats_load_library wct-bats.sh
 }
     
 
+@test "using jq" {
+    skip_if_missing jq
+
+    cd_tmp
+    output="$(echo '{"a":42}' | jq '.a')"
+    [[ "$output" = "42" ]]
+    [[ -n "$(jq -h | head -1 | grep 'jq - commandline JSON processor')" ]]
+    echo '{"a":42}'  > junk.txt
+    [[ "$(jq '.a' < junk.txt)" = "42" ]]
+}
+
 @test "check usepkg" {
     usepkg cfg
     [[ -n "$cfg_src" ]]
