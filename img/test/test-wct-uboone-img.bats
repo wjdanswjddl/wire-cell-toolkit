@@ -29,7 +29,6 @@ setup_file () {
     run_idempotently -s "$dag_file" -s "$infile" \
                      -t "$img_numpy_file" -t "$img_json_file" -t "$log_file" -- \
                      wire-cell -l "$log_file" -L debug -c "$dag_file"
-    info $output 1>&3
     [[ -s "$log_file" ]]
 }
 
@@ -136,13 +135,22 @@ function do_blobs () {
                      $moo validate -o $lfile -t wirecell.cluster.Cluster -s "$sfile" "$dfile"
 }
 
-@test "check view projections" {
+@test "plot view projections" {
     run_idempotently -s clusters-json.tar.gz -t found-projection.pdf -- \
                      wcpy img blob-activity-mask \
-                     -o found-projection.pdf --found clusters-json.tar.gz --vmin=0.001
+                     -o found-projection.pdf --found clusters-json.tar.gz --vmin=0.001 \
+                     --channel-lines 296,298-315,317,319-327,336,337,343-345,348-351,376-400,410-445,447-484,501-503,505-520,522-524,536-559,561-592,595-598,600-632,634-652,654,656-671,864-911,3936-3983,7136-7199,7201-7214,7216-7263
+
+
+
+}
+
+@test "check view projections" {
     run_idempotently -s clusters-json.tar.gz -t found-projection.json -- \
-                     wirecell-img blob-activity-stats \
+                     wcpy img blob-activity-stats \
                      -f json -o found-projection.json clusters-json.tar.gz
+    skip_if_missing jq
+    info "$(cat found-projection.json)"
     [[ "$(cat found-projection.json | jq '.pqtot > 0.91')" = "true" ]]
     [[ "$(cat found-projection.json | jq '.pqfound > 0.98')" = "true" ]]
     [[ "$(cat found-projection.json | jq '.nchan')" = "8256" ]] 

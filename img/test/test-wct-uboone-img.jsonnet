@@ -11,8 +11,8 @@
 //    tests/scripts/celltree-excerpt script for how to produce this
 //    single event file.
 // 
-// 3) The ancillary img.jsonnet file at the URL above is incporated
-//    directly into this file.
+// 3) Subset of the ancillary img.jsonnet file at the URL above is
+//    incporated directly into this file as local function.
 //
 // 4) Some previous options set via commenting are exposed as TLAs.
 //
@@ -30,197 +30,44 @@ local tools_maker = import 'pgrapher/common/tools.jsonnet';
 local tools = tools_maker(params);
 local anodes = tools.anodes;
 
-local img = {
-    // A functio that sets up slicing for an APA.
-    slicing :: function(anode, aname, tag="", span=4, active_planes=[0,1,2], masked_planes=[], dummy_planes=[]) {
-        ret: pg.pnode({
-            type: "MaskSlices",
-            name: "slicing-"+aname,
-            data: {
-                tag: tag,
-                tick_span: span,
-                anode: wc.tn(anode),
-                min_tbin: 0,
-                max_tbin: 9592,
-                active_planes: active_planes,
-                masked_planes: masked_planes,
-                dummy_planes: dummy_planes,
-            },
-        }, nin=1, nout=1, uses=[anode]),
-    }.ret,
+// A function that sets up slicing for an APA.
+local slicing(anode, aname, tag="", span=4, active_planes=[0,1,2], masked_planes=[], dummy_planes=[]) =
+    pg.pnode({
+        type: "MaskSlices",
+        name: "slicing-"+aname,
+        data: {
+            tag: tag,
+            tick_span: span,
+            anode: wc.tn(anode),
+            min_tbin: 0,
+            max_tbin: 9592,
+            active_planes: active_planes,
+            masked_planes: masked_planes,
+            dummy_planes: dummy_planes,
+        },
+    }, nin=1, nout=1, uses=[anode]);
 
-    // A function sets up tiling for an APA incuding a per-face split.
-    tiling :: function(anode, aname) {
+// A function sets up tiling for an APA incuding a per-face split.
+local tiling(anode, aname) =
+    pg.pnode({
+        type: "GridTiling",
+        name: "tiling-%s-face0"%aname,
+        data: {
+            anode: wc.tn(anode),
+            face: 0,
+        }
+    }, nin=1, nout=1, uses=[anode]);
 
-        local slice_fanout = pg.pnode({
-            type: "SliceFanout",
-            name: "slicefanout-" + aname,
-            data: { multiplicity: 2 },
-        }, nin=1, nout=2),
+local cluster_sink(outfile, fmt="json") =
+    pg.pnode({
+        type: "ClusterFileSink",
+        name: outfile,
+        data: {
+            outname: outfile,
+            format: fmt,
+        }
+    }, nin=1, nout=0);
 
-        local tilings = [pg.pnode({
-            type: "GridTiling",
-            name: "tiling-%s-face%d"%[aname, face],
-            data: {
-                anode: wc.tn(anode),
-                face: face,
-            }
-        }, nin=1, nout=1, uses=[anode]) for face in [0,1]],
-
-        local blobsync = pg.pnode({
-            type: "BlobSetSync",
-            name: "blobsetsync-" + aname,
-            data: { multiplicity: 2 }
-        }, nin=2, nout=1),
-
-        // ret: pg.intern(
-        //     innodes=[slice_fanout],
-        //     outnodes=[blobsync],
-        //     centernodes=tilings,
-        //     edges=
-        //         [pg.edge(slice_fanout, tilings[n], n, 0) for n in [0,1]] +
-        //         [pg.edge(tilings[n], blobsync, 0, n) for n in [0,1]],
-        //     name='tiling-' + aname),
-        ret : tilings[0],
-    }.ret,
-
-    //
-    multi_active_slicing_tiling :: function(anode, name, tag="gauss", span=4) {
-        local active_planes = [[0,1,2],[0,1],[1,2],[0,2],],
-        local masked_planes = [[],[2],[0],[1]],
-        local iota = std.range(0,std.length(active_planes)-1),
-        local slicings = [$.slicing(anode, name+"_%d"%n, tag, span, active_planes[n], masked_planes[n]) 
-                          for n in iota],
-        local tilings = [$.tiling(anode, name+"_%d"%n)
-                         for n in iota],
-        local multipass = [pg.pipeline([slicings[n],tilings[n]]) for n in iota],
-        ret: pg.fan.pipe("FrameFanout", multipass, "BlobSetMerge", "multi_active_slicing_tiling"),
-    }.ret,
-
-    //
-    multi_masked_2view_slicing_tiling :: function(anode, name, tag="gauss", span=109) {
-        local dummy_planes = [[2],[0],[1]],
-        local masked_planes = [[0,1],[1,2],[0,2]],
-        local iota = std.range(0,std.length(dummy_planes)-1),
-        local slicings = [$.slicing(anode, name+"_%d"%n, tag, span,
-                                    active_planes=[],masked_planes=masked_planes[n], dummy_planes=dummy_planes[n])
-                          for n in iota],
-        local tilings = [$.tiling(anode, name+"_%d"%n)
-                         for n in iota],
-        local multipass = [pg.pipeline([slicings[n],tilings[n]]) for n in iota],
-        ret: pg.fan.pipe("FrameFanout", multipass, "BlobSetMerge", "multi_masked_slicing_tiling"),
-    }.ret,
-    //
-    multi_masked_slicing_tiling :: function(anode, name, tag="gauss", span=109) {
-        local active_planes = [[2],[0],[1],[]],
-        local masked_planes = [[0,1],[1,2],[0,2],[0,1,2]],
-        local iota = std.range(0,std.length(active_planes)-1),
-        local slicings = [$.slicing(anode, name+"_%d"%n, tag, span, active_planes[n], masked_planes[n]) 
-                          for n in iota],
-        local tilings = [$.tiling(anode, name+"_%d"%n)
-                         for n in iota],
-        local multipass = [pg.pipeline([slicings[n],tilings[n]]) for n in iota],
-        ret: pg.fan.pipe("FrameFanout", multipass, "BlobSetMerge", "multi_masked_slicing_tiling"),
-    }.ret,
-
-    // Just clustering
-    clustering :: function(anode, aname, spans=1.0) {
-        ret : pg.pnode({
-            type: "BlobClustering",
-            name: "blobclustering-" + aname,
-            data:  { spans : spans }
-        }, nin=1, nout=1),
-    }.ret, 
-
-    // this bundles clustering, grouping and solving.  Other patterns
-    // should be explored.  Note, anode isn't really needed, we just
-    // use it for its ident and to keep similar calling pattern to
-    // above..
-    solving :: function(anode, aname, spans=1.0, threshold=0.0) {
-        local bc = pg.pnode({
-            type: "BlobClustering",
-            name: "blobclustering-" + aname,
-            data:  { spans : spans }
-        }, nin=1, nout=1),
-        local bg = pg.pnode({
-            type: "BlobGrouping",
-            name: "blobgrouping-" + aname,
-            data:  {
-            }
-        }, nin=1, nout=1),
-        local bs = pg.pnode({
-            type: "BlobSolving",
-            name: "blobsolving-" + aname,
-            data:  { threshold: threshold }
-        }, nin=1, nout=1),
-        local cs0 = pg.pnode({
-            type: "ChargeSolving",
-            name: "chargesolving0-" + aname,
-            data:  {
-                weighting_strategies: ["uniform"], //"uniform", "simple"
-            }
-        }, nin=1, nout=1),
-        local cs1 = pg.pnode({
-            type: "ChargeSolving",
-            name: "chargesolving1-" + aname,
-            data:  {
-                weighting_strategies: ["uniform"], //"uniform", "simple"
-            }
-        }, nin=1, nout=1),
-        local lcbr = pg.pnode({
-            type: "LCBlobRemoval",
-            name: "lcblobremoval-" + aname,
-            data:  {
-                blob_value_threshold: 1e6,
-                blob_error_threshold: 0,
-            }
-        }, nin=1, nout=1),
-        local cs = pg.intern(
-            innodes=[cs0], outnodes=[cs1], centernodes=[],
-            edges=[pg.edge(cs0,cs1)],
-            name="chargesolving-" + aname),
-        local csp = pg.intern(
-            innodes=[cs0], outnodes=[cs1], centernodes=[lcbr],
-            edges=[pg.edge(cs0,lcbr), pg.edge(lcbr,cs1)],
-            name="chargesolving-" + aname),
-        local solver = cs0,
-        local full = pg.intern(
-            innodes=[bc], outnodes=[solver], centernodes=[bg],
-            edges=[pg.edge(bc,bg), pg.edge(bg,solver)],
-            name="solving-" + aname),
-        local nosolve = pg.pipeline([bc,bg]),
-        ret: full,
-
-    }.ret,
-
-    dump(outfile, fmt="json") :: {
-
-        local cs = pg.pnode({
-            type: "ClusterFileSink",
-            name: outfile,
-            data: {
-                outname: outfile,
-                format: fmt,
-            }
-        }, nin=1, nout=0),
-        ret: cs
-    }.ret,
-
-};
-// end img.
-
-// local celltreesource = pg.pnode({
-//     type: "CelltreeSource",
-//     name: "celltreesource",
-//     data: {
-//         filename: "celltreeOVERLAY.root",
-//         EventNo: 6501,
-//         // in_branch_base_names: raw [default], calibGaussian, calibWiener
-//         in_branch_base_names: ["calibWiener", "calibGaussian"],
-//         out_trace_tags: ["wiener", "gauss"], // orig, gauss, wiener
-//         in_branch_thresholds: ["channelThreshold", ""],
-//     },
-//  }, nin=0, nout=1);
 local filesource(infile, tags=[]) = pg.pnode({
     type: "FrameFileSource",
     name: infile,
@@ -229,25 +76,6 @@ local filesource(infile, tags=[]) = pg.pnode({
         tags: tags,
     },
 }, nin=0, nout=1);
-
-local dumpframes = pg.pnode({
-    type: "DumpFrames",
-    name: 'dumpframe',
-}, nin=1, nout=0);
-
-local magdecon = pg.pnode({
-    type: 'MagnifySink',
-    name: 'magdecon',
-    data: {
-        output_filename: "mag.root",
-        root_file_mode: 'UPDATE',
-        frames: ['gauss', 'wiener', 'gauss_error'],
-        cmmtree: [['bad','bad']],
-        summaries: ['gauss', 'wiener', 'gauss_error'],
-        trace_has_tag: true,
-        anode: wc.tn(anodes[0]),
-    },
-}, nin=1, nout=1, uses=[anodes[0]]);
 
 local waveform_map = {
     type: 'WaveformMap',
@@ -298,31 +126,6 @@ local cmm_mod = pg.pnode({
     },
 }, nin=1, nout=1, uses=[anodes[0]]);
 
-local frame_quality_tagging = pg.pnode({
-    type: 'FrameQualityTagging',
-    name: '',
-    data: {
-        trace_tag: 'gauss',
-        anode: wc.tn(anodes[0]),
-	nrebin: 4, // rebin count ...
-	length_cut: 3,
-	time_cut: 3,
-	ch_threshold: 100,
-	n_cover_cut1: 12,
-	n_fire_cut1: 14,
-	n_cover_cut2: 6,
-	n_fire_cut2: 6,
-	fire_threshold: 0.22,
-	n_cover_cut3: [1200, 1200, 1800 ],
-	percent_threshold: [0.25, 0.25, 0.2 ],
-	threshold1: [300, 300, 360 ],
-	threshold2: [150, 150, 180 ],
-	min_time: 3180,
-	max_time: 7870,
-	flag_corr: 1,
-    },
-}, nin=1, nout=1, uses=[anodes[0]]);
-
 local frame_masking = pg.pnode({
     type: 'FrameMasking',
     name: '',
@@ -334,69 +137,67 @@ local frame_masking = pg.pnode({
 }, nin=1, nout=1, uses=[anodes[0]]);
 
 local anode = anodes[0];
-// multi slicing includes 2-view tiling and dead tiling
-local active_planes = [[0,1,2],[0,1],[1,2],[0,2],];
-local masked_planes = [[],[2],[0],[1]];
-// single, multi, active, masked
+
+// Top-level function
 function(infile="celltreeOVERLAY-event6501.tar.bz2",
          outpat="clusters-event6501-%s.tar.gz",
-         slicing = "single",
          formats = "json,numpy")
 
-    local multi_slicing = slicing;
-local imgpipe =
-    if multi_slicing == "single" then
-        pg.pipeline([
-            img.slicing(anode, anode.name, "gauss", 109, active_planes=[0,1,2], masked_planes=[],dummy_planes=[]), // 109*22*4
-            img.tiling(anode, anode.name),
-            img.solving(anode, anode.name),
-            // img.clustering(anode, anode.name),
-        ], "img-" + anode.name)
-    else if multi_slicing == "active" then
-        pg.pipeline([
-            img.multi_active_slicing_tiling(anode, anode.name+"-ms-active", "gauss", 4),
-            img.solving(anode, anode.name+"-ms-active")
-        ])
-    else if multi_slicing == "masked" then
-        pg.pipeline([
-            // img.multi_masked_slicing_tiling(anode, anode.name+"-ms-masked", "gauss", 109),
-            img.multi_masked_2view_slicing_tiling(anode, anode.name+"-ms-masked", "gauss", 109),
-            img.clustering(anode, anode.name+"-ms-masked"),
-        ])
-    else {
-        local active_fork = pg.pipeline([
-            img.multi_active_slicing_tiling(anode, anode.name+"-ms-active", "gauss", 4),
-            img.solving(anode, anode.name+"-ms-active"),
-        ]),
-        local masked_fork = pg.pipeline([
-            // img.multi_masked_slicing_tiling(anode, anode.name+"-ms-masked", "gauss", 109),
-            img.multi_masked_2view_slicing_tiling(anode, anode.name+"-ms-masked", "gauss", 109),
-            img.clustering(anode, anode.name+"-ms-masked"),
-        ]),
-        ret: pg.fan.fanout("FrameFanout",[active_fork,masked_fork], "fan_active_masked"),
-    }.ret;
-local graph = pg.pipeline([
-    filesource(infile, tags=["gauss","wiener"]),
-    cmm_mod, // CMM modification
-    frame_masking, // apply CMM
-    charge_err, // calculate charge error
-    imgpipe,
-    pg.fan.fanout("ClusterFanout", [img.dump(outpat%fmt, fmt) for fmt in std.split(formats, ',')], "")
-], "main");
+    local cfo = pg.pnode({
+        type: "ClusterFanout",
+        name: "tiled",
+        data: {
+            multiplicity: 2,
+            tag_rules: [],
+            }
+    }, nin=1, nout=2);
+    local dump_tiled = cluster_sink("tiled-"+outpat%"numpy", "numpy");
+    local tap_tiled = pg.intern(innodes=[cfo], outnodes=[cfo], centernodes=[dump_tiled],
+                                edges=[pg.edge(cfo, dump_tiled, 1, 0)]);
 
-local app = {
-    type: 'Pgrapher',
-    data: {
-        edges: pg.edges(graph),
-    },
-};
+    local graph = pg.pipeline([
+        filesource(infile, tags=["gauss","wiener"]),
+        cmm_mod, // CMM modification
+        frame_masking, // apply CMM
+        charge_err, // calculate charge error
+        slicing(anode, anode.name, "gauss"),
+        tiling(anode, anode.name),
+        pg.pnode({
+            type: "BlobClustering",
+            name: "blobclustering-" + anode.name,
+            data:  { spans : 1 }
+        }, nin=1, nout=1),
+        pg.pnode({
+            type: "BlobGrouping",
+            name: "blobgrouping-" + anode.name,
+            data:  {
+            }
+        }, nin=1, nout=1),
+        tap_tiled,
+        pg.pnode({
+            type: "ChargeSolving",
+            name: "chargesolving0-" + anode.name,
+            data:  {
+                weighting_strategies: ["uniform"], //"uniform", "simple"
+            }
+        }, nin=1, nout=1),
+        pg.fan.fanout("ClusterFanout", [
+            cluster_sink(outpat%fmt, fmt) for fmt in std.split(formats, ',')], "")
+    ], "main");
 
-local cmdline = {
-    type: "wire-cell",
-    data: {
-        plugins: ["WireCellGen", "WireCellPgraph", "WireCellSio", "WireCellSigProc", "WireCellImg"],
-        apps: ["Pgrapher"]
-    }
-};
+    local app = {
+        type: 'Pgrapher',
+        data: {
+            edges: pg.edges(graph),
+        },
+    };
 
-[cmdline] + pg.uses(graph) + [app]
+    local cmdline = {
+        type: "wire-cell",
+        data: {
+            plugins: ["WireCellGen", "WireCellPgraph", "WireCellSio", "WireCellSigProc", "WireCellImg"],
+            apps: ["Pgrapher"]
+        }
+    };
+
+    [cmdline] + pg.uses(graph) + [app]
