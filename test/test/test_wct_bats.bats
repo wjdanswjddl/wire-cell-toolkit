@@ -13,6 +13,23 @@ bats_load_library wct-bats.sh
 }
     
 
+@test "index of" {
+    local a="$(index_of a a b c)"
+    [[ "$a" = "0" ]]
+    local b="$(index_of b a b c)"
+    [[ "$b" = "1" ]]
+    local abc=( a "b 1" "c d e f" )
+    local c="$(index_of "c d e f" "${abc[@]}")"
+    [[ "$c" = "2" ]]
+}
+
+@test "check check" {
+    check true
+    local failed=no
+    check false || failed=yes
+    [[ "$failed" = "yes" ]]
+}
+
 @test "using jq" {
     skip_if_missing jq
 
@@ -145,10 +162,17 @@ bats_load_library wct-bats.sh
     [[ -n "$(env |grep BATS_RUN_COMMAND)" ]]
 }
     
+@test "topdir" {
+    local t;
+    t=$(topdir)
+    run diff "${BASH_SOURCE[0]}" "$t/test/test/test_wct_bats.bats"
+}
+
 @test "pathlist resolution" {
     local t=$(topdir)
-    declare -a got=( $(resolve_pathlist $t/gen:$t/test $t/sigproc:$t/apps $t/doesnotexist) )
-    # yell ${got[*]}
+    declare -a got
+    got=( $(resolve_pathlist $t/gen:$t/test $t/sigproc:$t/apps $t/doesnotexist) )
+    # yell "got: ${#got[@]}: |${got[@]}|"
     [[ ${#got[@]} -eq 4 ]]
     [[ ${got[0]} = $t/gen ]]
     [[ ${got[1]} = $t/test ]]
@@ -228,4 +252,19 @@ bats_load_library wct-bats.sh
     [[ file1.txt -ot file3.txt ]]
     [[ file3.txt -nt file1.txt ]]
 
+}
+
+@test "historical versions" {
+    # IFS=" " read -r -a versions <<< "$(historical_versions)"
+    local verlines=$(historical_versions)
+    local versions=( $verlines ) # split
+    yell "versions: ${versions[@]}"
+    yell "versions[0]: ${versions[0]}"
+    [[ "${#versions[@]}" -gt 0 ]]
+    [ -n "${versions[0]}" ]
+}
+@test "historical files" {
+    local hf
+    hf=( $(historical_files --last 2 test-addnoise/frames-adc.tar.gz) )
+    yell "hf: ${#hf[@]}: ${hf[*]}"
 }
