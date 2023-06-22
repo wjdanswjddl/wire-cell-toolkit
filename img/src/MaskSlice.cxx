@@ -183,16 +183,6 @@ void Img::MaskSliceBase::slice(const IFrame::pointer& in, slice_map_t& svcmap)
     const double tick = in->tick();
     const double span = tick * m_tick_span;
 
-    // Need to create slices for all possible tbins to make sure syncing in BlobSetMerge
-    // TODO: make this optional?
-    // FIXME: how to handle same slice ident?
-    for (size_t slicebin=m_min_tbin/m_tick_span; slicebin < m_max_tbin/m_tick_span; ++slicebin) {
-        const double start = slicebin * m_tick_span * tick;
-        const double span = m_tick_span * tick;
-        auto s = new Img::Data::Slice(in, slicebin, start, span);
-        svcmap[slicebin] = s;
-    }
-
     // get charge traces
     auto charge_traces = Aux::tagged_traces(in, m_charge_tag);
     const size_t ntraces = charge_traces.size();
@@ -214,6 +204,20 @@ void Img::MaskSliceBase::slice(const IFrame::pointer& in, slice_map_t& svcmap)
         }
         min_tbin = *std::min_element(tbins.begin(), tbins.end());
         max_tbin = *std::max_element(tends.begin(), tends.end());
+    }
+
+    // [min, max) slice bins
+    const size_t min_slicebin = floor((double)min_tbin/m_tick_span);
+    const size_t max_slicebin = ceil((double)max_tbin/m_tick_span);
+
+    // Need to create slices for all possible tbins to make sure syncing in BlobSetMerge
+    // TODO: make this optional?
+    // FIXME: how to handle same slice ident? Currently slicebin is used as slice ident
+    for (size_t slicebin=min_slicebin; slicebin < max_slicebin; ++slicebin) {
+        const double start = slicebin * m_tick_span * tick;
+        const double span = m_tick_span * tick;
+        auto s = new Img::Data::Slice(in, slicebin, start, span);
+        svcmap[slicebin] = s;
     }
 
     // get wiener traces
@@ -289,9 +293,7 @@ void Img::MaskSliceBase::slice(const IFrame::pointer& in, slice_map_t& svcmap)
             size_t slicebin = (tbin + qind) / m_tick_span;
             auto s = svcmap[slicebin];
             if (!s) {
-                const double start = slicebin * span;  // thus relative to slice frame's time.
-                s = new Img::Data::Slice(in, slicebin, start, span);
-                svcmap[slicebin] = s;
+                THROW(RuntimeError() << errmsg{"Not expecting slice not created!"});
             }
             // TODO: how to handle error?
             s->sum(ich, {q, e});
@@ -307,13 +309,10 @@ void Img::MaskSliceBase::slice(const IFrame::pointer& in, slice_map_t& svcmap)
         auto ichans = Aux::plane_channels(m_anode, plane_index);
         log->debug("dummy plane: {} size {}", plane_index, ichans.size());
         for (auto ich : ichans) {
-            for (auto itick = min_tbin; itick < max_tbin; ++itick) {
-                size_t slicebin = (min_tbin + itick) / m_tick_span;
+            for (size_t slicebin = min_slicebin; slicebin < max_slicebin; ++slicebin) {
                 auto s = svcmap[slicebin];
                 if (!s) {
-                    const double start = slicebin * span;  // thus relative to slice frame's time.
-                    s = new Img::Data::Slice(in, slicebin, start, span);
-                    svcmap[slicebin] = s;
+                    THROW(RuntimeError() << errmsg{"Not expecting slice not created!"});
                 }
                 s->assign(ich, {(float)m_dummy_charge, (float)m_dummy_error});
             }
@@ -324,7 +323,12 @@ void Img::MaskSliceBase::slice(const IFrame::pointer& in, slice_map_t& svcmap)
     auto cmm = in->masks()["bad"];
     for (auto ch_tbins : cmm) {
         const int chid = ch_tbins.first;
-        auto tbins = ch_tbins.second;
+        const auto& tbins = ch_tbins.second;
+        // if (chid == 802) {
+        //     for (auto tbin : tbins) {
+        //         log->debug("chid {} tbin {} {}", chid, tbin.first, tbin.second);
+        //     }
+        // }
         IChannel::pointer ich = m_anode->channel(chid);
         if (!ich) {
             continue;
@@ -333,23 +337,35 @@ void Img::MaskSliceBase::slice(const IFrame::pointer& in, slice_map_t& svcmap)
         if (std::find(m_masked_planes.begin(),m_masked_planes.end(),planeid.index())==m_masked_planes.end()) {
             continue;
         }
-        for (auto tbin : ch_tbins.second) {
-            // log->debug("t: {} {}", tbin.first, tbin.second);
-            for (auto t = tbin.first; t != tbin.second; ++t) {
-                if (t < min_tbin || t >= max_tbin) {
-                    log->warn("cmm {} {} exceeds given range [{},{}), breaking.", chid, t, min_tbin, max_tbin);
-                    break;
-                }
-                size_t slicebin = t / m_tick_span;
+        /// slicebin based, should be faster for fewer slices
+        for (size_t slicebin = min_slicebin; slicebin < max_slicebin; ++slicebin) {
+            for (auto tbin : tbins) {
+                if (slicebin * m_tick_span > tbin.second || (slicebin + 1) * m_tick_span <= tbin.first) continue;
                 auto s = svcmap[slicebin];
                 if (!s) {
-                    const double start = slicebin * span;  // thus relative to slice frame's time.
-                    s = new Img::Data::Slice(in, slicebin, start, span);
-                    svcmap[slicebin] = s;
+                    THROW(RuntimeError() << errmsg{"Not expecting slice not created!"});
                 }
-                s->assign(ich, {(float)m_masked_charge, (float)m_masked_error});
+                s->assign(ich, {(float) m_masked_charge, (float) m_masked_error});
             }
         }
+        /// tbin based
+        // for (auto tbin : tbins) {
+        //     // log->debug("t: {} {}", tbin.first, tbin.second);
+        //     for (auto t = tbin.first; t != tbin.second; ++t) {
+        //         if (t < min_tbin || t >= max_tbin) {
+        //             log->warn("cmm {} {} exceeds given range [{},{}), breaking.", chid, t, min_tbin, max_tbin);
+        //             break;
+        //         }
+        //         size_t slicebin = t / m_tick_span;
+        //         auto s = svcmap[slicebin];
+        //         if (!s) {
+        //             const double start = slicebin * span;  // thus relative to slice frame's time.
+        //             s = new Img::Data::Slice(in, slicebin, start, span);
+        //             svcmap[slicebin] = s;
+        //         }
+        //         s->assign(ich, {(float)m_masked_charge, (float)m_masked_error});
+        //     }
+        // }
     }
 
     log->debug("nslices={} from ntraces={}, tbin=[{}, {}]",
@@ -400,7 +416,7 @@ bool Img::MaskSlices::operator()(const input_pointer& in, output_queue& slices)
         //     qtot += a.second;
         // }
 
-        // log->debug("slice: id={} t={} activity={}", s->ident(), s->start(), s->activity().size());
+        log->debug("slice: id={} t={} activity={}", s->ident(), s->start(), s->activity().size());
         slices.push_back(ISlice::pointer(s));
     }
 
