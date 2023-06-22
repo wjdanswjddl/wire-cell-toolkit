@@ -629,7 +629,9 @@ function dotify_graph () {
 
     declare -a cmd
     cmd=( "$(wcb_env_value WCPGRAPH)" )
-    [[ "${#cmd[@]}" -eq 0 ]]
+    if [ "${#cmd[@]}" -eq 0 ] ; then
+        die "failed to find wirecell-pgraph from Waf environment"
+    fi
     [[ -x "${cmd[0]}" ]]    
     
     cmd+=( dotify -J "$cfgdir" "$@" "$ifile" "$ofile" )
