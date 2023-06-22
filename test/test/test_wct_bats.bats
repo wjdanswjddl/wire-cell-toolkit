@@ -258,13 +258,15 @@ bats_load_library wct-bats.sh
     # IFS=" " read -r -a versions <<< "$(historical_versions)"
     local verlines=$(historical_versions)
     local versions=( $verlines ) # split
-    yell "versions: ${versions[@]}"
-    yell "versions[0]: ${versions[0]}"
+    # yell "versions: ${versions[@]}"
+    # yell "versions[0]: ${versions[0]}"
     [[ "${#versions[@]}" -gt 0 ]]
     [ -n "${versions[0]}" ]
 }
 @test "historical files" {
     local hf
+    hf=( $(historical_files test-addnoise/frames-adc.tar.gz) )
+    #yell "hf all: ${#hf[@]}: ${hf[*]}"
     hf=( $(historical_files --last 2 test-addnoise/frames-adc.tar.gz) )
-    yell "hf: ${#hf[@]}: ${hf[*]}"
+    #yell "hf two: ${#hf[@]}: ${hf[*]}"
 }

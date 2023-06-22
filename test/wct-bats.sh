@@ -341,7 +341,9 @@ function saveout () {
         esac
     done
           
-    [[ "${#src[@]}" -gt 0 ]]
+    if [ "${#src[@]}" -eq - ] ; then
+        die "saveout: no source given"
+    fi
 
     local name base
     name="$(basename "$BATS_TEST_FILENAME" .bats)"
@@ -351,7 +353,7 @@ function saveout () {
     if [ -n "$tgt" ] ; then
         tgt="${base}/${tgt}"
         mkdir -p "$(dirname "$tgt")"
-        cp "${src[@]}" "$tgt"
+        cp "${src[0]}" "$tgt"
         return
     fi
 
@@ -362,7 +364,7 @@ function saveout () {
         local tgt
         tgt="${base}/$(basename "$one")"
         mkdir -p "$(dirname "$tgt")"
-        cp "${src[@]}" "$tgt"
+        cp "$one" "$tgt"
     done
 }
 
@@ -1015,7 +1017,8 @@ function historical_files () {
     if [ -n "$last" ] ; then
         verlines=$(echo "$verlines" | tail -n "$last")
     fi
-    for ver in "${verlines[@]}"
+
+    for ver in ${verlines[@]}
     do
         debug "historical files: $ver $*"
         category_path -c history -v "$ver" "${paths[@]}"

@@ -55,7 +55,7 @@ setup_file () {
     [[ -f "$jdir/junk1.txt" ]]
     [[ -f "$jdir/junk2.txt" ]]
 
-    saveout junk2.txt junk3.txt
+    saveout -t junk3.txt junk2.txt
     [[ -f "$odir/junk3.txt" ]]
 
     cd_tmp file
@@ -67,9 +67,9 @@ setup_file () {
 
 @test "return array with spaces" {
     IFS=":" read -r -a xx <<< "$(printf '%s\n' "a" "0" "c a" "0" "d" | sort -u | tr '\n' ':')"
-    yell "xx: ${#xx[@]}: ${xx[@]}"
-    yell "xx[0]: ${xx[0]}"
-    yell "xx[1]: ${xx[1]}"
-    yell "xx[2]: ${xx[2]}"
-    yell "xx[3]: ${xx[3]}"
+    [[ "${#xx[@]}" = 4 ]]
+    [[ "${xx[0]}" = "0" ]]
+    [[ "${xx[1]}" = "a" ]]
+    [[ "${xx[2]}" = "c a" ]]
+    [[ "${xx[3]}" = "d" ]]
 }

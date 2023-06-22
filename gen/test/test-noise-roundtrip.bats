@@ -8,24 +8,21 @@ bats_load_library wct-bats.sh
 
 setup_file () {
 
-    local cfgfile="${BATS_TEST_FILENAME%.bats}.jsonnet"
+    local cfgfile="$(relative_path test-noise-roundtrip.jsonnet)"
 
     # files named commonly in each variant subidr
-    local jsonfile="$(basename ${cfgfile} .jsonnet).json"
-    local logfile="$(basename ${cfgfile} .jsonnet).log"
+    local jsonfile="dag.json"
+    local logfile="wire-cell.log"
 
     cd_tmp
 
-    check bash -c "wcsonnet $cfgfile > ${jsonfile}"
-
-    # representative output file
-    if [ -f "$logfile" ] ; then
-        echo "Already have $logfile" 1>&3
-        continue
-    fi
+    run_idempotently -s "$cfgfile" -t "$jsonfile" -- \
+                     compile_jsonnet "$cfgfile" "$jsonfile"
+    # check bash -c "wcsonnet $cfgfile > ${jsonfile}"
 
     # run actual job on pre-compiled config
-    check wire-cell -l "${logfile}" -L debug "${jsonfile}"
+    run_idempotently -s "$jsonfile" -t "$logfile" -- \
+                     wire-cell -l "${logfile}" -L debug "${jsonfile}"
     [[ -s "$logfile" ]]
 
 }
@@ -105,7 +102,7 @@ setup_file () {
         
         # Spectra is inside configuration
         if [ "$ntype" = "inco" ] ; then
-            check wcpy sigproc plot-configured-spectra -c ac -n "$ntype" test-noise-roundtrip.json "${ifile}" 
+            check wcpy sigproc plot-configured-spectra -c ac -n "$ntype" dag.json "${ifile}" 
         fi
         # Spectra is in auxiliary file
         if [ "$ntype" = "empno" ] ; then
