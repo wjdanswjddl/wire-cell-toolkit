@@ -380,9 +380,10 @@ function skip_if_no_input () {
     do
         local input
         input="$(blddir)/tests/input/$path"
-        if [ ! -f "$input" ] ; then
-            skip "no input test data at $input"
+        if [ -f "$input" ] || [ -d "$input" ] ; then
+            continue;
         fi
+        skip "no input test data at $input"
     done
 }
 
