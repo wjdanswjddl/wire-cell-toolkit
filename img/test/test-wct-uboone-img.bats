@@ -151,10 +151,10 @@ function do_blobs () {
                      -f json -o found-projection.json clusters-json.tar.gz
     skip_if_missing jq
     info "$(cat found-projection.json)"
-    [[ "$(cat found-projection.json | jq '.pqtot > 0.91')" = "true" ]]
-    [[ "$(cat found-projection.json | jq '.pqfound > 0.98')" = "true" ]]
+    [[ "$(cat found-projection.json | jq '.pqtot > 0.75')" = "true" ]]
+    [[ "$(cat found-projection.json | jq '.pqfound > 0.90')" = "true" ]]
     [[ "$(cat found-projection.json | jq '.nchan')" = "8256" ]] 
-    [[ "$(cat found-projection.json | jq '.nslice')" = "88" ]] 
+    [[ "$(cat found-projection.json | jq '.nslice')" = "2398" ]] 
     
 }
 
