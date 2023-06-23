@@ -416,7 +416,7 @@ bool Img::MaskSlices::operator()(const input_pointer& in, output_queue& slices)
         //     qtot += a.second;
         // }
 
-        log->debug("slice: id={} t={} activity={}", s->ident(), s->start(), s->activity().size());
+        // log->debug("slice: id={} t={} activity={}", s->ident(), s->start(), s->activity().size());
         slices.push_back(ISlice::pointer(s));
     }
 
