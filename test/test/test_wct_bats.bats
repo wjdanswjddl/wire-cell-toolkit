@@ -266,7 +266,14 @@ bats_load_library wct-bats.sh
 @test "historical files" {
     local hf
     hf=( $(historical_files test-addnoise/frames-adc.tar.gz) )
-    #yell "hf all: ${#hf[@]}: ${hf[*]}"
+    debug "hf all: ${#hf[@]}: ${hf[*]}"
     hf=( $(historical_files --last 2 test-addnoise/frames-adc.tar.gz) )
-    #yell "hf two: ${#hf[@]}: ${hf[*]}"
+    debug "hf two: ${#hf[@]}: ${hf[*]}"
+    [[ "${#hf[@]}" -eq 2 ]]
+    debug "current with last three:"
+    hf=$(historical_files --current -l 3 test-addnoise/frames-adc.tar.gz)
+    debug "hf: $hf"
+    hf=( $hf )
+    debug "hf:: ${#hf[@]}: ${hf[*]}"
+    [[ "${#hf[@]}" -eq 3 ]]
 }

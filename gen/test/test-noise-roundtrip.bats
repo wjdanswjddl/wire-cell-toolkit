@@ -28,6 +28,7 @@ setup_file () {
 }
 
 @test "no weird endpoints of mean waveform" {
+    skip_if_missing jq
 
     cd_tmp file
 
@@ -53,36 +54,23 @@ setup_file () {
         [[ -s "$adcfile" ]]
         info "adcfile for frame stats: $adcfile"
 
-        wcpy gen frame-stats "$adcfile"
-        local frame_stats="$output"
-        info "$frame_stats"
+        local statfile="stats-${noise}.json"
+        wcpy gen frame-stats -o "$statfile" "$adcfile"
 
-        while read line ; do
-            parts=($line)
-
-            echo "$line"
-            if [ "${parts[1]}" = "c" ] ; then
-                continue
-            fi
-
-            # Bash does not speak floating point.  To avoid relying on
-            # dc/bc to be installed, we do these FP tests lexically.
-
-            # require nothing past 5 sigma
-            [[ "${parts[10]}" = "0" ]]
-
-            # mean should be small.
-            [[ -n "$(echo ${parts[3]} | grep '^0\.0')" ]]
-
-            # rms should be small.
-            [[ -n "$(echo ${parts[4]} | grep '^0\.0')" ]]
-            
-        done <<< "$frame_stats"
+        for plane in "U" "V" "W"
+        do
+            # no outliers
+            [[ $(jq ".$plane.t.outliers[-1]" < "$statfile") -eq 0 ]]
+            # mean should be small
+            [[ $(jq ".$plane.t.mu > -0.5 and .$plane.t.mu < 0.5" < "$statfile") = "true" ]]
+            # mean should be rms
+            [[ $(jq ".$plane.t.rms < 0.2" < "$statfile") = "true" ]]
+        done
     done
 }
 
 
-# bats test_tags=implicit,plots
+# bats test_tags=history
 @test "plot spectra" {
 
 
@@ -111,7 +99,7 @@ setup_file () {
             check wcpy sigproc plot-noise-spectra -z protodune-noise-spectra-v1.json.bz2 "${ifile}"
         fi
 
-        saveout -c plots "$ifile" "$ofile"
+        saveout -c history "$ifile" "$ofile"
 
     done
 }

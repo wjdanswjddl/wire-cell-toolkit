@@ -86,9 +86,9 @@ function log_at_level () {
     pre="$(date +"%Y-%m-%d %H:%M:%S.%N") [ ${L^^} ]"
 
     if [ "$WCT_BATS_LOG_SINK" = capture ] ; then
-        echo -e "$pre $*"
+        echo -e "$pre $*" 1>&2  # stderr
     elif [ "$WCT_BATS_LOG_SINK" = terminal ] ; then
-        echo -e "$pre $*" 1>&3
+        echo -e "$pre $*" 1>&3  # special avoid capture
     else
         echo -e "$pre $*" >> "$WCT_BATS_LOG_SINK"
     fi
@@ -380,8 +380,8 @@ function skip_if_no_input () {
     do
         local input
         input="$(blddir)/tests/input/$path"
-        if [ ! -d "$input" ] ; then
-            skip "no input test data at %input"
+        if [ ! -f "$input" ] ; then
+            skip "no input test data at $input"
         fi
     done
 }
@@ -838,6 +838,8 @@ function resolve_file () {
     declare -a paths=(".")
     paths=("$(dirname "${BATS_TEST_FILENAME}")")
     paths+=("$@")
+    local t
+    t="$(topdir)"
     paths+=("$t/test/data" "$t" "$t/build/tests" "$WIRECELL_PATH")
 
     for path in $(resolve_pathlist "${paths[@]}")
@@ -997,30 +999,37 @@ function historical_versions () {
 #   release.
 #
 function historical_files () {
-    local last
+    local last current
     declare -a paths versions
     while [[ $# -gt 0 ]] ; do
         case $1 in
             -l|--last) last="$2"; shift 2;;
             -v|--version) versions+=( "$2" ); shift 2;;
-            -c|--current) versions+=( "$(version)" ); shift;;
+            -c|--current) current="$(version)"; shift;;
             -*) die "unknown option $1" ;;
             *) paths+=( "$1" ); shift;;
         esac
     done
+
     local verlines
     if [ "${#versions[@]}" -eq 0 ] ; then
         verlines=$(historical_versions)
     else
-        verlines=$(printf '%s\n' "${versions[@]}" | sort -u)
+        verlines=$(printf '%s\n' "${versions[@]}")
     fi
+    if [ -n "$current" ] ; then
+        verlines=$(printf '%s\n%s' "$current" "$verlines")
+    fi
+    verlines=$(echo "$verlines" | sort -u)
+
     if [ -n "$last" ] ; then
         verlines=$(echo "$verlines" | tail -n "$last")
     fi
 
+    # shellcheck disable=SC2068
     for ver in ${verlines[@]}
     do
-        debug "historical files: $ver $*"
+        yell "historical_files: ver=|$ver| paths: ${paths[*]}"
         category_path -c history -v "$ver" "${paths[@]}"
     done
 }

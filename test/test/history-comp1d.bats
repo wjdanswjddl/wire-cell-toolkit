@@ -8,13 +8,14 @@ bats_load_library wct-bats.sh
 
 function comp1d () {
 
-    local src=$1; shift
+    local src="$1"; shift
     local infile="$1"; shift
-    local kind=$1; shift
-    local iplane=$1; shift
+    local kind="$1"; shift
+    local iplane="$1"; shift
 
-    local past=( $(historical_files --current -l 3 $infile) )
-
+    local past
+    past=( $(historical_files --current -l 3 "$infile") )
+    info "PAST: ${past[*]}"
 
     local letters=("u" "v" "w")
     local chmins=(0 800 1600)
@@ -31,18 +32,18 @@ function comp1d () {
     fi
     args+=( -o "$fig" )
 
-    yell "ARGS: ${args[@]}"
+    yell "ARGS: ${args[*]}"
 
     local deps=()
-    for one in ${past[@]}
+    for one in "${past[@]}"
     do
         deps+=( -s "$one" )
         [[ -s "$one" ]]
     done
 
-    yell "DEPS: ${deps[@]}"
+    yell "DEPS: ${deps[*]}"
 
-    run_idempotently ${deps[@]} -t "$fig" -- wcpy plot comp1d "${args[@]}" ${past[@]}
+    run_idempotently "${deps[@]}" -t "$fig" -- wcpy plot comp1d "${args[@]}" "${past[@]}"
     [[ -s "$fig" ]]
     saveout -c reports "$fig"
 }
@@ -66,7 +67,7 @@ function comp1d () {
             for ipln in 0 1 2
             do
                 yell "comp1d $src $infile $kind $ipln"
-                comp1d $src $infile $kind $ipln
+                comp1d "$src" "$infile" "$kind" "$ipln"
             done
         done
     done

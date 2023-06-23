@@ -42,48 +42,68 @@ while [[ $# -gt 0 ]] ; do
     esac
 done
 
-echo "RELEASES: ${releases[@]}"
+function die () {
+    echo "$@" 1>&2
+    exit 1
+}
 
-scrdir="$(realpath $(dirname $BASH_SOURCE))"
-topdir="$(realpath ${scrdir}/../..)"
-cd $topdir
+echo "RELEASES: ${releases[*]}"
+
+scrdir="$(realpath "$(dirname "${BASH_SOURCE[0]}")")"
+topdir="$(realpath "${scrdir}"/../..)"
+cd "$topdir" || die "Can not cd to $topdir"
 
 
-if [ -z "$releases" ] ; then
-    releases=( $topdir )
+if [ "${#releases[@]}" -eq 0 ] ; then
+    releases=( "$topdir" )
 fi
-if [ -z "$tags" ] ; then
+if [ "${#tags[@]}" ] ; then
     tags=( "history" )
 fi
 
 declare -a tag_args
-for tag in ${tags[@]}
+for tag in "${tags[@]}"
 do
-    tag_args+=( --filter-tags $tag )
+    tag_args+=( --filter-tags "$tag" )
 done
+
+# requires GNU sort
+function verlte () {
+    printf '%s\n' "$1" "$2" | sort -C -V
+}
 
 
 # Build a pair of linked lists of release directories and tests
 declare -a rels
 declare -a files
-for rel in ${releases[@]}
+for rel in "${releases[@]}"
 do
-    ver=$( $scrdir/run-in-direnv $rel wire-cell --version )
+    ver=$( "$scrdir"/run-in-direnv "$rel" wire-cell --version )
     echo "CONSIDERING release $ver in $rel" 1>&2
-    if [[ $ver > 0.20 ]] ; then
-        rels+=( $rel )
-        files+=( $topdir/gen/test/test-addnoise.bats )
-        echo "ADDING test-addnoise.bats" 1>&2
-        rels+=( $rel )
-        files+=( $topdir/test/test/test-pdsp-simsn-nfsp.bats )
-        echo "ADDING test-pdsp-simsn.bats" 1>&2
-    fi
-    if [[ $ver > 0.24.1 ]] ; then
-        rels+=( $rel )
-        files+=( $topdir/img/test/test-wct-uboone-img.bats )
-        echo "ADDING test-wct-uboone-img.bats" 1>&2
-    fi
+
+    verlte "$ver" "0.20" && continue
+
+    rels+=( "$rel" )
+    files+=( "$topdir/gen/test/test-addnoise.bats" )
+    echo "ADDING test-addnoise.bats" 1>&2
+
+    rels+=( "$rel" )
+    files+=( "$topdir/test/test/test-pdsp-simsn-nfsp.bats" )
+    echo "ADDING test-pdsp-simsn.bats" 1>&2
+
+    rels+=( "$rel" )
+    files+=( "$topdir/gen/test/test-noise-roundtrip.bats" )
+    echo "ADDING gen/test/test-noise-roundtrip.bats" 1>&2
+
+    verlte "$ver" "0.24.1" && continue
+
+    rels+=( "$rel" )
+    files+=( "$topdir/img/test/test-wct-uboone-img.bats" )
+    echo "ADDING test-wct-uboone-img.bats" 1>&2
+
 done
+
+echo "RELEASES: ${rels[*]}"
 
 
 # Starting with 0.25:
@@ -91,6 +111,6 @@ done
 
 # echo -- \
 parallel --link \
-         $faker $scrdir/run-in-direnv {1} $topdir/test/bats/bin/bats ${tag_args[@]} {2} \
-         ::: ${rels[@]} \
-         ::: ${files[@]}
+         "$faker" "$scrdir/run-in-direnv" '{1}' "$topdir/test/bats/bin/bats" "${tag_args[@]}" '{2}' \
+         ::: "${rels[@]}" \
+         ::: "${files[@]}"
