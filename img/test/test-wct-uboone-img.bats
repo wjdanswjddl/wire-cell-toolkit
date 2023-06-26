@@ -4,10 +4,15 @@
 
 bats_load_library "wct-bats.sh"
 
+# Define the archive format file extension for temporary files.  Can
+# be "tar" or "tar.gz" to exercise WCT streaming compression.  Use
+# just "tar" to make running faster.
+arrext="tar.gz"
+
 dag_file="dag.json"
 log_file="wire-cell.log"
-img_numpy_file="clusters-numpy.tar.gz"
-img_json_file="clusters-json.tar.gz"
+img_numpy_file="clusters-numpy.$arrext"
+img_json_file="clusters-json.$arrext"
 
 setup_file () {
     skip_if_no_input
@@ -23,7 +28,7 @@ setup_file () {
 
     run_idempotently -s "$cfg_file" -t "$dag_file" -- \
                      compile_jsonnet "$cfg_file" "$dag_file" \
-                     -A infile="$infile" -A outpat="clusters-%s.tar.gz" -A formats="json,numpy"
+                     -A infile="$infile" -A outpat="clusters-%s.$arrext" -A formats="json,numpy"
     [[ -s "$dag_file" ]]
 
     run_idempotently -s "$dag_file" -s "$infile" \
@@ -39,8 +44,15 @@ setup_file () {
 
     [[ -s "$img_numpy_file" ]]
     [[ -s "$img_json_file" ]]
-    saveout -c history "$img_numpy_file"
-    saveout -c history "$img_json_file"
+    if [ "$arrext" = "tar" ] ; then
+        gzip -k "$img_numpy_file"
+        gzip -k "$img_json_file"
+        saveout -c history "${img_numpy_file}.gz"
+        saveout -c history "${img_json_file}.gz"
+    else
+        saveout -c history "$img_numpy_file"
+        saveout -c history "$img_json_file"
+    fi
 }
 
 # bats test_tags=dotify
@@ -75,7 +87,7 @@ function do_blobs () {
         local log="${what}-${name}-${fmt}.log"
         logs[$fmt]="$log"
 
-        local dat="clusters-${fmt}.tar.gz"
+        local dat="clusters-${fmt}.$arrext"
         run_idempotently -s "$dat" -t "$log" -- wcpy img $what "${args[@]}" -o "$log" "$dat"
         [[ -s "$log" ]]
     done
@@ -105,8 +117,8 @@ function do_blobs () {
 # bats test_tags=plots
 @test "plot blobs" {
     cd_tmp file
-    run_idempotently -t blob-views.pdf -s clusters-numpy.tar.gz -- \
-                     wcpy img plot-blobs -o blob-views.pdf --plot views clusters-numpy.tar.gz 
+    run_idempotently -t blob-views.pdf -s clusters-numpy.$arrext -- \
+                     wcpy img plot-blobs -o blob-views.pdf --plot views clusters-numpy.$arrext 
 }
 
 @test "valid cluster graph schema" {
@@ -120,7 +132,7 @@ function do_blobs () {
     local sfile=$(relative_path ../../aux/docs/cluster-graph-schema.jsonnet)
     [[ -s "$sfile" ]]
 
-    local tfile=clusters-json.tar.gz
+    local tfile=clusters-json.$arrext
     [[ -s "$tfile" ]]
     local dfile="cluster_6501_graph.json"
 
@@ -136,9 +148,9 @@ function do_blobs () {
 }
 
 @test "plot view projections" {
-    run_idempotently -s clusters-json.tar.gz -t found-projection.pdf -- \
+    run_idempotently -s clusters-json.$arrext -t found-projection.pdf -- \
                      wcpy img blob-activity-mask \
-                     -o found-projection.pdf --found clusters-json.tar.gz --vmin=0.001 \
+                     -o found-projection.pdf --found clusters-json.$arrext --vmin=0.001 \
                      --channel-lines 296,298-315,317,319-327,336,337,343-345,348-351,376-400,410-445,447-484,501-503,505-520,522-524,536-559,561-592,595-598,600-632,634-652,654,656-671,864-911,3936-3983,7136-7199,7201-7214,7216-7263
 
 
@@ -146,9 +158,9 @@ function do_blobs () {
 }
 
 @test "check view projections" {
-    run_idempotently -s clusters-json.tar.gz -t found-projection.json -- \
+    run_idempotently -s clusters-json.$arrext -t found-projection.json -- \
                      wcpy img blob-activity-stats \
-                     -f json -o found-projection.json clusters-json.tar.gz
+                     -f json -o found-projection.json clusters-json.$arrext
     skip_if_missing jq
     info "$(cat found-projection.json)"
     [[ "$(cat found-projection.json | jq '.pqtot > 0.75')" = "true" ]]
@@ -161,8 +173,8 @@ function do_blobs () {
 function roundtrip () {
     local ifmt=$1; shift
     local ofmt=$1; shift
-    local ifile=clusters-${ifmt}.tar.gz
-    local ofile=clusters-${ifmt}-${ofmt}.tar.gz
+    local ifile=clusters-${ifmt}.$arrext
+    local ofile=clusters-${ifmt}-${ofmt}.$arrext
     local dag=roundtrip-${ifmt}-${ofmt}
     local lfile=$dag.log
     local cfg=$(relative_path test-wct-uboone-img-roundtrip.jsonnet)
@@ -214,9 +226,9 @@ function roundtrip () {
 function roundtrip2 () {
     local ifmt=$1; shift
     local ofmt=$1; shift
-    local ifile=clusters-${ifmt}.tar.gz
-    local ofile1=clusters2-${ifmt}-${ofmt}.tar.gz
-    local ofile2=clusters2-${ifmt}-${ofmt}-${ifmt}.tar.gz
+    local ifile=clusters-${ifmt}.$arrext
+    local ofile1=clusters2-${ifmt}-${ofmt}.$arrext
+    local ofile2=clusters2-${ifmt}-${ofmt}-${ifmt}.$arrext
 
 
     local dag1=roundtrip2-${ifmt}-${ofmt}
