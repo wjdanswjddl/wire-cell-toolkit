@@ -187,7 +187,7 @@ namespace WireCell {
     typedef IndexedGraph<cluster_node_t> cluster_indexed_graph_t;
 
     template <typename Type>
-    std::vector<Type> oftype(const cluster_indexed_graph_t& g)
+    inline std::vector<Type> oftype(const cluster_indexed_graph_t& g)
     {
         std::vector<Type> ret;
         for (const auto& v : boost::make_iterator_range(boost::vertices(g.graph()))) {
@@ -201,12 +201,46 @@ namespace WireCell {
 
     // 
     template <typename Type>
-    std::vector<Type> neighbors_oftype(const cluster_indexed_graph_t& g, const cluster_node_t& n)
+    inline std::vector<Type> neighbors_oftype(const cluster_indexed_graph_t& g, const cluster_node_t& n)
     {
         std::vector<Type> ret;
         for (const auto& vp : g.neighbors(n)) {
             if (std::holds_alternative<Type>(vp.ptr)) {
                 ret.push_back(std::get<Type>(vp.ptr));
+            }
+        }
+        return ret;
+    }
+
+    // descriptor version of oftype
+    inline std::vector<cluster_vertex_t> oftype(const WireCell::cluster_graph_t& cg, const char typecode)
+    {
+        std::vector<cluster_vertex_t> ret;
+        for (const auto& vtx : boost::make_iterator_range(boost::vertices(cg))) {
+            if (cg[vtx].code() != typecode) continue;
+            ret.push_back(vtx);
+        }
+        return ret;
+    }
+
+    // descriptor version of neighbors/neighbors_oftype
+    inline std::vector<cluster_vertex_t> neighbors(const WireCell::cluster_graph_t& cg, const cluster_vertex_t& vd)
+    {
+        std::vector<cluster_vertex_t> ret;
+        for (auto edge : boost::make_iterator_range(boost::out_edges(vd, cg))) {
+            cluster_vertex_t neigh = boost::target(edge, cg);
+            ret.push_back(neigh);
+        }
+        return ret;
+    }
+
+    template <typename Type>
+    inline std::vector<cluster_vertex_t> neighbors_oftype(const WireCell::cluster_graph_t& cg, const cluster_vertex_t& vd)
+    {
+        std::vector<cluster_vertex_t> ret;
+        for (const auto& vp : neighbors(cg, vd)) {
+            if (std::holds_alternative<Type>(cg[vp].ptr)) {
+                ret.push_back(vp);
             }
         }
         return ret;

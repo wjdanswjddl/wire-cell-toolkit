@@ -9,6 +9,7 @@
 
 #include <complex>
 #include <typeinfo>
+#include <cstddef>
 
 namespace WireCell {
 

@@ -51,13 +51,13 @@ static void dump_cg(const cluster_graph_t& cg, Log::logptr_t& log)
     for (const auto& vtx : GraphTools::mir(boost::vertices(cg))) {
         const auto& node = cg[vtx];
         if (node.code() == 'b') {
-            const auto iblob = get<blob_t>(node.ptr);
+            const auto iblob = get<cluster_node_t::blob_t>(node.ptr);
             bval += value_t(iblob->value(), iblob->uncertainty());
             ++bcount;
             continue;
         }
         if (node.code() == 'm') {
-            const auto imeas = get<meas_t>(node.ptr);
+            const auto imeas = get<cluster_node_t::meas_t>(node.ptr);
             ++mcount;
         }
     }
@@ -122,6 +122,7 @@ bool Img::TestClusterShadow::operator()(const input_pointer& in, output_pointer&
         auto head = boost::target(cs_edge, cs_graph);
         auto b_tail = c2b[tail];
         auto b_head = c2b[head];
+        log->debug("tail: {}, head: {}", tail, head);
         std::stringstream ss;
         ss << tail << " {";
         for (auto& b : c2b[tail]) {
@@ -130,18 +131,6 @@ bool Img::TestClusterShadow::operator()(const input_pointer& in, output_pointer&
         ss << "} " << cs_graph[cs_edge].wpid.layer() << "-> ";
         ss << head << " {";
         for (auto& b : c2b[head]) {
-            ss << b << " ";
-        }
-        ss << "} \n";
-        fout << ss.str();
-        // repeat for comp
-        ss << head << " {";
-        for (auto& b : c2b[head]) {
-            ss << b << " ";
-        }
-        ss << "} " << cs_graph[cs_edge].wpid.layer() << "-> ";
-        ss << tail << " {";
-        for (auto& b : c2b[tail]) {
             ss << b << " ";
         }
         ss << "} \n";

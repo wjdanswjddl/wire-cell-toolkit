@@ -40,11 +40,13 @@ ClusterShadow::graph_t ClusterShadow::shadow(const cluster_graph_t& cgraph,
 
         // Each view/strip of the blob shape.
         for (const auto& strip : iblob->shape().strips()) {
-            if (strip.layer < 2) {
-                // skip layers defining anode sensitive area
-                continue;
-            }
-            const size_t view = strip.layer - 2;
+
+	  // WCT convention ...
+	  if (strip.layer < 2) {
+	    // skip layers defining anode sensitive area
+	    continue;
+	  }
+	  const size_t view = strip.layer - 2;
 
             const auto b = strip.bounds;
             coverage_t::yinterval_t yi(b.first, b.second);
@@ -64,6 +66,18 @@ ClusterShadow::graph_t ClusterShadow::shadow(const cluster_graph_t& cgraph,
         auto c_head = bs_graph[bs_head].desc;
         auto cs_tail = clusters[c_tail];
         auto cs_head = clusters[c_head];
+
+        // check if cs edge exists for this layer
+        bool c_layer_edge_exist = false;
+        for (const auto& cedge : mir(boost::edge_range(cs_tail, cs_head, cs_graph))) {
+            const auto& eobj = cs_graph[cedge];
+            if (eobj.wpid.layer() == bs_graph[bs_edge].wpid.layer() ) {
+                c_layer_edge_exist = true;
+            }
+        }
+        if (c_layer_edge_exist) {
+            continue;
+        }
 
         auto [cs_edge, added] = boost::add_edge(cs_tail, cs_head, cs_graph);
         if (added) {
