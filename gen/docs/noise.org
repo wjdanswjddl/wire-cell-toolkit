@@ -5,26 +5,26 @@
 
 WCT provides a "sampled spectrum noise model" which is parametererized by two types of information:
 
-- A set of "median noise spectra".
+- A set of "mean noise spectra".
 
 - An associative mapping between channel and spectrum.
 
 The WCT implementation is structured into two layers.
 
-1. A "model" component provides a median noise spectrum given a key (channel or group).
+1. A "model" component provides a mean noise spectrum given a key (channel or group).
 
 2. An "adder" component generates a noise waveform and associates it to one or more channels.
 
 * Noise generation
 
-The kernel of the noise generation returns a fluctuated noise waveform given a real-valued median amplitude spectrum.  Median and not mean is the proper statistic to supply.
-The sampling of the distribution characterized by the median spectrum has two steps. 
+The kernel of the noise generation returns a fluctuated noise waveform given a real-valued mean amplitude spectrum. 
+The sampling of the distribution characterized by the mean spectrum has two steps. 
 
-1. Each frequency bin of the median spectrum is fluctuated to produce a complex amplitude sample.
+1. Each frequency bin of the mean spectrum is *fluctuated* to produce a complex amplitude sample.
 
 2. An inverse discrete Fourier transform is applied to the spectrum of samples to produce the noise waveform.
 
-The fluctuation at each frequency is produced by twice sampling a Gaussian distribution of mean zero and sigma equal to the median.  These samples form the real and imaginary part of a complex valued spectral sample.  Equivalently, such samples have Rayleigh-distributed complex amplitude and uniform-distributed complex phase.  This sampling motivates supplying a median and not a mean spectrum.
+The *fluctuation* of each frequency bin is produced by calculating from the *mean* $\mu$ the *mode* $\sigma = \sqrt{\frac{2}{\pi}}\mu$ and then drawing a complex number with both real and imaginary parts each and independently distributed according to the Gaussian distribution $\mathcal{N}(0, \sigma)$.  Equivalently, the complex amplitude can be drawn from the Rayleigh distribution $\mathcal{R}(\sigma)$ and the complex phase from the uniform distribution $\mathcal{U}(0,2\pi)$.  The resulting complex spectrum must be made Hermitian-symmetric with the zero-frequency bin and the Nyquist bin (if number of samples is even) real valued.  
 
 * Noise adders
 
@@ -39,7 +39,7 @@ There are two types of noise spectrum models:
 
 ** ~EmpiricalNoiseModel~
 
-This spectral model associates an initial median spectrum and a set of post-hoc transformations of that spectrum to a channel.  It expects as input a set of initial median spectra each of which are identified by a plane number and a wire length and summary information.  The post-hoc transformations are the following:
+This spectral model associates an initial mean spectrum and a set of post-hoc transformations of that spectrum to a channel.  It expects as input a set of initial mean spectra each of which are identified by a plane number and a wire length and summary information.  The post-hoc transformations are the following:
 
 - The initial spectrum for a given channel is formed as the interpolation between provided spectra based on their total wire lengths and that of the channel.
 - An additional white-noise component may be specified for each input spectrum, this too is subject to wire-length interpolation.
@@ -52,4 +52,19 @@ The ~EmpiricalNoiseModel~ spectrum model may only be used with the ~IncoherentAd
 This spectral model associates a channel to a group and a group to a spectrum.  No post-hoc wire-length interpolations nor any transformations are performed on the input spectra.
 
 This spectrum model may be used with ~IncoherentAddNoise~ and ~CoherentAddNoise~
+
+* Mode vs mean
+
+Here we focus on the use of *mode* $\sigma$ (instead of *mean* $\mu$) as the parameter of the Rayleigh, or equivalently the double-Gaussian, distribution and how confusing the two can potentially pose practical pitfalls.  Care is needed in that we naturally form a measure of a noise spectrum with the following procedure:
+
+1) collect $N$ noise waveforms of common noise characteristics (eg, same channels, with selection to suppress signals)
+2) apply the Fourier transform to each waveform to get a complex spectrum
+3) calculate the amplitude (absolute value) of this spectrum
+4) accumulate these to form a spectral sum and divide by $N$ to form a spectral mean
+
+This spectral mean must be reduced to the spectral mode by multiplying by $\sqrt{\frac{2}{\pi}}$.  The fluctuated waveforms can then also be sent through the collection process and the spectral mean can be reconstructed (within statistics).  One may then compare the mean Parseval energy of the waveforms, the mean Parseval energy of their spectra and the Parseval energy of their mean spectrum.  While the first two will be (must be) identical, the third differs.  It is approximately $\sqrt{\frac{2}{\pi}}$ smaller.  The mean spectral energy is not the energy of the mean spectrum.
+
+
+
+
 
