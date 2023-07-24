@@ -39,19 +39,64 @@ There are two types of noise spectrum models:
 
 ** ~EmpiricalNoiseModel~
 
-This spectral model associates an initial mean spectrum and a set of post-hoc transformations of that spectrum to a channel.  It expects as input a set of initial mean spectra each of which are identified by a plane number and a wire length and summary information.  The post-hoc transformations are the following:
+The ~EmpiricalNoiseModel~ spectrum model is intended to be used with the ~IncoherentAddNoise~ noise adder.
+This model associates an given mean spectrum, with an optional post-hoc transformation to all channels in a given set.  It accepts the following configuration parameters.  Note, *all values are in WCT system of units*.
 
-- The initial spectrum for a given channel is formed as the interpolation between provided spectra based on their total wire lengths and that of the channel.
-- An additional white-noise component may be specified for each input spectrum, this too is subject to wire-length interpolation.
-- A pair of gain and shaping time values may be associated with an input spectrum and a different pair with each channel and the spectrum will be transformed accordingly. 
+- ~spectra_file~ :: directly an array of spectral objects or the name of a file (JSON or Jsonnet format) that evaluates to such an array.  See below for description of a spectral object.
+- ~nsamples~ :: the number of waveform samples to generate
+- ~period~ :: the sampling time period of the generated waveform  (eg ~0.5*wc.us~).
+- ~wire_length_scale~ :: the scale at which wire lengths are binned in (eg ~1*wc.cm~)
 
-The ~EmpiricalNoiseModel~ spectrum model may only be used with the ~IncoherentAddNoise~ noise adder.
+Each spectral object in the array provided directly by or pointed to by the ~spectra_file~ option has the following attributes.  They provide meta data about a sub-sampling of a sampled mean spectrum.
+
+- ~plane~ :: the ~WirePlaneId::index()~ of the anode plane for which the spectrum models.
+- ~gain~ :: the preamplifier gain in units of voltage per charge (eg ~14*wc.mV/wc.fC~).
+- ~shaping~ :: the preamplifier shaping time (eg ~2*wc.us~)
+- ~wirelen~ :: the length of the wire for which the spectrum models
+- ~const~ :: the constant, white-noise component of the overall noise spectrum that is independent of frequency, units of voltage.
+- ~nsamples~ :: the number of samples of the spectrum
+- ~period~ :: the sampling period of the spectrum
+- ~freqs~ :: the frequencies at which the sampled spectrum was sub-sampled in units of 1/time (eg, ~{i/(N*0.5*wc.us)}~)
+- ~amps~ :: the sub-sampled mean spectrum at these frequencies in units of voltage.
+
+Notes
+
+- The order of this array *must* have increasing ~wirelen~ for each given plane.  But, see [[https://github.com/WireCell/wire-cell-toolkit/issues/228][issue 228]].
+
+- The sizes of ~freqs~ and ~amps~ are equal and generally much less than ~nsamples~.  This sub-sampling allows for the fact that the spectral amplitude is itself very smooth and/or may have been "hand digitized" from plots.  
+
+The following post-hoc transformations are applied to each spectral object:
+
+- Two nearest neighbor sub-sampled spectra (both ~const~ and non-constant ~amps~ vs ~freqs~ parts) are interpolated to match a given channel's wire length.
+- This sub-sampled spectra is inflated through a time-interpolation to match the sampling of ~nsamples~ and ~period~ configuration parameters given to the model (not to be confused with the parameters of the same name in each spectra object).
+- If a ~ChanStat~ object is provided and a given channel has wrong gain and shaping time then this response is corrected based on the ~gain~ and ~shaping~ parameters of the spectral object.  Note, this currently hard-wires the cold electronics response.  See [[https://github.com/WireCell/wire-cell-toolkit/issues/229][issue 229]].
+
 
 ** ~GroupNoiseModel~
 
-This spectral model associates a channel to a group and a group to a spectrum.  No post-hoc wire-length interpolations nor any transformations are performed on the input spectra.
+This spectral model associates a channel to a group and a group to a spectrum for the purposes of applying a generated noise waveform coherently across all channels in the group.  A time interpolation from given sub-sampled spectra to full sampled is performed and a multiplicative scaling may be applied to the amplitude.  The configuration parameters that the model accepts are:
 
-This spectrum model may be used with ~IncoherentAddNoise~ and ~CoherentAddNoise~
+- ~scale~ :: a scale factor multipliplied to the spectral amplitude.
+- ~nsamples~ :: the number of waveform samples to generate.
+- ~tick~ :: the sampling time period of the generated waveform  (eg ~0.5*wc.us~).
+- ~groups~ :: directly an array of channel group objects or the name of a file (JSON or Jsonnet format) that evaluates to such an array.  See below for group object structure.
+- ~spectra~ :: directly an array of spectral objects or the name of a file (JSON or Jsonnet format) that evaluates to such an array.  See below for spectral object structure.
+-  :: 
+
+The *group object* has the following attributes:
+
+- ~group~ :: an integer identifying the group (~groupID~ is also an accepted attribute name)
+- ~channels~ :: an array of channel ident numbers that are in the group
+
+The *spectral object* has the following attributes:
+
+- ~group~ :: an integer identifying a channel group (~groupID~ is also an accepted attributes name)
+- ~nsamples~ :: the number of samples of the spectrum
+- ~period~ :: the sampling period of the spectrum
+- ~freqs~ :: the frequencies at which the sampled spectrum was sub-sampled in units of 1/time (eg, ~{i/(N*0.5*wc.us)}~)
+- ~amps~ :: the sub-sampled mean spectrum at these frequencies in units of voltage.
+
+Note, the last four have the same meaning as for the ~EmpiricalNoiseModel~.
 
 * Mode vs mean
 
