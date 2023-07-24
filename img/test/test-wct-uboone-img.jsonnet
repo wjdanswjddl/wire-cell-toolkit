@@ -235,20 +235,6 @@ local dumpframes = pg.pnode({
     name: 'dumpframe',
 }, nin=1, nout=0);
 
-local magdecon = pg.pnode({
-    type: 'MagnifySink',
-    name: 'magdecon',
-    data: {
-        output_filename: "mag.root",
-        root_file_mode: 'UPDATE',
-        frames: ['gauss', 'wiener', 'gauss_error'],
-        cmmtree: [['bad','bad']],
-        summaries: ['gauss', 'wiener', 'gauss_error'],
-        trace_has_tag: true,
-        anode: wc.tn(anodes[0]),
-    },
-}, nin=1, nout=1, uses=[anodes[0]]);
-
 local waveform_map = {
     type: 'WaveformMap',
     name: 'wfm',
@@ -381,7 +367,6 @@ local graph = pg.pipeline([
     cmm_mod, // CMM modification
     frame_masking, // apply CMM
     charge_err, // calculate charge error
-    // magdecon, // magnify out
     // dumpframes,
     imgpipe,
     pg.fan.fanout("ClusterFanout", [img.dump(outpat%fmt, fmt) for fmt in std.split(formats, ',')], "")
@@ -398,7 +383,7 @@ local app = {
 local cmdline = {
     type: "wire-cell",
     data: {
-        plugins: ["WireCellGen", "WireCellPgraph", "WireCellSio", "WireCellSigProc", "WireCellRoot", "WireCellImg"],
+        plugins: ["WireCellGen", "WireCellPgraph", "WireCellSio", "WireCellSigProc", "WireCellImg"],
         apps: ["Pgrapher"]
     }
 };

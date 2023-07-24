@@ -19,17 +19,8 @@ using namespace WireCell;
 using WireCell::Aux::SimpleTrace;
 using WireCell::Aux::SimpleFrame;
 
-Gen::Digitizer::Digitizer(const std::string& anode,
-                          int resolution, double gain,
-                          std::vector<double> fullscale,
-                          std::vector<double> baselines)
+Gen::Digitizer::Digitizer()
   : Aux::Logger("Digitizer", "gen")
-  , m_anode_tn(anode)
-  , m_resolution(resolution)
-  , m_gain(gain)
-  , m_fullscale(fullscale)
-  , m_baselines(baselines)
-  , m_frame_tag("")
 {
 }
 
@@ -38,7 +29,7 @@ Gen::Digitizer::~Digitizer() {}
 WireCell::Configuration Gen::Digitizer::default_configuration() const
 {
     Configuration cfg;
-    put(cfg, "anode", m_anode_tn);
+    put(cfg, "anode", "AnodePlane");
 
     put(cfg, "resolution", m_resolution);
     put(cfg, "gain", m_gain);
@@ -61,8 +52,8 @@ WireCell::Configuration Gen::Digitizer::default_configuration() const
 
 void Gen::Digitizer::configure(const Configuration& cfg)
 {
-    m_anode_tn = get<string>(cfg, "anode", m_anode_tn);
-    m_anode = Factory::find_tn<IAnodePlane>(m_anode_tn);
+    auto anode_tn = get<string>(cfg, "anode", "AnodePlane");
+    m_anode = Factory::find_tn<IAnodePlane>(anode_tn);
 
     m_resolution = get(cfg, "resolution", m_resolution);
     m_gain = get(cfg, "gain", m_gain);
@@ -98,7 +89,7 @@ double Gen::Digitizer::digitize(double voltage)
     if (m_round) {
         return round(fp_adc);
     }
-    return fp_adc;
+    return floor(fp_adc);
 }
 
 bool Gen::Digitizer::operator()(const input_pointer& vframe, output_pointer& adcframe)
