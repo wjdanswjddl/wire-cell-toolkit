@@ -30,6 +30,9 @@ void DepoSetFilter::configure(const WireCell::Configuration& cfg)
         THROW(ValueError() << errmsg{"DepoSetFilter requires an anode plane"});
     }
     WireCell::IAnodePlane::pointer anode = Factory::find_tn<IAnodePlane>(anode_tn);
+    if (anode == nullptr) {
+        THROW(ValueError() << errmsg{"Input anode is a nullptr"});
+    }
     IAnodeFace::vector abode_faces = anode->faces();
     for (auto face : abode_faces) {
         m_boxes.push_back(face->sensitive());
