@@ -81,7 +81,6 @@ This spectral model associates a channel to a group and a group to a spectrum fo
 - ~tick~ :: the sampling time period of the generated waveform  (eg ~0.5*wc.us~).
 - ~groups~ :: directly an array of channel group objects or the name of a file (JSON or Jsonnet format) that evaluates to such an array.  See below for group object structure.
 - ~spectra~ :: directly an array of spectral objects or the name of a file (JSON or Jsonnet format) that evaluates to such an array.  See below for spectral object structure.
--  :: 
 
 The *group object* has the following attributes:
 
@@ -98,7 +97,7 @@ The *spectral object* has the following attributes:
 
 Note, the last four have the same meaning as for the ~EmpiricalNoiseModel~.
 
-* Mode vs mean
+* Comment on mode vs mean
 
 Here we focus on the use of *mode* $\sigma$ (instead of *mean* $\mu$) as the parameter of the Rayleigh, or equivalently the double-Gaussian, distribution and how confusing the two can potentially pose practical pitfalls.  Care is needed in that we naturally form a measure of a noise spectrum with the following procedure:
 
