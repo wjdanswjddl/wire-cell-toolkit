@@ -1,0 +1,80 @@
+#+title: Blob Depo Fill
+#+include: ../../docs/include-topic.org
+
+* Overview
+
+To transition from the blobs produced by WCT tiling to the point clouds that WCT clustering operate on, the blobs must be sampled.  
+
+* ~BlobSampling~
+
+The sampling is orchestrated by the ~BlobSampling~ data flow graph component consumes an ~IBlobSet~ and produces an ~ITensorSet~ representing a point cloud of sampled points.  It delegates actual sampling to an ~IBlobSampler~.  It is configured with:
+
+- ~sampler~ :: name an ~IBlobSampler~
+- ~datapath~ :: name the data path for the resulting tensors (see [[../aux/docs/tensor-data-model.org][tensor data model]]).
+
+The ~BlobSampler~ and ~BlobSampler2D~ are two implementations of ~IBlobSampler~ and described next.
+
+* ~BlobSampler~
+
+The ~BlobSampler~ works by applying one or more sampling strategies.  It accept the following configuration parameters:
+
+- ~strategy~ :: strategy description, null, string, object or array or strategies (see below).
+- ~time_offset~ :: a time added to blob times prior to any construction of time related point attributes.
+- ~drift_speed~ :: used in order to translate blob time to a spatial drift position.
+- ~prefix~ :: string to prepend to names of tensors in the resulting dataset.
+- ~tbins~ :: see "tbinning".
+- ~tmin~ :: see "tbinning".
+- ~tmax~ :: see "tbinning".
+- ~extra~ :: a list of strings giving regex matching attribute type names to include in PC (see below).
+
+The "tbinning" defines how a blob is sampled in the time dimension.  This provides is a binning relative to the start and span times of the slice.  That is, with the default ~tbins=1~, ~tmin=0~ and ~tmax=1~, all points that are sampled in the transverse plane will be given a common time (and X drift location) at the start of the slice.  With ~tbins=2~ then transverse samplings will be duplicated with one set at the start of the slice and one half-way in the middle.  Or instead, with ~tbins=1~ and ~tmin=0.5~ the transverse samplings will be placed longitudinally in the middle of their time slice.
+
+The ~extra~ is a list of string.  Each string element is interpreted as a regular expression to match against the set of known attribute types to include in the PC.
+
+The ~strategy~ parameter describes the strategies to apply for sampling the blob in the transverse plane.  It accepts the description in flexible form which may be of the following types:
+
+- ~null~ :: use default strategy ("center")
+
+- string :: provide the name for a sampling strategy, use its default configuration
+
+- object :: provide an object with ~.name~ attribute giving the sampling strategy and the remaining attributes providing non-default strategy configuration including overriding top level parameters described above. 
+
+- array :: an array of these types
+
+Each strategy is named and described below.
+
+** ~center~
+
+Sample a single point at the geometric mean of the blob's corners.
+
+** ~corner~
+
+Sample point at each of the blob's corners.
+
+** ~edge~
+
+Sample point at center of each of the blob's edges.
+
+** ~grid~
+
+Sample points along the sub-grid formed by stepping the ray-grid crossing points of two given planes and requiring points to be also inside the third plane.
+
+- ~step~ :: the sub-grid step size (default is 1, in units of ray grid spacing)
+- ~planes~ :: an array of two plane numbers (default is ~[0,1]~)
+
+** ~bound~
+
+Points are sampled by taking steps around the boundary of the blob.  For each edge, the stepping starts but does not include the corner.  Add the ~corner~ strategy to include those.
+
+- ~step~ :: how far to step (in units of distance)
+
+** ~stepped~
+
+Similar to ~grid~ but select the two plains and form the sub-grid with a per-plane step based on the "aspect" ratio of the blob.  The sub-grid is formed as a subset of the crossing points of the view with the least and the most wires.  the step is the maximum  of a minimum step size and a step size that will take a maximum number of steps total.
+
+- ~min_step_size~ :: minimum number of wires a step can cross (default=3)
+- ~max_step_fraction~ :: the maximum fraction of total wires a step can span (default=1/12).
+
+* ~BlobSampler2D~
+
+The ~BlobSampler2D~ works similarly to ~BlobSampler~ but does not produce Cartesian locations.  Instead it produces points and their attributes based on information in each of the three 2D plane views.

@@ -147,6 +147,8 @@ namespace WireCell::Img {
               instances of "grid" each with step=1.0 and with mutually
               unique pairs of plane indices.
 
+            - stepped :: sample points on a stepped ray grid of two views.
+
             - bounds :: points sampled along the blob boundry edges.
 
               This accepts the following options:

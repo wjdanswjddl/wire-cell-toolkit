@@ -264,7 +264,7 @@ struct BlobSampler::Sampler : public Aux::Logger
 
         const auto& activity = islice->activity();
         auto iface = iblob->face();
-        for (const auto iplane : iface->planes()) {
+        for (const auto& iplane : iface->planes()) {
 
             const auto* pimpos = iplane->pimpos();
             const int pind = iplane->planeid().index();
@@ -635,6 +635,72 @@ struct Bounds : public BlobSampler::Sampler
 };
 
 
+// Implement the "stepped" sampling.
+//
+// Outline:
+//
+// 1. Find N_{1,2} wires for plain p_{1,2} with {minimum,maximum} number of wires in blob.
+// 2. Find S_{1,2} = max(3, N_{1,2}/12)
+// 3. Accept points on sub-grid steps (S_1, S_2)
+//
+// Note, combine with "bounds" strategy to fully reproduce the
+// sampling used in the WC prototype imaging.
+struct Stepped : public BlobSampler::Sampler
+{
+    using BlobSampler::Sampler::Sampler;
+    Stepped(const Stepped&) = default;
+    Stepped& operator=(const Stepped&) = default;
+
+    // The minimium number of wires over which a step will be made.
+    double min_step_size{3};
+    // The maximum fraction of a blob a step may take.  If
+    // non-positive, then all steps are min_step_size.
+    double max_step_fraction{1.0/12.0};
+
+    virtual void configure(const Configuration& cfg)
+    {
+        min_step_size = get(cfg, "min_step_size", min_step_size);
+        max_step_fraction = get(cfg, "max_step_fraction", max_step_fraction);
+    }
+
+
+    void sample(Dataset& ds) {
+        const auto& coords = anodeface->raygrid();
+        auto strips = iblob->shape().strips();
+
+        auto swidth = [](const Strip& s) -> int {
+            return s.bounds.second - s.bounds.first;
+        };
+        std::sort(strips.begin()+2, strips.end(),
+                  [&](const Strip& a, const Strip& b) -> bool {
+                      return swidth(a) < swidth(b);
+                  });
+        const Strip& smin = strips[3];
+        const Strip& smid = strips[4];
+        const Strip& smax = strips[5];
+        
+        int nmin = std::max(min_step_size, max_step_fraction*swidth(smin));
+        int nmax = std::max(min_step_size, max_step_fraction*swidth(smax));
+
+        std::vector<Point> points;
+
+        for (auto gmin=smin.bounds.first; gmin < smin.bounds.second; gmin += nmin) {
+            coordinate_t cmin{smin.layer, gmin};
+            for (auto gmax=smax.bounds.first; gmax < smax.bounds.second; gmax += nmax) {
+                coordinate_t cmax{smax.layer, gmax};
+                
+                const double pitch = coords.pitch_location(cmin, cmax, smid.layer);
+                auto gmid = coords.pitch_index(pitch, smid.layer);
+                if (smid.in(gmid)) {
+                    auto pt = coords.ray_crossing(cmin, cmax);
+                    points.push_back(pt);
+                }
+            }
+        }
+        intern(ds, points);
+    }
+};
+
 void BlobSampler::add_strategy(Configuration strategy)
 {
     if (strategy.isNull()) {
@@ -688,6 +754,10 @@ void BlobSampler::add_strategy(Configuration strategy)
     }
     if (startswith(name, "bound")) {
         m_samplers.push_back(std::make_unique<Bounds>(full, m_samplers.size()));
+        return;
+    }
+    if (startswith(name, "stepped")) {
+        m_samplers.push_back(std::make_unique<Stepped>(full, m_samplers.size()));
         return;
     }
 
