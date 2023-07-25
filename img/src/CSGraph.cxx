@@ -71,7 +71,10 @@ graph_t CS::solve(const graph_t& csg, const SolveParams& params, const bool verb
         const auto valerr = meas_in.value;
         measure(mind) = valerr.value();
         mcov(mind, mind) = valerr.uncertainty()*valerr.uncertainty();
-
+        /// TODO: rm debug info
+        // if (verbose) {
+        //     SPDLOG_INFO("val {} unc {}", valerr.value(), valerr.uncertainty());
+        // }
         auto desc_out = boost::add_vertex(meas_in, csg_out);
         meas_descs_out(desc_out);        
     }
@@ -133,7 +136,7 @@ graph_t CS::solve(const graph_t& csg, const SolveParams& params, const bool verb
         double total_wire_charge = m_vec.sum(); // before scale
         double lambda = 3./total_wire_charge/2.*params.scale;
         double tolerance = total_wire_charge/3./params.scale/R_mat.cols()*0.005;
-        rparams = Ress::Params{Ress::lasso, lambda, 100000, tolerance, true};
+        rparams = Ress::Params{Ress::lasso, lambda, 100000, tolerance, true, false};
     }
     // if (verbose) {
         // SPDLOG_INFO("CS params {} {}", params.scale, params.whiten);
@@ -161,10 +164,10 @@ graph_t CS::solve(const graph_t& csg, const SolveParams& params, const bool verb
     if (verbose) {
         SPDLOG_INFO("CS params {} {}", params.scale, params.whiten);
         SPDLOG_INFO("ress param {} {}", rparams.lambda, rparams.tolerance);
-        SPDLOG_INFO("R_mat {}", String::stringify(R_mat));
-        SPDLOG_INFO("m_vec {}", String::stringify(m_vec));
-        SPDLOG_INFO("source {}", String::stringify(source));
-        SPDLOG_INFO("weight {} {}", weight.size(), weight[0]);
+        SPDLOG_INFO("R_mat \n{}", String::stringify(R_mat));
+        SPDLOG_INFO("m_vec \n{}", String::stringify(m_vec));
+        SPDLOG_INFO("source \n{}", String::stringify(source));
+        SPDLOG_INFO("weight \n{}", String::stringify(weight));
     }
     // std::cerr << "R:\n" << R_mat << "\nm:\n" << m_vec << std::endl;
     auto solution = Ress::solve(R_mat, m_vec, rparams,
@@ -179,11 +182,22 @@ graph_t CS::solve(const graph_t& csg, const SolveParams& params, const bool verb
     gp_out.chi2_l1 = Ress::chi2_l1(m_vec, solution, rparams.lambda);
 
     // Update outgoing blob nodes with their solution
+    //double sum = 0;
+    //int ncount = 0;
+    //int ncount1 = 0;
     for (size_t ind=0; ind<nblob; ++ind) {
         auto& bvalue = csg_out[blob_descs_out.collection[ind]];
         //bvalue.value.value(solution[ind]);
         bvalue.value = solution[ind]*params.scale; // drops weight
+	//sum += bvalue.value;
+	//if (bvalue.value > 300) ncount ++;
+	//	ncount1++;
     }
+
+    //DEBUG ...
+    //auto time = gp_out.islice->start()/gp_out.islice->span();
+    //SPDLOG_INFO("Summed Charge {} {} {} {} ", time, sum, ncount, ncount1);
+    
     return csg_out;
 }
 
@@ -324,6 +338,9 @@ void CS::unpack(const cluster_graph_t& cgraph,
                 if (msum.value() < meas_thresh.value() or
                     msum.uncertainty() > meas_thresh.uncertainty()) {
                     continue;
+                }
+                if (!(msum.uncertainty()>0)) {
+                    THROW(ValueError() << errmsg{String::format("uncertainty %d <=0", msum.uncertainty())});
                 }
                 const int ordering = mnode.ident();
                 node_t meas{mvtx, node_t::meas, ordering, msum};

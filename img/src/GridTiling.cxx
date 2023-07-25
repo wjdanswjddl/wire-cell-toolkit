@@ -65,9 +65,9 @@ bool Img::GridTiling::operator()(const input_pointer& slice, output_pointer& out
     auto chvs = slice->activity();
 
     if (chvs.empty()) {
-        log->debug("anode={} face={} slice={}, time={} ms no activity",
+        log->trace("anode={} face={} slice={}, time={} ms no activity",
                    anodeid, faceid, slice->ident(),
-                   slice->frame()->time()/units::ms);
+                   slice->start()/units::ms);
         out = make_empty(slice);
         return true;
     }
@@ -142,7 +142,7 @@ bool Img::GridTiling::operator()(const input_pointer& slice, output_pointer& out
     // SPDLOG_LOGGER_TRACE(log, "anode={} face={} slice={} making blobs",
     //                     anodeid, faceid, slice->ident());
     auto blobs = make_blobs(m_face->raygrid(), activities, m_nudge);
-    // TODO: remove debug code
+    /// TODO: remove debug code
     // int start_tick = std::round(slice->start()/(0.5*WireCell::units::us));
     // if (start_tick == 1024) {
     //     std::cout << "GridTiling: " << std::endl;

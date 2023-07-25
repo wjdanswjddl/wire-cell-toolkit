@@ -13,24 +13,33 @@ function(params) base {
         // CRP is on y-z while drift is on x 
         // Only one CRP is defined in this geometry 
         // CRMs are oneside anodes     
+        
+        local ncrm = if std.objectHas(params, 'ncrm') then params.ncrm else 36,
 
         response_plane: params.response_plane,
 
-        local upper_crp_x = 325.00*wc.cm, //300.507*wc.cm,
-        local upper_resp_x = upper_crp_x-self.response_plane,
-        local cathode_x = -325.00*wc.cm,
-        local ncrm = if std.objectHas(params, 'ncrm') then params.ncrm else 36,
+        local bot_crp_x = -3.97*wc.cm,
+        local bot_resp_x = bot_crp_x+self.response_plane,
+        local bot_cathode_x = bot_crp_x+650.06*wc.cm,
+        local bot_face = {
+            anode:    bot_crp_x,
+            response: bot_resp_x,
+            cathode:  bot_cathode_x},
 
-        local upper_face = { 
-            anode:    upper_crp_x, 
-            response: upper_resp_x, 
-            cathode:  cathode_x},
+        local top_crp_x = 1300.13*wc.cm,
+        local top_resp_x = top_crp_x-self.response_plane,
+        local top_cathode_x = top_crp_x - 650.06*wc.cm,
+        local top_face = {
+            anode:    top_crp_x,
+            response: top_resp_x,
+            cathode:  top_cathode_x},
        
         volumes: [
             {
                 wires: n,       // anode number
                 name: "crm%d"%n,
-                faces: [ upper_face, upper_face ],
+                faces: if n < ncrm/2 then [ bot_face, bot_face ]
+                    else [ top_face, top_face ],
             } for n in std.range(0, ncrm-1)], // std.range is inclusive, i.e. [0, crm-1],
     },
 

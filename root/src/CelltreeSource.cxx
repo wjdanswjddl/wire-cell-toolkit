@@ -129,12 +129,12 @@ bool Root::CelltreeSource::read_traces(ITrace::vector& all_traces,
                 charges.push_back(signal->GetBinContent(itickbin + 1)/time_scale);
             }
         }
-
         const size_t index = all_traces.size();
         tagged_traces[frametag].push_back(index);
-        // std::cout<<"CelltreeSource: charges.size() "<<charges.size()<<"\n";
         all_traces.push_back(std::make_shared<Aux::SimpleTrace>(channel_number, 0, charges));
-        if(trace_has_threshold) tagged_threshold[frametag].push_back(channel_threshold->at(ind)/time_scale);
+        if(trace_has_threshold) {
+            // std::cout << String::format("channel_number %d threshold %f\n",channel_number, channel_threshold->at(ind)/time_scale);
+            tagged_threshold[frametag].push_back(channel_threshold->at(ind)/time_scale);}
     }
 
     tfile->Close();

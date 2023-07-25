@@ -2,9 +2,12 @@
 #include "WireCellAux/ClusterHelpers.h"
 #include "WireCellIface/ICluster.h"
 #include "WireCellUtil/GraphTools.h"
+#include "WireCellUtil/Exceptions.h"
 
 #include <boost/graph/adjacency_list.hpp>
 #include <boost/graph/breadth_first_search.hpp>
+
+#include <unordered_map>
 
 using namespace WireCell;
 using namespace WireCell::GraphTools;
@@ -38,9 +41,70 @@ struct LeafVisitor : public boost::default_bfs_visitor
     }
 };
 
+namespace {
+    void connected_leaves(std::vector<cluster::directed::vertex_t> & leaves,
+    const cluster::directed::graph_t & dgraph, const cluster::directed::vertex_t & bvtx, char leaf_code) {
+        // leaf_code can be 'w' or 'c'
+        std::unordered_set<char> valid_codes = {'w', 'c'};
+        if (valid_codes.find(leaf_code) == valid_codes.end()) {
+            // TODO: make some noise?
+            return;
+        }
+        for(auto bedge : mir(boost::out_edges(bvtx, dgraph))) {
+            auto wvtx = boost::target(bedge, dgraph);
+            if (dgraph[wvtx].code() != 'w') {
+                continue;
+            }
+            if (leaf_code == 'w') {
+                leaves.push_back(wvtx);
+                continue;
+            }
+            // if not 'w', find 'c'
+            for(auto wedge : mir(boost::out_edges(wvtx, dgraph))) {
+                auto cvtx = boost::target(wedge, dgraph);
+                if (dgraph[cvtx].code() != 'c') {
+                    continue;
+                }
+                leaves.push_back(wvtx);
+            }
+        }
+    }
+
+    struct pair_hash {
+        template <class T1, class T2>
+        std::size_t operator()(std::pair<T1, T2> const& pair) const
+        {
+            std::size_t h1 = std::hash<T1>()(pair.first);
+            std::size_t h2 = std::hash<T2>()(pair.second);
+            return h1 ^ h2;
+        }
+    };
+
+    // find edges from bsedges cache, layer info from bsgraph
+    // one layer should has at most one edge
+    using bs_layer_edge_t = std::unordered_map<WirePlaneLayer_t, BlobShadow::edesc_t>;
+    bs_layer_edge_t existing_layer_edges(
+        const BlobShadow::graph_t& bsgraph,
+        const BlobShadow::vdesc_t& bs_vtx1,
+        const BlobShadow::vdesc_t& bs_vtx2)
+    {
+        bs_layer_edge_t ret;
+        // for undirected graph (BS), edge_range(0,1) yields edges from 
+        // both add_edge(0,1) and add_edge(1,0)
+        // https://onlinegdb.com/u4D6du-Sj
+        for (const auto& edge : mir(boost::edge_range(bs_vtx1, bs_vtx2, bsgraph))) {
+            const auto& eobj = bsgraph[edge];
+            ret.insert({eobj.wpid.layer(), edge});
+        }
+
+        return ret;
+    }
+}  // namespace
+
 BlobShadow::graph_t BlobShadow::shadow(const cluster_graph_t& cgraph, char leaf_code)
 {
     using dvertex_t = cluster::directed::vertex_t;
+    using dedge_t = cluster::directed::edge_t;
 
     BlobShadow::graph_t bsgraph; // will return
 
@@ -69,8 +133,9 @@ BlobShadow::graph_t BlobShadow::shadow(const cluster_graph_t& cgraph, char leaf_
             auto bvtx = boost::target(bedge, dgraph);
 
             std::vector<dvertex_t> leaves;
-            LeafVisitor<cluster::directed::graph_t> leafvis{{}, leaf_code, leaves};
-            boost::breadth_first_search(dgraph, bvtx, boost::visitor(leafvis));
+            // LeafVisitor<cluster::directed::graph_t> leafvis{{}, leaf_code, leaves, verbose};
+            // boost::breadth_first_search(dgraph, bvtx, boost::visitor(leafvis));
+            connected_leaves(leaves, dgraph, bvtx, leaf_code);
 
             for (auto lvtx : leaves) {
                 leaf2blob[lvtx].push_back(bvtx);
@@ -95,8 +160,7 @@ BlobShadow::graph_t BlobShadow::shadow(const cluster_graph_t& cgraph, char leaf_
                     auto bvtx2 = bvtxs[ind2];
                     auto bs_vtx2 = c2bs[bvtx2];
 
-                    auto [edge, added] = boost::add_edge(bs_vtx1, bs_vtx2, bsgraph);
-
+                    // figure out WirePlaneId of this lvtx
                     WirePlaneId wpid(0);
                     int index{-1};
                     const auto& obj = dgraph[lvtx];
@@ -116,16 +180,30 @@ BlobShadow::graph_t BlobShadow::shadow(const cluster_graph_t& cgraph, char leaf_
                     else {
                         continue;
                     }
+
+                    // returns an existing layer -> edge map
+                    auto layer_edges = existing_layer_edges(bsgraph, bs_vtx1, bs_vtx2);
+
+                    // if layer -> edge exists, refresh the edge beg-end
+                    if (layer_edges.find(wpid.layer())!=layer_edges.end()) {
+                        auto edge = layer_edges.at(wpid.layer());
+                        Edge& eobj = bsgraph[edge];
+                        eobj.beg = std::min(eobj.beg, index);
+                        eobj.end = std::max(eobj.end, index + 1);
+                        continue;
+                    }
+
+                    // next, if layer -> edge does not exist, add a new edge
+                    auto [edge, added] = boost::add_edge(bs_vtx1, bs_vtx2, bsgraph);
+                    if (!added) {
+                        // this should not happen
+                        THROW(RuntimeError() << errmsg{"edge not added!"});
+                    }
+                    // new edge properties
                     Edge& eobj = bsgraph[edge];
                     eobj.wpid = wpid;
-                    if (added) {    // first time
-                        eobj.beg = index;
-                        eobj.end = index+1;
-                    }
-                    else {
-                        eobj.beg = std::min(eobj.beg, index);
-                        eobj.end = std::max(eobj.end, index+1);
-                    }
+                    eobj.beg = index;
+                    eobj.end = index+1;
                 }
             }
         }

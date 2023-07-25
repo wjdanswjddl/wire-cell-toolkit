@@ -1,7 +1,7 @@
 /**
  * Projection2D
  * Project a group of blobs (cluster) to a certain view
-*/
+ */
 
 #include "WireCellIface/IFrame.h"
 #include "WireCellIface/IWire.h"
@@ -17,57 +17,60 @@
 namespace WireCell {
     namespace Img {
         namespace Projection2D {
-            // Here, "node" implies a cluster graph vertex payload object.
-            using channel_t = cluster_node_t::channel_t;
-            using wire_t = cluster_node_t::wire_t;
-            using blob_t = cluster_node_t::blob_t;
-            using slice_t = cluster_node_t::slice_t;
-            using meas_t = cluster_node_t::meas_t;
+            enum Coverage { REF_COVERS_TAR = 1, TAR_COVERS_REF = -1, REF_EQ_TAR = 2, BOTH_EMPTY = -2, OTHER = 0 };
 
             // For matrix representation of the graphs.
             using scaler_t = float;
             using sparse_mat_t = Eigen::SparseMatrix<scaler_t>;
 
-            // chan_min, chan_max, tick_min, tick_max
-            using projection_bound_t = std::tuple<int, int, int, int>;
-
             struct Projection2D {
-                projection_bound_t m_bound {
-                    std::numeric_limits<int>::max(),
-                    std::numeric_limits<int>::min(),
-                    std::numeric_limits<int>::max(),
-                    std::numeric_limits<int>::min()
-                };
-                sparse_mat_t m_proj;
+                Projection2D() {}
+                Projection2D(const size_t nchan, const size_t nslice)
+                  : m_nchan(nchan)
+                  , m_nslice(nslice)
+                  , m_proj({(long int) m_nchan, (long int) m_nslice})
+                {
+                }
+                // uboone: 8256,9592
+                size_t m_nchan{0};   // bins in the channel direction
+                size_t m_nslice{0};  // bins in the time direction
+                sparse_mat_t m_proj{(long int) m_nchan, (long int) m_nslice};
+
+                // double m_uncer_cut {1e11};
+                // double m_dead_default_charge {-1e12};
             };
 
-            using vdesc_t = boost::graph_traits<cluster_graph_t>::vertex_descriptor;
-            using edesc_t = boost::graph_traits<cluster_graph_t>::edge_descriptor;
+            // returns group id -> cluster_vertex_t in each group
+            std::unordered_map<int, std::set<cluster_vertex_t> > get_geom_clusters(const WireCell::cluster_graph_t& cg);
 
-            // return vertex descriptors connected to the given vertex descriptor.
-            std::vector<vdesc_t> neighbors(const WireCell::cluster_graph_t& cg, const vdesc_t& vd);
-
-            // 
-            template <typename Type>
-            std::vector<vdesc_t> neighbors_oftype(const WireCell::cluster_graph_t& cg, const vdesc_t& vd);
-
-            // returns group id -> vdesc_t in each group
-            std::unordered_map<int, std::set<vdesc_t> > get_geom_clusters(const WireCell::cluster_graph_t& cg);
+            struct LayerProjection2DMap {
+                using layer_projection2d_map_t = std::unordered_map<WirePlaneLayer_t, Projection2D>;
+                layer_projection2d_map_t m_layer_proj;
+                double m_estimated_minimum_charge{0};
+                double m_estimated_total_charge{0};
+                int m_saved_flag{0};
+                int m_saved_flag_1{0};
+                int m_number_blobs{0};
+                int m_number_slices{0};
+                std::unordered_map<WireCell::WirePlaneLayer_t, int> m_number_layer_slices;
+            };
 
             // returns layer ID -> channel-tick-charge matrix
-            using layer_projection_map_t = std::unordered_map<WirePlaneLayer_t, Projection2D>;
-            layer_projection_map_t get_2D_projection(const WireCell::cluster_graph_t& cg, std::set<vdesc_t>);
+            LayerProjection2DMap get_projection(const WireCell::cluster_graph_t& cg, const std::set<cluster_vertex_t>&,
+                                                const size_t nchan, const size_t nslice, double uncer_cut = 1e11,
+                                                double dead_default_charge = -1e12);
 
-            std::string dump(const Projection2D& proj2d, bool verbose=false);
-            bool write(const Projection2D& proj2d, const std::string& fname="proj2d.tar.gz");
+            std::string dump(const Projection2D& proj2d, bool verbose = false);
+            bool write(const Projection2D& proj2d, const std::string& fname = "proj2d.tar.gz");
 
             //
             // std::vector<int> calc_coverage(const Projection2D& ref, const Projection2D& tar);
 
-            // 1: tar is part of ref; 2: tar is equal to ref; -1: ref is part of tar; ref and tar do not overlap
-            int judge_coverage(const Projection2D& ref, const Projection2D& tar);
-            // int judge_coverage_alt(const Projection2D& ref, const Projection2D& tar);
+            // see .cxx for more details
+            Coverage judge_coverage(const Projection2D& ref, const Projection2D& tar, double uncer_cut = 1e11);
+            Coverage judge_coverage_alt(const Projection2D& ref, const Projection2D& tar,
+                                        std::vector<double>& cut_values, double uncer_cut = 1e11);
 
         }  // namespace Projection2D
-    }  // namespace Img
+    }      // namespace Img
 }  // namespace WireCell

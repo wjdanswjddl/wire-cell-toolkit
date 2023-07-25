@@ -21,21 +21,21 @@ package_descriptions = [
     # spdlog is "header only" but use library version for faster recompilation
     # wire-cell-util and ZIO both use this
     # Need to build with -DCMAKE_POSITION_INDEPENDENT_CODE=ON
-    ('spdlog',   dict(incs=['spdlog/spdlog.h'], libs=['spdlog'])),
+    ('spdlog',   dict(incs=['spdlog/spdlog.h'], libs=['spdlog'], pcname='spdlog')),
 
-    ('ZLib',     dict(incs=['zlib.h'], libs=['z'])),
+    ('ZLib',     dict(incs=['zlib.h'], libs=['z'], pcname='zlib')),
     ('FFTW',     dict(incs=['fftw3.h'], libs=['fftw3f'], pcname='fftw3f')),
     ('FFTWThreads', dict(libs=['fftw3f_threads'], pcname='fftw3f', mandatory=False)),
-    ('JsonCpp',  dict(incs=["json/json.h"], libs=['jsoncpp'])),
+    ('JsonCpp',  dict(incs=["json/json.h"], libs=['jsoncpp'], pcname='jsoncpp')),
 
     ('Eigen',    dict(incs=["Eigen/Dense"], pcname='eigen3')),
 
     # for faster parsing, consider:
     # ./wcb configure --with-jsonnet-libs=gojsonnet 
     ('Jsonnet',  dict(incs=["libjsonnet.h"], libs=['jsonnet'])),
-    ('TBB',      dict(incs=["tbb/parallel_for.h"], libs=['tbb'], mandatory=False)),
-    ('HDF5',     dict(incs=["hdf5.h"], libs=['hdf5'], mandatory=False)),
-    ('H5CPP',    dict(incs=["h5cpp/all"], mandatory=False, extuses=('HDF5',))),
+    ('TBB',      dict(incs=["tbb/parallel_for.h"], libs=['tbb'], pcname='tbb', mandatory=False)),
+    ('HDF5',     dict(incs=["hdf5.h"], libs=['hdf5'], pcname='hdf5', mandatory=False)),
+    ('H5CPP',    dict(incs=["h5cpp/all"], mandatory=False, extuses=('HDF5',), pcname='h5cpp')),
 
     ('ZMQ',      dict(incs=["zmq.h"], libs=['zmq'], pcname='libzmq', mandatory=False)),
     ('CZMQ',     dict(incs=["czmq.h"], libs=['czmq'], pcname='libczmq', mandatory=False)),
@@ -174,6 +174,8 @@ def configure(cfg):
     cfg.find_program("pandoc", var="PANDOC", mandatory=False)
     cfg.find_program("emacs", var="EMACS", mandatory=False)
 
+    cfg.env.REQUIRES = list(set(cfg.env.REQUIRES))
+
     debug("dump: " + str(cfg.env))
 
 
@@ -216,6 +218,17 @@ def build(bld):
                 if ext == 'html':
                     bld.install_files(bld.env.DOCS_INSTALL_PATH, out,
                                       cwd=bld_dir, relative_trick=True)
+
+    # Produce a pkg-config .pc file
+    bld(source='wire-cell-toolkit.pc.in',
+        name="pkg-config-file",
+        REQUIRES = ' '.join(bld.env.REQUIRES),
+        install_path = '${LIBDIR}/pkgconfig/')
+
+
+    # Produce a libtool .la file.  This needs one for each lib.
+    # bld(source='libWireCellXxxx.la.in', 
+    #     install_path = '${LIBDIR}')    
 
 def dumpenv(bld):
     'dump build environment to stdout'

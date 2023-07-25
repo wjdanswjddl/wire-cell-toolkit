@@ -32,7 +32,7 @@ WireCell::Configuration Gen::NoiseBase::default_configuration() const
     // The IDFT
     cfg["dft"] = "FftwDFT";
     // The size (number of ticks) of the noise waveforms
-    cfg["nsamples"] = m_nsamples;
+    cfg["nsamples"] = (unsigned int)(m_nsamples);
     // Percentage of fresh randomness added in using the recyled
     // random normal-Gaussian distribution.  Note, to match prior
     // interpreation of "percent" we apply twice this amount of

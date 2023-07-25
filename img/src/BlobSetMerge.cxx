@@ -46,6 +46,9 @@ bool Img::BlobSetMerge::operator()(const input_vector& invec, output_pointer& ou
     auto sbs = new Aux::SimpleBlobSet(0, nullptr);
     out = IBlobSet::pointer(sbs);
 
+    // TODO assign new blob ident
+    // reset the counter with EOS
+
     int neos = 0;
     std::stringstream perset;
     for (const auto& ibs : invec) {
@@ -60,9 +63,16 @@ bool Img::BlobSetMerge::operator()(const input_vector& invec, output_pointer& ou
             sbs->m_slice = ISlice::pointer(oslice);
             sbs->m_ident = newslice->ident();
         }
+        // make sure times are sync'ed
+        if(sbs->slice()->start()!=newslice->start()) {
+            THROW(RuntimeError() << errmsg{"blobs not in sync'ed slices"});
+        }
         oslice->merge(newslice);
         for (const auto& iblob : ibs->blobs()) {
-            sbs->m_blobs.push_back(iblob);
+            // FIXME: ident can be the same?
+            Aux::SimpleBlob* sb = new Aux::SimpleBlob(iblob->ident(), iblob->value(), iblob->uncertainty(),
+            iblob->shape(), sbs->m_slice, iblob->face());
+            sbs->m_blobs.push_back(IBlob::pointer(sb));
         }
         perset << " " << ibs->blobs().size();
 

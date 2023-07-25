@@ -125,6 +125,9 @@ void Sio::ClusterFileSink::configure(const WireCell::Configuration& cfg)
     else if (m_format == "numpy") {
         m_serializer = [&](const ICluster& cluster){this->numpify(cluster);};
     }
+    else if (m_format == "dummy") {
+        m_serializer = [&](const ICluster& cluster){};
+    }
     else {
         THROW(ValueError() << errmsg{"ClusterFileSink: unsupported format: " + m_format});
     }

@@ -109,7 +109,10 @@ void blob_weight_uboone(const cluster_graph_t& cgraph, graph_t& csg)
             vdesc_t ndesc = boost::target(edge, cgraph);
             const auto& nnode = cgraph[ndesc];
             if (nnode.code() == 'b') {
-                auto time = (int)get<blob_t>(nnode.ptr)->slice()->start();
+                const auto iblob = get<blob_t>(nnode.ptr);
+                auto time = (int)iblob->slice()->start();
+                /// TODO: make this 300 configurable
+                if (iblob->value() < 300) continue;
                 if (time > cent_time) {
                     next_con = true;
                 }

@@ -33,8 +33,26 @@ namespace WireCell {
         // typedef float value_t;
 
         // A sample is a channels value in the time slice.
+        struct IdentHash {
+            size_t operator()(const IChannel::pointer p) const {
+                return std::hash<int>()(p->ident());
+            }
+        };
+        struct IdentEq {
+            size_t operator()(const IChannel::pointer p1, const IChannel::pointer p2) const {
+                return p1->ident() == p2->ident();
+            }
+        };
+        struct IdentLess {
+            size_t operator()(const IChannel::pointer p1, const IChannel::pointer p2) const {
+                return p1->ident() < p2->ident();
+            }
+        };
         typedef std::pair<IChannel::pointer, value_t> pair_t;
-        typedef std::unordered_map<IChannel::pointer, value_t> map_t;
+        // typedef std::unordered_map<IChannel::pointer, value_t> map_t;
+        typedef std::unordered_map<IChannel::pointer, value_t, IdentHash, IdentEq> map_t;
+        // typedef std::map<IChannel::pointer, value_t> map_t;
+        // typedef std::map<IChannel::pointer, value_t, IdentLess> map_t;
 
         // Pointer back to IFrame from which this ISlice was created.
         virtual IFrame::pointer frame() const = 0;
