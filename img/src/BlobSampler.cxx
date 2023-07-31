@@ -264,7 +264,7 @@ struct BlobSampler::Sampler : public Aux::Logger
 
         const auto& activity = islice->activity();
         auto iface = iblob->face();
-        for (const auto iplane : iface->planes()) {
+        for (const auto& iplane : iface->planes()) {
 
             const auto* pimpos = iplane->pimpos();
             const int pind = iplane->planeid().index();

@@ -357,7 +357,7 @@ void Img::MaskSliceBase::slice(const IFrame::pointer& in, slice_map_t& svcmap)
         /// slicebin based, should be faster for fewer slices
         for (size_t slicebin = min_slicebin; slicebin < max_slicebin; ++slicebin) {
             for (auto tbin : tbins) {
-                if (slicebin * m_tick_span > tbin.second || (slicebin + 1) * m_tick_span <= tbin.first) continue;
+                if (slicebin * m_tick_span > (size_t)tbin.second || (slicebin + 1) * m_tick_span <= (size_t)tbin.first) continue;
                 auto s = svcmap[slicebin];
                 if (!s) {
 #ifdef SLICE_START_TIME_IS_RELATIVE
