@@ -100,6 +100,7 @@ bool Gen::FrameFanin::operator()(const input_vector& invec, output_pointer& out)
     IFrame::pointer one = nullptr;
     
     Waveform::ChannelMaskMap out_cmm;
+    // creating an empty name map; only want combine the two maskmaps from each APA into a single maskmap, NOT merge masks
     std::map<std::string, std::string> empty_name_map;
 
     for (size_t iport = 0; iport < m_multiplicity; ++iport) {
