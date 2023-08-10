@@ -59,34 +59,34 @@ local sim = sim_maker(params, tools);
 
 // Deposit and drifter ///////////////////////////////////////////////////////////////////////////////
 
-// local tracklist = [
-//     {
-//         time: 0*wc.ms,
-//         charge: -5000,
-//         ray: {
-//             tail: wc.point(200, -500, 50, wc.cm),
-//             head: wc.point(200, -500, 200, wc.cm),
-//         }
-//     },
-//     {
-//         time: 0*wc.ms,
-//         charge: -5000,
-//         ray: {
-//             tail: wc.point(200, -550, 50, wc.cm),
-//             head: wc.point(200, -550, 200, wc.cm),
-//         }
-//     },
-// ];
 local tracklist = [
     {
         time: 0*wc.ms,
         charge: -5000,
         ray: {
-            tail: wc.point(100, -550, 50, wc.cm),
-            head: wc.point(300, -550, 200, wc.cm),
+            tail: wc.point(200, -500, 50, wc.cm),
+            head: wc.point(200, -500, 200, wc.cm),
+        }
+    },
+    {
+        time: 0*wc.ms,
+        charge: -5000,
+        ray: {
+            tail: wc.point(200, -550, 50, wc.cm),
+            head: wc.point(200, -550, 200, wc.cm),
         }
     },
 ];
+// local tracklist = [
+//     {
+//         time: 0*wc.ms,
+//         charge: -5000,
+//         ray: {
+//             tail: wc.point(100, -550, 50, wc.cm),
+//             head: wc.point(300, -550, 200, wc.cm),
+//         }
+//     },
+// ];
 
 local depos = g.pnode({
         type: 'TrackDepos',
