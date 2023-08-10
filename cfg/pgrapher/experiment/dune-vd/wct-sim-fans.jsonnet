@@ -6,22 +6,22 @@ local io = import 'pgrapher/common/fileio.jsonnet';
 local tools_maker = import 'pgrapher/common/tools.jsonnet';
 local response_plane = std.extVar('response_plane')*wc.cm;
 
-local fcl_params = {
-    response_plane: 18.92*wc.cm,
-    nticks: 8500,
-    ncrm: 320,
-    wires: 'dunevd10kt_3view_30deg_v6_refactored.json.bz2',
-    use_dnnroi: false,
-    process_crm: 'test1',
-};
 // local fcl_params = {
 //     response_plane: 18.92*wc.cm,
 //     nticks: 8500,
-//     wires: 'dunevd10kt_3view_30deg_v5_refactored_1x8x6ref.json.bz2',
-//     ncrm: 24,
+//     ncrm: 320,
+//     wires: 'dunevd10kt_3view_30deg_v6_refactored.json.bz2',
 //     use_dnnroi: false,
-//     process_crm: 'test2',
+//     process_crm: 'test1',
 // };
+local fcl_params = {
+    response_plane: 18.92*wc.cm,
+    nticks: 8500,
+    wires: 'dunevd10kt_3view_30deg_v5_refactored_1x8x6ref.json.bz2',
+    ncrm: 24,
+    use_dnnroi: false,
+    process_crm: 'test1',
+};
 local params_maker =
 if fcl_params.ncrm ==320 then import 'pgrapher/experiment/dune-vd/params-10kt.jsonnet'
 else import 'pgrapher/experiment/dune-vd/params.jsonnet';
@@ -59,21 +59,31 @@ local sim = sim_maker(params, tools);
 
 // Deposit and drifter ///////////////////////////////////////////////////////////////////////////////
 
+// local tracklist = [
+//     {
+//         time: 0*wc.ms,
+//         charge: -5000,
+//         ray: {
+//             tail: wc.point(200, -500, 50, wc.cm),
+//             head: wc.point(200, -500, 200, wc.cm),
+//         }
+//     },
+//     {
+//         time: 0*wc.ms,
+//         charge: -5000,
+//         ray: {
+//             tail: wc.point(200, -550, 50, wc.cm),
+//             head: wc.point(200, -550, 200, wc.cm),
+//         }
+//     },
+// ];
 local tracklist = [
     {
         time: 0*wc.ms,
         charge: -5000,
         ray: {
-            tail: wc.point(200, -500, 50, wc.cm),
-            head: wc.point(200, -500, 200, wc.cm),
-        }
-    },
-    {
-        time: 0*wc.ms,
-        charge: -5000,
-        ray: {
-            tail: wc.point(200, -550, 50, wc.cm),
-            head: wc.point(200, -550, 200, wc.cm),
+            tail: wc.point(100, -550, 50, wc.cm),
+            head: wc.point(300, -550, 200, wc.cm),
         }
     },
 ];
@@ -96,8 +106,12 @@ local bagger = sim.make_bagger();
 local sn_pipes = sim.splusn_pipelines;
 
 local sp_maker = import 'pgrapher/experiment/dune-vd/sp.jsonnet';
-local sp = sp_maker(params, tools, { sparse: true, use_roi_debug_mode: false,} );
+local sp = sp_maker(params, tools, { sparse: false, use_roi_debug_mode: false,} );
 local sp_pipes = [sp.make_sigproc(a) for a in tools.anodes];
+
+local img = import 'pgrapher/experiment/dune-vd/img.jsonnet';
+local img_maker = img();
+local img_pipes = [img_maker.per_anode(a) for a in tools.anodes];
 
 local magoutput = 'mag-sim-sp.root';
 local magnify = import 'pgrapher/experiment/dune-vd/magnify-sinks.jsonnet';
@@ -142,9 +156,10 @@ local parallel_pipes = [
                     tags=["gauss%d"%tools.anodes[n].data.ident],
                     digitize=false
                 ),
-                // sinks.decon_pipe[n],
+                sinks.decon_pipe[n],
                 // sinks.debug_pipe[n], // use_roi_debug_mode=true in sp.jsonnet
-                g.pnode({type: "DumpFrames", name: "dumpframes-%d"%tools.anodes[n].data.ident}, nin = 1, nout=0)
+                // g.pnode({type: "DumpFrames", name: "dumpframes-%d"%tools.anodes[n].data.ident}, nin = 1, nout=0),
+                img_pipes[n],
           ], 
           'parallel_pipe_%d' % n) 
   for n in std.range(0, std.length(tools.anodes) - 1)];
@@ -180,6 +195,7 @@ local sink = sim.frame_sink;
 
 // local graph = g.pipeline([depos, drifter, bagger, parallel_graph, sink], "main");
 local graph = g.pipeline([depos, drifter, bagger, parallel_graph], "main");
+// local graph = g.pipeline([depos, drifter, bagger, parallel_pipes[0]], "main");
 
 local app = {
   type: 'TbbFlow', //Pgrapher, TbbFlow
@@ -191,7 +207,7 @@ local app = {
 local cmdline = {
     type: "wire-cell",
     data: {
-        plugins: ["WireCellGen", "WireCellPgraph", "WireCellSio", "WireCellSigProc", "WireCellRoot", "WireCellTbb"],
+        plugins: ["WireCellGen", "WireCellPgraph", "WireCellSio", "WireCellSigProc", "WireCellRoot", "WireCellTbb", "WireCellImg"],
         apps: ["TbbFlow"]
     }
 };

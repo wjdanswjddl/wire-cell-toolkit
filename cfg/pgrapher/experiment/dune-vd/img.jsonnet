@@ -278,7 +278,7 @@ local img = {
         local ld3 = self.local_deghosting(3,"3rd"),
 
         // ret: g.pipeline([bc, gd1, cs1, ld1, gd2, cs2, ld2, cs3, ld3, gc],"uboone-solving"),
-        ret: g.pipeline([bc, gd1, cs1, ld1],"simple-solving"),
+        ret: g.pipeline([bc, cs1, ld1, gc],"simple-solving"),
     }.ret,
 
     dump :: function(anode, aname, drift_speed) {
