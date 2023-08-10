@@ -5,6 +5,9 @@
 #include "WireCellAux/FrameTools.h"
 #include "WireCellAux/PlaneTools.h"
 
+// Test to see if we can make slice time absolute
+#undef SLICE_START_TIME_IS_RELATIVE
+
 WIRECELL_FACTORY(MaskSlicer, WireCell::Img::MaskSlicer,
                  WireCell::INamed,
                  WireCell::IFrameSlicer, WireCell::IConfigurable)
@@ -293,7 +296,14 @@ void Img::MaskSliceBase::slice(const IFrame::pointer& in, slice_map_t& svcmap)
             size_t slicebin = (tbin + qind) / m_tick_span;
             auto s = svcmap[slicebin];
             if (!s) {
-                THROW(RuntimeError() << errmsg{"Not expecting slice not created!"});
+#ifdef SLICE_START_TIME_IS_RELATIVE
+                const double start = slicebin * span;  // thus relative to slice frame's time.
+#else
+                // Slice start time is absolute with frame time as origin
+                const double start = in->time() + slicebin * span;  
+#endif
+                s = new Img::Data::Slice(in, slicebin, start, span);
+                svcmap[slicebin] = s;
             }
             // TODO: how to handle error?
             s->sum(ich, {q, e});
@@ -312,7 +322,14 @@ void Img::MaskSliceBase::slice(const IFrame::pointer& in, slice_map_t& svcmap)
             for (size_t slicebin = min_slicebin; slicebin < max_slicebin; ++slicebin) {
                 auto s = svcmap[slicebin];
                 if (!s) {
-                    THROW(RuntimeError() << errmsg{"Not expecting slice not created!"});
+#ifdef SLICE_START_TIME_IS_RELATIVE
+                    const double start = slicebin * span;  // thus relative to slice frame's time.
+#else
+                    // Slice start time is absolute with frame time as origin
+                    const double start = in->time() + slicebin * span;  
+#endif
+                    s = new Img::Data::Slice(in, slicebin, start, span);
+                    svcmap[slicebin] = s;
                 }
                 s->assign(ich, {(float)m_dummy_charge, (float)m_dummy_error});
             }
@@ -340,10 +357,17 @@ void Img::MaskSliceBase::slice(const IFrame::pointer& in, slice_map_t& svcmap)
         /// slicebin based, should be faster for fewer slices
         for (size_t slicebin = min_slicebin; slicebin < max_slicebin; ++slicebin) {
             for (auto tbin : tbins) {
-                if (slicebin * m_tick_span > tbin.second || (slicebin + 1) * m_tick_span <= tbin.first) continue;
+                if (slicebin * m_tick_span > (size_t)tbin.second || (slicebin + 1) * m_tick_span <= (size_t)tbin.first) continue;
                 auto s = svcmap[slicebin];
                 if (!s) {
-                    THROW(RuntimeError() << errmsg{"Not expecting slice not created!"});
+#ifdef SLICE_START_TIME_IS_RELATIVE
+                    const double start = slicebin * span;  // thus relative to slice frame's time.
+#else
+                    // Slice start time is absolute with frame time as origin
+                    const double start = in->time() + slicebin * span;  
+#endif
+                    s = new Img::Data::Slice(in, slicebin, start, span);
+                    svcmap[slicebin] = s;
                 }
                 s->assign(ich, {(float) m_masked_charge, (float) m_masked_error});
             }

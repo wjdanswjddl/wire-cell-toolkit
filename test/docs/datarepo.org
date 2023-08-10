@@ -134,4 +134,4 @@ It is expected that new historical tests will be developed to consume historical
 
 These steps can be performed manually by checking out the required code version, building and running tests as usual followed by explicitly running the new test in the new version but in the environment of the old version.
 
-An example of automating this procedure can be found in ~test/scripts/bv-generate-history-haiku~.
+An example of automating this procedure can be found in ~test/scripts/multi-release-testing~.

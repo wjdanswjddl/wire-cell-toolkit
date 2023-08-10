@@ -770,10 +770,8 @@ cluster_graph_t ClusterArrays::to_cluster(const node_array_set_t& nas,
 
             node_array_t::size_type col = sigu_col;
             const WirePlaneId face_wpid(brow[++col]);
-            // const int slice_ident = brow[++col];
-            // const double start = brow[++col];
-            // const double span = brow[++col];
 
+            // find slice and fill view strips
             std::map<int, RayGrid::Strip> strips;
             strips[0] = RayGrid::Strip{0, {0,1}};
             strips[1] = RayGrid::Strip{1, {0,1}};
@@ -793,15 +791,18 @@ cluster_graph_t ClusterArrays::to_cluster(const node_array_set_t& nas,
                 const int layer = 2 + wpid.index();
                 auto sit = strips.find(layer);
                 if (sit == strips.end()) {
-                    strips[layer] = RayGrid::Strip{layer, {wip,wip}};
+                    strips[layer] = RayGrid::Strip{layer, {wip,wip+1}};
                     continue;
                 }
                 auto& strip = sit->second;
                 strip.bounds.first = std::min(strip.bounds.first, wip);
-                strip.bounds.second = std::min(strip.bounds.second, wip+1);
+                strip.bounds.second = std::max(strip.bounds.second, wip+1);
             }
 
             auto iface = find_face(face_wpid);
+            if (!iface) {
+                raise<ValueError>("failed to find face for wpid %d", face_wpid.ident());
+            }
 
             const RayGrid::Coordinates& coords = iface->raygrid();
             RayGrid::Blob bshape;

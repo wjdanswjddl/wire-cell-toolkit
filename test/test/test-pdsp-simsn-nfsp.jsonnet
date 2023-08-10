@@ -4,6 +4,10 @@ local pg = import 'pgraph.jsonnet';
 local wc = import 'wirecell.jsonnet';
 local io = import 'pgrapher/common/fileio.jsonnet';
 
+// for channel noise "database"
+local nf_maker = import 'pgrapher/experiment/pdsp/nf.jsonnet';
+local sp_maker = import 'pgrapher/experiment/pdsp/sp.jsonnet';
+
 local tools_maker = import 'pgrapher/common/tools.jsonnet';
 local base = import 'pgrapher/experiment/pdsp/simparams.jsonnet';
 local params = base {
@@ -108,26 +112,25 @@ local digitizer = pg.pnode({
 local vlt = pg.pipeline([setdrifter, transform, reframer]);
 local noi = pg.pipeline([addnoise, digitizer]);
 
-
 //
 // Noise Filter
 //
-local perfect = import 'pgrapher/experiment/pdsp/chndb-perfect.jsonnet';
+local chndb_data = import 'pgrapher/experiment/pdsp/chndb-base.jsonnet';
+
 local chndb = {
   type: 'OmniChannelNoiseDB',
   name: '',
-    data: perfect(params, anode, tools.field, 0){
-        dft:wc.tn(tools.dft)
+    data: chndb_data(params, anode, tools.field, 0){
+        dft:wc.tn(tools.dft),
     },
   uses: [anode, tools.field, tools.dft]};
 
-local nf_maker = import 'pgrapher/experiment/pdsp/nf.jsonnet';
+
 local nf = nf_maker(params, anode, chndb, 0, "");
 
 //
 // Signal Processing
 //
-local sp_maker = import 'pgrapher/experiment/pdsp/sp.jsonnet';
 local sp = sp_maker(params, tools).make_sigproc(anode);
 
 // I/O

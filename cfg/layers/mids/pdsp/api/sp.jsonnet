@@ -63,7 +63,6 @@ function(services, params, options={}) function(anode)
 
             // frame tags
             wiener_tag: 'wiener' + ident,
-            wiener_threshold_tag: 'threshold' + ident,
             decon_charge_tag: 'decon_charge' + ident,
             gauss_tag: 'gauss' + ident,
 

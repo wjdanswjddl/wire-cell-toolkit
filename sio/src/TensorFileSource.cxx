@@ -151,7 +151,8 @@ struct TFSTensor : public WireCell::ITensor {
         , m_shape(pig.header().shape())
         , m_cfg(cfg)
     {
-        const std::byte* data = reinterpret_cast<const std::byte*>(pig.data().data());
+        auto vec = pig.data();
+        const std::byte* data = reinterpret_cast<const std::byte*>(vec.data());
         m_store.insert(m_store.end(), data, data + pig.data().size());
     }
 
@@ -234,9 +235,9 @@ ITensorSet::pointer TensorFileSource::load()
 
         auto pf = parse_fname(m_cur.fname, m_prefix);
 
-        log->debug("read file={} size={} type={} form={} ident={} index={}",
-                   m_cur.fname, m_cur.fsize,
-                   pf.type, pf.form, pf.ident, pf.index);
+        // log->debug("read file={} size={} type={} form={} ident={} index={}",
+        //            m_cur.fname, m_cur.fsize,
+        //            pf.type, pf.form, pf.ident, pf.index);
 
         if (pf.type == ParsedFilename::bad or pf.form == ParsedFilename::unknown) {
             m_in.seekg(m_cur.fsize, m_in.cur);

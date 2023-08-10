@@ -168,7 +168,7 @@ namespace WireCell::Sio {
 
         template<typename ArrayType>
         void write_numpy(const ArrayType& arr, const std::string& name) {
-            log->debug("write {} ndim={} size={}", name, arr.num_dimensions(), arr.num_elements());
+            // log->debug("write {} ndim={} size={}", name, arr.num_dimensions(), arr.num_elements());
             Stream::write(m_out, name, arr);
             m_out.flush();
         }

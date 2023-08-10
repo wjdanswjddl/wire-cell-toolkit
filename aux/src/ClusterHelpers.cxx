@@ -2,6 +2,7 @@
 // See also ClusterHelper*.cxx
 
 #include "WireCellAux/ClusterHelpers.h"
+#include "WireCellAux/BlobTools.h"
 
 #include "WireCellIface/ISlice.h"
 #include "WireCellIface/IFrame.h"
@@ -17,11 +18,18 @@ using slice_t = cluster_node_t::slice_t;
 
 std::string WireCell::Aux::dumps(const cluster_graph_t& cgraph)
 {
+    const size_t nbcats = BlobCategory::size();
+    std::vector<size_t> blob_cats(nbcats, 0);
 
     std::map<char, size_t> ncounts;
     for (auto vtx : mir(boost::vertices(cgraph))) {
         const auto& node = cgraph[vtx];
         ++ncounts[node.code()];
+        if (node.code() == 'b') {
+            auto iblob = std::get<IBlob::pointer>(cgraph[vtx].ptr);
+            Aux::BlobCategory bcat(iblob);
+            ++blob_cats[bcat.num()];
+        }
     }
     
     std::map<std::string, size_t> ecounts;
@@ -45,7 +53,12 @@ std::string WireCell::Aux::dumps(const cluster_graph_t& cgraph)
     for (const auto& [code, num] : ncounts) {
         ss << " " << code << ":" << num;
     }
-    ss << " " << boost::num_edges(cgraph)
+    ss << " bcats:[";
+    for (size_t icat=0; icat < nbcats; ++icat) {
+        ss << " " << BlobCategory::to_str(icat) << "=" << blob_cats[icat];
+    }
+    ss << "] ";
+    ss  << boost::num_edges(cgraph)
        << " edges of " << ecounts.size() << " types:";
     for (const auto& [code, num] : ecounts) {
         ss << " " << code << ":" << num;

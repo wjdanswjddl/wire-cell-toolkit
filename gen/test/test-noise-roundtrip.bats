@@ -8,33 +8,27 @@ bats_load_library wct-bats.sh
 
 setup_file () {
 
-    local cfgfile="${BATS_TEST_FILENAME%.bats}.jsonnet"
+    local cfgfile="$(relative_path test-noise-roundtrip.jsonnet)"
 
     # files named commonly in each variant subidr
-    local jsonfile="$(basename ${cfgfile} .jsonnet).json"
-    local logfile="$(basename ${cfgfile} .jsonnet).log"
+    local jsonfile="dag.json"
+    local logfile="wire-cell.log"
 
     cd_tmp
 
-    run bash -c "wcsonnet $cfgfile > ${jsonfile}"
-    echo "$output"
-    [[ "$status" -eq 0 ]]
-
-    # representative output file
-    if [ -f "$logfile" ] ; then
-        echo "Already have $logfile" 1>&3
-        continue
-    fi
+    run_idempotently -s "$cfgfile" -t "$jsonfile" -- \
+                     compile_jsonnet "$cfgfile" "$jsonfile"
+    # check bash -c "wcsonnet $cfgfile > ${jsonfile}"
 
     # run actual job on pre-compiled config
-    run wire-cell -l "${logfile}" -L debug "${jsonfile}"
-    echo "$output"
-    [[ "$status" -eq 0 ]]
+    run_idempotently -s "$jsonfile" -t "$logfile" -- \
+                     wire-cell -l "${logfile}" -L debug "${jsonfile}"
     [[ -s "$logfile" ]]
 
 }
 
 @test "no weird endpoints of mean waveform" {
+    skip_if_missing jq
 
     cd_tmp file
 
@@ -53,44 +47,33 @@ setup_file () {
     # W t 4096 0.23283335367838542 0.20440386815418213 4096 39 26 15 14 14 14 13 11 10 10
     # W c 960 0.23283335367838542 0.4332668683930272 960 249 0 0 0 0 0 0 0 0 0    
 
-    local wcgen=$(wcb_env_value WCGEN)
-
     for noise in empno inco
     do
 
         local adcfile="test-noise-roundtrip-${noise}-adc.npz"
         [[ -s "$adcfile" ]]
+        info "adcfile for frame stats: $adcfile"
 
-        while read line ; do
-            parts=($line)
+        local statfile="stats-${noise}.json"
+        wcpy gen frame-stats -o "$statfile" "$adcfile"
 
-            echo "$line"
-            if [ "${parts[1]}" = "c" ] ; then
-                continue
-            fi
-
-            # Bash does not speak floating point.  To avoid relying on
-            # dc/bc to be installed, we do these FP tests lexically.
-
-            # require nothing past 5 sigma
-            [[ "${parts[10]}" = "0" ]]
-
-            # mean should be small.
-            [[ -n "$(echo ${parts[3]} | grep '^0\.0')" ]]
-
-            # rms should be small.
-            [[ -n "$(echo ${parts[4]} | grep '^0\.0')" ]]
-            
-        done < <($wcgen frame_stats "$adcfile")
+        for plane in "U" "V" "W"
+        do
+            # no outliers
+            [[ $(jq ".$plane.t.outliers[-1]" < "$statfile") -eq 0 ]]
+            # mean should be small
+            [[ $(jq ".$plane.t.mu > -0.5 and .$plane.t.mu < 0.5" < "$statfile") = "true" ]]
+            # mean should be rms
+            [[ $(jq ".$plane.t.rms < 0.2" < "$statfile") = "true" ]]
+        done
     done
 }
 
 
-# bats test_tags=implicit,plots
+# bats test_tags=history
 @test "plot spectra" {
 
-    local wcsigproc="$(wcb_env_value WCSIGPROC)"
-    
+
     cd_tmp file
 
     for ntype in inco empno
@@ -99,9 +82,7 @@ setup_file () {
 
         # Plot OUTPUT spectra
         local ofile="$(basename $sfile .json.bz2)-output.pdf"
-        run $wcsigproc plot-noise-spectra -z "${sfile}" "${ofile}"
-        echo "$output"
-        [[ "$status" -eq 0 ]]
+        check wcpy sigproc plot-noise-spectra -z "${sfile}" "${ofile}"
 
         # Plot INPUT spectra.
         local ifile="$(basename $sfile .json.bz2)-input.pdf"
@@ -109,20 +90,16 @@ setup_file () {
         
         # Spectra is inside configuration
         if [ "$ntype" = "inco" ] ; then
-            run $wcsigproc plot-configured-spectra -c ac -n "$ntype" test-noise-roundtrip.json "${ifile}" 
-            echo "$output"
-            [[ "$status" -eq 0 ]]
+            check wcpy sigproc plot-configured-spectra -c ac -n "$ntype" dag.json "${ifile}" 
         fi
         # Spectra is in auxiliary file
         if [ "$ntype" = "empno" ] ; then
             # warning: hard-coding empno spectra out of laziness
             # and assuming it's the one used in the Jsonnet!
-            run $wcsigproc plot-noise-spectra -z protodune-noise-spectra-v1.json.bz2 "${ifile}"
-            echo "$output"
-            [[ "$status" -eq 0 ]]
+            check wcpy sigproc plot-noise-spectra -z protodune-noise-spectra-v1.json.bz2 "${ifile}"
         fi
 
-        saveout -c plots "$ifile" "$ofile"
+        saveout -c history "$ifile" "$ofile"
 
     done
 }

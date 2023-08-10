@@ -101,9 +101,6 @@ local wcls_output = {
   },
   }, nin=1, nout=1, uses=[mega_anode]),
 
-  // save "threshold" from normal decon for each channel noise
-  // used in imaging
-  sp_thresholds: wcls.output.thresholds(name='spthresholds', tags=['threshold']),
 };
 
 //local deposio = io.numpy.depos(output);

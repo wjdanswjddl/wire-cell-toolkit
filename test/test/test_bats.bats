@@ -6,7 +6,7 @@ setup_file () {
     [[ "$(divine_context)" == "file" ]]
 }
 
-@test "devine context" {
+@test "divine context" {
     [[ "$(divine_context)" == "test" ]]
 }
 
@@ -24,19 +24,14 @@ setup_file () {
 
 # tip: give bats the argument --show-output-of-passing-tests  
 @test "dump wcb env" {
-    run wcb dumpenv
+    check wcb dumpenv
     echo "$output" |grep '^wcb: '| sed -e 's/wcb://'
-    [[ "$status" -eq 0 ]]
 }
 @test "dump shell env" {
-    run bash -c "env|grep =|sort"
-    echo "$output"
-    [[ "$status" -eq 0 ]]
+    check bash -c "env|grep =|sort"
 }
 @test "dump bats env" {
-    run bash -c "env|grep BATS|sort"
-    echo "$output"
-    [[ "$status" -eq 0 ]]
+    check bash -c "env|grep BATS|sort"
 }
     
 @test "saveout" {
@@ -60,7 +55,7 @@ setup_file () {
     [[ -f "$jdir/junk1.txt" ]]
     [[ -f "$jdir/junk2.txt" ]]
 
-    saveout junk2.txt junk3.txt
+    saveout -t junk3.txt junk2.txt
     [[ -f "$odir/junk3.txt" ]]
 
     cd_tmp file
@@ -69,9 +64,12 @@ setup_file () {
     [[ -f "$odir/junk4.txt" ]]    
 }
 
-@test "divine context" {
-    local got=$(divine_context)
-    if [[ "$got" != "test" ]] ; then
-        die "divine context fails, want test got $got"
-    fi
+
+@test "return array with spaces" {
+    IFS=":" read -r -a xx <<< "$(printf '%s\n' "a" "0" "c a" "0" "d" | sort -u | tr '\n' ':')"
+    [[ "${#xx[@]}" = 4 ]]
+    [[ "${xx[0]}" = "0" ]]
+    [[ "${xx[1]}" = "a" ]]
+    [[ "${xx[2]}" = "c a" ]]
+    [[ "${xx[3]}" = "d" ]]
 }

@@ -1,35 +1,27 @@
 #!/usr/bin/env bats
 
-tstdir="$(realpath $BATS_TEST_DIRNAME)"
-pkgdir="$(dirname $tstdir)"
-pkg="$(basename $pkgdir)"
-topdir="$(dirname $pkgdir)"
-blddir="$topdir/build"
-bindir="$blddir/$pkg"
+bats_load_library wct-bats.sh
 
 setup_file () {
-    export outdir=$(mktemp -d /tmp/wct-util-test-tiling.XXXXXX)
+    cd_tmp
+    usepkg util
 
-    run $bindir/check_act2viz -o $outdir/blobs.svg -n 0.01 -d $outdir/blobs.txt $tstdir/activities3.txt 
-    echo "$output"
-    [ "$status" -eq 0 ]
+    local acts=$(relative_path activities3.txt)
+
+    check check_act2viz -o blobs.svg -n 0.01 -d blobs.txt $acts
 }
 
 @test "reproduce act2vis blob finding" {
 
-    run diff $tstdir/activities3-act2viz.txt $outdir/blobs.txt
-    echo "$output"
-    [ "$status" -eq 0 ]
+    cd_tmp file
+    local act=$(relative_path activities3-act2viz.txt)
+    check diff $act blobs.txt
     [ -z "$output" ] 
 }
 
 @test "no missing bounds" {
-    run grep -E 'pind:\[([0-9]+),\1\]' $outdir/blobs.txt
-    [ -z "$output" ] 
+    cd_tmp file
+    local got=$(grep -E 'pind:\[([0-9]+),\1\]' blobs.txt)
+    [ -z "$got" ] 
 }
 
-teardown_file () {
-    if [ -n "$outdir" ] ; then
-       rm -rf "$outdir"
-    fi
-}

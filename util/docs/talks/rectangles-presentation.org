@@ -1,6 +1,7 @@
 #+title: WCT Rectangles
+#+startup: beamer
+#+setupfile: ../../../docs/setup-beamer.org
 #+BEAMER_HEADER: \title[WCT Rectangles]{Wire-Cell Toolkit Rectangles}
-#+setupfile: ~/sync/talks/setup.org
 #+LATEX_CLASS_OPTIONS: [serif,professionalfont,colorlinks,aspectratio=149]
 #+latex_header: \usepackage{svg}
 

@@ -8,20 +8,16 @@ bats_load_library wct-bats.sh
     echo "TOP $t"
     [ -f "$t/build/apps/wire-cell" ] 
     [ -n "$util_src" ]
-    [ -n "$(wcsonnet)" ] 
+    wcsonnet
+    [ -n "$output" ] 
 }
 
 @test "wire-cell help" {
     
-    # Defined by wcb_env, "run" by bats
-    run wct --help
-    
-    # Bats will only show this if test fails.
-    echo "$output"
-    
-    # Assert no error status code
-    [[ "$status" -eq 0 ]]
-    
+    # This is actually a wrapper in wct-bats.sh which does basic
+    # echoing of output checking of success status code
+    wire-cell --help
+
     # Assert expected info
     [[ -n "$(echo $output | grep 'Wire-Cell Toolkit')" ]]
 }

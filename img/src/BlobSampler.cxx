@@ -34,6 +34,10 @@ Configuration cpp2cfg(const BlobSampler::CommonConfig& cc)
     cfg["tbins"] = cc.tbinning.nbins();
     cfg["tmin"] = cc.tbinning.min();
     cfg["tmax"] = cc.tbinning.max();
+    cfg["extra"] = Json::arrayValue;
+    for (const auto& res : cc.extra) {
+        cfg["extra"].append(res);
+    }
     return cfg;
 }
 BlobSampler::CommonConfig cfg2cpp(const Configuration& cfg,
@@ -47,6 +51,12 @@ BlobSampler::CommonConfig cfg2cpp(const Configuration& cfg,
         get(cfg, "tbins", def.tbinning.nbins()),
         get(cfg, "tmin", def.tbinning.min()),
         get(cfg, "tmax", def.tbinning.max()));
+    cc.extra = get(cfg, "extra", cc.extra);
+    cc.extra_re.clear();
+    for (const auto& res : get(cfg, "extra", def.extra)) {
+        cc.extra_re.push_back(std::regex(res));
+    }
+
     return cc;
 }
 
@@ -62,15 +72,14 @@ void BlobSampler::configure(const WireCell::Configuration& cfg)
     m_cc = cfg2cpp(cfg, m_cc);
 
     add_strategy(cfg["strategy"]);
-    add_extra(cfg["extra"]);
 }
 
 
-// Base class providing common functionality to all samplers.
+// Local base class providing common functionality to all samplers.
 //
 // Subclass should provide sample() which should call intern() with
 // points.
-struct BlobSampler::Sampler
+struct BlobSampler::Sampler : public Aux::Logger
 {
     // Little helper to reduct setting the same value over n points and
     // only doing so if the suffix is configured.
@@ -106,15 +115,17 @@ struct BlobSampler::Sampler
     // Hard-wired, common subset of full config.
     BlobSampler::CommonConfig cc;
 
-    // The identity of the sampler
-    size_t ident;
+    // The identity of this sampler
+    size_t my_ident;
 
     // Current blob index in the iterated IBlob::vector
     size_t blob_index;
     IBlob::pointer iblob;
+    size_t points_added{0};
 
     explicit Sampler(const Configuration& cfg, size_t ident)
-        : cc(cfg2cpp(cfg)), ident(ident)
+        : Aux::Logger("BlobSampler", "img")
+        , cc(cfg2cpp(cfg)), my_ident(ident)
     {
         this->configure(cfg);
     }
@@ -123,14 +134,16 @@ struct BlobSampler::Sampler
 
     // Context manager around sample()
     IAnodeFace::pointer anodeface;
-    void begin_sample(size_t bind, IBlob::pointer iblob)
+    void begin_sample(size_t bind, IBlob::pointer fresh_iblob)
     {
+        points_added = 0;
         blob_index = bind;
-        iblob = iblob;
-        anodeface = iblob->face();
+        iblob = fresh_iblob;
+        anodeface = fresh_iblob->face();
     }
     void end_sample()
     {
+        points_added=0;
         anodeface = nullptr;
         blob_index=0;
         iblob = nullptr;
@@ -172,7 +185,6 @@ struct BlobSampler::Sampler
     Point center_point(const crossings_t& corners)
     {
         Point avg;
-        if (corners.empty()) return avg;
         for (const auto& corner : corners) {
             avg += crossing_point(corner);
         }
@@ -191,6 +203,9 @@ struct BlobSampler::Sampler
         return false;
     }
     
+    // Fixme: this cache is not thread safe if a BlobSampler is shared
+    // to multiple BlobSamplings.  To fix, have BlobSampler be
+    // configured for IAnodePlanes and pre-fill the lookup.
     struct ChanInfo {
         int ident, index;
     };
@@ -212,6 +227,7 @@ struct BlobSampler::Sampler
 
         std::vector<float> times(npts, time);
         std::vector<Point::coordinate_t> x(npts),y(npts),z(npts);
+
         for (size_t ind=0; ind<npts; ++ind) {
             const auto& pt = pts[ind];
             x[ind] = pt.x();
@@ -225,7 +241,6 @@ struct BlobSampler::Sampler
                 {cc.prefix + "z", Array(z)},
                 {cc.prefix + "t", Array(times)}});
 
-
         // Extra values
         const std::vector<std::string> uvw = {"u","v","w"};
         auto islice = iblob->slice();
@@ -233,10 +248,10 @@ struct BlobSampler::Sampler
         // Per blob, duplicated over all pts.
         {
             npts_dup nd{*this, ds, npts};
-            nd("sample_strategy", ident);
+            nd("sample_strategy", my_ident);
             nd("blob_ident", iblob->ident());
             nd("blob_index", blob_index);
-            nd("slice_indent", islice->ident());
+            nd("slice_ident", islice->ident());
             nd("slice_start", islice->start());
             nd("slice_span", islice->span());
         }        
@@ -249,7 +264,7 @@ struct BlobSampler::Sampler
 
         const auto& activity = islice->activity();
         auto iface = iblob->face();
-        for (const auto iplane : iface->planes()) {
+        for (const auto& iplane : iface->planes()) {
 
             const auto* pimpos = iplane->pimpos();
             const int pind = iplane->planeid().index();
@@ -285,8 +300,15 @@ struct BlobSampler::Sampler
             for (size_t ipt=0; ipt<npts; ++ipt) {
                 const Point xwp = pimpos->transform(pts[ipt]);
                 wire_coord[ipt] = xwp[1];
-                pitch_coord[ipt] = xwp[2];
-                wire_index[ipt] = pimpos->closest(pitch_coord[ipt]).first;
+                const double pitch = xwp[2];
+                pitch_coord[ipt] = pitch;
+                int wind = pimpos->closest(pitch).first;
+                if (wind < 0) {
+                    log->debug("sampler={}, point={} cartesian={} pimpos={}", my_ident, ipt, pts[ipt], xwp);
+                    log->error("Negative wire index: {}, will segfault soon", wind);
+
+                }
+                wire_index[ipt] = wind;
         
                 IWire::pointer iwire = iwires[wire_index[ipt]];
                 channel_ident[ipt] = iwire->channel();
@@ -330,12 +352,21 @@ struct BlobSampler::Sampler
         for (int tbin : irange(bins.nbins())) {
             const double time = bins.edge(tbin);
             const double x = time2drift(time);
+            points_added += npts;
             for (size_t ind=0; ind<npts; ++ind) {
                 points[ind].x(x);
             }
             auto tail = make_dataset(points, time);
+            const size_t before = ds.size_major();
             ds.append(tail);
+            const size_t after = ds.size_major();
+            // log->debug("sampler {} iblob {} intern {} points, ds size {}, tail size {} with binning {}",
+            //            ident, iblob->ident(), npts, ds.size_major(), tail.size_major(), bins);
+            if (after != before + npts) {
+                THROW(LogicError() << errmsg{"PointCloud append() is broken"});
+            }
         }
+        
     }
 };
 
@@ -344,14 +375,21 @@ PointCloud::Dataset BlobSampler::sample_blobs(const IBlob::vector& iblobs)
 {
     PointCloud::Dataset ret;
     size_t nblobs = iblobs.size();
+    size_t points_added = 0;
     for (size_t bind=0; bind<nblobs; ++bind) {
-        auto iblob = iblobs[bind];
+        auto fresh_iblob = iblobs[bind];
         for (auto& sampler : m_samplers) {
-            sampler->begin_sample(bind, iblob);
+            if (!fresh_iblob) {
+                THROW(ValueError() << errmsg{"can not sample null blob"});
+            }
+            sampler->begin_sample(bind, fresh_iblob);
             sampler->sample(ret);
+            points_added += sampler->points_added;
             sampler->end_sample();
         }
     }
+    log->debug("got {} blobs, sampled {} points with {} samplers, returning {}",
+               nblobs, points_added, m_samplers.size(), ret.size_major());
     return ret;
 }
         
@@ -364,8 +402,9 @@ struct Center : public BlobSampler::Sampler
 
     void sample(Dataset& ds)
     {
+        auto corners = iblob->shape().corners();
         std::vector<Point> points(1);
-        points[0] = center_point(iblob->shape().corners());
+        points[0] = center_point(corners);
         intern(ds, points);
     }
 };
@@ -596,21 +635,6 @@ struct Bounds : public BlobSampler::Sampler
 };
 
 
-void BlobSampler::add_extra(Configuration extra)
-{
-    if (extra.isArray()) {
-        for (auto one : extra) {
-            add_extra(one);
-        }
-        return;
-    }
-    if (extra.isString()) {
-        std::string res = extra.asString();
-        m_cc.extra_re.push_back(std::regex(res));
-        return;
-    }
-}
-
 void BlobSampler::add_strategy(Configuration strategy)
 {
     if (strategy.isNull()) {
@@ -640,6 +664,7 @@ void BlobSampler::add_strategy(Configuration strategy)
     for (auto key : strategy.getMemberNames()) {
         full[key] = strategy[key];
     }
+    // log->debug("making strategy: {}", full);
 
     std::string name = full["name"].asString();
     // use startswith() to be a little friendly to the user

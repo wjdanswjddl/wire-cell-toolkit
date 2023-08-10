@@ -8,13 +8,14 @@ bats_load_library wct-bats.sh
 
 function comp1d () {
 
-    local src=$1; shift
+    local src="$1"; shift
     local infile="$1"; shift
-    local kind=$1; shift
-    local iplane=$1; shift
+    local kind="$1"; shift
+    local iplane="$1"; shift
 
-    local past=( $(historical_files --current -l 3 $infile) )
-
+    local past
+    past=( $(historical_files --current -l 3 "$infile") )
+    info "PAST: ${past[*]}"
 
     local letters=("u" "v" "w")
     local chmins=(0 800 1600)
@@ -24,22 +25,25 @@ function comp1d () {
 
     declare -a args=( -s -n "$kind" --transform ac )
     args+=( --chmin ${chmins[$iplane]} --chmax ${chmaxs[$iplane]} )
-    if [ "$src" = noise ] ; then
+    if [ "$src" = "noise" ] ; then
         args+=( --tier '*' )
     else
         args+=( --tier 'orig' )
     fi
     args+=( -o "$fig" )
 
-    yell "ARGS: ${args[@]}"
+    yell "ARGS: ${args[*]}"
 
-    for one in ${past[@]}
+    local deps=()
+    for one in "${past[@]}"
     do
         deps+=( -s "$one" )
+        [[ -s "$one" ]]
     done
 
-    local wcplot=$(wcb_env_value WCPLOT)
-    run_idempotently ${deps[@]} -t "$fig" -- $wcplot comp1d "${args[@]}" ${past[@]}
+    yell "DEPS: ${deps[*]}"
+
+    run_idempotently "${deps[@]}" -t "$fig" -- wcpy plot comp1d "${args[@]}" "${past[@]}"
     [[ -s "$fig" ]]
     saveout -c reports "$fig"
 }
@@ -49,8 +53,8 @@ function comp1d () {
 
     # The list of files that can be comp1d'ed.  These must be PDSP APA0
     declare -A inputs
-    inputs[noise]="test-addnoise/test-addnoise-empno-6000.tar.gz"
-    inputs[simsn]="test-pdsp-simsn/frames-adc.tar.gz"
+    inputs[noise]="test-addnoise/frames-adc.tar.gz"
+    inputs[simsn]="test-pdsp-simsn-nfsp/frames-adc.tar.gz"
 
     yell "INPUT KEYS: ${!inputs[@]}"
     yell "INPUT VALS: ${inputs[@]}"
@@ -62,7 +66,8 @@ function comp1d () {
         do
             for ipln in 0 1 2
             do
-                comp1d $src $infile $kind $ipln
+                yell "comp1d $src $infile $kind $ipln"
+                comp1d "$src" "$infile" "$kind" "$ipln"
             done
         done
     done

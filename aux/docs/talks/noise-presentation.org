@@ -1,6 +1,7 @@
 #+title: WCT Noise
 #+BEAMER_HEADER: \title[WCT Noise]{Wire-Cell Toolkit Noise Modeling and Generation}
-#+setupfile: ~/sync/talks/setup.org
+#+startup: beamer
+#+setupfile: ../../../docs/setup-beamer.org
 #+LATEX_CLASS_OPTIONS: [serif,professionalfont,colorlinks,aspectratio=149]
 
 * Topics
@@ -154,13 +155,13 @@ Noise types:
 
 \[(raw\ waves \to) spectrum \to waves \to spectrum' \to waves'\]
 
-#+begin_example
-$ ./wcb --target=test_noisetools
-$ ./build/aux/test_noisetools 
-$ wirecell-test plot -n noisetools \
-    build/aux/test_noisetools.tar \
-    aux/docs/test_noisetools.pdf
-#+end_example
+#+begin_src bash :export code :results none :dir ../../..
+  ./wcb --target=test_noisetools
+  ./build/aux/test_noisetools 
+  wirecell-test plot -n noisetools \
+      build/aux/test_noisetools.tar \
+      aux/docs/talks/test_noisetools.pdf
+#+end_src
 
 Excerpts from that PDF will are shown next.
 

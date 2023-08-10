@@ -1,0 +1,677 @@
+#+title: Wire-Cell Toolkit Testing System
+#+setupfile: ../../../docs/setup-beamer.org
+
+* Topics                                                                :new:
+
+\Large
+
+- Motiviation
+  - /ad-hoc/ testing /vs/ a testing system
+- Quickstart
+- The WCT testing system.
+- Write WCT tests in C++.
+  - C++ exceptions
+- Write WCT tests in Bash.
+- The WCT test data repository and historical tests.
+
+* Motivation                                                            :motivation:
+
+#+begin_quote
+\LARGE We all believe we must test our software.
+#+end_quote
+
+Right?
+
+\vfill
+
+But, what does that mean?
+
+- "Ad-hoc testing" /vs/ a "testing system".
+
+- Why (and how) should I use a "testing system"?
+
+* Ad-hoc testing and its problems                                :motivation:
+
+We often invent our own /ad-hoc/ testing methods that look something like:
+
+- Develop expert ~main()~ programs.
+  - May have complex command line arguments or inputs.
+  - Continually modify them as we develop the software. 
+- Write simple or complicated shell scripts.
+  - May work only on our own computer or account.
+- Do not expect others to use them.
+  - May have unwritten rules/assumptions.
+- May release untested and buggy code to be found by others.
+- Fix the bug, unknowingly add new bugs, re-add old bugs.
+  - May not keep our ad-hoc tests around, or they may no longer check for old bugs.
+
+* Why a testing "system"                                                :motivation:
+
+
+#+begin_center
+\Huge Assure code is correct by making it easy to develop and evaluate its tests.
+#+end_center
+
+
+* Requirements and goals for a testing system                    :motivation:
+
+- All tests must be easy to run by all users and developers.
+  - Expert knowledge is not required to run tests
+- Automates test running to enable frequent testing.
+  - Find and fix problems quickly.
+- Provides drivers for development and bug fixing.
+  - Help simplify development process while generating tests as side-effect.
+  - Fix a bug exactly once, test forever (no regressions).
+- Provides a common "language" in which we may discuss testing itself.
+  - "Test ABC failed, please take a look".
+- Allow tests to compare results between software versions.
+  - Any change may be a regression or intentional, once change is found, categorizing is easy.
+- Allow rich test output (plots, data files, logs).
+  - Reduce human time to triage problems.
+- Allows tests to have sufficient code coverage to assure refactoring does no harm.
+
+
+* WCT Testing System Overview                                           :overview:
+
+We may provide testing code at different "scales" or "levels".  From low to high:
+
+- library :: checks that may throw *exceptions* in our libraries.
+- unit :: checks and assertions defined outside of our libraries. 
+- programs :: a full C++ ~main()~ or a script performing multiple checks.
+- groups :: a set of test programs run together for a particular testing goal.
+- suite :: all tests can be run automatically.
+
+* What testing scale is right for me?
+
+Two answers: "all of them" and "it depends".
+
+\vfill
+
+- To develop library code: *use exceptions*.
+- To test individual functions or maybe a whole class: *use unit tests*.
+- To test many classes together: *use test program*.
+- To produce history data, plots and reports: *use test groups*.
+- To make releases or just test everything: *use test suite*.
+
+\vfill
+
+The rest of this presentation gives a lot of detail about each. 
+
+* Exceptions for library-level testing                           :exceptions:
+
+#+begin_center
+\Huge Use *exceptions* to test code right inside our libraries.
+#+end_center
+
+* What are C++ exceptions                                               :exceptions:
+
+- A C++ *exception* is an instance of a type (usually a ~class~).
+
+- A called function may (or may not) *throw* an exception to signal that an error has occurred.
+
+- Any caller may *catch* an exception *by its type* in order to handle the error.
+
+
+* The life cycle of an exception                                 :exceptions:
+
+- Some running code *throws* an exception of some *type*.
+- A search for a *type-matched catch* begins.
+  - Start from the initial code context, then traverse the *call stack* toward ~main()~.
+- If a match is found continue execution from the *catch code block*.
+- If no match is found, process *exits with error status code*.
+
+
+* Why are exceptions good (compared to returning "error" values)? :exceptions:
+
+- Exceptions *can not be ignored*, return values are often ignored.
+  - C++ provides ~[[nodiscard]]~ which helps to not ignore return values.
+- Exceptions *imply meaning* through their type.
+  - Return values require inventing /ad-hoc/ interpretations for good/bad values.
+  - ~main()~ must return ~int~, always follow Unix standard: *zero is success*, non-zero is error.
+- Exceptions *carry human-oriented messages* through their ~what()~ string
+  - WCT exceptions add *traceback* information.
+- Direct caller may not be able to handle error, but a (grand)parent caller may.
+  - With return value we must complicate all code with "error forwarding".
+
+* Why are exceptions bad (they are not)                                 :exceptions:
+
+Exceptions are slow!
+- No: modern compilers add essentially no overhead when supporting exceptions.
+- Okay, a ~throw~ is marginally slower than a ~return~ but it is called ... *exceptionally*.
+
+Exceptions cause programs to crash!
+- Good: better to halt a program than to ignore return error codes or allow ~segfault~, etc.
+- Good: helps developers find ignored errors quickly.
+
+Exceptions are hard to program!
+- Meh: a ~throw~ is slightly more code than a ~return~.
+- Meh: a ~catch~ is slightly more than an ~if() {}~ check on a return value.
+
+* When to throw an exception                                            :exceptions:
+
+#+begin_quote
+Throw an exception anytime an assumption is found to be violated.
+#+end_quote
+
+** Assumptions are ultimately specification of a data domain
+
+- A function argument passes a value that outside an allowed/expected range.
+
+- A return value is formed that is outside of the function range.
+
+- An intermediate value is formed which for which the code can not further process.
+
+- A configuration object is missing an expected attribute or has the wrong type of value.
+
+- A file that is being parsed violates the expected schema.
+
+- An inconsistency in code logic is encountered.
+  
+** But, sometimes we may "fix" a bad value instead of throwing an exception
+
+- Can we cast? ~float x = cfg.asFloat(cfg["given_an_int"])~
+- Can we coerce? ~std::clamp(val,lo,hi)~?
+
+* What type of exception to throw                                       :exceptions:
+
+WCT defines a small subset similar to standard C++/Python exception types.
+\vfill
+
+~#include "WireCellUtil/Exceptions.h"~
+
+\vfill
+
+- ~ValueError~ when a value is found to be outside its expected domain (*most common!*).
+  - ~IndexError~ the domain is that of some lookup index.
+  - ~KeyError~ the domain is that of some lookup key.
+- ~RuntimeError~ due to external events and/or hard to reproduce.
+- ~LogicError~ local preconditions or internal assumptions violated.
+- ~IOError~ error with an external resource (file, network).
+
+* How to throw an exception                                             :exceptions:
+
+** Standard way
+
+Can use C++ ~throw~ keyword, but better info when using WCT helpers.
+
+** Old way - a little verbose
+
+#+begin_example
+  THROW(ValueError() << errmsg{"some message and " + a_string});
+#+end_example
+
+** New way - more succinct with ~printf()~ format codes
+
+#+begin_example
+  raise<ValueError>("some message and %s", a_string);
+#+end_example
+
+
+\footnotesize
+- This is a new feature first in the ~apply-pointcloud~ branch.
+- Mistakes with format codes will themselves throw exceptions. 
+
+* When to catch an exception                                            :exceptions:
+
+- *Always catch* an exception that your code *can handle*.
+
+- *Never catch* an exception that your code *can not handle*.
+
+
+\vfill
+Some rare, special cases:
+- May *catch and rethrow* to log info from the calling context but otherwise not handle.
+- Convert exception (or return value) types at API boundaries.
+
+
+
+* How to catch an exception
+
+#+begin_example
+try {  function_that_may_throw(); }
+catch (const KeyError& e)   { handle_key_error(); }
+catch (const IndexError& e) { handle_index_error(); }
+catch (const Exception& e)  { handle_base_error(); }
+catch (...)                 { handle_unknown_error(); }
+#+end_example
+
+* Exception code example                                                :exceptions:
+
+\footnotesize
+#+begin_src c++
+  void do_something(const std::string& something) {
+      if (is_bad(something)) {
+          THROW(ValueError() << errmsg{"given something bad"});
+      }
+  }
+  void func(size_t index) {
+      auto thing = translate_command(index);
+      do_something(thing);
+  }
+  void another_func() {
+      size_t index = calculate_index();
+      try {
+          func(index);
+      }
+      catch (const ValueError& err) {
+          std::cerr << "I did a bad thing\n";
+      }
+  }
+#+end_src
+
+
+* Unit tests
+
+\Huge
+#+begin_center
+Use *unit tests* for brief, focused assertions.
+#+end_center
+
+* What are unit tests and unit test frameworks
+
+** Unit test
+
+A test of a small chunk (unit) of library code with a small chunk of test code.
+
+** Unit test framework
+
+A way to develop unit tests in an organized way that allows fast, comprehensive and/or targeted running.
+
+* WCT supports ~doctest~ unit tests for C++
+
+General features and usage motivations:
+
+- Provides per-package ~main()~ and many useful CPP macros.
+- Defines how to write tests, limiting but simplifying.
+- Helps to easily develop and execute many "small" tests.
+- "Light weight" dependency: a single header file added to WCT.
+- Fits well into WCT's ~wcb~ build-based test running.
+
+* 
+
+#+begin_center
+\Huge Mini-tutorial on doctest
+#+end_center
+
+
+
+
+* doctest - overview
+
+With [[https://github.com/doctest/doctest][doctest]]:
+
+- We write one or more independent C++ files at: ~<pkg>/test/doctest*.cxx~.
+  - Each file has one or more *small code snippets* or "test cases".
+- We build the software as normal (~./wcb --tests~).
+  - Also automatically runs the ~doctest~ programs.
+- We give notice to any failures reported.
+  - May manually re-run failed ~doctest~ program to dig into the problem.
+
+* doctest - source file
+
+** Location
+
+#+begin_example
+wire-cell-toolkit/<pkg>/test/doctest[_-]<name>.cxx
+#+end_example
+
+** How to pick ~<pkg>~
+
+- Use the package holding the code you want to test.
+
+- Use a package providing dependencies needed for the test.
+
+** See also
+
+WCT dependency graph: \scriptsize
+
+https://github.com/WireCell/wire-cell-toolkit/blob/master/wct-deps.png
+
+* doctest - file boilerplate
+
+#+begin_example
+// in mypkg/test/doctest-mytest.cxx
+
+#include "WireCellUtil/doctest.h"
+#+end_example
+
+\vfill
+
+Besides actual test code and headers it needs, that's it!
+
+
+* doctest - test case boilerplate
+
+** Define a "test case" with a free-form name as a string:
+
+#+begin_example
+TEST_CASE("my first test") {
+    // body of the test with assertions
+}
+#+end_example
+
+** Notes
+
+- The ~TEST_CASE("...")~ is a CPP macro but think of as declaring a function of the given free-form name
+- The name can be used later to select the test with the command line program.
+
+* doctest - assertions
+
+** A test case should *assert* as many *expected values* as possible
+
+#+begin_example
+WARN(today == "weekend");      // only print a warning if false
+CHECK(1 + 1 == 2);             // does not halt testing
+REQUIRE(false == true);        // halts testing
+CHECK_EQ( 1 + 1, 2 );
+CHECK_FALSE( 1 + 1 = 3 );
+CHECK(3.14 == doctest::Approx(22.0/7).epsilon(0.01));
+CHECK_MESSAGE(x == 42, "do not know the answer");
+REQUIRE(version == doctest::Contains("0."));
+CHECK_THROWS_AS(func(), ValueError);
+#+end_example
+
+** Notes
+
+See more in doctest's [[https://github.com/doctest/doctest/blob/master/doc/markdown/assertions.md][assertions doc]].
+
+* doctest - logging
+
+** doctest provides built-in logging
+
+#+begin_example
+INFO("A message string ", 42, " ", stringifiable_object);
+CAPTURE(some_variable);  // INFO() with var name + value
+WARN(false);             // will cause above to output to log
+FAIL("this wil abort");  // also triggers log output
+#+end_example
+
+** Notes
+- Log output is triggered by a failed assertion or a ~WARN()~.
+- Stringification is lazy, will log value at time of failed assertion.
+  - More details in [[https://github.com/doctest/doctest/blob/master/doc/markdown/logging.md][doctest logging doc]].
+- To see WCT/spdlog messages, set env. var. ~SPDLOG_LEVEL=debug~.
+
+* doctest - subcase
+
+** A code scope that shares its own copy of the outer context
+
+\scriptsize
+#+begin_example
+TEST_CASE("my first test") {
+    bool ok=true;
+    SUBCASE("a test using above as existing context") {
+        ok = false;
+        CHECK(!ok);
+    }
+    SUBCASE("another test using copy of the context") {
+        // subcase above does not change our 'ok' variable
+        CHECK(ok);
+    }
+}
+#+end_example
+
+** Notes
+\footnotesize
+- Changing an outer value (/eg/ ~ok~) in one ~SUBCASE()~ does not affect the value in another ~SUBCASE()~.
+- Can nest ~SUBCASE()~'s.   More info in doctest's [[https://github.com/doctest/doctest/blob/master/doc/markdown/testcases.md][test cases doc]].
+
+* doctest - expert level
+
+- [[https://github.com/doctest/doctest/blob/master/doc/markdown/testcases.md#test-fixtures][Test fixtures]] are user-provided base classes that a test inherits.
+- [[https://github.com/doctest/doctest/blob/master/doc/markdown/testcases.md#test-suites][Test suites]] allow running a subset of tests via a filter.
+- [[https://github.com/doctest/doctest/blob/master/doc/markdown/testcases.md#decorators][Test decorators]] set attributes such as skipping, failure expectations, run time limits.
+
+
+
+
+* doctest - build and run
+
+#+begin_example
+./wcb --target=wcdoctest-util   # build (and run)
+wcdoctest-util                  # run all tests
+wcdoctest-util -ltc             # list available test cases
+                                # run a specific test case
+wcdoctest-util --test-case="test some pca methods"
+wcdoctest-util -d               # include duration timing
+wcdoctest-util -h               # help for the many options
+#+end_example
+
+
+
+* 
+
+\Huge
+#+begin_center
+Use *test programs* for larger, single-test executables and/or to fit into *test groups*.
+#+end_center
+
+* WCT test programs
+
+Any program is a WCT test program if:
+
+- All command line arguments are *optional*.
+- It returns *nonzero error status code* from ~main()~ if a test fails and *zero on success*.
+- It is written in a supported language (C++, bash, others).
+- It follows WCT *test group source file naming* convention.
+- It neither consumes nor produces files that are tracked as build dependencies.
+  - It may consume/produce untracked files and consume files implicitly available from the build.
+
+Types of WCT test programs:
+- ~doctest-<pkg>~ set of C++ unit tests for one package collected into a ~main()~ program.
+- ~test*.cxx~ a C++ ~main()~ test program written with no unit test framework.
+- ~test*.bats~ a Bash shell unit tests run as a full program.
+  
+* 
+
+
+#+begin_center
+\Huge
+Use test programs as development drivers.
+#+end_center
+
+* Test programs as vehicles for development
+
+We all naturally write some kind of /ad-hoc/ program to *drive software development*.
+
+- With slightly more attention, the driver can also serve as a test.
+
+- If you need more than one test program, no problem, go for it.
+
+- Want command line options?  That's okay! (see variants).
+
+- Need to run many programs or post-process program output?  Great!
+  Make a test script (see BATS coming up).
+
+
+
+* WCT test groups organize test programs for unique purposes
+
+** Build system executes one group at a time in order:
+
+- check :: build system will only compile and not (directly) execute.
+- atomic :: basic tests that do not depend on the execution of any other test.  
+- history :: produce and save out files to the *test data repository* for future use.
+- report :: produce summary material for human inspection.
+
+Inside group, test programs may execute in parallel.
+
+
+** Notes:
+- Group is determined by source file name (see next).
+- Each group may consume files or use programs from a prior group.
+- The ~wcdoctest-<pkg>~ programs are considered in the *atomic* group.
+
+
+
+* WCT test program source filename pattern
+
+#+begin_center
+~<pkg>/test/<prefix><sep><name>.<ext>~
+#+end_center
+
+- ~<pkg>~ names the sub package directory name, eg ~util~.
+- ~<prefix>~ names the test *group* or an alias for a group,
+  - *test* is an alias for *atomic*
+- ~<sep>~ cosmetic, optional separator, may be an underscore ("~_~") or hyphen ("=~=").
+- ~<name>~ brief, unique name to describe the assertion that is tested.
+- ~<ext>~ defines how the test should be dispatched (compiled or interpreted).
+  - Supported exentions: ~.cxx~, ~.bats~, ~.jsonnet~, ~.py~, ~.sh~ and ~.kokkos~.
+  - We will focus only on C++ and bash/BATS in later slides.
+  
+** Examples
+
+~util/test/test_array.cxx~
+
+~test/test/history-comp1d.bats~
+
+* Aside: variant tests
+
+- WCT tests *shall not require* command line arguments (atomic).
+- WCT tests *may accept fully optional* arguments (variant).
+
+Variant tests can be useful to re-use testing code for novel tests.
+
+Atomic tests can be made from variant tests by "baking" command line options in a test script:
+
+\scriptsize
+#+begin_example
+./build/aux/test_idft                     # called atomically, actually a variant
+./build/aux/test_idft FftwDFT WireCellAux # these are the default arguments
+
+./build/aux/test_idft cuFftDFT WireCellCuda
+cuda/test/test_idft_cufftdft.bats         # bakes args for CUDA, lives in cuda/
+
+./build/aux/test_idft TorchDFT WireCellPytorch
+pytorch/test/test_idft_torchdft.bats      # etc for PyTorch
+#+end_example  
+
+More on BATS tests later.
+
+
+
+* WCT C++ test programs
+
+Not much to it
+- Follow all the rules for any WCT test program (see above).
+- Provide the entire ~main()~.
+
+
+* Testing helpers from WCT "util" library
+
+Some ~#include "WireCellUtil/*.h"~ headers:
+
+- ~Testing.h~ provides ~Assert(bool)~ and ~AssertMsg(bool,string)~
+- ~TimeKeeper.h~ provides a "stopwatch" for lapped timing.
+- ~MemUsage~ provides ways to track memory usage.
+
+* Aside: more and high-level helpers are needed!
+
+A number of operations are tedious to "bootstrap" in C++ testing code
+
+- Generate or load wires geometry.
+- Make ~IAnodePlane~ for some detector.
+- Call things handled by ~Main~ plugin loading, factory, configuration.
+- Construct and execute small data-flow graph.
+
+Want to take some time to develop "helpers" to reduce tedium.
+- Some "helpers" are local in ~test/*.cxx~ but should move to libraries.
+- Need some "canned" configuration so tests can simply ask:
+  - Give me anodes for detector "XYZ".
+
+
+
+* 
+
+
+\Huge
+
+#+begin_center
+Run *test suites* with the WCT build system.
+#+end_center
+
+* Running *all* or *some* WCT tests
+
+
+\scriptsize
+#+begin_example
+./wcb --tests                        # build and run all tests not already run
+./wcb --tests --alltests             # force also to re-run those already run
+./wcb --tests list | less            # find available targets, including tests
+./wcb --tests --target=test_testing  # run a specific test
+                                     # force re-run specific test:
+./wcb --tests --target=test_testing --alltests
+
+./build/util/test/test_testing       # run compiled test
+bats test/test/test_bats.bats        # run interpreted test
+
+./build/util/test_testing foo bar    # variant test, give optional args
+#+end_example
+
+\normalsize
+
+- WCT *tests are no longer built nor run by default*, need ~--tests~.
+- When using using ~./wcb~, tests are only run once unless ~--alltests~ are given.
+- Can also run compiled or interpreted tests directly.
+
+* Backups slides
+
+* What is software testing?
+
+\Large
+#+begin_quote
+Executing the software in a way that asserts expected behavior.
+#+end_quote
+
+* What is testing software?
+
+- A "test" is software that exercises the software under test.
+
+- A "test" must *assert* expected behavior.
+  - It must be possible to fail or it is not a test. 
+
+- A "test" must require no special knowledge to run.
+
+- A "test" may be defined on a *spectrum* of code scale:
+
+  - a code fragment inside the software,
+
+  - a single program exercising the software,
+
+  - multiple, inter-dependent programs,
+
+  - a "suite" consisting of many of the above.
+
+
+* What is a testing framework?
+
+\Large
+#+begin_quote
+Guidelines, rules and/or additional software that are used in
+developing and executing tests in a consistent and flexible manner.
+#+end_quote
+
+\normalsize
+\vfill
+WCT provides a testing system that hits on all these qualities.
+
+
+* Categories of testing
+
+
+\scriptsize
+-    Acceptance :: Verifying whether the whole system works as intended.
+-    Integration :: Ensuring that software components or functions operate together.
+-    Unit testing: Validating that each software unit performs as expected. A unit is the smallest testable component of an application.
+-    Functional :: Checking functions by emulating business scenarios, based on functional requirements. Black-box testing is a common way to verify functions.
+-    Performance :: Testing how the software performs under different workloads. Load testing, for example, is used to evaluate performance under real-life load conditions.
+-    Regression :: Checking whether new features break or degrade functionality. Sanity testing can be used to verify menus, functions and commands at the surface level, when there is no time for a full regression test.
+-    Stress :: Testing how much strain the system can take before it fails. Considered to be a type of non-functional testing.
+-    Usability :: Validating how well a customer can use a system or web application to complete a task.
+
+Cribbed from https://www.ibm.com/topics/software-testing
+
+
+# Local Variables:
+# eval: (fix-latex-previews)
+# End:

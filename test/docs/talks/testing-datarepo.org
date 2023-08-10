@@ -1,0 +1,71 @@
+
+* The WCT test data repository
+
+Files produced by BATS tests are *ephemeral* in temporary directories.
+
+But, tests can "save out" files to the *WCT test data repository* located at:
+
+#+begin_example
+build/tests/input/<dirs>/<files>
+build/tests/<category>/<version>/<test-name>/<files>
+#+end_example
+
+- The ~/input/~ provides a few data files purely for consumption.
+- The ~/<category>/~ names intention, eg *plots*, *history*, *reports*.
+- The ~<version>~ is that of the software producing the files (Waf variable ~VERSION~).
+- ~./wcb packrepo~ packs repo to tar files.  ~./wcb --tests~ installs them.
+  - for now, remote repo lives [[https://www.phy.bnl.gov/~bviren/tmp/wcttest/data_repo/][here]] and is manually populated from repo packs.
+
+* Saving files to test data repo from BATS
+
+*The repo is not a dumping ground!*
+
+Only "save out" files with clear intention how they will be used longer term.
+
+A "save out" is done with WCT's ~wct-bats.sh~ library function ~saveout~:
+
+#+begin_example
+@test "some history test" {
+  # make somefile.npz here....
+  saveout -c history somefile.npz
+}
+@test "some plotting test" {
+  # make someplot.png here....
+  saveout -c plots someplot.png
+}
+#+end_example
+
+* Test data repository categories
+
+- input :: created by hand with special input data files (depos, frames, etc).
+- plots :: for saving data visualizations in PNG, PDF format.
+- history :: for select data files output from each software version.
+- report :: collecting from *plots* and processing from *history* to produce files for human inspection (ie, web pages) that cover multiple software versions.
+
+* (Re)Making history
+
+New tests are invented and we want to run them against old WCT software.
+
+#+begin_example
+./test/scripts/multi-release-testing \
+   ~/wct/releases/rel{21,22,23,24} \
+   ~/wct/development/master ~/wct/development/0.24.x
+#+end_example
+
+- Runs tests and place all ~saveout~ results in the *current release area*.
+- Runs tests in 4 named releases, 2 development areas, *per-release parallelism*.
+- Requires an ~.envrc~ file exists and manages each areas environment.
+- Runs only the tests with a tag of ~history~.
+
+* History is a work in progress
+
+Largely needs to be done by an "expert"
+- Some old code can not be run by new tests.
+  - We define suitable old versions in Waf env var ~TEST_DATA_VERSIONS~.
+- Requires many software release environments, each managed with [[https://direnv.net/][direnv]].
+- Manual ~packrepo~ of results and upload to my web area.
+
+  
+
+
+

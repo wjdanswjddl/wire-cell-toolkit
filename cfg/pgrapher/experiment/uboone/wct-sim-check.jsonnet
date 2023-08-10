@@ -148,24 +148,6 @@ local magnifio3 = g.pnode({
         frames: ["gauss", "wiener"],
         //cmmtree: [["bad", "T_bad"], ["lf_noisy", "T_lf"]], 
         anode: wc.tn(anode),
-        //summaries: ["threshold"], 
-        // not saved in FrameMerger
-        // a dedicated FrameSaver breaks into the subpgraph
-        // using g.insert_node()
-    },
-}, nin=1, nout=1);
-
-local ctreeio3 = g.pnode({
-    type: "CelltreeFrameSink",
-    name: "deconctree",
-    data: {
-        output_filename: magout,
-        root_file_mode: "UPDATE",
-        frames: ["gauss", "wiener"],
-        //cmmtree: [["bad", "T_bad"], ["lf_noisy", "T_lf"]], 
-        anode: wc.tn(anode),
-        nsamples: 9600,
-        //summaries: ["threshold"], 
         // not saved in FrameMerger
         // a dedicated FrameSaver breaks into the subpgraph
         // using g.insert_node()
@@ -179,9 +161,27 @@ local magnifio4 = g.pnode({
         output_filename: magout,
         root_file_mode: "UPDATE",
         anode: wc.tn(anode),
-        summaries: ["threshold"],
+        summaries: ["wiener"],
     },
 }, nin=1, nout=1);
+
+
+local ctreeio3 = g.pnode({
+    type: "CelltreeFrameSink",
+    name: "deconctree",
+    data: {
+        output_filename: magout,
+        root_file_mode: "UPDATE",
+        frames: ["gauss", "wiener"],
+        //cmmtree: [["bad", "T_bad"], ["lf_noisy", "T_lf"]], 
+        anode: wc.tn(anode),
+        nsamples: 9600,
+        // not saved in FrameMerger
+        // a dedicated FrameSaver breaks into the subpgraph
+        // using g.insert_node()
+    },
+}, nin=1, nout=1);
+
 
 local noise_epoch = "perfect";
 //local noise_epoch = "after";
@@ -207,8 +207,8 @@ local graph = g.pipeline([depos, drifter, ductor, miscon, noise, digitizer, magn
 // unable to access subgraph pnodes directly
 // "cheat": type:name labels the pnode
 // g.edge_labels()
-// MagnifySink to dump "threshold" after normal SigProc
 local graph2 = g.insert_node(graph, g.edge_labels("OmnibusSigProc", "FrameSplitter:sigsplitter"), magnifio4, magnifio4, name="graph2");
+
 
 local app = {
     type: "Pgrapher",

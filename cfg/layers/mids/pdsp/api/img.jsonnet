@@ -22,7 +22,7 @@ function(services, params) function(anode)
             type: "MaskSlices",
             name: ident+ext,
             data: {
-                wiener_tag: "threshold"+ident,
+                wiener_tag: "wiener"+ident,
                 charge_tag: "gauss"+ident,
                 error_tag: "gauss_error"+ident,
                 tick_span: span,

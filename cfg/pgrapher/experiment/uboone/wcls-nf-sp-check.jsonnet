@@ -105,9 +105,9 @@ local wcls_output = {
         },
     },nin=1, nout=1, uses=[tools.anode]),
 
-    // save "threshold" from normal decon for each channel noise
+    // save wiener (was threshold) from normal decon for each channel noise
     // used in imaging
-    sp_thresholds: wcls.output.thresholds(name="spthresholds", tags=["threshold"]),
+    sp_thresholds: wcls.output.thresholds(name="spthresholds", tags=["wiener"]),
 };
 
 local nf = nf_maker(params, tools, chndb);
@@ -150,22 +150,9 @@ local magnifio3 = g.pnode({
         frames: ["gauss", "wiener"],
         //cmmtree: [["bad", "T_bad"], ["lf_noisy", "T_lf"]], 
         anode: wc.tn(tools.anode),
-        //summaries: ["threshold"], 
         // not saved in FrameMerger
         // a dedicated FrameSaver breaks into the subpgraph
         // using g.insert_node()
-    },
-}, nin=1, nout=1);
-
-
-local magnifio4 = g.pnode({
-    type: "MagnifySink",
-    name: "thresholdmag",
-    data: {
-        output_filename: magout,
-        root_file_mode: "UPDATE",
-        anode: wc.tn(tools.anode),
-        summaries: ["threshold"],
     },
 }, nin=1, nout=1);
 
@@ -178,7 +165,7 @@ local graph = g.pipeline([wcls_input.adc_digits, magnifio,
                           sink]);
 
 local graph2 = g.insert_node(graph, g.edge_labels("OmnibusSigProc", "FrameSplitter:sigsplitter"), wcls_output.sp_thresholds, wcls_output.sp_thresholds, name="graph2");
-local graph3 = g.insert_node(graph2, g.edge_labels("wclsFrameSaver:spthresholds", "FrameSplitter:sigsplitter"), magnifio4, magnifio4, name="graph3");
+local graph3 = g.insert_node(graph2, g.edge_labels("wclsFrameSaver:spthresholds", "FrameSplitter:sigsplitter"), name="graph3");
 
 
 local app = {

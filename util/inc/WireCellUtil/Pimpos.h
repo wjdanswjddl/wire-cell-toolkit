@@ -110,7 +110,8 @@ namespace WireCell {
         /// wire closest to the given pitch.  The second is the
         /// *relative* index of the impact closest impact position
         /// (index=0 means the impact position coincident with the
-        /// wire).
+        /// wire).  The index may mark a wire that is not in the
+        /// physical set of wires, eg outside of [0,nwires-1].
         std::pair<int, int> closest(double pitch) const;
 
         /// Return the impact position index coincident with the wire index.

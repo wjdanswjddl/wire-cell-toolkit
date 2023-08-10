@@ -149,7 +149,6 @@ local magnifio3 = g.pnode({
         frames: ["gauss", "wiener"],
         //cmmtree: [["bad", "T_bad"], ["lf_noisy", "T_lf"]], 
         anode: wc.tn(anode),
-        //summaries: ["threshold"], 
         // not saved in FrameMerger
         // a dedicated FrameSaver breaks into the subpgraph
         // using g.insert_node()
@@ -166,21 +165,9 @@ local ctreeio3 = g.pnode({
         //cmmtree: [["bad", "T_bad"], ["lf_noisy", "T_lf"]], 
         anode: wc.tn(anode),
         nsamples: 9600,
-        //summaries: ["threshold"], 
         // not saved in FrameMerger
         // a dedicated FrameSaver breaks into the subpgraph
         // using g.insert_node()
-    },
-}, nin=1, nout=1);
-
-local magnifio4 = g.pnode({
-    type: "MagnifySink",
-    name: "thresholdmag",
-    data: {
-        output_filename: magout,
-        root_file_mode: "UPDATE",
-        anode: wc.tn(anode),
-        summaries: ["threshold"],
     },
 }, nin=1, nout=1);
 
@@ -229,8 +216,6 @@ local graph = g.pipeline([depos, drifter, deposplat, retagger, ctreeio3, magnifi
 // unable to access subgraph pnodes directly
 // "cheat": type:name labels the pnode
 // g.edge_labels()
-// MagnifySink to dump "threshold" after normal SigProc
-// local graph2 = g.insert_node(graph, g.edge_labels("OmnibusSigProc", "FrameSplitter:sigsplitter"), magnifio4, magnifio4, name="graph2");
 
 local app = {
     type: "Pgrapher",

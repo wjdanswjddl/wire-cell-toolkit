@@ -652,12 +652,12 @@ WireCell::Waveform::ChannelMaskMap Protodune::StickyCodeMitig::apply(int ch, sig
         }
     }
 
-    int ent_stkylen = 0;
+    // int ent_stkylen = 0;
     for (auto rng : sticky_rng_list) {
         int stkylen = rng.second - rng.first;
         if (stkylen > m_stky_max_len) {
             ret["sticky"][ch].push_back(rng);
-            ent_stkylen += stkylen;
+            // ent_stkylen += stkylen;
         }
     }
     // std::cerr << "[wgu] ch: " << ch << " long_stkylen: " << long_stkylen << std::endl;
@@ -710,7 +710,8 @@ WireCell::Waveform::ChannelMaskMap Protodune::StickyCodeMitig::apply(channel_sig
 
 
 Protodune::OneChannelNoise::OneChannelNoise(const std::string& anode, const std::string& noisedb)
-  : m_anode_tn(anode)
+  : Aux::Logger("pdOneChannelNoise", "sigproc")
+  , m_anode_tn(anode)
   , m_noisedb_tn(noisedb)
   , m_check_partial()  // fixme, here too.
   , m_resmp()
@@ -771,9 +772,14 @@ WireCell::Waveform::ChannelMaskMap Protodune::OneChannelNoise::apply(int ch, sig
     bool is_partial = m_check_partial(spectrum);  // Xin's "IS_RC()"
 
     if (!is_partial) {
+        static bool warned = false;
         auto const& spec = m_noisedb->rcrc(ch);  // rc_layers set to 1 in channel noise db
         if (spec.size() == spectrum.size()) {
             WireCell::Waveform::shrink(spectrum, spec);
+        }
+        else if (!warned) {
+            log->warn("got empty rcrc for channel {}.  suppressing future warnings", ch);
+            warned = true;
         }
     }
 

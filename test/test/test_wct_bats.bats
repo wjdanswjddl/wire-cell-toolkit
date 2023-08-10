@@ -1,7 +1,47 @@
+#!/usr/bin/env bats
+
 bats_load_library wct-bats.sh
 
-@test "check usepkg" {
+@test "logging" {
+    debug "debug"
+#    log "log"
+    info "info"
+    warn "warn"
+    error "error"
+    fatal "fatal"
+#    die "die"
+}
+    
 
+@test "index of" {
+    local a="$(index_of a a b c)"
+    [[ "$a" = "0" ]]
+    local b="$(index_of b a b c)"
+    [[ "$b" = "1" ]]
+    local abc=( a "b 1" "c d e f" )
+    local c="$(index_of "c d e f" "${abc[@]}")"
+    [[ "$c" = "2" ]]
+}
+
+@test "check check" {
+    check true
+    local failed=no
+    check false || failed=yes
+    [[ "$failed" = "yes" ]]
+}
+
+@test "using jq" {
+    skip_if_missing jq
+
+    cd_tmp
+    output="$(echo '{"a":42}' | jq '.a')"
+    [[ "$output" = "42" ]]
+    [[ -n "$(jq -h | head -1 | grep 'jq - commandline JSON processor')" ]]
+    echo '{"a":42}'  > junk.txt
+    [[ "$(jq '.a' < junk.txt)" = "42" ]]
+}
+
+@test "check usepkg" {
     usepkg cfg
     [[ -n "$cfg_src" ]]
     [[ -d "$cfg_src" ]]
@@ -16,17 +56,15 @@ bats_load_library wct-bats.sh
     local got="$(resolve_file test/test/test_wct_bats.bats)"
     [[ -n "$got" ]]
     [[ -n "$BATS_TEST_FILENAME" ]]
-    a="$(cat $BATS_TEST_FILENAME | md5sum)"
-    b="$(cat $got | md5sum)"
-    echo "$a"
-    echo "$b"
+    a="$(cat $BATS_TEST_FILENAME | md5sum | awk '{print $1}')"
+    b="$(cat $got | md5sum | awk '{print $1}')"
+    debug "md5: $a $BATS_TEST_FILENAME"
+    debug "md5: $b $got"
     [[ "$a" = "$b" ]]
 }
 
 @test "tojson" {
-    run tojson foo=42 bar="baz=quax quax"
-    echo "$output"
-    [[ "$status" -eq 0 ]]
+    check tojson foo=42 bar="baz=quax quax"
     [[ -n "$(echo $output | grep '"foo": "42"')" ]]
     [[ -n "$(echo $output | grep '"bar": "baz=quax quax"')" ]]
 }
@@ -38,16 +76,12 @@ bats_load_library wct-bats.sh
     [[ -z "$PREFIX" ]]
 
     # only one var
-    run wcb_env_vars VERSION
-    echo $output
-    [[ "$status" -eq 0 ]]
+    check wcb_env_vars VERSION
     [[ -n "$(echo $output | grep VERSION)" ]]
     [[ -z "$(echo $output | grep SUBDIRS)" ]]
 
     # all vars
-    run wcb_env_vars 
-    echo $output
-    [[ "$status" -eq 0 ]]
+    check wcb_env_vars 
     [[ -n "$(echo $output | grep VERSION)" ]]
     [[ -n "$(echo $output | grep SUBDIRS)" ]]
 
@@ -70,12 +104,6 @@ bats_load_library wct-bats.sh
     local prefix=$(wcb_env_value PREFIX)
     [[ -z "$(echo $prefix | grep '"')" ]]
     [[ -z "$PREFIX" ]]
-
-    # note to any users reading this test for examples, don't use
-    # wcsonnet directly but instead call compile_jsonnet.
-    wcsonnet=$(wcb_env_value WCSONNET)
-    echo "wcsonnet=|$wcsonnet|"
-    [[ -n "$wcsonnet" ]]
 }
 
 
@@ -97,8 +125,8 @@ bats_load_library wct-bats.sh
 }
 
 @test "tmp dirs" {
-    if [ -n "$WCTEST_TMPDIR" ] ; then
-        [[ "$(tmpdir)" = "$WCTEST_TMPDIR" ]]
+    if [ -n "$WCT_BATS_TMPDIR" ] ; then
+        [[ "$(tmpdir)" = "$WCT_BATS_TMPDIR" ]]
         return
     fi
 
@@ -125,7 +153,7 @@ bats_load_library wct-bats.sh
 
 
 @test "bats run command env var" {
-    run env
+    check env
     echo "run command: $BATS_RUN_COMMAND"
     [[ -n "$BATS_RUN_COMMAND" ]]
     # why is it not in env?
@@ -134,10 +162,17 @@ bats_load_library wct-bats.sh
     [[ -n "$(env |grep BATS_RUN_COMMAND)" ]]
 }
     
+@test "topdir" {
+    local t;
+    t=$(topdir)
+    run diff "${BASH_SOURCE[0]}" "$t/test/test/test_wct_bats.bats"
+}
+
 @test "pathlist resolution" {
     local t=$(topdir)
-    declare -a got=( $(resolve_pathlist $t/gen:$t/test $t/sigproc:$t/apps $t/doesnotexist) )
-    # yell ${got[*]}
+    declare -a got
+    got=( $(resolve_pathlist $t/gen:$t/test $t/sigproc:$t/apps $t/doesnotexist) )
+    # yell "got: ${#got[@]}: |${got[@]}|"
     [[ ${#got[@]} -eq 4 ]]
     [[ ${got[0]} = $t/gen ]]
     [[ ${got[1]} = $t/test ]]
@@ -217,4 +252,28 @@ bats_load_library wct-bats.sh
     [[ file1.txt -ot file3.txt ]]
     [[ file3.txt -nt file1.txt ]]
 
+}
+
+@test "historical versions" {
+    # IFS=" " read -r -a versions <<< "$(historical_versions)"
+    local verlines=$(historical_versions)
+    local versions=( $verlines ) # split
+    # yell "versions: ${versions[@]}"
+    # yell "versions[0]: ${versions[0]}"
+    [[ "${#versions[@]}" -gt 0 ]]
+    [ -n "${versions[0]}" ]
+}
+@test "historical files" {
+    local hf
+    hf=( $(historical_files test-addnoise/frames-adc.tar.gz) )
+    debug "hf all: ${#hf[@]}: ${hf[*]}"
+    hf=( $(historical_files --last 2 test-addnoise/frames-adc.tar.gz) )
+    debug "hf two: ${#hf[@]}: ${hf[*]}"
+    [[ "${#hf[@]}" -eq 2 ]]
+    debug "current with last three:"
+    hf=$(historical_files --current -l 3 test-addnoise/frames-adc.tar.gz)
+    debug "hf: $hf"
+    hf=( $hf )
+    debug "hf:: ${#hf[@]}: ${hf[*]}"
+    [[ "${#hf[@]}" -eq 3 ]]
 }

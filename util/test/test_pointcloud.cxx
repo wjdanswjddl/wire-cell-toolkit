@@ -177,7 +177,12 @@ void test_array()
     Assert(msele[0] == 42);
 
     std::vector<double> d2{4.,5.,6.};
-    ms.append(d2);
+    {
+        const size_t before = ms.size_major();
+        ms.append(d2);
+        const size_t after = ms.size_major();
+        Assert( before + d2.size() == after);
+    }
     Assert(ms.element<double>(3) == 4);
     {
         Assert(ms.shape().size() == 1);

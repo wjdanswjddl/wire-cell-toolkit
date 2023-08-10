@@ -57,9 +57,9 @@ local wcls_output = {
     // separation.  Both are used in downstream WC code.
     sp_signals: wcls.output.signals(name="spsignals", tags=["gauss", "wiener"]),
 
-    // save "threshold" from normal decon for each channel noise
-    // used in imaging
-    sp_thresholds: wcls.output.thresholds(name="spthresholds", tags=["threshold"]),
+    // save wiener RMS from normal decon for each channel noise
+    // used in imaging.  This used to be under trace tag threshold
+    sp_thresholds: wcls.output.thresholds(name="spthresholds", tags=["wiener"]),
 };
 
 local anode = tools.anodes[0];

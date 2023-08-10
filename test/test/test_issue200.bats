@@ -31,7 +31,9 @@ bats_load_library wct-bats.sh
 
     cd_tmp
 
-    cat <<EOF > check.cxx
+    local src=check-external-build-with-config
+
+    cat <<EOF > ${src}.cxx
 #include "$BuildConfig"
 #include <iostream>
 int main() {
@@ -39,13 +41,9 @@ int main() {
     return 0;
 }
 EOF
-    run $CXX -I $PREFIX/include -o check check.cxx
-    echo $output
-    [[ "$status" -eq 0 ]]
+    check $CXX -I $PREFIX/include -o ${src} ${src}.cxx
 
-    run ./check
-    echo "$output"
-    [[ "$status" -eq 0 ]]
+    check ./$src
 
     [[ -n "$(echo $output|grep version)" ]]
 

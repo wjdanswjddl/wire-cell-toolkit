@@ -93,7 +93,7 @@ def configure(cfg):
     cfg.find_program('python', var='PYTHON', mandatory=True)
     cfg.find_program('bash', var='BASH', mandatory=True)
     cfg.find_program('bats', var='BATS', mandatory=False,
-                     path_list=[os.path.realpath("test/bats/bin"),"/usr/bin","/usr/local/bin"])
+                     path_list=[os.path.realpath("test/bats/bin")])
     cfg.find_program('jsonnet', var='JSONNET', mandatory=False)
 
     # For testing
@@ -284,6 +284,7 @@ class ValidationContext:
             warn(f'skipping script with no found interpreter: {source}')
             return
 
+        debug(f'smplpkgs: script {source} -> {outnode}')
         tsenv = dict(os.environ)
         tsenv.update(self.script_environ.get(ext, {}))
 

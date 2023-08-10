@@ -42,10 +42,10 @@ setup_file () {
         args1+=( -A "${tier}output=${ff}" )
         deps2+=( -t $ff )
     done        
-    run_idempotently --verbose ${deps1[@]} -- compile_jsonnet ${args1[@]}
+    run_idempotently ${deps1[@]} -- compile_jsonnet ${args1[@]}
     [[ -s "$dag_file" ]]
 
-    run_idempotently ${deps2[@]} -- wct -l $log_file -L debug -c $dag_file
+    run_idempotently ${deps2[@]} -- wire-cell -l $log_file -L debug -c $dag_file
     [[ -s "$log_file" ]]
 
     for tier in ${tiers[@]}
@@ -100,12 +100,8 @@ function plotframe () {
         tag='gauss0'
     fi
 
-    local wcplot=$(wcb_env_value WCPLOT)
-    [[ -n "$wcplot" ]]
-    [[ -x "$wcplot" ]]
-
     run_idempotently -s $dat -t $fig -- \
-                     $wcplot frame ${args[@]} --tag "$tag" --single --name $type --output "$fig" "$dat" 
+                     wcpy plot frame ${args[@]} --tag "$tag" --single --name $type --output "$fig" "$dat" 
     [[ -s "$fig" ]]
     saveout -c plots $fig
 }
@@ -134,7 +130,7 @@ function comp1d () {
     [[ -n "$plot" ]]
     tier="adc"
     
-    local wcplot=$(wcb_env_value WCPLOT)
+
     local new_dat="$(realpath $(frame_file $tier))"
     [[ -s "$new_dat" ]]
     local old_dat="$(input_file frames/pdsp-signal-noise.tar.gz)"
@@ -143,7 +139,7 @@ function comp1d () {
     local fig="${plot}.png"
 
     run_idempotently -s $new_dat -s $old_dat -t $fig -- \
-                     $wcplot comp1d -s --chmin 0 --chmax 800 \
+                     wcpy plot comp1d -s --chmin 0 --chmax 800 \
                      -n $plot --transform ac \
                      -o $fig $old_dat $new_dat
     [[ -s "$fig" ]]
@@ -162,4 +158,28 @@ function comp1d () {
 @test "dotify dag viz" {
     cd_tmp file
     dotify_graph $dag_file dag.svg
+}
+
+# bats test_tags=issue:220
+@test "has wiener summary" {
+    cd_tmp file
+
+    local found_wiener=$(cat wire-cell.log | grep 'OmnibusSigProc' | grep 'output frame' | grep '"wiener0":2560 \[2560\]')
+    [[ -n "$found_wiener" ]]
+}
+# bats test_tags=issue:220
+@test "no threshold summary" {
+    cd_tmp file
+
+    local found_threshold=$(cat wire-cell.log | grep 'OmnibusSigProc' | grep 'output frame' | grep 'threshold')
+    echo "found threshold: $found_threshold"
+    [[ -z "$found_threshold" ]]
+}
+# bats test_tags=issue:220
+@test "no wiener_threshold_tag configuration" {
+    cd_tmp file
+
+    local found_threshold=$(cat wire-cell.log | grep 'wiener_threshold_tag')
+    echo "found threshold: $found_threshold"
+    [[ -z "$found_threshold" ]]
 }

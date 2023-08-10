@@ -61,12 +61,12 @@ static cluster_node_t to_blob(Json::Value jblob,
         const int layer = 2 + wpid.index(); // fixme: how to set bounding box?
         auto sit = strips.find(layer);
         if (sit == strips.end()) {
-            strips[layer] = RayGrid::Strip{layer, {wip,wip}};
+            strips[layer] = RayGrid::Strip{layer, {wip,wip+1}};
             continue;
         }
         auto& strip = sit->second;
         strip.bounds.first = std::min(strip.bounds.first, wip);
-        strip.bounds.second = std::min(strip.bounds.second, wip+1);
+        strip.bounds.second = std::max(strip.bounds.second, wip+1);
     }
 
     const RayGrid::Coordinates& coords = iface->raygrid();
@@ -258,7 +258,7 @@ cluster_graph_t ClusterLoader::load(const Json::Value& jgraph,
     }
 
     frid2iframe_t frames;
-    for (const auto kf : known_frames) {
+    for (const auto &kf : known_frames) {
         frames[kf->ident()] = kf;
     }
     slid2islice_t slices;

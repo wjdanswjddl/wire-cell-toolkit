@@ -3,7 +3,7 @@
 # BATS helper functions.
 # To use inside a <pkg>/test/test_XXX.bats do:
 #
-# load ../../test/wct-bats.sh
+# bats_load_library wct-bats.sh
 #
 # See test/docs/bats.org for more info.
 #
@@ -12,62 +12,200 @@
 shopt -s extglob
 shopt -s nullglob
 
-function log () {
-    echo "$@"
-}
+# User may set these to control logging.
+#
+# Emit log message only if greater or equal to the level.
+#
+# The following are the interpretations of levels:
+#
+# - debug :: possibly verbose informaiton for debugging tests themselves
+#
+# - info :: default, for indicating normal events.
+# 
+# - warn :: for aberrant events but that do not impede nor negate further running.
+#
+# - error :: for events which may invalidate test results but testing may continue.
+#
+# - fatal :: events for which the testing can not continue.
+WCT_BATS_LOG_LEVEL=${WCT_BATS_LOG_LEVEL:-info}      
+
+# User may determine where logging goes.
+#
+# - "capture" is default and allows BATS to capture.
+# - "terminal" will bypass BATS capturing.
+# - anything else is interpreted as a file to which messages are concatenated.
+WCT_BATS_LOG_SINK=${WCT_BATS_LOG_SINK:-capture}
+
+# yell <message>
+#
+# Echo message to terminal, escaping BATS controlled logging.
 function yell () {
     echo "$@" 1>&3
 }
-function warn () {
-    local msg="warning: $@"
-    log "$msg"
-    yell "$msg" 
+
+# index_of <entry> <element0> <element1> ...
+#
+# Return array index of entry in one or more elements
+function index_of () {
+    local entry="$1" ; shift
+    local index=0
+    for one in "$@"
+    do
+        if [ "$one" = "$entry" ] ; then
+            echo $index
+            return
+        fi
+        index=$(( index + 1 ))
+    done
 }
+
+declare -g -a log_levels=( debug info warn error fatal )
+declare -g log_level
+log_level=$(index_of "$WCT_BATS_LOG_LEVEL" "${log_levels[@]}")
+
+# log_ilevel <level>
+#
+# Emit the numerical value of a log level
+function log_ilevel () {
+    local lvl=$1 ; shift
+    # yell "lvl=$lvl log_level=$log_level WCT_BATS_LOG_LEVEL=$WCT_BATS_LOG_LEVEL"
+    # yell "log_levels=${log_levels[@]}"
+    index_of "$lvl" "${log_levels[@]}"
+}
+
+# log_at_level <level> <message>
+#
+# Log at given level
+function log_at_level () {
+    local ilvl lvl="$1" ; shift
+    ilvl=$(log_ilevel "$lvl")
+    if [ "$ilvl" -lt "$log_level" ] ; then
+        return
+    fi
+    local pre L=${lvl:0:1}
+    pre="$(date +"%Y-%m-%d %H:%M:%S.%N") [ ${L^^} ]"
+
+    if [ "$WCT_BATS_LOG_SINK" = capture ] ; then
+        echo -e "$pre $*" 1>&2  # stderr
+    elif [ "$WCT_BATS_LOG_SINK" = terminal ] ; then
+        echo -e "$pre $*" 1>&3  # special avoid capture
+    else
+        echo -e "$pre $*" >> "$WCT_BATS_LOG_SINK"
+    fi
+}
+
+# debug <message>
+#
+# Log at "debug" level
+function debug () {
+    log_at_level debug "$@"
+}
+
+
+# log <message>
+#
+# Log at "info" level.
+#
+# Note, this shadows the GNU info program.
+function info () {
+    log_at_level info "$@"
+}
+
+# warn <message>
+#
+# Log at warn level
+function warn () {
+    log_at_level warn "$@"
+}
+
+# error <message>
+#
+# Log at error level
+function error () {
+    log_at_level error "$@"
+}
+
+# fatal <message>
+#
+# Log at fatal level
+function fatal () {
+    log_at_level fatal "$@"
+}
+
+# die <message>
+#
+# Log at fatal error and exit
 function die () {
-    local msg="FATAL: $@"
-    log "$msg"
-    yell "$msg" 
+    yell "$@"
+    info "$@"
     exit 1
 }
 
-
-# Assure a file is larger than given number of bytes
-#
-# usage:
 # file_larger_than <filename> <nbytes>
+#
+# Assert named file is larger than number of bytes.
 function file_larger_than () {
     local filename=$1 ; shift
     local minsize=$1; shift
+    echo "check file size for $filename"
     [[ -f "$filename" ]]
+    local fsize
+    fsize="$(stat -c '%s' "$filename")"
+    echo "minsize is $minsize. $filename is size $fsize"
     [[ -n "$minsize" ]]
-   [[ "$(stat -c '%s' $filename)" -gt "$minsize" ]]
+    [[ "$fsize" -gt "$minsize" ]]
 }
 
 
+# check <command line>
+#
+# Use BATS run but add some standard boilerplate.
+#
+# Logs to debug the command, logs $output to info and assert zero
+# return status code.
+function check () {
+    info "RUNNING: $*"
+    local status
+    run "$@"
+    if [ -n "$output" ] ; then
+        info "OUTPUT:\n$output"
+    else
+        info "OUTPUT: (none)"
+    fi
+    [[ "$status" -eq 0 ]]
+}
+
+# run_idempotently [options] -- <command line>
+#
 # Run command if any target file is missing or older than any source file.
 #
-# usage:
-#   run_idempotently [-v/--verbose] [-s/--source <srcfile>] [-t/--target <dstfile>] -- <command line>
-#
-# May give multiple -s or -t args
+# Options:
+# -s, --source <filename>
+#   Name a source file for idempotency checking (multiple okay).
+# -t, --target <filename>
+#   Name a target file for idempotency checking (multiple okay).
+# --
+#   Separate options from command line to run.
+# <command line>
+#   The command line to run.
 function run_idempotently () {
 
     declare -a src
     declare -a tgt
-    local verbose="no"
     while [[ $# -gt 0 ]] ; do
         case $1 in
-            -s|--source) src+=( $2 ) ; shift 2;;
-            -t|--target) tgt+=( $2 ) ; shift 2;;
-            -v|--verbose) verbose="yes"; shift;;
-            --) shift; break;
+            -s|--source) src+=( "$2" ) ; shift 2;;
+            -t|--target) tgt+=( "$2" ) ; shift 2;;
+            --) shift; break;;
+            *) die "unknown argument: $1"
         esac
     done
 
     local need_to_run="no"
-    if [ -z "$src" -o -z "$tgt" ] ; then
+    if [ ${#src[@]} -eq 0 ] || [ ${#tgt[@]} -eq 0 ] ; then
         # Always run if sink, source or atomic.
         need_to_run="yes"
+        debug "running because source (${src[*]}) or sink (${tgt[*]}) are empty"
     fi
     if [ "$need_to_run" = "no" ] ; then
         # Run if missing any targets
@@ -75,161 +213,191 @@ function run_idempotently () {
         do
             if [ ! -f "$one" ] ; then
                 need_to_run="yes"
+                debug "running because of missing target: $one"
             fi
         done
     fi
     if [ "$need_to_run" = "no" ] ; then
-        # Run if any source is newer than any targeta
-        local src_newest="$(ls -t ${src[@]} | head -1)"
-        local tgt_oldest="$(ls -t ${tgt[@]} | tail -1)"
+        # Run if any source is newer than any target
+        local src_newest tgt_oldest
+        # shellcheck disable=SC2012
+        src_newest="$(ls -t "${src[@]}" | head -1)"
+        # shellcheck disable=SC2012
+        tgt_oldest="$(ls -t "${tgt[@]}" | tail -1)"
 
         if [ "$src_newest" -nt "$tgt_oldest" ] ; then
             need_to_run="yes"
+            debug "running because newest src \"$src_newest\" newer than oldest tgt \"$tgt_oldest\""
         fi
     fi
     
     if [ "$need_to_run" = "no" ] ; then
-        yell "target newer than source not running: $@"
+        warn "idempotent: $*"
         return
     fi
 
-    echo "running: $@"
-    if [ "$verbose" = "yes" ] ; then
-        yell "running: $@"
-    fi
-    run "$@"
-    echo "$output"
-    [[ "$status" -eq 0 ]]
+    check "$@"
 }
 
-# Return shell environment
+# dumpenv
+#
+# Echo shell environment settings.
 function dumpenv () {
-    env | grep = | sort
+    env | grep "=" | sort
     # warn $BATS_TEST_FILENAME
     # warn $BATS_TEST_SOURCE    
 }
 
-# Return JSON text of flat object formed from given list of key=value arguments.
-# Fixme: this currently requires "jq", perhaps add required functionality into wire-cell-python.
+# tojson
+#
+# A filter reading stdin for lines like:
+#
+#  key1=value1
+#  key2=value2
+#
+# and will emit JSON text for the equivalent JSON object.
+#
+# This requires the "jq" program.
 function tojson () {
     declare -a args=("-n")
-    while read line
+    while IFS='=' read -r key val
     do
-        parts=(${line//=/ })
-        key="${parts[0]}"
-        val=${line#"${key}="}
         args+=("--arg" "$key" "$val")
     done < <(printf '%s\n' "$@")
-    args+=('$ARGS.named')
+    args+=( "\$ARGS.named" )
     jq "${args[@]}"
 }
 
-# Return the top level source directory based on this file.
+# topdir
+#
+# Emit the top level source directory.
+#
+# Requries this file (wct-bats.sh) to be in its place in the source.
 function topdir () {
-    local name=$BASH_SOURCE
+    # yell "BASH_SOURCE=${BASH_SOURCE[*]}"
+    # yell "FUNCNAME=${FUNCNAME[*]}"
+
+    local name="${BASH_SOURCE[0]}"
     [[ -n "$name" ]]
-    name="$(realpath $name)"
+    name="$(realpath "$name")"
     [[ -n "$name" ]]
-    name="$(dirname $name)"
+    name="$(dirname "$name")"
     [[ -n "$name" ]]
-    name="$(dirname $name)"
+    name="$(dirname "$name")"
     [[ -n "$name" ]]
     echo "$name"
 }    
 
-# Return the build directory.
+# blddir
+#
+# Emit the biuld directory.
 function blddir () {
     echo "$(topdir)/build"
 }
 
-# Return the build directory.
+# srcdir <pkg>
+# 
+# Emit the sub-package source directory of hte given pkg name.
 function srcdir () {
-    local path="$1" ; shift
-    local maybe="$(topdir)/$path"
+    local maybe path="$1" ; shift
+    maybe="$(topdir)/$path"
     if [ -d "$maybe" ] ; then
         echo "$maybe"
     fi
 }
 
 
-# Save out a file to the build/output/ directory
+# saveout [options] <src> ...
 #
-# usage:
+# Save a file out of the test area to the build/tests/ area.
 #
-#  saveout [-c/--category <cat>] [-t/--target <tgt>] <src> [<src> ...]
+# options:
+# -c, --category <cat>
+#   Specify the category in which to save, default is "output".
 #
-# If the optional -c/--category <cat> is given, the file(s) are saved
-# out to a category specific sub directory.  Default category is
-# "output".
-# 
-# If the optional -t/--target <tgt> is given, only the first <src> is
-# saved copied to that target.  <tgt> must be relative.
+# -t, --target <tgt>
+#   Specify an explicit target file name to save.  Only the first
+#   filename is saved out and <tgt> must be a relative path.
 #
-# Files are copied to build/tests/<category>/<version>/<test-name>/
+# <src>
+#   The name of a file to save out.
 #
-# Where:
-# - <version> is the current wire-cell version
-# - <test-name> is from BATS_TEST_FILENAME without the extension.
+# Files are saved to build/tests/<category>/<version>/<test-name>/
+#
+#   <category> is as given or defaults to "output"
+#   <version> is the current wire-cell version
+#   <test-name> is from BATS_TEST_FILENAME without the extension.
 function saveout () {
 
     declare -a src=()
-    subdir="output"
-    tgt=""
+    local tgt subdir="output"
+
     while [[ $# -gt 0 ]] ; do
         case $1 in
             -t|--target) tgt="$2"; shift 2;;
             -c|--category) subdir="$2"; shift 2;;
-            -*|--*) die "Unknown option $1";;
+            -*) die "Unknown option $1";;
             *) src+=("$1"); shift;;
         esac
     done
           
-    [[ -n "$src" ]]
+    if [ "${#src[@]}" -eq - ] ; then
+        die "saveout: no source given"
+    fi
 
-    local name="$(basename $BATS_TEST_FILENAME .bats)"
-    local base="$(blddir)/tests/$subdir/$(version)/${name}"
+    local name base
+    name="$(basename "$BATS_TEST_FILENAME" .bats)"
+    base="$(blddir)/tests/$subdir/$(version)/${name}"
 
     # single, directed target
     if [ -n "$tgt" ] ; then
         tgt="${base}/${tgt}"
-        mkdir -p "$(dirname $tgt)"
-        cp "$src" "$tgt"
+        mkdir -p "$(dirname "$tgt")"
+        cp "${src[0]}" "$tgt"
         return
     fi
 
     mkdir -p "${base}"
     # multi, implicit target
-    for one in ${src[*]}
+    for one in "${src[@]}"
     do
-        local tgt="${base}/$(basename ${one})"
-        mkdir -p "$(dirname $tgt)"
-        cp "$src" "$tgt"
+        local tgt
+        tgt="${base}/$(basename "$one")"
+        mkdir -p "$(dirname "$tgt")"
+        cp "$one" "$tgt"
     done
 }
 
-# Skip test if no input 
+# skip_if_no_input <path> [...]
+#
+# Skip a test if the given path does not exist in the input area.
 function skip_if_no_input () {
-    local paths=( $@ )
-    if [ -z "$paths" ] ; then
+    declare -a paths=("$@")
+    if [ "${#paths[@]}" -eq 0 ] ; then
         paths=( "." )
     fi
-    for path in ${paths[@]}
+    for path in "${paths[@]}"
     do
-        local input="$(blddir)/tests/input/$path"
-        if [ ! -d "$input" ] ; then
-            skip "no input test data at %input"
+        local input
+        input="$(blddir)/tests/input/$path"
+        if [ -f "$input" ] || [ -d "$input" ] ; then
+            continue;
         fi
+        skip "no input test data at $input"
     done
 }
 
-# Return full paths given relative paths in input category
+# input_file <relpath> ...
+#
+# Emit full paths given relative paths in input category
 function input_file () {
-    local input="$(blddir)/tests/input"
+    local input
+    input="$(blddir)/tests/input"
     if [ ! -d "$input" ] ; then
         die "no input data"
     fi
 
-    for path in $@
+    for path in "$@"
     do
         full="$input/$path"
         if [ -f "$full" ] ; then
@@ -240,29 +408,42 @@ function input_file () {
     done
 }
 
-# Return the download cache directory
+# downloads
+# 
+# Emit the download cache directory
 function downloads () {
-    local d="$(topdir)/downloads"
+    local d
+    d="$(topdir)/downloads"
     mkdir -p "$d"
-    echo $d
+    echo "$d"
 }
 
-# Run the Wire-Cell build tool 
+# wcb [options]
+#
+# Run the Wire-Cell build tool in the top directory.
 function wcb () {
-    local here="$(pwd)"
-    cd "$(topdir)"
-    ./wcb $@
-    cd "$here"
+    local t here
+    here="$(pwd)"
+    t="$(topdir)"
+    cd "$t" || die "failed to cd to $t"
+    ./wcb "$@"
+    cd "$here" || die "failed to cd to $here"
 }
 
+# wcb_env_dump
+#
+# Emit all Waf environment variable settings.
+#
+# Note, these are not necessarily varibable settings of the shell
+# environment.
 function wcb_env_dump () {
     # Keep a cache if running in bats.
     if [ -n "${BATS_FILE_TMPDIR}" ] ; then
         local cache="${BATS_FILE_TMPDIR}/wcb_env.txt"
-        if [ ! -f $cache ] ; then
-            wcb dumpenv | grep 'wcb: ' | sed -e 's/^wcb: '// | sort > $cache
+        if [ ! -f "$cache" ] ; then
+            wcb dumpenv | grep 'wcb: ' | sed -e 's/^wcb: '// | sort > "$cache"
         fi
-        cat $cache
+        cat "$cache"
         return
     fi
 
@@ -272,164 +453,200 @@ function wcb_env_dump () {
 }    
     
 
-# Return key=var lines from wcb' Waf build variables.
-# With no arguments, all are returned.
-# Otherwise keys may be specified and onlytheir key=var lines are returned.
+# wcb_env_vars [variable] ...
 #
-# usage:
-# echo "dump Waf vars:"
-# wcb_env_vars
+# Emit key=var lines consisting of Waf build environment variables.
 #
-# usage:
-# echo "wire cell version: "
-# wcb_env_vars WIRECELL_VERSION
+# With no arguments, emit all Waf variables, else emit only those named.
+#
+# User may run "./wcb dumpenv" to dump what is available.
 function wcb_env_vars () {
     # Keep a cache if running in bats.
     if [ -z "$1" ] ; then
         wcb_env_dump
     fi
-    for one in $@
+    for one in "$@"
     do
         grep "^${one}=" <(wcb_env_dump)
     done
 }
 
 
-# Return the value for one variable
-# usage:
-# wcb_env_value WIRECELL_VERSION
+# wcb_env_value <varname>
+#
+# Emit the value for the Waf build environment variable named <varname>.
 wcb_env_value () {
-    wcb_env_vars $1 | sed -e 's/[^=]*=//' | sed -e 's/^"//' -e 's/"$//'
+    wcb_env_vars "$1" | sed -e 's/[^=]*=//' | sed -e 's/^"//' -e 's/"$//'
 }
 
 
-# Forward arguments to wcb_env_vars and eval return.
+# wcb_env <varname> [...]
 #
-# usage:
-# wcb_env WIRECELL_VERSION
-# echo "we have version $WIRECELL_VERSION"
-#
-# usage:
-# wcb_env
-# echo "we build subpackages: $SUBDIRS"
+# Evaluate a Waf build environment variable to become a shell
+# environment variable.
 function wcb_env () {
-    eval $(wcb_env_vars $@)
+    eval "$(wcb_env_vars "$@")"
 }
 
 
-# Add package (util, gen, etc) test apps into PATH, etc.  define
-# <pkg>_src to be that sub-package source directory.
+# usepkg <pkgname> [...]
+#
+# Set shell environment variables related to one or more named packages.
+#
+# This adds test program locations into PATH and defines a <pkg>_src
+# variable pointing at the packages source directory.
 function usepkg () {
-    for pkg in $@; do
-        local pkg=$1 ; shift
-        local t=$(topdir)
+    for pkg in "$@"; do
+        local t pkg="$1" ; shift
+        t="$(topdir)"
         printf -v "${pkg}_src" "%s/%s" "$t" "$pkg"
-        export ${pkg}_src
+        export "${pkg}_src"
         PATH="$(blddir)/$pkg:$PATH"
     done
-#    echo $PATH
 }
 
-# Execute the Jsonnet compiler under Bats "run".
-# Tries wcsonnet then jsonnet.
-# The cfg dir is put into the search path and WIRECELL_PATH is ignored.
+# compile_jsonnet <input> <output>
 #
-# usage:
-# compile_jsonnet file.jsonnet file.json [-A/-V etc options, no -J/-P]
+# Compile input Jsonnet file to output JSON file.
+#
+# Execute the Jsonnet compiler under Bats "run".
+# Tries to use wcsonnet then falls back to jsonnet.
+# The cfg dir is put into the search path and WIRECELL_PATH is ignored.
 function compile_jsonnet () {
     local ifile="$1" ; shift
     local ofile="$1" ; shift
-    local cfgdir="$(topdir)/cfg"
+    local cfgdir
+    cfgdir="$(topdir)/cfg"
 
-    local orig_wcpath=$WIRECELL_PATH
+    local orig_wcpath="$WIRECELL_PATH"
     WIRECELL_PATH=""
 
-    local wcsonnet=$(wcb_env_value WCSONNET)
+    # see below for wcsonnet wrapper.  Here we locally DIY.
+    local wcsonnet
+    wcsonnet="$(wcb_env_value WCSONNET)"
     [[ -n "$wcsonnet" ]]
     if [ -z "$wcsonnet" ] ; then
-        yell "Failed to get WCSONNET!  Cache problem?"
-        exit 1
+        fatal "Failed to get WCSONNET!  Cache problem?"
     fi
     declare -a cmd=( "$wcsonnet" -o "$ofile" -P "$cfgdir" "$@" "$ifile" )
 
-    # cmd=( $(wcb_env_value WCSONNET) )
-    # if [ -n "$cmd" -a -x "$cmd" ] ; then
-    #     ## switch to this when wcsonnet gets "-o"
-    #     # cmd="$cmd -P $cfgdir -o $ofile $@ $ifile"
-    #     ## until then
-    #     cmd+=(-o "$ofile" -P "$cfgdir" "$@" "$ifile")
-    # fi
-    # if [ -z "$cmd" ] ; then
-    #     cmd=$(wcb_env_value JSONNET)
-    #     if [ -z "cmd" ] ; then
-    #         cmd="jsonnet"       # hail mary
-    #     fi
-    #     if [ -n "$cmd" -a -x "$cmd" ] ; then        
-    #         cmd="$cmd -o $ofile -J $cfgdir $@ $ifile"
-    #     fi
-    # fi
-    # [[ -n "$cmd" ]]
-
-    run "${cmd[@]}"
-    echo "$output"
-    [[ "$status" -eq 0 ]]
+    check "${cmd[@]}"
     [[ -s "$ofile" ]]
     WIRECELL_PATH="$orig_wcpath"
 }
 
-# Execute wire-cell CLI under Bats "run".
-# This wraps a normal wire-cell CLI in some boilerplate.
-#
-# usage:
-# wct [args]
-function wct () {
-    cli=$(wcb_env_value WIRE_CELL)
+# wire-cell [options]
+# 
+# Execute the "wire-cell" CLI with standard handling.
+function wire-cell () {
+    cli="$(wcb_env_value WIRE_CELL)"
     [[ -n "$cli" ]]
     [[ -x "$cli" ]]
-
-    echo "$cli $@"              # for output on failure
-    run $cli $@
-    echo "$output"
-    [[ "$status" -eq 0 ]]    
+    check "$cli" "$@"
 }
 
-# Emit version string
-function version() {
+# wcsonnet [options]
+# 
+# Execute the "wcsonnet" CLI with standard handling.
+function wcsonnet () {
+    cli="$(wcb_env_value WCSONNET)"
+    [[ -n "$cli" ]]
+    [[ -x "$cli" ]]
+    check "$cli" "$@"
+}
+
+# wcwires [options]
+# 
+# Execute the "wcwires" CLI with standard handling.
+function wcwires () {
+    cli="$(wcb_env_value WCwires)"
+    [[ -n "$cli" ]]
+    [[ -x "$cli" ]]
+    check "$cli" "$@"
+}
+
+# version
+#
+# Emit the wire-cell version string.
+function version () {
     cli=$(wcb_env_value WIRE_CELL)
     [[ -n "$cli" ]]
     [[ -x "$cli" ]]
     $cli --version
 }
 
-# Execute the "wirecell-pgraph dotify" program under Bats "run".
+# skip_if_missing <program> ...
 #
-# usage:
-# dotify_graph input.{json,jsonnet} output.{svg,png,pdf}
+# Check if the running environment has access to the given programs.
+#
+# One or more programs may be checked.  First one that is not found
+# will lead to the test being skipped.
+function skip_if_missing ()  {
+    for one in "$@"
+    do
+        local path
+        path="$(which "$one")"
+        if [ -n "$path" ] ; then
+            continue
+        fi
+        skip "No program: \"$one\""
+        return
+    done
+}
+               
+
+# wcpy <pkg> <command> [options]
+#
+# Execute the wirecell-<pkg> program with command and optoins.
+#
+# If the command is not found, the test will be skipped.
+function wcpy () {
+    local pkg="$1" ; shift
+    local wcp
+    wcp="$(which "wirecell-$pkg")"
+    if [ -z "$wcp" ] ; then
+        warn "No wirecell-$pkg found, install wire-cell-python.  Will 'skip' the current test."
+        skip "No wirecell-$pkg found"
+        return
+    fi
+    check "$wcp" "$@"
+}
+
+
+# dotify_graph <input> <output>
+#
+# Output a GraphViz "dot" graph representation of the input.
+#
+# Input may be Jsonnet or JSON.
+#
+# Output may be PNG, PDF, DOT
 function dotify_graph () {
-    local ifile=$1 ; shift
+    local ifile="$1" ; shift
     [[ -n "$ifile" ]]
     [[ -f "$ifile" ]]
-    local ofile=$1 ; shift
+    local ofile="$1" ; shift
     [[ -n "$ofile" ]]
-    local cfgdir="$(topdir)/cfg"
+    local cfgdir
+    cfgdir="$(topdir)/cfg"
     [[ -d "$cfgdir" ]] 
 
-    cmd=$(wcb_env_value WCPGRAPH)
-    [[ -n "$cmd" ]]
-    [[ -x "$cmd" ]]    
+    declare -a cmd
+    cmd=( "$(wcb_env_value WCPGRAPH)" )
+    if [ "${#cmd[@]}" -eq 0 ] ; then
+        die "failed to find wirecell-pgraph from Waf environment"
+    fi
+    [[ -x "${cmd[0]}" ]]    
     
-    cmd="$cmd dotify -J $cfgdir $@ $ifile $ofile"
-    echo "$cmd"
-    run $cmd
-    echo "$output"
-    [[ "$status" -eq 0 ]]
+    cmd+=( dotify -J "$cfgdir" "$@" "$ifile" "$ofile" )
+
+    check "${cmd[@]}"
 }
 
 
 
-# Return the Bats context name as divined by the Bats environment.
+# divine_context
 #
-# test, file or run
+# Emit the Bats context.  Will emit: "test", "file" or "run".
 function divine_context () {
     if [ -n "$BATS_TEST_NAME" ] ; then
         echo "test"
@@ -443,18 +660,22 @@ function divine_context () {
 }
 
 
-# Return a Bats temporary directory.
+# tmpdir
+#
+# Emit the Bats temporary directory in the context.
 #
 # With no arguments, this divines the correct one for the current Bats context.
 #
-# With a single argument it will return the temporary directory for that context.
+# With a single argument it will emit the temporary directory for that context.
 #
-# To not purge the tmp:  bats --no-tempdir-cleanup
+# Note, to not purge the tmp call:
 #
-# If WCTEST_TMPDIR is defined, it trumps all.
+#   bats --no-tempdir-cleanup
+#
+# Or, set WCT_BATS_TMPDIR.
 function tmpdir () {
-    if [ -n "$WCTEST_TMPDIR" ] ; then
-        echo "$WCTEST_TMPDIR"
+    if [ -n "$WCT_BATS_TMPDIR" ] ; then
+        echo "$WCT_BATS_TMPDIR"
         return
     fi
 
@@ -465,40 +686,41 @@ function tmpdir () {
         file) ret="$BATS_FILE_TMPDIR";;
         *) ret="$BATS_TEST_TMPDIR";;
     esac
-    if [ -z "ret" ] ; then
+    if [ -z "$ret" ] ; then
         ret="$(mktemp -d /tmp/wct-bats.XXXXX)"
         warn "Not running under bats, will not remove tempdir: $ret"
     fi
-    echo $ret
+    echo "$ret"
 }
 
+# cd_tmp [context]
+#
 # Change to the context temporary directory.
 #
 # If a context is given, that temporary directory will be used
 # otherwise it will be divined.
-#
-# usage:
-# cd_tmp
 function cd_tmp () {
     ctx="$1"
     if [ -z "$ctx" ] ; then
         ctx="$(divine_context)"
     fi
-    local t="$(tmpdir $ctx)"
+    local t
+    t="$(tmpdir "$ctx")"
     mkdir -p "$t"
-    cd "$t"
+    cd "$t" || die "could not cd to $t"
 }
 
-# Resolve a file path relative to the path of the BATS test file.
+# relative_path <path>
 #
-# usage:
-# local mycfg=$(relative_path my-cfg-jsonnet)
+# Resolve a file path relative to the path of the BATS test file.
 function relative_path () {
     local want="$1"; shift
     [[ -n "$BATS_TEST_FILENAME" ]]
-    realpath "$(dirname $BATS_TEST_FILENAME)/$want"
+    realpath "$(dirname "$BATS_TEST_FILENAME")/$want"
 }
 
+# resolve_pathlist <pathlist> ...
+#
 # Resolve multiple pathlists to a single list, removing any that do
 # not exist.  Consequitive duplicates are removed.
 #
@@ -508,18 +730,20 @@ function relative_path () {
 # B
 # C
 function resolve_pathlist () {
-    declare -a parts=( $(echo $@ | tr ':' ' ') )
+    IFS=' :' read -r -a parts <<< "$@"
     declare -a exists
-    for one in ${parts[@]}
+    for one in "${parts[@]}"
     do
-        if [ -d $one ] ; then
-            exists+=( $one )
+        if [ -d "$one" ] ; then
+            exists+=( "$one" )
         fi
     done
-    printf "%s\n" ${exists[@]} | awk '!seen[$0]++'
+    printf "%s\n" "${exists[@]}" | awk '!seen[$0]++'
 
 }
 
+# resolve_path <path> <pathlist> ...
+#
 # Resolve a file name in in or more path lists.
 # A path list may be a :-separated list
 #
@@ -531,10 +755,10 @@ function resolve_path () {
 
     # already absolute
     if [[ "$want" =~ ^/.* ]] ; then
-        echo $want
+        echo "$want"
     fi
 
-    for maybe in $(resolve_pathlist $@) ; do
+    for maybe in $(resolve_pathlist "$@") ; do
         if [ -f "${maybe}/$want" ] ; then
             echo "${maybe}/$want"
             return
@@ -542,23 +766,23 @@ function resolve_path () {
     done
 }
 
-
+# find_paths <path> <pathlist>
+#
 # Emit all matching paths.
 #
 # usage:
 # resolve_all emacs $PATH
 # /usr/bin/emacs
 # /usr/local/bin/emacso
-#
 function find_paths () {
     local want="$1" ; shift
 
     # already absolute, only one answer
     if [[ "$want" =~ ^/.* ]] ; then
-        echo $want
+        echo "$want"
     fi
     
-    for maybe in $(resolve_pathlist $@) ; do
+    for maybe in $(resolve_pathlist "$@") ; do
         if [ -f "${maybe}/$want" ] ; then
             echo "${maybe}/$want" 
         fi
@@ -566,24 +790,24 @@ function find_paths () {
 }
 
 
-
-# Return an absolute path of a relative path found in config areas.
+# config_path <path>
+#
+# Emit an absolute path of a relative path found in config areas.
 function config_path () {
-    local path="$1" ; shift
-    local maybe="$(topdir)/cfg/$path"
+    local maybe path="$1" ; shift
+    maybe="$(topdir)/cfg/$path"
     if [ -f "$maybe" ] ; then
         echo "$maybe"
         return
     fi
     if [ -n "$WIRECELL_PATH" ] ; then
-        resolve_path $path $WIRECELL_PATH
+        resolve_path "$path" "$WIRECELL_PATH"
     fi
 }
 
-# Emit the absolute path for a given path.
+# resolve_file <file>
 #
-# usage:
-# resolve_file file1.txt
+# Emit the absolute path for a given path.
 #
 # If absolute, emit as given.  If not found, exit.
 #
@@ -604,23 +828,26 @@ function config_path () {
 #
 # See category_path to resovle paths against specific data repo category.
 function resolve_file () {
-    local want="$1" ; shift
-
     [[ -n "$BATS_TEST_FILENAME" ]]
-    local mydir="$(dirname ${BATS_TEST_FILENAME})"
-    local t="$(topdir)"
-    local paths=$(resolve_pathlist "$t/test/data" "$t" "$t/build/tests" ${WIRECELL_PATH})
+    local want="$1"; shift
 
-    if [ -f "$want" -o -d "$want" ] ; then
+    if [ -f "$want" ] || [ -d "$want" ] ; then
         realpath "$want"
         return
     fi
-    
-    for path in ${paths[*]}
+
+    declare -a paths=(".")
+    paths=("$(dirname "${BATS_TEST_FILENAME}")")
+    paths+=("$@")
+    local t
+    t="$(topdir)"
+    paths+=("$t/test/data" "$t" "$t/build/tests" "$WIRECELL_PATH")
+
+    for path in $(resolve_pathlist "${paths[@]}")
     do
-        local maybe=$path/$want
-        if [ -f "$maybe" -o -d "$maybe" ] ; then
-            echo $maybe
+        local maybe="$path/$want"
+        if [ -f "$maybe" ] || [ -d "$maybe" ] ; then
+            echo "$maybe"
             return
         fi
     done
@@ -629,14 +856,17 @@ function resolve_file () {
 
 
 
+# category_version_paths [options]
+#
 # Emit all versions paths found for category.
 #
-# usage:
-# category_version_paths [-c/--category <cat>] [-d/--dirty]
+# options:
 #
-# Default category is "history".
-# 
-# Default matches only release versions, -d/--dirty will also match locally modified versions
+# -c, --category <cat>
+#   Set the category.  Default is "history".
+#
+# -d, --dirty
+#   If given, will match locally modified versions.
 #
 # Results are emitted in lexical order of version string.
 function find_category_version_paths () {
@@ -652,53 +882,65 @@ function find_category_version_paths () {
         esac
     done
 
-    local catdir="$(blddir)/tests/$category"
+    local catdir
+    catdir="$(blddir)/tests/$category"
 
     declare -a vers
-    declare -A paths
+    declare -A pathmap
 
-    for one in $(echo $catdir/$matcher)
+    for one in "$catdir"/$matcher
     do
         if [ -d "$one" ] ; then
-            local ver=$(basename $one)
-            vers+=( $ver )
-            paths[$ver]=$one
+            local ver
+            ver="$(basename "$one")"
+            vers+=( "$ver" )
+            pathmap["$ver"]="$one"
         fi
     done
     if [ -n "$dirty" ] ; then
-        for one in $(echo $catdir/$dirty)
+        for one in "$catdir"/$dirty
         do
             if [ -d "$one" ] ; then
-                local ver=$(basename $one)
-                vers+=( $ver )
-                paths[$ver]=$one
+                local ver
+                ver="$(basename "$one")"
+                vers+=( "$ver" )
+                pathmap["$ver"]="$one"
             fi
         done
     fi
-    for ver in $(printf '%s\n' ${vers[@]} | sort -u)
+    for ver in $(printf '%s\n' "${vers[@]}" | sort -u)
     do
-        echo ${paths[$ver]}
+        echo "${pathmap["$ver"]}"
     done
 }
 
- # Same as category_version_paths but emit only version string.
+# find_category_version <path> ...
+#
+# Same as category_version_paths but emit only version string.
 function find_category_versions () {
-    for one in $(category_version_paths $@)
+    for one in $(category_version_paths "$@")
     do
-        basename $one
+        basename "$one"
     done
 }
 
-# Emit the category path for the version
+# category_path [options] <path> ...
 #
-# usage:
-# category_path [-c/--category <cat>] [-v/--version <version>] path [path ...]
+# Resolve and emit path to a category path.
 #
-# If no category given, "history" is assumed.
-# If no version given, current version used.
+# options
+#
+# -c, --category <cat>
+#   Set the category, default is "history".
+#
+# -v, --version <version>
+#   Set the version, default uses current version.
+#
+# <path>
+#   A relative path to resolve.
 function category_path () {
-    local cat="history"
-    local ver=$(version)
+    local ver cat="history"
+    ver="$(version)"
     declare -a paths
     while [[ $# -gt 0 ]] ; do
         case $1 in
@@ -709,11 +951,12 @@ function category_path () {
         esac
     done
             
-    local catdir="$(blddir)/tests/$cat/$ver"
+    local catdir
+    catdir="$(blddir)/tests/$cat/$ver"
 
-    for path in ${paths[*]}
+    for path in "${paths[@]}"
     do
-        if [ -f "$catdir/$path" -o -d "$catdir/$path" ] ; then
+        if [ -f "$catdir/$path" ] || [ -d "$catdir/$path" ] ; then
             echo "$catdir/$path"
         else
             die "No such file or directory: $catdir/$path"
@@ -722,57 +965,89 @@ function category_path () {
 }
     
 
+# historical_versions
+#
 # Emit the versions for which there are known historical files.
 #
+# Versions are emitted delimited by newlines.
 function historical_versions () {
-    local tdv=$(wcb_env_value TEST_DATA_VERSIONS)
-    printf '%s\n' $tdv
+    # shellcheck disable=SC2046
+    printf '%s\n' $(wcb_env_value TEST_DATA_VERSIONS)
 }
 
-# Emit full paths to the files for a relative path across known history
+
+# historical_files [options] <path> ...
 #
-# usage:
-# historical_files [-v/--version <version>] [-l/--last <number>] <path> [<path> ...]
+# Emit cross product of paths across versions.  Paths are
+# newline-delimited.
 #
-# One or more -v/--version options can add versions to the list of historical versions.
+# options:
 #
-# A -l/--last number will return only the more recent versions (lexical sort)  
+# -v, --version <version>
 #
-# A -c/--current will include the current software version
+#   Set the versions to consider.  Multiple -v options are allowed.
+#   If this option is given the default list of versions will not be
+#   considered.  The default versions are declared by the current
+#   build system.
+#
+# -l, --last <number>
+#
+#   Emit the last N versions of the path.
+#
+# -c, --current
+#
+#   Include the current software version, even if not a decalred
+#   release.
+#
 function historical_files () {
-    local versions=( $(historical_versions) )
-    local last=""
-    declare -a paths
+    local last current
+    declare -a paths versions
     while [[ $# -gt 0 ]] ; do
         case $1 in
             -l|--last) last="$2"; shift 2;;
-            -v|--version) versions+=( $2 ); shift 2;;
-            -c|--current) versions+=( $(version) ); shift;;
+            -v|--version) versions+=( "$2" ); shift 2;;
+            -c|--current) current="$(version)"; shift;;
             -*) die "unknown option $1" ;;
-            *) paths+=( $1 ); shift;;
+            *) paths+=( "$1" ); shift;;
         esac
     done
-    
-    versions=( $(printf '%s\n' ${versions[@]} | sort -u) )
-    if [ -n "$last" ] ; then
-        versions=( $(printf '%s\n' ${versions[@]} | tail -n $last ) )
+
+    local verlines
+    if [ "${#versions[@]}" -eq 0 ] ; then
+        verlines=$(historical_versions)
+    else
+        verlines=$(printf '%s\n' "${versions[@]}")
     fi
-    for ver in ${versions[@]}
+    if [ -n "$current" ] ; then
+        verlines=$(printf '%s\n%s' "$current" "$verlines")
+    fi
+    verlines=$(echo "$verlines" | sort -u)
+
+    if [ -n "$last" ] ; then
+        verlines=$(echo "$verlines" | tail -n "$last")
+    fi
+
+    # shellcheck disable=SC2068
+    for ver in ${verlines[@]}
     do
-        # yell "historical files: $ver $@"
-        category_path -c history -v $ver ${paths[@]}
+        yell "historical_files: ver=|$ver| paths: ${paths[*]}"
+        category_path -c history -v "$ver" "${paths[@]}"
     done
 }
 
+# skip_if_no_category [options] <category>
+#
 # Skip test if category is missing.
 #
-# usage:
-# skip_if_no_category [-v/version <version>] <category>
+# options:
+# -v, --version <version>
+#   Set the version of the category, default to current version.
 #
-# If no version given, use current version.
-# If not category given, use "history"
+# <category>
+#   Set the category.  Defaults to "history".
 function skip_if_no_category () {
-    local ver=$(version)
+    local ver
+    ver="$(version)"
     local cat="history"
     while [[ $# -gt 0 ]] ; do
         case $1 in
@@ -788,21 +1063,25 @@ function skip_if_no_category () {
 
     
 
+# download_file <url> [<tgt>]
+#
 # Download a file from a URL.
 #
-# usage:
-# download_file https://www.phy.bnl.gov/~hyu/wct-ci/gen/depos.tar.bz2
+# Emit (echo) a path to the target file.  This will be a location in a cache.
+# 
+# <url>
+#   The URL to download.
 #
-# or with optional target name
-# download_file https://www.phy.bnl.gov/~hyu/wct-ci/gen/depos.tar.bz2 my-depos.tar.bz2
-#
-# Return (echo) a path to the target file.  This will be a location in a cache.
+# <tgt>
+#   An optional relative path to the file name the URL content should be saved.
 function download_file () {
     local url="$1"; shift
-    local tgt="${1:-$(basename $url)}"
+    local tgt
+    tgt="${1:-$(basename "$url")}"
 
-    local path="$(downloads)/$tgt"
-    if [ -s $path ] ; then
+    local path
+    path="$(downloads)/$tgt"
+    if [ -s "$path" ] ; then
         echo "$path"
         return
     fi
@@ -811,3 +1090,26 @@ function download_file () {
     echo "$path"
 }
 
+
+
+function help_one () {
+    local func="$1" ; shift
+    awk "/^# $func\>/{flag=1}/^function $func /{flag=0}flag" "$0" | sed -e 's/^ //g' -e 's/^#//g'
+}
+
+function help_all () {
+    grep ^function "$0" | sed -n 's/^function \(\S*\) .*/\1/p'| sort | while read -r func
+    do
+        help_one "$func" | head -1
+    done
+}
+
+if [[ "$(basename -- "$0")" == "wct-bats.sh" ]]; then
+    if [ -z "$1" ] ; then
+        help_all
+    else
+        for one in "$@" ; do
+            help_one "$one"
+        done
+    fi
+fi

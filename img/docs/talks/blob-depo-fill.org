@@ -1,6 +1,6 @@
 #+title: Blob-Depo Fill
 #+startup: beamer
-#+setupfile: setup-beamer.org
+#+setupfile: ../../../docs/setup-beamer.org
 
 * Topics
   

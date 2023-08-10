@@ -1,6 +1,7 @@
 #+title: WCT Point Cloud Support
+#+startup: beamer
+#+setupfile: ../../../docs/setup-beamer.org
 #+BEAMER_HEADER: \title[WCT Point Cloud]{Wire-Cell Toolkit Point Cloud}
-#+setupfile: ~/sync/talks/setup.org
 #+LATEX_CLASS_OPTIONS: [serif,professionalfont,colorlinks,aspectratio=149]
 #+latex_header: \usepackage{svg}
 
