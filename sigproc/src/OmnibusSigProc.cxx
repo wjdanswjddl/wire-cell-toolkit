@@ -1400,7 +1400,8 @@ bool OmnibusSigProc::operator()(const input_pointer& in, output_pointer& out)
             if (och.plane < 0) {
                 continue;  // in case user gives us multi apa frame
             }
-            m_cmm[name][och.channel] = m.second;
+            // m_cmm[name][och.channel] = m.second;
+            m_cmm["bad"][och.channel] = m.second; // make sure load_data gets all the masked channels
         }
     }
 
@@ -1592,7 +1593,7 @@ bool OmnibusSigProc::operator()(const input_pointer& in, output_pointer& out)
         }
     }
 
-    auto sframe = new Aux::SimpleFrame(in->ident(), in->time(), ITrace::shared_vector(itraces), in->tick(), m_cmm);
+    auto sframe = new Aux::SimpleFrame(in->ident(), in->time(), ITrace::shared_vector(itraces), in->tick(), in->masks());
     sframe->tag_frame(m_frame_tag);
 
     // this assumes save_data produces itraces in OSP channel order

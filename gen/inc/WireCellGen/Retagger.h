@@ -49,6 +49,7 @@ namespace WireCell {
 
            private:
             tagrules::Context m_trctx;
+            std::map<std::string, std::string> m_maskmap;
         };
     }  // namespace Gen
 }  // namespace WireCell

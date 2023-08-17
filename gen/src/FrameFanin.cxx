@@ -98,6 +98,11 @@ bool Gen::FrameFanin::operator()(const input_vector& invec, output_pointer& out)
     tagrules::tagset_t fouttags;
     ITrace::vector out_traces;
     IFrame::pointer one = nullptr;
+    
+    Waveform::ChannelMaskMap out_cmm;
+    // creating an empty name map; only want combine the two maskmaps from each APA into a single maskmap, NOT merge masks
+    std::map<std::string, std::string> empty_name_map;
+
     for (size_t iport = 0; iport < m_multiplicity; ++iport) {
         const size_t trace_offset = out_traces.size();
 
@@ -108,6 +113,8 @@ bool Gen::FrameFanin::operator()(const input_vector& invec, output_pointer& out)
             one = fr;
         }
         auto traces = fr->traces();
+        auto masks = fr->masks();
+        Waveform::merge(out_cmm, masks, empty_name_map); 
 
         {  // collect output frame tags by tranforming each input frame
            // tag based on user rules.
@@ -147,7 +154,7 @@ bool Gen::FrameFanin::operator()(const input_vector& invec, output_pointer& out)
         out_traces.insert(out_traces.end(), traces->begin(), traces->end());
     }
 
-    auto sf = new Aux::SimpleFrame(one->ident(), one->time(), out_traces, one->tick());
+    auto sf = new Aux::SimpleFrame(one->ident(), one->time(), out_traces, one->tick(), out_cmm);
     for (size_t iport = 0; iport < m_multiplicity; ++iport) {
         if (m_tags[iport].size()) {
             sf->tag_traces(m_tags[iport], by_port[iport]);
