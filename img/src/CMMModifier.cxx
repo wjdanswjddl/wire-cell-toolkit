@@ -152,7 +152,7 @@ bool CMMModifier::operator()(const input_pointer& in, output_pointer& out)
     // copy a CMM from input frame
     auto cmm = in->masks();
     if (cmm.find(m_cm_tag)==cmm.end()) {
-        THROW(RuntimeError()<< errmsg{"no ChannelMask with name "+m_cm_tag});
+        log->warn("no ChannelMask with name \""+m_cm_tag+"\", will create one");
     }
     auto& cm = cmm[m_cm_tag];
     log->debug("input: {} size: {}", m_cm_tag, cm.size());
