@@ -198,6 +198,7 @@ void OmnibusSigProc::configure(const WireCell::Configuration& config)
     for (int iplane = 0; iplane < 3; ++iplane) {
         m_nwires[iplane] = plane_channels[iplane].size();
         int osp_wire_number = 0;
+        // note the order here is the IChannel::index or Wire Attachment Number
         for (auto ichan : plane_channels[iplane]) {
             const int wct_chan_ident = ichan->ident();
             OspChan och(osp_channel_number, osp_wire_number, iplane, wct_chan_ident);
@@ -300,7 +301,7 @@ void OmnibusSigProc::load_data(const input_pointer& in, int plane)
 
     auto traces = in->traces();
 
-    auto& bad = m_cmm["bad"];
+    auto& bad = m_wanmm["bad"];
     int nbad = 0;
 
     for (auto trace : *traces.get()) {
@@ -398,7 +399,7 @@ void OmnibusSigProc::save_data(
             }
         }
         {
-            auto& bad = m_cmm["bad"];
+            auto& bad = m_wanmm["bad"];
             auto badit = bad.find(och.channel);
             if (badit != bad.end()) {
                 for (auto bad : badit->second) {
@@ -503,7 +504,7 @@ void OmnibusSigProc::save_roi(ITrace::vector& itraces, IFrame::trace_list_t& ind
         }
 
         {
-            auto& bad = m_cmm["bad"];
+            auto& bad = m_wanmm["bad"];
             auto badit = bad.find(och.channel);
             if (badit != bad.end()) {
                 for (auto bad : badit->second) {
@@ -586,7 +587,7 @@ void OmnibusSigProc::save_ext_roi(ITrace::vector& itraces, IFrame::trace_list_t&
         }
 
         {
-            auto& bad = m_cmm["bad"];
+            auto& bad = m_wanmm["bad"];
             auto badit = bad.find(och.channel);
             if (badit != bad.end()) {
                 for (auto bad : badit->second) {
@@ -653,7 +654,7 @@ void OmnibusSigProc::save_mproi(ITrace::vector& itraces, IFrame::trace_list_t& i
         }
 
         {
-            auto& bad = m_cmm["bad"];
+            auto& bad = m_wanmm["bad"];
             auto badit = bad.find(och.channel);
             if (badit != bad.end()) {
                 for (auto bad : badit->second) {
@@ -1294,7 +1295,7 @@ bool OmnibusSigProc::masked_neighbors(const std::string& cmname, OspChan& ochan,
         return false;
     }
 
-    auto& cm = m_cmm[cmname];
+    auto& cm = m_wanmm[cmname];
     for (int och = lo_chan; och <= hi_chan; ++och) {
         if (cm.find(och) != cm.end()) {
             return true;
@@ -1390,7 +1391,7 @@ bool OmnibusSigProc::operator()(const input_pointer& in, output_pointer& out)
     }
 
     // Convert to OSP cmm indexed by OSB sequential channels, NOT WCT channel ID.
-    m_cmm.clear();
+    m_wanmm.clear();
     // double emap: name -> channel -> pair<int,int>
     for (auto cm : in->masks()) {
         const std::string name = cm.first;
@@ -1400,8 +1401,9 @@ bool OmnibusSigProc::operator()(const input_pointer& in, output_pointer& out)
             if (och.plane < 0) {
                 continue;  // in case user gives us multi apa frame
             }
-            // m_cmm[name][och.channel] = m.second;
-            m_cmm["bad"][och.channel] = m.second; // make sure load_data gets all the masked channels
+            // need to make sure the input names follow the OSP convention
+            // e.g., bad, ls_noisy
+            m_wanmm[name][och.channel] = m.second;
         }
     }
 
@@ -1418,11 +1420,11 @@ bool OmnibusSigProc::operator()(const input_pointer& in, output_pointer& out)
     init_overall_response(in);
 
     // create a class for ROIs ...
-    ROI_formation roi_form(m_cmm, m_nwires[0], m_nwires[1], m_nwires[2], m_nticks, m_th_factor_ind, m_th_factor_col,
+    ROI_formation roi_form(m_wanmm, m_nwires[0], m_nwires[1], m_nwires[2], m_nticks, m_th_factor_ind, m_th_factor_col,
                            m_pad, m_asy, m_rebin, m_l_factor, m_l_max_th, m_l_factor1, m_l_short_length,
                            m_l_jump_one_bin);
     ROI_refinement roi_refine(
-        m_cmm, m_nwires[0], m_nwires[1], m_nwires[2], m_r_th_factor, m_r_fake_signal_low_th, m_r_fake_signal_high_th,
+        m_wanmm, m_nwires[0], m_nwires[1], m_nwires[2], m_r_th_factor, m_r_fake_signal_low_th, m_r_fake_signal_high_th,
         m_r_fake_signal_low_th_ind_factor, m_r_fake_signal_high_th_ind_factor, m_r_pad, m_r_break_roi_loop, m_r_th_peak,
         m_r_sep_peak, m_r_low_peak_sep_threshold_pre, m_r_max_npeaks, m_r_sigma, m_r_th_percent, m_isWrapped);  //
 
