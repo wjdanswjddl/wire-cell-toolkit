@@ -179,7 +179,7 @@ local multipass = [
 ];
 
 // assert (fcl_params.ncrm == 36 || fcl_params.ncrm == 112) : "only ncrm == 36 or 112 are configured";
-local f = import 'pgrapher/experiment/dune-vd/funcs.jsonnet';
+local f = import 'pgrapher/common/funcs.jsonnet';
 local outtags = ['orig%d' % n for n in anode_iota];
 // local bi_manifold = f.multifanpipe('DepoSetFanout', multipass, 'FrameFanin', 6, 'sn_mag', outtags);
 local bi_manifold =
