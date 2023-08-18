@@ -106,7 +106,7 @@ local bagger = sim.make_bagger();
 local sn_pipes = sim.splusn_pipelines;
 
 local sp_maker = import 'pgrapher/experiment/dune-vd/sp.jsonnet';
-local sp = sp_maker(params, tools, { sparse: false, use_roi_debug_mode: false,} );
+local sp = sp_maker(params, tools, { sparse: true, use_roi_debug_mode: false,} );
 local sp_pipes = [sp.make_sigproc(a) for a in tools.anodes];
 
 local img = import 'pgrapher/experiment/dune-vd/img.jsonnet';

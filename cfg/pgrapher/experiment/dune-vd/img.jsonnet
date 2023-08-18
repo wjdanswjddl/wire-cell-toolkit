@@ -38,22 +38,22 @@ local img = {
             cm_tag: "bad",
             trace_tag: "gauss%d" % anode.data.ident,
             anode: wc.tn(anode),
-            start: 0,   // start veto ...
-            end: 9592, // end  of veto
-            ncount_cont_ch: 2,
-            cont_ch_llimit: [296, 2336+4800 ], // veto if continues bad channels
-            cont_ch_hlimit: [671, 2463+4800 ],
-            ncount_veto_ch: 1,
-            veto_ch_llimit: [3684],  // direct veto these channels
-            veto_ch_hlimit: [3699],
-            dead_ch_ncount: 10,
-            dead_ch_charge: 1000,
-            ncount_dead_ch: 2,
-            dead_ch_llimit: [2160, 2080], // veto according to the charge size for dead channels
-            dead_ch_hlimit: [2176, 2096],
-            ncount_org: 5,   // organize the dead channel ranges according to these boundaries 
-            org_llimit: [0   , 1920, 3840, 5760, 7680], // must be ordered ...
-            org_hlimit: [1919, 3839, 5759, 7679, 9592], // must be ordered ...
+            // start: 0,   // start veto ...
+            // end: 9592, // end  of veto
+            // ncount_cont_ch: 2,
+            // cont_ch_llimit: [296, 2336+4800 ], // veto if continues bad channels
+            // cont_ch_hlimit: [671, 2463+4800 ],
+            // ncount_veto_ch: 1,
+            // veto_ch_llimit: [3684],  // direct veto these channels
+            // veto_ch_hlimit: [3699],
+            // dead_ch_ncount: 10,
+            // dead_ch_charge: 1000,
+            // ncount_dead_ch: 2,
+            // dead_ch_llimit: [2160, 2080], // veto according to the charge size for dead channels
+            // dead_ch_hlimit: [2176, 2096],
+            ncount_org: 1,   // organize the dead channel ranges according to these boundaries 
+            org_llimit: [0], // must be ordered ...
+            org_hlimit: [8500], // must be ordered ...
         },
     }, nin=1, nout=1, uses=[anode]),
 
@@ -107,7 +107,7 @@ local img = {
                 error_tag: "gauss_error%d" % anode.data.ident,
                 anode: wc.tn(anode),
                 min_tbin: 0,
-                max_tbin: 9592, // 9592,
+                max_tbin: 8500,
                 active_planes: active_planes,
                 masked_planes: masked_planes,
                 dummy_planes: dummy_planes,
@@ -169,7 +169,7 @@ local img = {
     }.ret,
 
     //
-    multi_masked_2view_slicing_tiling :: function(anode, name, span=109) {
+    multi_masked_2view_slicing_tiling :: function(anode, name, span=500) {
         local dummy_planes = [[2],[0],[1]],
         local masked_planes = [[0,1],[1,2],[0,2]],
         local iota = std.range(0,std.length(dummy_planes)-1),
@@ -313,7 +313,7 @@ function() {
             img.dump(anode, anode.name+"-ms-active", params.lar.drift_speed)])
     else if multi_slicing == "masked"
     then g.pipeline([
-            img.multi_masked_2view_slicing_tiling(anode, anode.name+"-ms-masked", 1744),
+            img.multi_masked_2view_slicing_tiling(anode, anode.name+"-ms-masked", 500),
             img.clustering(anode, anode.name+"-ms-masked"),
             img.dump(anode, anode.name+"-ms-masked", params.lar.drift_speed)])
     else {
@@ -323,7 +323,7 @@ function() {
             img.dump(anode, anode.name+"-ms-active", params.lar.drift_speed),
         ]),
         local masked_fork = g.pipeline([
-            img.multi_masked_2view_slicing_tiling(anode, anode.name+"-ms-masked", 1744), // 109, 1744 (total 9592)
+            img.multi_masked_2view_slicing_tiling(anode, anode.name+"-ms-masked", 500), // 109, 1744 (total 9592)
             img.clustering(anode, anode.name+"-ms-masked"),
             img.dump(anode, anode.name+"-ms-masked", params.lar.drift_speed),
         ]),
