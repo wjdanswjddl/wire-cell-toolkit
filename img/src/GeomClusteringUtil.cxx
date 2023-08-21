@@ -201,16 +201,16 @@ void WireCell::Img::grouped_geom_clustering(cluster_graph_t& cg, std::string pol
     }
 
     // uboone policy
-    int max_rel_diff = 2;
+    // int max_rel_diff = 2;
     std::map<int, RayGrid::grid_index_t> map_gap_tol = {{1, 2}, {2, 1}};
 
     if (policy == "uboone_local") {
-        max_rel_diff = 2;
+        // max_rel_diff = 2;
         map_gap_tol = {{1, 2}, {2, 2}};
     }
 
     if (policy == "simple") {
-        max_rel_diff = 1;
+        // max_rel_diff = 1;
         map_gap_tol = {{1, 0}};
     }
 
