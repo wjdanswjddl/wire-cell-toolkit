@@ -675,9 +675,9 @@ struct Stepped : public BlobSampler::Sampler
                   [&](const Strip& a, const Strip& b) -> bool {
                       return swidth(a) < swidth(b);
                   });
-        const Strip& smin = strips[3];
-        const Strip& smid = strips[4];
-        const Strip& smax = strips[5];
+        const Strip& smin = strips[2];
+        const Strip& smid = strips[3];
+        const Strip& smax = strips[4];
         
         int nmin = std::max(min_step_size, max_step_fraction*swidth(smin));
         int nmax = std::max(min_step_size, max_step_fraction*swidth(smax));

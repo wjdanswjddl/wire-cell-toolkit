@@ -141,13 +141,22 @@ namespace WireCell::Img {
                 (def=1.0).
 
               - planes :: an array of two plane indices, each in
-                {0,1}, which determine the ray grid.
+                {0,1,2}, which determine the ray grid.
 
               Note, ray crossing points may be sampled with two
               instances of "grid" each with step=1.0 and with mutually
               unique pairs of plane indices.
 
             - stepped :: sample points on a stepped ray grid of two views.
+
+              This accepts the following options:
+
+              - min_step_size :: The minimium number of wires over
+                which a step will be made.  default=3.
+
+              - max_step_fraction :: The maximum fraction of a blob a
+                step may take.  If non-positive, then all steps are
+                min_step_size.  default=1/12.
 
             - bounds :: points sampled along the blob boundry edges.
 

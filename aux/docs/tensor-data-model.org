@@ -3,39 +3,36 @@
 
 * Introduction
 
-On data model that the Wire-Cell Toolkit (WCT) supports is the /tensor
-data model/.  This model is factored into two layers:
+The Wire-Cell Toolkit (WCT) defines and supports a /tensor data model/.  This model is factored into two layers:
 
-- The *generic tensor data model* is transiently represented as a
-  concrete implementation of ~ITensorSet~ and ~ITensor~ and persisted
-  according to this document.
+- The *generic tensor data model* is transiently represented as a concrete implementations of the ~ITensorSet~ and ~ITensor~ C++ data interface classes and serialized (persisted) according to this document.
 
-- The *specific tensor data model* defines conventions on the generic
-  tensor data model in order to map certain other data types to the
-  generic tensor data model.
+- The *specific tensor data model* defines conventions on the generic tensor data model in order to map certain other data types to the generic tensor data model.
 
 #+begin_note
-The meaning of the term "tensor" is not that of the strict
-mathematical sense.
+The meaning of the term "tensor" here is not that of the strict mathematical sense.  It describes a collection of objects with an optional metadata object and an optional array object.
 #+end_note
 
 * Generic tensor data model
 
-The generic tensor data model maps between the transient ~ITensorSet~
-and ~ITensor~ model and a persistent one.  The elements of the tensor
-data model are:
+The generic tensor data model maps between the transient ~ITensorSet~ and ~ITensor~ model and a persistent one.  The elements of the tensor data model are:
 
-- A *tensor set* is an aggregation of zero or more *tensors* and a
-  optional *metadata object*.
+- A *tensor set* is an aggregation of zero or more *tensors* and a optional *metadata object*.
 
 - A *tensor* is the combination of an *array* and a *metadata object*.
 
-- A *metadata object* associates *attributes* in a structure that follows
-  the JSON data model.
+- A *metadata object* associates *attributes* in a structure that follows the JSON data model.
 
-- An *array* is a contiguous block of memory holding numeric data that
-  is stored with associated *shape*, layout *order* and array element *type*
-  and *size*.  An array may be empty or null.
+- An *array* is a contiguous block of memory holding numeric data that is stored with associated *shape*, layout *order* and array element *type* and *size*.  An array may be empty or null.
+
+#+begin_note
+A tensor may also associate to an aggregate of other tensors as described below.  
+#+end_note
+
+#+begin_warning
+While the tensor data model supports the JSON data model for metadata objects, serializing to some formats are limited.  In particular, HDF5 metadata "attributes" set must be a "flat object" with all values scalar data.
+#+end_warning
+
 
 * Persistent tensor data models
 
@@ -43,25 +40,13 @@ Two persistent variants are supported:
 
 - serial :: data is sent through WCT iostreams to/from Zip or Tar archive files.
 
-- hierarchical :: data is read/written in random access manner to/from HDF5 files.
+- hierarchical :: objects are persisted in a tree structure such as to/from HDF5 files.
 
-In both persistent forms a hiearchy is expressed.  In the serial form,
-each ~ITensorSet~ or ~ITensor~ representation carries its location in the
-hierarchy by a path-like stream in the reserved *metadata object*
-attribute *datapath*.  While, in HDF5 the *datapath* is inherently stored
-as an first class HDF5 attribute of an HDF5 dataset and is not stored
-in the HDF5 dataset metadata.
+In both persistent forms a hiearchy is expressed.  In the serial form, each ~ITensorSet~ or ~ITensor~ representation carries its location in the hierarchy by a path-like stream in the reserved *metadata object* attribute *datapath*.  While, in the hierarchical form, the *datapath* forms a path through the tree structure to locate the object.
 
-In the serial form, aggregates of tensors are collected by referencing
-their *datapath* values in a *metadata object attribute*.  For example, a
-tensor set metadata object attribute *tensors* holds an array of
-*datapath* to its tensors (see below).  Other aggregations are described
-in the specific tensor data model below.  The hierarchy form may
-utilize HDF5 object or region references.
+In the serial form, a complex objects may be represented as a tensor that references an aggregate of other tensors.  This aggregation is represented as a list of *datapath* values held in a *metadata object attribute*.  For example, a tensor set may provide a metadata object attribute called *tensors* with an array value of *datapath* elements to its tensors (see below).  Other aggregations are described in the specific tensor data model below.  The hierarchy form may utilize HDF5 object or region references.
 
-For I/O optimization, the *serial* variant will also associate tensor
-set with its tensors using a file naming and ordering convention as
-illustrated:
+For I/O optimization, the *serial* variant will also associate tensor set with its tensors using a file (in-archive) naming and ordering convention as illustrated:
 
 #+begin_example
 tensorset_0_metadata   # the tensor set ident=0 metadata object
@@ -77,9 +62,7 @@ tensor_0_4_array
 #+end_example
 
 #+begin_note
-The user may adopt a convention that *datapath* informally implies some
-association.  For example a point cloud (see below) may result in the
-following *datapath* set:
+The user may adopt a convention that *datapath* informally implies some association.  For example a point cloud (see below) may result in the following *datapath* set:
 
 #+begin_example
 pointcloud/0           # main tensor datapath
@@ -92,13 +75,9 @@ pointcloud/0/arrays/z  # etc...
 
 * Specific tensor data model
 
-The specific tensor data model maps meaning to one or more tensors in
-terms of other WCT data types by defining a number of conventions on
-top of the generic tensor data model.
+The specific tensor data model maps additional meaning to one or more tensors in terms of transient WCT data types by defining a number of conventions on top of the generic tensor data model.
 
-Every tensor has an associated *datatype* attribute of value string.
-Only values listed may be used:
-
+To start with, every tensor has provides an associated *datatype* attribute of value string.  Only values listed in this document are in the model:
 
 - pcarray :: a ~PointCloud::Array~ (~pointclouds/<ident>/arrays/<name>~)
 - pcdataset :: a ~PointCloud::Dataset~ (~pointclouds/<ident>~)
@@ -114,36 +93,22 @@ Only values listed may be used:
 
 Where pertinent, the recommended *datapath* root path for the type is given in parenthesis.
 
-The tensor set has a *datatype* of *tensorset* and is merely a generic
-container of tensors produced in some context (eg an "event").  The
-*tensorset* shall have an attribute *tensors* of value array of string
-that provides the *datapath* of all tensors in the set.
+The tensor set has a *datatype* of *tensorset* and is merely a generic container of tensors produced in some context (eg an "event").  The *tensorset* may provide an optional attribute *tensors* to reference *datapath* of the tensors.  For persistent serial files, such references are redundant with the file (in-archive) naming convention described below. 
+For hierarchical files, such references will form "softlinks" or "aliases" if the format supports them (as does HDF5).
 
-A tensor type may be an *aggregate*.  This is a tensor that represents
-other tensors by collecting their *datapath* into an metadata attribute.
+A tensor type may itself represent an *aggregate* of other tensors.  The aggregate is defined by a *datatype* specific metadata attribute holding an array of the *datapath* of the agregated tensors.
 
-The remaining sections describe additional requirements specific to
-for each *datatype*.
+The remaining sections describe additional requirements specific to for each *datatype*.
 
 ** pcarray
 
-The *datatype* of *pcarray* indicates a tensor representing one
-~PointCloud::Array~.
-The tensor array information shall map directly to that of ~Array~.
-A *pcarray* places no additional requirements on its tensor MD.
+The *datatype* of *pcarray* indicates a tensor representing one ~PointCloud::Array~.  The tensor array information shall map directly to that of ~Array~.  A *pcarray* places no additional requirements on its tensor MD.
 
 ** pcdataset
 
-The *datatype* of *pcdataset* indicates a tensor representing on
-~PointCloud::Dataset~.
-The tensor array shall be empty.
-The tensor MD shall have the following attributes:
+The *datatype* of *pcdataset* indicates a tensor representing on ~PointCloud::Dataset~.  The tensor array shall be empty.  The tensor MD shall have the following attributes:
 
-- arrays :: an object representing the named arrays.  Each attribute
-  name provides the array name and each attribute value provides a
-  *datapath* to a tensor of type *pcarray* holding the named array.
-Additional user application ~Dataset~ metadata may reside in the tensor
-MD.
+- arrays :: an object representing the named arrays.  Each attribute name provides the array name and each attribute value provides a *datapath* to a tensor of type *pcarray* holding the named array.  Additional user application ~Dataset~ metadata may reside in the tensor MD.
 
 ** pcgraph
 
@@ -269,10 +234,7 @@ The tensor MD may be empty.
   
 * Tensor archive files
 
-WCT provides the DFP graph node components ~TensorFileSink~ and
-~TensorFileSource~ that persist ~ITensorSet~ through an archive file (Zip
-or Tar, with optional compression) using WCT iostreams.  The archive
-file will contain files with names matching these patterns: 
+WCT provides the DFP graph node components ~TensorFileSink~ and ~TensorFileSource~ that persist ~ITensorSet~ through an archive file (Zip or Tar, with optional compression) using WCT iostreams.  The archive file will contain files with names matching these patterns:
 
 #+begin_example
   <prefix>tensorset_<ident>_metadata.json 

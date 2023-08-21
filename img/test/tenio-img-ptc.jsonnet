@@ -23,7 +23,15 @@ function(detector, variant="nominal",
             type: "BlobSampler",
             name: anode.data.ident, 
             data: {
-                strategy: ["center","corner","edge"],
+                strategy: [
+                    "center","corner","edge","bounds","stepped",
+                    {name:"grid", step:1, planes:[0,1]},
+                    {name:"grid", step:1, planes:[1,2]},
+                    {name:"grid", step:1, planes:[2,0]},
+                    {name:"grid", step:2, planes:[0,1]},
+                    {name:"grid", step:2, planes:[1,2]},
+                    {name:"grid", step:2, planes:[2,0]},
+                ],
                 extra: [".*"] // want all the extra
             }};
 
