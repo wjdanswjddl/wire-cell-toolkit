@@ -1,0 +1,451 @@
+#+title: WCT X planes
+#+subtitle: Timing of various types of WCT waveforms 
+#+LATEX_HEADER: \usepackage[margin=1.0in]{geometry}
+#+options: ':t
+
+* Introduction
+
+WCT assumes[fn:coords] the direction that ionized electrons drift
+through the bulk of the liquid argon where the electric field is
+approximately uniform is parallel (or anti-parallel) to the global
+X-axis.  Furthermore, the drift velocity in this region is assumed to
+be constant.  This leads to a natural redundancy in the measure of the
+drift time and X-position of any given drifting electron - or a group
+of electrons called a "depo" in WCT.  In the WCT coordinate system,
+certain special planes normal to the X-axis are identified.  Two in
+particular, a *response plane* and a *measurement plane*, determine how X
+position and drift time are related.
+This document explains these and other planes and how they play a role
+in WCT simulation and signal processing and related transformations.
+
+
+[fn:coords]  Collaborations may define a global coordinate systems in
+any way they wish but must apply a transformation from that coordinate
+system into the WCT coordinate system.  This is primarily done by
+providing sensitive electrode endpoints (wires/strips) in the WCT
+coordinate system as described more below in section [[Wires file] and
+in the document [[file:wire-schema.org][Wire Schema]].  The position of depos input to WCT must
+also be expressed in the WCT coordinate system.
+
+
+
+* Overview
+
+Figure [[fig:xplanes]] shows a summary of the primary depo or depo-related
+transformations performed by WCT.
+
+#+caption: Illustration of how X position and drift time are related through WCT simulation and signal processing and through the direct transform of depos to "true" signal waveforms by the ~larwirecell~ package in LArSoft.
+#+name: fig:xplanes
+[[file:x-planes.pdf]]
+
+- drift :: The WCT ~Drifter~ transports depos in time and along the
+  drift direction from their initial locations to the *response plane*.
+- sim :: The WCT ~DepoTransform~ applies the *detector response*, which is
+  a convolution of the *field response* (shown in the figure) and the
+  *electronics response* to produce *voltage waveforms* output by
+  electronics channels.
+- digitizer :: The WCT ~Digitizer~ applies a simple linear scaling and
+  integer truncation to the voltage waveforms to produce *ADC
+  waveforms*.
+- signal processing :: The WCT ~OmnibusSigProc~ deconvolves detector
+  response from ADC waveforms to produce *signal waveforms* that
+  represent the flux of ionization electrons through the *measurement
+  plane*.
+- depo flux :: The ~DepoFluxWriter~ from ~larwirecell~ directly produces
+  an approximation of the output of *signal processing* by tabulating
+  *depo flux waveforms* at the *measurement plane* (in the form of
+  ~SimChannel~ ~IDE~ contributions).
+
+In addition, the WCT ~*AddNoise~ components may be used to apply various
+models to add noise contributions to the voltage waveforms.
+
+
+* Planes
+
+In the above description of the various operations there are a number
+of relevant planes at different locations along the X dimension.  They
+are summarized:
+
+- *wire* :: The wire (or strip) planes are named U, V and W (collection)
+  in WCT.  Perhaps somewhat surprisingly their location in the X
+  direction are not directly pertinent for any of these operations.
+  However the W-plane position is used indirectly as an origin for
+  defining the relative placement of the *response plane* and being
+  identified as co-planar with the *measurement plane*.
+
+- anode :: Despite the name, this plane need not coincide with any
+  particular X-location of an anode *wire plane*.  It is typically
+  chosen at the center of an anode-plane assembly or at a "ground
+  plane" behind the wires.  The purpose of the *anode plane* is to
+  define one side of the bounds of a *sensitive volume* along the
+  nominal drift direction.
+
+- cathode :: Likewise, this plane need not be exactly associated with
+  an element of the physical cathode.  It is typically chosen to
+  either be co-planar with the physical cathode face or in the middle
+  of a cathode-plane assembly.  The primary use for the *cathode plane*
+  is to form the other longitudinal bounds of the *sensitive volume*.
+
+- response :: This is a plane between the *anode* and *cathode*.  It
+  represents the boundary separating the region where the drift field
+  is considered uniform and the region governed by the detailed 2D
+  *field response*.  Its position is defined both absolutely and
+  relative to the collection plane (see below).
+
+- *measurement* :: This plane is where WCT measures the time of *signal
+  waveforms* and *depo flux waveforms* WCT identifies the *measurement
+  plane* to coincide with the *collection (W) wire plane*.
+
+The *signal waveforms* and the *depo flux waveforms* are naturally aligned
+in time due to the transformations creating them using a common
+*measurement plane*.  Applying a time offset to these waveforms is
+equivalent to defining a different measurement plane.  If such an
+offset if applied, it must be applied equally to both *signal* and *depo
+flux* waveforms to retain consistency.  It is not physically meaningful
+to apply different time offsets to the waveforms measured by different
+wire planes.
+
+A note of caution, currently the locations of the *anode*, *response*, and
+*cathode* planes are defined as absolute X positions in the WCT Jsonnet
+configuration while the *response* plane is also defined relative to the
+*collection* plane in the WCT field response files.  The various
+operations use these two values as listed:
+
+- ~Drifter~ :: the drift ends at the absolute position provided by the Jsonnet.
+- ~DepoTransform~ :: the detailed drift and response is applied over
+  time (and with average speed ~fr.speed~) assuming a relative distance
+  ~fr.origin~ to the collection.  These are quantities that the
+  calculator of the field response must provide.
+- ~OmnibusSigProc~ :: as the deconvolution of the field response
+  "undoes" the drift over the distance ~fr.origin~, the signal
+  processing offsets the signal waveforms in time by
+  ~fr.origin/fr.speed~ to effectively "move" them to the measurement
+  plane.
+- ~DepoFluxWriter~ :: as this mimics the combination of simulation and
+  signal processing it also "moves" the resulting waveforms by
+  ~fr.origin/fr.speed~ to the measurement plane.
+Users must assure these locations, particularly those for the two
+forms for the *response plane*, are consistent.  The ~wirecell-util
+wires-volumes~ command provided by the ~wire-cell-python~ package may be
+used to generate a consistent snippet of Jsonnet.
+
+* Transformations
+
+This section lists the steps of each major transformation.
+
+** Drift
+
+The drift portion follows these steps:
+
+1. Initial groups of ionized electrons (depos) are placed throughout a detector volume.
+2. Only depos in the *active volume* (see above) are selected.
+3. Depos between *cathode plane* and *response plane* are drifted to the response plane with diffusion, absorption and other drift physics applied.
+4. Depos between the *response plane* and *anode plane* are drifted "backwards" in space and time to the response plane and no other drift physics are applied.
+
+
+** Detector response
+
+The detector response is applied starting with the drifted depos piled up on the *response plane*. 
+
+1. The Gaussian extents of the depos are sampled to bins and fluctuated.
+
+2. That manifold is convolved with the detector response (field and electronics).
+
+3. Noise is optionally generated and added to signal at the voltage level.
+
+4. A linear scaling followed by integer truncation produces ADC waveforms.
+
+The ADC waveforms are collected from channels of each wire plane.
+Their relative positioning in time across the wires planes are as they
+would be in the real detector (up to the correctness of the field
+response).  No inter-plane adjustments should be applied.
+
+** Signal processing
+
+The signal processing is applied starting with ADC waveforms from
+simulation or real detector to produce a measure of the flux of
+drifted depos as viewed from the *measurement plane* that is coincident
+with the W wire plane.
+
+- Noise is filtered from the ADC waveforms while strongly retaining signal.
+
+- The 2D detector response (average field response convolved with
+  electronics response) is deconvolved with the 2D ADC waveforms with
+  filtering.  ("Fourier-regularized deconvolution").  This results
+  represents the depo flux measured at the *response plane*.
+  
+- 2D signal regions of interest (signal-ROI) in time vs channel space
+  are identified around peaks on the Wiener-inspired filtered
+  deconvolution.  These are applied to the Gauss-filtered
+  deconvolution and waveform traces within eacy signal-ROI are
+  rebaselined.  This effectively filters low frequency noise. 
+
+- The result is transported to the *measurement plane* (coincident at
+  the W wire plane).
+
+** Depo flux
+
+Many features produced by the detector response convolution are
+canceled by the signal processing.  The *depo flux waveforms* are
+approximations of the signal waveforms that are derived directly from
+the depos.  Additional Gaussian smearing may be applied to the depos
+to improve the approximation.
+
+The *depo flux waveforms* are created by the ~larwirecell~ component
+~DepoFluxWriter~.  Older ~larwirecell~ components with names
+~*SimChannelSink~ performed similar operation but are now obsolete and
+should not be used.  A ~DepoSplat~ component exists in WCT to perform a
+similar operation but it is deprecated for now.  In all cases the depo
+flux waveforms are produced with this chain:
+
+- Post-drift depos piled up at the *response plane* are input.
+- A Gaussian smearing is applied - this is additional to whatever
+  Gaussian extent the input depos carry.
+- The result is transported to the *measurement plane* (coincident with
+  the W wire plane).
+- Optional arbitrary, user-provided time offsets may be applied which
+  effectively change the location of the *measurement plane*.
+
+* Configuration data
+
+This section describes the configuration data that relates to the
+X-planes and transformations described above.
+
+
+** Field response file
+
+A field response (FR) is provided to WCT as a JSON file.  An FR is
+used for two purposes.  In its given form it is convolved with the
+drifted electron distribution provided by the drifted depos to form
+voltage waveforms input to the model of the ADC digitizer.  The FR is
+also averaged and deconvolved with ADC waveforms prior to transport to
+the measurement plane when producing signal waveforms.  An FR for
+ProtoDUNE-SP is shown in the figure [[fig:xplanes]].  It has 2D extent
+that is pitch distance relative to a "wire of interest" and vs sample
+time that is faster than ADC sampling, (typically 0.1us).
+
+The FR provides two general, scalar quantities relevant to the X
+planes described in this document:
+
+- origin :: the distance along the nominal drift direction from the
+  beginning of the FR data to the collection plane.  It is derived
+  from and provided by the model of the detector that was used in the
+  calculation of the FR.  For popular FR calculations using GARFIELD
+  and wire detectors, this value is typically 10cm.
+
+- tstart :: a time at which the field FR data should be considered to
+  start.  Generally this is 0 and is not universally used so use of
+  non-zero values may uncover issues.
+
+** Wires file
+
+The "wires file" is a JSON file that exhaustively lists the two end
+points of each wire (segment).  These points are in a global Cartesian
+coordinate system which places the X-axis parallel (or anti-parallel)
+to all nominal drift directions, Y-axis opposed to gravity and Z-axis
+from the right-hand rule.  This choice is fixed and any application
+which assumes a different convention must translate into WCT
+coordinates.  The origin of this global coordinate system is free to
+choose and is typically chosen at the center or corner of a detector.
+
+Planes of parallel wires (or strips) are themselves mutually parallel
+and each positioned at some X location.  Of note is that the actual X
+locations for wire planes are not particularly important in WCT's
+drift/detector simulation and signal processing.  There, it is the
+field response that "places" the wires in X by actually placing them
+in time relative to a "response" plane described more below.
+
+** ~Drifter~
+
+The ~Drifter~ transports each ionization depo to the *response* plane if
+it is between the *cathode* and *anode* planes.  If between *cathode* and
+*response* the drift is "forward" and includes physics such as diffusion
+and electron absorption.  If between *response* and *anode* the depo is
+simply "backed up" in space and time to the *response* plane.
+
+** ~DepoTransform~
+
+The ~DepoTransform~ convolves the detector responses with the post-drift
+ionization that has piled up at the *response* plane.  It has the
+following configuration parameters that impact the drift location/time:
+
+- ~start_time~ :: the time at which a gate in time is opened to accept
+  depos.  For PDSP this is chosen as "-250us - (origin/drift_speed)".
+  Note, *origin* here is not taken directly from the FR data but copied
+  into the configuration.
+- ~readout_time~ :: the duration of that gate
+- ~drift_speed~ :: the nominal drift speed, typically close to 1.6 mm/us.
+  
+** ~OmnibusSigProc~
+
+This class provides WCT signal processing.  It accepts a truly
+gigantic number of configuration parameters (50+).  Some of the
+parameters that impact the location of its output in time are:
+
+- ~ftoffset~ :: "fine time offset"
+- ~ctoffset~ :: "coarse time offset"
+
+The *fine time offset* is used to shift (rotate) the detector response
+(convolution of FR and ER) along its time axis.  It is "fine" in that
+it operates on the detector response in the time basis of the FR
+(typically 0.1us).  This moves the later columns that are within *fine
+time offset* of the end of the response to become the initial bins.
+For all detectors in WCT's ~cfg/~ this is zero.
+
+The *coarse time offset* plus an *intrinsic time offset* which is
+calculated as the ratio *origin/speed* using FR values is likewise used
+to shift the response in the "coarse" time basis of the ADC sample
+time (typically 0.5us).  This defaults to -8us (for unknown historical
+reasons?) and for PDSP and most other detectors described in WCT's
+~cfg/~ it is set to 1us (WCT's ICARUS is set to 0us).
+
+** ~SimChannel~
+
+The ~larwirecell~ package in LArSoft provides [[https://github.com/LArSoft/larwirecell/blob/develop/larwirecell/Components/DepoSetSimChannelSink.cxx][ ~DepoSetSimChannelSink~
+]]which is a WCT component that can participate in a WCT graph and
+"visit" the ~art::Event~.  It will produce a LArSoft data product called
+[[https://github.com/LArSoft/lardataobj/blob/develop/lardataobj/Simulation/SimChannel.h][ ~SimChannel~ ]] and in particular provides instances of the LArSoft class
+~IDE~ that is a close equivalent to WCT ~IDepo~.  These values may be
+thought of as "true number of ionization electrons" in binning of one
+ADC sample period and the transverse spatial regions around all wires
+(segments) that feed a given channel.  They are comparable to their
+reconstructed equivalent produce by WCT signal processing.
+
+The ~DepoSetSimChannelSink~ has a number of time-related configuration
+parameters:
+
+- ~response_plane~ :: *hard-coded to 10cm*, location of *response* plane, a ~response_time_offset~ is calculated as this value divided by ~drift_speed~ (note, as of writing this is had-coded, see [[https://github.com/LArSoft/larwirecell/issues/31][larwirecell issue 31]])
+- ~start_time~ :: contribute to the start time of a binning.
+- ~readout_time~ :: the time after ~start_time~ that the "readout" ends.
+- ~drift_speed~ :: nominal drift speed
+- ~{u,v,y}_time_offset~ :: A time offset to apply to {U,V,W}-plane. Note, the "y" prefix is not a typo here.
+- ~{u,v,y}_to_rp~ :: A distance to apply to the {U,V,W}-plane
+
+This class currently has some confusing things which need fixing:
+
+- The term "readout" is a little misleading as there is no readout and
+  the sample values are in units of electrons, not ADC.  The sample
+  time may be the same but an arbitrary time offset exists.
+
+- The letter "y" is the most confusing choice for a collection plane
+  label.  It should be "w".  Or, perhaps "z" as that is the direction
+  W measures for most detectors.  Hardware folks like to call it "x"
+  for some reason.  Why "y"?
+
+- The ~_time_offset~ and ~_to_rp~ are redundant so both should not be
+  supported.
+
+- Separate parameters for each plane for concepts that do not depend
+  on wire plane is a foot gun.
+
+- The hard-wired ~response_plane = 10cm~ will lead to dropped depo
+  content for detectors that have FR using a larger value.  Strip FRs
+  typically use 20cm.
+
+Proposed solution: all six of these parameters should be removed and a
+single new parameter added that defines where a logical *electron flux
+measurement plane* is placed.  Ie, that determines *where* we are
+measuring times of ionization electrons.
+
+* Example
+
+The ~larwirecell~ package provides a test "depofluxwriter" that
+simulates a muon traversing the DUNE FD HD "1x2x6" detector fragment.
+
+The job runs Geant4 tracking, applies WCT drift and detector response,
+noise and digitizer simulation, WCT signal processing and outputs depo
+flux waveforms (in the form of LArSoft ~SimChannel~ ~IDE~ contributions).
+The depo flux is compared to the ADC and signal waveforms to
+illustrate their shape and relative timing.
+
+Segments of the muon track are approximately parallel to the wire
+planes ("isochronous") and so provide a means to observe the different
+arrival times of their ADC, signal and depo flux waveforms.
+
+** ADC and depo flux waveforms
+
+The figure [[fig:aw]] shows for the U, V and W planes the ADC and depo
+flux waveforms (overlayed).
+
+#+caption: ADC and depo flux waveforms from U, V and W planes resulting from a mostly isochronous muon track.  The first column shows ADC samples in a color scale and depo flux waveforms overlayed in blue.  The ADC samples are not baseline-subtracted and reflect the ADC offset applied for each plane.  Two channels from each plane are selected and marked with horizontal lines and their waveforms are shown in the second and third columns. 
+#+name: fig:aw
+#+begin_figure
+\includegraphics[page=7,height=0.3\textwidth]{test_depofluxwriter_hist.pdf}
+\includegraphics[page=8,height=0.3\textwidth]{test_depofluxwriter_hist.pdf}
+\includegraphics[page=9,height=0.3\textwidth]{test_depofluxwriter_hist.pdf}
+
+\includegraphics[page=16,height=0.3\textwidth]{test_depofluxwriter_hist.pdf}
+\includegraphics[page=17,height=0.3\textwidth]{test_depofluxwriter_hist.pdf}
+\includegraphics[page=18,height=0.3\textwidth]{test_depofluxwriter_hist.pdf}
+
+\includegraphics[page=25,height=0.3\textwidth]{test_depofluxwriter_hist.pdf}
+\includegraphics[page=26,height=0.3\textwidth]{test_depofluxwriter_hist.pdf}
+\includegraphics[page=27,height=0.3\textwidth]{test_depofluxwriter_hist.pdf}
+#+end_figure
+
+Advancing through U, V to W one sees the center of the ADC waveforms
+naturally progress toward later times.  This is consistent with each
+plane sampling the distribution of drifting electrons at different
+locations in X.  On the other hand, the depo flux is observed at
+single measurement plane, which coincides with the collection plane.
+The apparently delay between collection ADC and depo flux can be
+understood as the combined effects of electronics response and the
+fact that drift paths between two wires delay collection.
+
+The ADC waveform are measured in ADC counts while the depo flux
+waveforms (like those from the signal processing) are measured in
+units of electrons per tick (and per "wire region").  The ADC
+waveforms are shown here with no pedestal subtraction.
+
+** Signal and depo flux waveforms
+
+The figure [[fig:sw]], show for the U, V and W planes the waveforms from
+signal processing with Gauss filter and the depo flux waveforms
+(overlayed).  Signal processing with Wiener-inspired filter are
+similar.
+
+#+caption: Signal processing and depo flux waveforms from U, V and W planes resulting from a mostly isochronous muon track.  The first column shows signal waveforms overlayed with depo flux waveforms both in a common color scale in units of electrons.  Two channels from each plane are selected and marked by horizontal lines and their waveforms are shown in columns two and three.  The depo flux waveform transformation has not been tuned with additional smearing and so these waveforms are more peaked than those from the full signal processing.
+#+name: fig:sw
+#+begin_figure
+\includegraphics[page=1,height=0.3\textwidth]{test_depofluxwriter_hist.pdf}
+\includegraphics[page=2,height=0.3\textwidth]{test_depofluxwriter_hist.pdf}
+\includegraphics[page=3,height=0.3\textwidth]{test_depofluxwriter_hist.pdf}
+
+\includegraphics[page=10,height=0.3\textwidth]{test_depofluxwriter_hist.pdf}
+\includegraphics[page=11,height=0.3\textwidth]{test_depofluxwriter_hist.pdf}
+\includegraphics[page=12,height=0.3\textwidth]{test_depofluxwriter_hist.pdf}
+
+\includegraphics[page=19,height=0.3\textwidth]{test_depofluxwriter_hist.pdf}
+\includegraphics[page=20,height=0.3\textwidth]{test_depofluxwriter_hist.pdf}
+\includegraphics[page=21,height=0.3\textwidth]{test_depofluxwriter_hist.pdf}
+#+end_figure
+
+For all planes it is seen that the signal and the depo flux waveforms
+align in time.  Both are measured in units of electrons per tick.  The
+depo flux waveforms sharper than the signals as the ~DepoFluxWriter~ was
+configured to apply no additional smearing.  This may be tuned to
+match the additional smearing that is residual from the naturally
+imperfect deconvolution in the signal processing.
+
+** Reproducing
+
+The plots in figure [[fig:aw]] and [[fig:sw]] are produced by a test in the
+~larwirecell~ package which includes main FHiCL and Jsonnet
+configuration files.  They may be reproduced with the following
+command:
+
+#+begin_example
+$ WCT_BATS_TMPDIR=$(pwd)/tmp \
+  bats $(pwd)/mrb/srcs/larwirecell/larwirecell/tests/test_depofluxwriter.bats
+$ ls -l tmp/test_depofluxwriter_hist.pdf
+#+end_example
+
+** More info
+
+The ~larwirecell~ package provides additional documentation on ~DepoFluxWriter~ in the file ~larwirecell/docs/depofluxwriter.org~.
+
+* COMMENT :noexport:
+
+To remake this document, one needs the above
+~test_depofluxwriter_hist.pdf~ file and an export of ~x-planes.dia~ to
+~x-planes.pdf~.  Then the usual ~C-c C-e l p~ export command.
