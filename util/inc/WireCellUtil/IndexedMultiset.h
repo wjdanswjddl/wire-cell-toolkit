@@ -4,6 +4,7 @@
 #include <unordered_map>
 #include <vector>
 #include <algorithm>
+#include <functional>
 
 namespace WireCell {
 
@@ -20,14 +21,15 @@ namespace WireCell {
      * Elements must be hashable.
      */
 
-    template <class TYPE>
+    template <class TYPE, class Count = size_t, class Hash = std::hash<TYPE>>
     class IndexedMultiset {
        public:
 
-        using size_type = size_t;
+        using size_type = Count;
+        using hash_type = Hash;
 
         // Map element to first-seen order
-        using index_type = std::unordered_map<TYPE, size_type>;
+        using index_type = std::unordered_map<TYPE, size_type, hash_type>;
         using iterator = typename index_type::iterator;
 
         // Map as-added order to element;

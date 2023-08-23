@@ -481,7 +481,8 @@ namespace WireCell::PointCloud {
 
     };                          // Dataset
     
-
+    // A "null" filter which incurs a copy.
+    inline Dataset copy(const Dataset& ds) { return ds; }
 }
 
 #endif
