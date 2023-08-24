@@ -12,15 +12,21 @@ namespace WireCell {
      *
      * This class maintains a multiset - a set with possible duplicates.
      *
-     * Once added, collections of elements in different ordering:
+     * The IndexedMultiset provides two collections:
      *
-     * - first-seen index :: number incremented each time a novel element is added.
-     * 
-     * - as-added order :: number giving the order each element is added.
+     * - index :: a zero-based sequential count for the value.  Every
+     *   insert of a value returns the same index.  The index is
+     *   simply the number of elements previously seen prior to the
+     *   insertion of the value for the first time.  The size of the
+     *   index is the number of unique values that have been inserted.
      *
-     * Elements must be hashable.
+     * - order :: maintains the order of insertion.  Elements of this
+     *   collection are elements of the index collection and thus
+     *   duplicates may exist.  The size of the order is the number of
+     *   insertions.
+     *
+     * Inserted values must be hashable and comparable.
      */
-
     template <class TYPE, class Count = size_t, class Hash = std::hash<TYPE>>
     class IndexedMultiset {
        public:
@@ -52,7 +58,11 @@ namespace WireCell {
             }
         }
 
+        // Access the index collection holding a map from unique value
+        // to its sequential index number.
         const index_type& index() const { return m_index; };
+        // Access the order collection with each element corresponding
+        // to an inserted value and gives an iterator into the index.
         const order_type& order() const { return m_order; };
 
         // Intern an object as element and return its index.
@@ -73,7 +83,8 @@ namespace WireCell {
             return out;
         }
 
-        // Return the first-seen indices in as-added order as vector.
+        // Return vector of indices corresponding to the sequence of
+        // inserted values.
         std::vector<size_type> index_order() const
         {
             std::vector<size_type> ret(m_order.size());
@@ -96,15 +107,15 @@ namespace WireCell {
             return out;
         }
 
-        // Return an inversion of the index to map from first-seen
-        // index to element.
+        // Return an inversion of the index.  The vector holds the
+        // unique inserted values in order of their index.
         std::vector<TYPE> invert() const {
             std::vector<TYPE> ret(m_index.size());
             invert(ret.begin());
             return ret;
         }            
 
-
+        // Return true if we have hte object.
         bool has(const TYPE& obj)
         {
             auto mit = m_index.find(obj);

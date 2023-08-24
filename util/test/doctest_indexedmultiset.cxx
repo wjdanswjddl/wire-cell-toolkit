@@ -6,6 +6,7 @@ using namespace WireCell;
 
 TEST_CASE("indexed multiset basics")
 {
+
     IndexedMultiset<int> imsi;
     CHECK(imsi(42) == 0);
     CHECK(imsi(69) == 1);
