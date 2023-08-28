@@ -1,48 +1,6 @@
 /** Produce point cloud representation of a set of blobs.
 
-    Points are produced by sampling.  Strategies are given by name
-    with the "strategy" configuration parameter which may be a string
-    (one strategy) or an array of string (multiple strategies).
-
-    The sampling results in a set of PC arrays consisting of a
-    "sampling" subset and an "extra" subset.  The content of the
-    "sampling" subset is not subject to configuration while the
-    content of the "extra" subset is subject to user configuration.
-
-    The names of the PC arrays are as "<prefix><suffix>" where the
-    suffix is fixed by this component and the prefix is provided by
-    user configuration with default being the empty string.
-
-    The "sampling" arrays, listed by their suffix, are:
- 
-    - x_coord :: (double) point X-position in the global coordinate system
-    - y_coord :: (double) point Y-position in the global coordinate system
-    - z_coord :: (double) point Z-position in the global coordinate system
-    - t_coord :: (double) point time
-
-    Additional arrays may be include based on the value of the "extra"
-    configuration parameter which may be of type string or array of
-    string.  Each string is interpreted as a regex and compared
-    against the potential array suffix.  
-
-    - sample_strategy :: (int) the ID of the sampling strategy that produced the point.
-    - blob_ident :: (int) the blob ident number.
-    - blob_index :: (int) the index of the blob in the input vector.
-
-    - slice_ident :: (int) the slice 
-    - slice_start :: (double) the start time of the slice.
-    - slice_span :: (double) the time span of the slice.
-
-    - {u,v,w}wire_index :: (int) index of nearest wire in a plane (IWirePlane::wires() order)
-    - {u,v,w}pitch_coord :: (double) location of point along the pitch direction.
-    - {u,v,w}wire_coord :: (double) location of point along the wire direction.
-
-    - {u,v,w}channel_ident :: (int) the ident number of nearest channel (IChannel::ident()).
-    - {u,v,w}channel_attach :: (int) the attachment number of nearest channel (IChannel::index()).
-
-    - {u,v,w}charge_val :: (double) the charge value of nearest channel.
-    - {u,v,w}charge_unc :: (double) the charge uncertainty of nearest channel.
-
+    See blob-sampling.org document for details.
  */
 
 #ifndef WIRECELL_IMG_BLOBSAMPLER
