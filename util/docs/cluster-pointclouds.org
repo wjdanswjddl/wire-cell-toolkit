@@ -1,0 +1,65 @@
+#+title: Cluster Point Clouds
+
+* Overview
+
+The ~ICluster~ is converted to a number of point clouds (PCs) as
+provided for clustering and pattern recognition algorithms.
+
+* Taxonomy
+
+- group :: a set of clusters with some semantic meaning ("live", "dead")
+- cluster :: a set of blobs with some mutual connectivity
+- blob :: ("mcell" in WCP) a volume bound by a transverse polygon and a longitudinal extrusion (3D) and with projection in each view (3x2D)
+- point :: an abstract element that asociates a coordinate in either 3D Cartesian or 2D view space with additional attributes
+- pointcloud :: a collection of point attributes
+
+* WCP
+
+Clusters must provide methods for WCP.  PR3DCluster is main "cluster"
+
+** Functions
+
+*** Clustering live dead
+
+- CN(A,B) -> {b} :: cluster neighbors, find the set of blobs {b} in
+  cluster A that are "near" cluster B.
+
+- PWCN(AA,BB) -> B:{(CN(A,B),AA)} ::  pair-wise cluster neighbors given
+  cluster set AA and cluster set BB, find /cluster neighbors/ for all
+  pairs (A,B), A in AA and B in BB.
+
+
+
+** Cluster methods
+
+- add blob (see below for blob info)
+
+-   
+
+
+** Blob
+
+Region of extent in multiple spaces:
+
+- on one face
+- 2D transverse space bounded by wires (6 numbers)
+- 1D longitudinal space bounded by three equivalent ranges: (time,dt), (tick,nticks), (x,dx)
+- 3x2D projective space bounded by channels (wire-attachment-number) and ticks
+
+  
+* 
+
+- a blob holds bounds and a PC of sampled points and attributes
+- a cluster holds blobs
+- blob can be added to / removed from cluster
+- cluster maintains k-d caches of blob PCs
+
+** names
+
+- PCBCluster :: point cloud blob cluster
+- BCluster :: blob cluster
+- BlobCluster :: blob cluster
+- ClusterPointCloud ::
+- ClusterPC :: 
+
+

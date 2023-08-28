@@ -21,6 +21,10 @@ namespace WireCell::Range {
         return iter_pair<I>(p);
     }
 
+    template<typename I>
+    auto idistance(std::pair<I, I> p) {
+        return std::distance(p.first, p.second);
+    }
 
     template<typename I>
     auto irange(std::pair<I, I> p) {

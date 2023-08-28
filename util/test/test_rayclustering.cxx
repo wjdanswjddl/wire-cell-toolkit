@@ -3,6 +3,7 @@
 #include "WireCellUtil/Waveform.h"
 #include "WireCellUtil/Testing.h"
 #include "WireCellUtil/Logging.h"
+#include "WireCellUtil/RayHelpers.h"
 
 #include <math.h>
 
@@ -25,10 +26,6 @@ const double gaussian = 3;
 const double border = 10;
 const double width = 100;
 const double height = 100;
-
-
-// local helper codes
-#include "raygrid.h"
 
 #include "raygrid_dump.h"
 
@@ -249,7 +246,7 @@ static void test_blobs(const blobs_t& blobs)
 
 int main(int argc, char* argv[])
 {
-    auto raypairs = make_raypairs(width, height, pitch_magnitude);
+    auto raypairs = symmetric_raypairs(width, height, pitch_magnitude);
 
     Coordinates coords(raypairs);
     Assert(coords.nlayers() == 5);
