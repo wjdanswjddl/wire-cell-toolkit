@@ -8,14 +8,17 @@
 using namespace WireCell::NaryTree;
 
 
-TEST_CASE("nary tree depth ptc iter") {
-    depth_ptc_iter<int> a, b;
+TEST_CASE("nary tree depth iter") {
+    depth_iter<int> a, b;
 
     CHECK( !a.node );
 
     CHECK( a == b );
     
     CHECK( a.begin() == a.end() );
+
+    depth_const_iter<int> c(a);
+    CHECK( a == c );
 }
 
 // Simple node data that tracks its copies/moves
@@ -141,9 +144,9 @@ TEST_CASE("nary tree node") {
 
     {
         size_t nnodes = 0;
-        depth_ptc_iter<Data> depth(&r);
+        depth_iter<Data> depth(&r);
         std::vector<Data> data;
-        for (auto it = depth.begin();
+        for (auto it = depth.begin(); // could also use r.depth().begin()
              it != depth.end();
              ++it)
         {
@@ -158,7 +161,36 @@ TEST_CASE("nary tree node") {
         CHECK( data[1].val == "0.0" );
         CHECK( data[2].val == "0.1" );
         CHECK( data[3].val == "0.2" );
-
     }
+    {   // same as above but range based loop
+        size_t nnodes = 0;
+        depth_iter<Data> depth(&r);
+        std::vector<Data> data;
+        for (const auto& d : r.depth()) 
+        {
+            std::cerr << "depth " << nnodes << " " << d << "\n";
+            ++nnodes;
+            data.push_back(d);
+        }
+        CHECK( nnodes == 4 );
+
+        CHECK( data[0].val == "0" );
+        CHECK( data[1].val == "0.0" );
+        CHECK( data[2].val == "0.1" );
+        CHECK( data[3].val == "0.2" );
+    }
+
+    {
+        // Const version
+        const auto& rc = r;
+        size_t nnodes = 0;
+        std::vector<Data> data;
+        for (const auto& d : rc.depth()) 
+        {
+            ++nnodes;
+            data.push_back(d);
+        }
+        CHECK( nnodes == 4 );
+    }    
 
 }    
