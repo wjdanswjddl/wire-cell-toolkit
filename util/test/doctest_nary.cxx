@@ -234,7 +234,7 @@ TEST_CASE("nary tree simple tree tests") {
                  ++it)
             {
                 const Data& d = it.node->value;
-                debug("depth %d %s", nnodes, d);
+                debug("depth {} {}", nnodes, d);
                 ++nnodes;
                 data.push_back(d);
             }
@@ -251,7 +251,7 @@ TEST_CASE("nary tree simple tree tests") {
             std::vector<Data> data;
             for (const auto& d : r->depth()) 
             {
-                debug("depth %d %s", nnodes, d);                
+                debug("depth {} {}", nnodes, d);                
                 ++nnodes;
                 data.push_back(d);
             }
@@ -292,7 +292,7 @@ TEST_CASE("nary tree bigger tree lifetime")
         std::list<size_t> layer_sizes ={2,4,8};
         size_t niut = nodes_in_uniform_tree(layer_sizes);
         auto root = make_tree(layer_sizes);
-        debug("starting live count: %d, ending live count: %d, diff should be %d",
+        debug("starting live count: {}, ending live count: {}, diff should be {}",
               live_count, Data::live_count, niut);
         CHECK(Data::live_count - live_count == niut);
     } // root and children all die
@@ -338,7 +338,7 @@ TEST_CASE("nary tree child iter")
 
     std::vector<std::string> nstack = {"0.2","0.1","0.0"};
     for (const auto& c : r->child_values()) {
-        debug("child value: %s", c);
+        debug("child value: {}", c);
         CHECK(c.name == nstack.back());
         nstack.pop_back();
     }
@@ -346,13 +346,16 @@ TEST_CASE("nary tree child iter")
     // const iterator
     const auto* rc = r.get();
     for (const auto& cc : rc->child_values()) {
-        debug("child value: %s (const)", cc);
+        debug("child value: {} (const)", cc);
+        // cc.name += " extra";    // should not compile
     }
 
     for (auto& n : r->child_nodes()) {
-        debug("child node value: %s", n.value);
+        n.value.name += " extra";
+        debug("change child node value: {}", n.value);
     }
     for (const auto& cn : rc->child_nodes()) {
-        debug("child node value: %s", cn.value);
+        debug("child node value: {}", cn.value);
+        // cn.value.name += " extra"; // should not compile
     }
 }
