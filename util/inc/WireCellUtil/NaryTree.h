@@ -92,6 +92,19 @@ namespace WireCell::NaryTree {
             return insert(std::move(p));
         }
 
+        // Insert as bare node pointer.  This takes ownership and will
+        // remove the Node from its existing parent.
+        Node* insert(Node* node) {
+            owned_ptr nptr;
+            if (node->parent) {
+                nptr = node->parent->remove(node);
+            }
+            else {
+                nptr.reset(node);
+            }
+            return insert(std::move(nptr));
+        }
+
         // Insert a child by node pointer.
         Node* insert(owned_ptr node) {
             node->parent = this;
@@ -119,12 +132,15 @@ namespace WireCell::NaryTree {
             if (sib == children_.end()) return nullptr;
             owned_ptr ret = std::move(*sib);
             children_.erase(sib);
+            ret->sibling = children_.end();
+            ret->parent = nullptr;
+            
             return ret;
         }
 
         // Remove child node.  Searches children.  Return child node
         // in owned pointer if found else nullptr.
-        owned_ptr remove(Node* node) {
+        owned_ptr remove(const Node* node) {
             auto it = find(node);
             return remove(it);
         }
@@ -133,9 +149,11 @@ namespace WireCell::NaryTree {
         value_type value;
 
         // Access parent that holds this as a child.
-        self_type* parent{nullptr};
+ self_type* parent{nullptr};
 
-        // Iterator locating self in list of siblings.
+        // Iterator locating self in list of siblings.  If parent is
+        // null, this iterator is invalid.  It is set which this node
+        // is inserted as a anothers child.
         sibling_iter sibling;
 
         self_type* first() const {

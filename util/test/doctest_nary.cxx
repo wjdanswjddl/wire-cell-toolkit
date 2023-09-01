@@ -78,29 +78,30 @@ using data_node_type = Node<Data>;
 
 
 // Make a simple tree using all insert methods, return the root node.
-data_node_type::owned_ptr make_simple_tree()
+data_node_type::owned_ptr make_simple_tree(const std::string& base_name = "0");
+data_node_type::owned_ptr make_simple_tree(const std::string& base_name)
 {
     const size_t live_count = Data::live_count;
 
-    auto r = std::make_unique<data_node_type>(Data("0"));
+    auto r = std::make_unique<data_node_type>(Data(base_name));
     CHECK(Data::live_count == live_count + 1);    
 
     {
-        Data d("0.0");
+        Data d(base_name + ".0");
         auto* n = r->insert(d);
         CHECK(n);
     }
     CHECK(Data::live_count == live_count + 2);
 
     {
-        Data d("0.1");
+        Data d(base_name + ".1");
         auto* n = r->insert(std::move(d));
         CHECK(n);
     }
     CHECK(Data::live_count == live_count + 3);
 
     {
-        auto nup = std::make_unique<data_node_type>(Data("0.2"));
+        auto nup = std::make_unique<data_node_type>(Data(base_name + ".2"));
         auto* n = nup.get();
         auto* n2 = r->insert(std::move(nup));
         CHECK(n == n2);
@@ -324,10 +325,24 @@ TEST_CASE("nary tree remove node")
         const size_t nbefore = children.size();
         auto dead = root->remove(doomed);
         CHECK(dead.get() == doomed);
+        CHECK( ! dead->parent );
         const size_t nafter = children.size();
         CHECK(nbefore == nafter + 1);
 
     } // root and children all die
+
+    CHECK(live_count == Data::live_count);
+
+    { // insert node that is in another tree
+        auto r1 = make_simple_tree("0");
+        auto r2 = make_simple_tree("1");
+        data_node_type* traitor = r2->children().front().get();
+        r1->insert(traitor);
+        CHECK(r1->children().size() == 4);
+        CHECK(r2->children().size() == 2);
+        CHECK(r1->children().back()->value.name == "1.0");
+        CHECK(r2->children().front()->value.name == "1.1");
+    }
 
     CHECK(live_count == Data::live_count);
 }
