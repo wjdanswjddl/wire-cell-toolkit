@@ -57,6 +57,7 @@ namespace WireCell::NaryTree {
         // holds the children
         using nursery_type = std::list<owned_ptr>; 
         using sibling_iter = typename nursery_type::iterator;
+        using sibling_const_iter = typename nursery_type::const_iterator;
 
         // using depth_range = depth_iter<Value>;
 
@@ -70,23 +71,53 @@ namespace WireCell::NaryTree {
         Node(value_type&& val) : value(std::move(val)) {}
 
         // Insert a child by its value copy.
-        void insert(const value_type& val) {
-            insert(std::make_unique<self_type>(val));
+        Node* insert(const value_type& val) {
+            return insert(std::make_unique<self_type>(val));
         }
 
         // Insert a child by its value move.
-        void insert(value_type&& val) {
+        Node* insert(value_type&& val) {
             owned_ptr p = std::make_unique<self_type>(std::move(val));
-            insert(std::move(p));
+            return insert(std::move(p));
         }
 
         // Insert a child by node pointer.
-        void insert(owned_ptr node) {
+        Node* insert(owned_ptr node) {
             node->parent = this;
             children_.push_back(std::move(node));
             children_.back()->sibling = std::prev(children_.end());
+            return children_.back().get();
+        }
+
+        // Return iterator to node or end.  This is a linear search.
+        sibling_iter find(const Node* node) {
+            return std::find_if(children_.begin(), children_.end(),
+                                [&](const owned_ptr& up) {
+                                    return up.get() == node;
+                                });
+        }
+        sibling_const_iter find(const Node* node) const {
+            return std::find_if(children_.cbegin(), children_.cend(),
+                                [&](const owned_ptr& up) {
+                                    return up.get() == node;
+                                });
         }
         
+        // Remove and return child node.
+        owned_ptr remove(sibling_iter sib) {
+            if (sib == children_.end()) return nullptr;
+            owned_ptr ret = std::move(*sib);
+            children_.erase(sib);
+            return ret;
+        }
+
+        // Remove child node.  Searches children.  Return child node
+        // in owned pointer if found else nullptr.
+        owned_ptr remove(Node* node) {
+            auto it = find(node);
+            return remove(it);
+        }
+
         // Access the value
         value_type value;
 
