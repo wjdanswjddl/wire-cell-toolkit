@@ -33,12 +33,23 @@
 #include <iostream>             // debug
 
 #include <boost/iterator/iterator_facade.hpp>
+#include <boost/iterator/indirect_iterator.hpp>
 // Telling the truth
 #include <boost/type_traits/is_convertible.hpp>
 #include <boost/utility/enable_if.hpp>
 
 namespace WireCell::NaryTree {
 
+    template<typename Iter>
+    struct iter_range {
+        Iter b,e;
+        Iter begin() { return b; }
+        Iter end()   { return e; }
+    };
+
+    /** Iterator and range on children values */
+    template<typename Value> class child_value_iter;
+    template<typename Value> class child_value_const_iter;
     
     /** Iterator and range depth first, parent then children */
     template<typename Value> class depth_iter;
@@ -168,20 +179,131 @@ namespace WireCell::NaryTree {
         const nursery_type& children() const { return children_; }
         nursery_type& children() { return children_; }
 
-        // todo:
-        // remove child
+        using child_value_range = iter_range<child_value_iter<Value>>;
+        auto child_values() {
+            return child_value_range{
+                child_value_iter<Value>(children_.begin()),
+                child_value_iter<Value>(children_.end()) };
+        }
+        using child_value_const_range = iter_range<child_value_const_iter<Value>>;
+        auto child_values() const {
+            return child_value_const_range{
+                child_value_const_iter<Value>(children_.cbegin()),
+                child_value_const_iter<Value>(children_.cend()) };
+        }
 
+        using child_node_iter = boost::indirect_iterator<sibling_iter>;
+        using child_node_range = iter_range<child_node_iter>;
+        auto child_nodes() {
+            return child_node_range{ children_.begin(), children_.end() };
+        }
+        using child_node_const_iter = boost::indirect_iterator<sibling_const_iter>;
+        using child_node_const_range = iter_range<child_node_const_iter>;
+        auto child_nodes() const {
+            return child_node_const_range{ children_.cbegin(), children_.cend() };
+        }
+                
         // Iterable range for depth first traversal, parent then children.
         depth_iter<Value> depth()  { return depth_iter<Value>(this); }
         depth_const_iter<Value> depth() const { return depth_const_iter<Value>(this); }
 
       private:
 
+        // friend class child_value_iter<Value>;
         nursery_type children_;
 
-    };
+    };                          // Node
 
-    
+
+
+    //
+    // Iterator on node childrens' value.
+    //
+    template<typename Value>
+    class child_value_iter : public boost::iterator_adaptor<
+        child_value_iter<Value>              // Derived
+        , typename Node<Value>::sibling_iter // Base
+        , Value                              // Value
+        , boost::bidirectional_traversal_tag>
+    {
+      private:
+        struct enabler {};  // a private type avoids misuse
+
+      public:
+
+        using sibling_iter = typename Node<Value>::sibling_iter;
+
+        child_value_iter()
+            : child_value_iter::iterator_adaptor_()
+        {}
+
+        explicit child_value_iter(sibling_iter sit)
+            : child_value_iter::iterator_adaptor_(sit)
+        {}
+
+        template<typename OtherValue>
+        child_value_iter(child_value_iter<OtherValue> const& other
+                   , typename boost::enable_if<
+                   boost::is_convertible<OtherValue*,Value*>
+                   , enabler
+                   >::type = enabler()
+            )
+            : child_value_iter::iterator_adaptor_(other->children().begin())
+        {}
+
+      private:
+        friend class boost::iterator_core_access;
+        Value& dereference() const {
+            auto sib = this->base();
+            return (*sib)->value;
+        }
+    };    
+
+    // Const iterator on node childrens' value.
+    template<typename Value>
+    class child_value_const_iter : public boost::iterator_adaptor<
+        child_value_const_iter<Value>              // Derived
+        , typename Node<Value>::sibling_const_iter // Base
+        , Value                                    // Value
+        , boost::bidirectional_traversal_tag>
+    {
+      private:
+        struct enabler {};  // a private type avoids misuse
+
+      public:
+
+        using sibling_const_iter = typename Node<Value>::sibling_const_iter;
+
+        child_value_const_iter()
+            : child_value_const_iter::iterator_adaptor_()
+        {}
+
+        explicit child_value_const_iter(sibling_const_iter sit)
+            : child_value_const_iter::iterator_adaptor_(sit)
+        {}
+
+        // convert non-const
+        template<typename OtherValue>
+        child_value_const_iter(child_value_iter<OtherValue> const& other
+                   , typename boost::enable_if<
+                   boost::is_convertible<OtherValue*,Value*>
+                   , enabler
+                   >::type = enabler()
+            )
+            : child_value_const_iter::iterator_adaptor_(other->children().begin())
+        {}
+
+      private:
+        friend class boost::iterator_core_access;
+
+        // All that just to provide:
+        Value& dereference() const {
+            auto sib = this->base();
+            return (*sib)->value;
+        }
+    };    
+
+
 
     // Iterator and range for descent.  First parent then children.
     template<typename Value>
@@ -193,7 +315,7 @@ namespace WireCell::NaryTree {
       private:
         struct enabler {};
       public: 
-        using value_type = Value;
+
         using node_type = Node<Value>;
 
         // Current node.  If nullptr, iterator is at "end".
@@ -225,40 +347,28 @@ namespace WireCell::NaryTree {
         // If still nothing, we are at the end.
         void increment()
         {
-            std::cerr << "increment: start\n";
-
             if (!node) return; // already past the end, throw here?
-
-            std::cerr << "increment: have node " << node->value << "\n";
-
             {                   // if we have child, go there
                 auto* first = node->first();
                 if (first) {
                     node = first;
-                    std::cerr << "increment: go child " << node->value << "\n";
                     return;
                 }
             }
-
-            std::cerr << "increment: no children " << node->value << "\n";
 
             while (true) {
 
                 auto* sib = node->next();
                 if (sib) {
                     node = sib;
-                    std::cerr << "increment: go sibling " << node->value << "\n";
                     return;
                 }
                 if (node->parent) {
                     node = node->parent;
-                    std::cerr << "increment: try parent " << node->value << "\n";
                     continue;
                 }
-                std::cerr << "increment: no parent, no sibs " << node->value << "\n";
                 break;
             }
-            std::cerr << "increment: at end\n";
             node = nullptr;     // end
         }
 
@@ -282,7 +392,7 @@ namespace WireCell::NaryTree {
       private:
         struct enabler {};
       public: 
-        // using value_type = Value const;
+
         using node_type = Node<Value> const;
 
         // Current node.  If nullptr, iterator is at "end".
@@ -311,40 +421,29 @@ namespace WireCell::NaryTree {
         // If still nothing, we are at the end.
         void increment()
         {
-            std::cerr << "increment: start\n";
-
             if (!node) return; // already past the end, throw here?
-
-            std::cerr << "increment: have node " << node->value << "\n";
 
             {                   // if we have child, go there
                 auto* first = node->first();
                 if (first) {
                     node = first;
-                    std::cerr << "increment: go child " << node->value << "\n";
                     return;
                 }
             }
-
-            std::cerr << "increment: no children " << node->value << "\n";
 
             while (true) {
 
                 auto* sib = node->next();
                 if (sib) {
                     node = sib;
-                    std::cerr << "increment: go sibling " << node->value << "\n";
                     return;
                 }
                 if (node->parent) {
                     node = node->parent;
-                    std::cerr << "increment: try parent " << node->value << "\n";
                     continue;
                 }
-                std::cerr << "increment: no parent, no sibs " << node->value << "\n";
                 break;
             }
-            std::cerr << "increment: at end\n";
             node = nullptr;     // end
         }
 

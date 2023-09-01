@@ -2,11 +2,13 @@
 
 #include "WireCellUtil/doctest.h"
 
+#include "WireCellUtil/Logging.h"
+
 #include <string>
 #include <iostream>
 
 using namespace WireCell::NaryTree;
-
+using spdlog::debug;
 
 TEST_CASE("nary tree depth iter") {
     depth_iter<int> a, b;
@@ -232,7 +234,7 @@ TEST_CASE("nary tree simple tree tests") {
                  ++it)
             {
                 const Data& d = it.node->value;
-                std::cerr << "depth " << nnodes << " " << d << "\n";
+                debug("depth %d %s", nnodes, d);
                 ++nnodes;
                 data.push_back(d);
             }
@@ -249,7 +251,7 @@ TEST_CASE("nary tree simple tree tests") {
             std::vector<Data> data;
             for (const auto& d : r->depth()) 
             {
-                std::cerr << "depth " << nnodes << " " << d << "\n";
+                debug("depth %d %s", nnodes, d);                
                 ++nnodes;
                 data.push_back(d);
             }
@@ -290,10 +292,8 @@ TEST_CASE("nary tree bigger tree lifetime")
         std::list<size_t> layer_sizes ={2,4,8};
         size_t niut = nodes_in_uniform_tree(layer_sizes);
         auto root = make_tree(layer_sizes);
-        std::cerr << "starting live count: " << live_count
-                  << " ending live count: " << Data::live_count
-                  << " difference should be: " << niut
-                  << "\n";
+        debug("starting live count: %d, ending live count: %d, diff should be %d",
+              live_count, Data::live_count, niut);
         CHECK(Data::live_count - live_count == niut);
     } // root and children all die
 
@@ -330,4 +330,29 @@ TEST_CASE("nary tree remove node")
     } // root and children all die
 
     CHECK(live_count == Data::live_count);
+}
+
+TEST_CASE("nary tree child iter")
+{
+    auto r = make_simple_tree();
+
+    std::vector<std::string> nstack = {"0.2","0.1","0.0"};
+    for (const auto& c : r->child_values()) {
+        debug("child value: %s", c);
+        CHECK(c.name == nstack.back());
+        nstack.pop_back();
+    }
+
+    // const iterator
+    const auto* rc = r.get();
+    for (const auto& cc : rc->child_values()) {
+        debug("child value: %s (const)", cc);
+    }
+
+    for (auto& n : r->child_nodes()) {
+        debug("child node value: %s", n.value);
+    }
+    for (const auto& cn : rc->child_nodes()) {
+        debug("child node value: %s", cn.value);
+    }
 }
