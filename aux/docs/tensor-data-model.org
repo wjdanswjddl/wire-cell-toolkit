@@ -82,6 +82,7 @@ To start with, every tensor has provides an associated *datatype* attribute of v
 - pcarray :: a ~PointCloud::Array~ (~pointclouds/<ident>/arrays/<name>~)
 - pcdataset :: a ~PointCloud::Dataset~ (~pointclouds/<ident>~)
 - pcgraph :: a ~PointGraph~ (~pointgraphs/<ident>~ with ~pointgraphs/<ident>/{nodes,edges}~)
+- pctree :: A ~PointTree~
 
 - trace :: one ~ITrace~ as 1D array or multiple ~ITrace~ as 2D array. (~frames/<ident>/traces/<number>~)
 - tracedata :: tagged trace indices and summary data. (~frames/<ident>/tracedata~)
@@ -127,6 +128,10 @@ provide two arrays of integer type with names *tails* and *heads*.  Each
 shall provide indices into the *nodes* point cloud representing the tail
 and head endpoint of graph edges.  A node or edge dataset may be
 shared between different *pcgraph* instances.
+
+** pctree
+
+t.b.d.  A tree node uses MD to encode datapath to *parent* node, an array of datapaths to encode ownership of the *children* and a set of *named datasets* to encode the payload PCs.
 
 ** trace
 

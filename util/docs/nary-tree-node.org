@@ -66,3 +66,28 @@ care must be taken when working directly with the children collection.
 The ~child_values()~ and ~child_nodes()~ provide an iterator range to
 access the child *values* or to acess the children as simple ~Node*~,
 respectively.
+
+* Notification
+
+The ~Value~ of a ~Node~ will be informed of major state changes in the
+~Node~ that is holding it if the following method is defined:
+
+#+begin_example
+void Value::notify(Node<Value>* node, const std::string& action);
+#+end_example
+
+The ~action~ string determines the state change:
+
+- *constructed* :: the node was just constructed.  
+- inserted :: the node is a child that was just inserted to a parent.  
+- removing :: the node is a child that will next be removed from its parent.
+
+If an insert is performed by value copy or move then a "constructed"
+action will be notified in addition and prior to the "inserted".
+
+The ~Value~ type may wish to propagate notifications up the parentage.
+For example, to freshen or invalidate caches held by a parent and that
+span child nodes.
+
+The ~NaryTree::Notified~ class provides a base class for a ~Value~ type
+that helps dispatch actions.
