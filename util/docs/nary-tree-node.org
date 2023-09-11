@@ -1,0 +1,93 @@
+#+title: N-ary Tree Node
+#+include: ../../docs/include-topic.org
+
+* Overview
+
+WCT provides a N-ary [[https://en.wikipedia.org/wiki/Tree_(data_structure)][tree data structure]] in the form of a single class
+~WireCell::NaryTree::Node~.
+
+* Synopsis
+
+A synopsis of the most important parts of the API is here:
+
+#+begin_src c++
+  // in WireCellUtil/NaryTree.h
+  namespace WireCell::NaryTree {
+      template<class Value>
+      class Node {
+  
+          Value value;
+          Node* parent;
+  
+          using owned_ptr = std::unique_ptr<Node>;
+          using nursery_type = std::list<owned_ptr>; 
+
+          Node();
+          Node(const Value& val);
+          Node(Value&& val);
+  
+          Node* insert(const Value& val);
+          Node* insert(Value&& val);
+          Node* insert(owned_ptr node);
+  
+          owned_ptr remove(const Node* node);    
+  
+          nursery_type& children();
+          auto child_values();
+          auto child_nodes();
+      };
+  }
+#+end_src
+
+* Description
+
+A ~Node~ has the following parts:
+
+- value :: of an application-determined type given by the ~Value~ template parameter.
+- parent :: a pointer to another *node* that has this *node* as a child or ~nullptr~ if this *node* is free.
+- children :: a collection of child *nodes* that this *node* owns.
+
+A ~Node~ may be constructed empty, relying on a ~Value~ to provide a
+default constructor for the *value*.  Alternatively, a ~Node~ may be
+constructed either by copying or moving a *value*.
+
+A *child* ~Node~ may be created by *inserting* its *value* into an existing
+*parent* ~Node~.  The child will have its ~.parent~ value pointing to the
+*parent* node.  A ~Node~ that has no *parent* is not itself a child and is
+considered a /root node/.  If a ~Node~ is a child of a parent and it is
+inserted into another parent ~Node~ it will be removed from its original
+parent.  When a child ~Node~ is removed from a parent the ~remove()~
+method returns a ~std::unique_ptr<Node>~ representing that the parent
+relinquishes ownership of the child to the caller.
+
+The collection of children of a ~Node~ may be accessed with its
+~children()~ method.  Their are held by ~std::unique_ptr<Node>~ and thus
+care must be taken when working directly with the children collection.
+The ~child_values()~ and ~child_nodes()~ provide an iterator range to
+access the child *values* or to acess the children as simple ~Node*~,
+respectively.
+
+* Notification
+
+The ~Value~ of a ~Node~ will be informed of major state changes in the
+~Node~ that is holding it if the following method is defined:
+
+#+begin_example
+void Value::notify(Node<Value>* node, const std::string& action);
+#+end_example
+
+The ~action~ string determines the state change:
+
+- *constructed* :: the node was just constructed.  
+- inserted :: the node is a child that was just inserted to a parent.  
+- removing :: the node is a child that will next be removed from its parent.
+
+If an insert is performed by value copy or move then a "constructed"
+action will be notified in addition and prior to the "inserted".
+
+The ~Value~ type may wish to propagate notifications up the parentage.
+For example, to freshen or invalidate caches held by a parent and that
+span child nodes.
+
+The ~NaryTree::Notified~ class provides a base class for a ~Value~ type
+that helps dispatch actions.

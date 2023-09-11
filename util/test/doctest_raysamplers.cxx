@@ -3,6 +3,7 @@
 #include "WireCellUtil/Logging.h"
 #include "WireCellUtil/doctest.h"
 
+using spdlog::debug;
 using namespace WireCell;
 using namespace WireCell::RayGrid;
 
@@ -47,8 +48,7 @@ TEST_CASE("sample blobs")
         auto pts = bs.sample(blob, strategy);
         //CHECK(! pts.empty());
         for (const auto& pt : pts) {
-            std::cerr << pt/units::cm << "\n";
-            //spdlog::debug(pt/units::cm);
+            spdlog::debug("{}", pt/units::cm);
         }
     }
 }

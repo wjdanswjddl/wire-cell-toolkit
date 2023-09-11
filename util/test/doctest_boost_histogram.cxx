@@ -1,3 +1,4 @@
+#include "WireCellUtil/Logging.h"
 
 #include "WireCellUtil/doctest.h"
 
@@ -5,10 +6,11 @@
 #include <boost/format.hpp>
 
 
-#include <iostream>
 #include <algorithm> 
 #include <vector>
 #include <string>
+
+using spdlog::debug;
 
 namespace bh = boost::histogram;
 
