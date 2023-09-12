@@ -7,7 +7,7 @@ using namespace WireCell::PointCloud;
 #include <string>
 
 
-std::size_t NodeValue::Scope::hash()
+std::size_t Tree::Scope::hash() const
 {
     std::size_t h = 0;
     boost::hash_combine(h, name);
@@ -19,31 +19,43 @@ std::size_t NodeValue::Scope::hash()
 }
 
 
-const NodeValue::pointcloud_t& NodeValue::payload(const Scope& scope) const
+const Tree::NodeValue::Payload& Tree::NodeValue::payload(const Scope& scope) const
 {
-    auto it = cache.find(scope);
+    auto pcit = cache.find(scope);
     if (pcit != cache.end()) {
-        return pcit.second;
+        return pcit->second;
     }
 
     pointcloud_t pc;
-    for (auto nit : node->depth(depth)) {
+    for (auto nv : node->depth(scope.depth)) {
 
         // local pc
-        const auto& lpc = nit->at(name); // throws
+        const auto& lpc = nv.pcs().at(scope.name); // throws
 
-        if (not_empty(lpc)) {
-            auto spc = lpc.select_attributes(attrs); // throws?
-            pc.append(spc);
+        if (lpc.store().empty()) {
+            continue;
         }
+        auto spc = lpc.selection(scope.attrs); // throws?
+        Dataset::store_t store;
+        for (size_t ind=0; ind<spc.size(); ++ind) {
+            store[scope.attrs[ind]] = spc[ind];
+        }
+        pc.append(Dataset(store));
     }
-    auto got = cache.emplace(scope, Payload(std::move(pc)));
-    return *(got.first);
+    auto [entry,_] = cache.emplace(scope, Payload(std::move(pc)));
+    return entry->second;
 }
 
-void NodeValue::on_construct(NodeValue::node_type* node_)
+void Tree::NodeValue::on_construct(Tree::NodeValue::node_type* node_)
 {
     node = node_;
 }
-bool NodeValue::on_insert(const std::vector<NodeValue::node_type*>& path);
-bool NodeValue::on_remove(const std::vector<NodeValue::node_type*>& path);
+bool Tree::NodeValue::on_insert(const std::vector<Tree::NodeValue::node_type*>& path)
+{
+    return true;
+}
+bool Tree::NodeValue::on_remove(const std::vector<Tree::NodeValue::node_type*>& path)
+{
+    return true;
+}
+

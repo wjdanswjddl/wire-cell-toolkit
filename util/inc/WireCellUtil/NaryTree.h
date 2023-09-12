@@ -379,8 +379,7 @@ namespace WireCell::NaryTree {
         , Value
         , boost::forward_traversal_tag>
     {
-      private:
-        struct enabler {};
+      public: 
         // How deep we may go.  0 is unlimited.  1 is only given node.
         // 2 is initiial node's children only.
         size_t depth{0};
@@ -388,7 +387,6 @@ namespace WireCell::NaryTree {
         // never go negative.  Always: 0<=level.  If depth>0 then
         // 0<=level<depth.
         size_t level{0};
-      public: 
 
         using node_type = Node<Value>;
 
@@ -399,15 +397,11 @@ namespace WireCell::NaryTree {
         depth_iter() : node(nullptr) {}
 
         explicit depth_iter(node_type* node) : node(node) { }
-        explicit depth_iter(node_type* node, size_t depth) : node(node), depth(depth) { }
+        explicit depth_iter(node_type* node, size_t depth) : depth(depth), node(node) { }
 
         template<typename OtherValue>
-        depth_iter(depth_iter<OtherValue> const & other
-                   // , typename boost::enable_if<
-                   // boost::is_convertible<OtherValue*,Value*>
-                   // , enabler
-                   // >::type = enabler()
-            ) : node(other.node), depth(other.depth), level(other.level) {}
+        depth_iter(depth_iter<OtherValue> const & other)
+            : node(other.node), depth(other.depth), level(other.level) {}
 
         // Range interface
         depth_iter<Value> begin() { return *this; }
@@ -473,9 +467,15 @@ namespace WireCell::NaryTree {
         , Value const
         , boost::forward_traversal_tag>
     {
-      private:
-        struct enabler {};
       public: 
+
+        // How deep we may go.  0 is unlimited.  1 is only given node.
+        // 2 is initiial node's children only.
+        size_t depth{0};
+        // THe level we are on.  0 means "on initial node level".  We
+        // never go negative.  Always: 0<=level.  If depth>0 then
+        // 0<=level<depth.
+        size_t level{0};
 
         using node_type = Node<Value> const;
 
@@ -486,14 +486,17 @@ namespace WireCell::NaryTree {
         depth_const_iter() : node(nullptr) {}
 
         explicit depth_const_iter(node_type* node) : node(node) { }
+        explicit depth_const_iter(node_type* node, size_t depth) : depth(depth), node(node) { }
 
         template<typename OtherValue>
-        depth_const_iter(depth_iter<OtherValue> const & other) : node(other.node) {}
+        depth_const_iter(depth_iter<OtherValue> const & other)
+            : node(other.node), depth(other.depth), level(other.level) {}
         template<typename OtherValue>
-        depth_const_iter(depth_const_iter<OtherValue> const & other) : node(other.node) {}
+        depth_const_iter(depth_const_iter<OtherValue> const & other)
+            : node(other.node), depth(other.depth), level(other.level) {}
 
         // Range interface
-        depth_const_iter<Value> begin() { return depth_const_iter<Value>(node); }
+        depth_const_iter<Value> begin() { return *this; }
         depth_const_iter<Value> end() { return depth_const_iter<Value>(); }
 
       private:
@@ -507,16 +510,23 @@ namespace WireCell::NaryTree {
         {
             if (!node) return; // already past the end, throw here?
 
-            {                   // if we have child, go there
+            // Down first
+
+            // If we have not yet hit floor
+            if (depth and level+1 < depth) {
+                // and if we have child, go down
                 auto* first = node->first();
                 if (first) {
                     node = first;
+                    ++level;
                     return;
                 }
             }
 
-            while (true) {
+            // Can not go down, seek for sibling
+            while (level) {     // but not above original node level
 
+                // first try sibling in current level
                 auto* sib = node->next();
                 if (sib) {
                     node = sib;
@@ -524,6 +534,7 @@ namespace WireCell::NaryTree {
                 }
                 if (node->parent) {
                     node = node->parent;
+                    --level;
                     continue;
                 }
                 break;

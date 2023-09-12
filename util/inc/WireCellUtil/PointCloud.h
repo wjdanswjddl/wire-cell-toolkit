@@ -355,6 +355,14 @@ namespace WireCell::PointCloud {
         using store_t = std::map<std::string, Array>;
         using item_t = std::pair<std::string, Array>;
 
+        // copy constructor
+        Dataset(const Dataset& other) = default;
+        // move constructor
+        Dataset(Dataset&& other) = default;
+
+        Dataset& operator=(const Dataset& other) = default;
+
+        // Default constructor
         Dataset() = default;
 
         // Construct a dataset using an existing store.

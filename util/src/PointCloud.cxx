@@ -117,7 +117,9 @@ void Array::append(const std::byte* data, size_t nbytes)
 
 
 
-//// dataset
+/*
+ *  Dataset
+ */
 
 bool Dataset::add(const std::string& name, const Array& arr)
 {
