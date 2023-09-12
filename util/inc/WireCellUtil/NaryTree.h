@@ -421,7 +421,7 @@ namespace WireCell::NaryTree {
             // Down first
 
             // If we have not yet hit floor
-            if (depth and level+1 < depth) {
+            if (depth==0 or level+1 < depth) {
                 // and if we have child, go down
                 auto* first = node->first();
                 if (first) {
@@ -490,10 +490,10 @@ namespace WireCell::NaryTree {
 
         template<typename OtherValue>
         depth_const_iter(depth_iter<OtherValue> const & other)
-            : node(other.node), depth(other.depth), level(other.level) {}
+            : depth(other.depth), level(other.level), node(other.node) {}
         template<typename OtherValue>
         depth_const_iter(depth_const_iter<OtherValue> const & other)
-            : node(other.node), depth(other.depth), level(other.level) {}
+            : depth(other.depth), level(other.level), node(other.node) {}
 
         // Range interface
         depth_const_iter<Value> begin() { return *this; }
@@ -513,7 +513,7 @@ namespace WireCell::NaryTree {
             // Down first
 
             // If we have not yet hit floor
-            if (depth and level+1 < depth) {
+            if (depth==0 or level+1 < depth) {
                 // and if we have child, go down
                 auto* first = node->first();
                 if (first) {
