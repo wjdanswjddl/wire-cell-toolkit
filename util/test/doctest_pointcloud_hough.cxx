@@ -20,7 +20,7 @@ using namespace WireCell::PointCloud;
 namespace bh = boost::histogram;
 namespace bha = boost::histogram::algorithm;
 
-TEST_CASE("janky track")
+TEST_CASE("pointcloud hough janky track")
 {
     const double pi = 3.141592653589793;
 

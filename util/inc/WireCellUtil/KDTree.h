@@ -42,7 +42,6 @@ namespace WireCell::KDTree {
     struct QueryBase {
 
         virtual ~QueryBase() {};
-        virtual const PointCloud::name_list_t& selection() const = 0;
         virtual bool dynamic() const = 0;
         virtual Metric metric() const = 0;
 
@@ -91,39 +90,50 @@ namespace WireCell::KDTree {
             See knn() for return value and arguments
         */
         virtual results_t radius(distance_t d, const point_t& query_point)= 0;
+
+        /** Update the k-d tree, if it is dynamic, for points that
+         * have been added to the underlying point cloud with their
+         * indices in the closed/inclusive range [beg,end]. */
+        virtual void update(size_t beg, size_t end) {};
     };
 
 
-    // In order to hide details of nanoflann templates in an
-    // implementation file we must explicitly pick which element types
-    // to support.
     template<typename ElementType>
-    std::unique_ptr<Query<ElementType>>
+    using query_ptr_t = std::unique_ptr<Query<ElementType>>;
+
+    // Return a k-d tree query object on a dataset.  If dynamic is
+    // true, the k-d tree is updated automatically when points are
+    // appended to the dataset.
+    template<typename ElementType>
+    query_ptr_t<ElementType>
     query(PointCloud::Dataset& dataset,
-                 const PointCloud::name_list_t& selection,
-                 bool dynamic = false,
-                 Metric mtype = Metric::l2simple);
+          const PointCloud::name_list_t& names,
+          bool dynamic = false,
+          Metric mtype = Metric::l2simple);
     template<>
-    std::unique_ptr<Query<int>>
+    query_ptr_t<int>
     query<int>(PointCloud::Dataset& dataset,
-               const PointCloud::name_list_t& selection,
+               const PointCloud::name_list_t& names,
                bool dynamic, Metric mtype);
     template<>
-    std::unique_ptr<Query<float>>
+    query_ptr_t<float>
     query<float>(PointCloud::Dataset& dataset,
-                 const PointCloud::name_list_t& selection,
+                 const PointCloud::name_list_t& names,
                  bool dynamic, Metric mtype);
     template<>
-    std::unique_ptr<Query<double>>
+    query_ptr_t<double>
     query<double>(PointCloud::Dataset& dataset,
-                  const PointCloud::name_list_t& selection,
+                  const PointCloud::name_list_t& names,
                   bool dynamic, Metric mtype);
 
+    using DatasetRef = std::reference_wrapper<PointCloud::Dataset>;
 
-    /** Cache multiple queries.
+    /** Cache multiple k-d tree queries on a given dataset the may
+     * differ in their coordinate attributes, metric types and whether
+     * the k-d tree should be static or dynamic.
      */
     class MultiQuery {
-        std::reference_wrapper<PointCloud::Dataset> m_dataset;
+        DatasetRef m_dataset;
         std::map<std::string, std::shared_ptr<QueryBase>> m_indices;
 
       public:
@@ -155,11 +165,11 @@ namespace WireCell::KDTree {
             return m_dataset;
         }
 
-        std::string make_key(const PointCloud::name_list_t& selection,
+        std::string make_key(const PointCloud::name_list_t& names,
                              bool dynamic, Metric mtype)
         {
-            PointCloud::name_list_t keys(selection.begin(),
-                                         selection.end());
+            PointCloud::name_list_t keys(names.begin(),
+                                         names.end());
             keys.push_back(std::to_string((int) dynamic));
             keys.push_back(std::to_string(static_cast<std::underlying_type_t<Metric>>(mtype)));
             return boost::algorithm::join(keys, ",");
@@ -168,13 +178,13 @@ namespace WireCell::KDTree {
         // Return a new or existing query matching parameters.
         template<typename ElementType>
         query_ptr_t<ElementType>
-        get(const PointCloud::name_list_t& selection, bool dynamic=false, Metric mtype = Metric::l2simple)
+        get(const PointCloud::name_list_t& names, bool dynamic=false, Metric mtype = Metric::l2simple)
         {
-            auto key = make_key(selection, dynamic, mtype);
+            auto key = make_key(names, dynamic, mtype);
             auto it = m_indices.find(key);
 
             if (it == m_indices.end()) { // create
-                auto unique = query<ElementType>(m_dataset, selection,
+                auto unique = query<ElementType>(m_dataset, names,
                                                  dynamic, mtype);
                 query_ptr_t<ElementType> ret = std::move(unique);
                 m_indices[key] = ret;

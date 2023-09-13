@@ -1,6 +1,6 @@
 #include "WireCellUtil/KDTree.h"
 
-#include "nanoflann.hpp"
+#include "WireCellUtil/nanoflann.hpp"
 
 using namespace WireCell::KDTree;
 
@@ -14,39 +14,23 @@ using WireCell::PointCloud::Dataset;
     coordinates of points.
 */
 template<typename ElementType>
-class NanoflannAdaptor {
-    selection_t m_pts;
-  public:
-    using element_t = ElementType;
+struct DatasetSelectionAdaptor {
+    selection_t points;
 
-    /** Construct with a reference to a dataset and the ordered
-        list of arrays in the dataset to use as the coordinates.
-    */
-    explicit NanoflannAdaptor(const selection_t& points)
-        : m_pts(points)
-    {
-    }
-    /// No default constructor
-    NanoflannAdaptor() = delete;
-    /// Copies and moves are okay
-    NanoflannAdaptor(const NanoflannAdaptor&) = default;
-    NanoflannAdaptor(NanoflannAdaptor&&) = default;
-    NanoflannAdaptor& operator=(const NanoflannAdaptor&) = default;
-    NanoflannAdaptor& operator=(NanoflannAdaptor&&) = default;
-    ~NanoflannAdaptor() = default;
+    using element_t = ElementType;
 
     inline size_t kdtree_get_point_count() const
     {
-        if (m_pts.empty()) {
+        if (points.empty()) {
             return 0;
         }
-        return m_pts[0].get().size_major();
+        return points[0].get().size_major();
     }
 
     inline element_t kdtree_get_pt(size_t idx, size_t dim) const
     {
-        if (dim < m_pts.size()) {
-            const Array& arr = m_pts[dim];
+        if (dim < points.size()) {
+            const Array& arr = points[dim];
             if (idx < arr.size_major()) {
                 return arr.element<ElementType>(idx);
             }
@@ -59,38 +43,31 @@ class NanoflannAdaptor {
     {
         return false;
     }
-};                              // NanoflannAdaptor
+};                              // DatasetSelectionAdaptor
 
 
 template<typename IndexType>
 struct QueryStatic : public Query<typename IndexType::ElementType>
 {
     using element_t = typename IndexType::ElementType;
-    using distance_t = typename IndexType::ElementType;
-    using dataset_adaptor_t = NanoflannAdaptor<element_t>;
+    using dataset_adaptor_t = DatasetSelectionAdaptor<element_t>;
     using results_t = typename Query<element_t>::results_t;
     using point_t = typename Query<element_t>::point_t;
 
     dataset_adaptor_t m_dataset_adaptor;
-    name_list_t m_selection;
     IndexType m_index;
     Metric m_metric;
 
     QueryStatic() = delete;
     virtual ~QueryStatic() = default;
 
-    QueryStatic(Dataset& dataset, const name_list_t& selection, Metric mtype)
-        : m_dataset_adaptor(dataset.selection(selection))
-        , m_selection(selection)
+    QueryStatic(const selection_t& selection, Metric mtype)
+        : m_dataset_adaptor{selection}
         , m_index(selection.size(), m_dataset_adaptor)
         , m_metric(mtype)
     {
     }
 
-    virtual const name_list_t& selection() const
-    {
-        return m_selection;
-    }
     virtual bool dynamic() const
     {
         return false;
@@ -110,7 +87,7 @@ struct QueryStatic : public Query<typename IndexType::ElementType>
         nanoflann::KNNResultSet<element_t> nf(kay);
         nf.init(&ret.index[0], &ret.distance[0]);
         m_index.findNeighbors(nf, query_point.data(),
-                            nanoflann::SearchParams());
+                            nanoflann::SearchParameters());
         const size_t nfound = nf.size();
         ret.index.resize(nfound, -1);
         ret.distance.resize(nfound, -1);
@@ -121,10 +98,11 @@ struct QueryStatic : public Query<typename IndexType::ElementType>
     virtual results_t radius(element_t rad,
                              const point_t& query_point)
     {
-        std::vector<std::pair<size_t, element_t>> ids;
-        nanoflann::RadiusResultSet<element_t> nf(rad, ids);
-        m_index.findNeighbors(nf, query_point.data(),
-                            nanoflann::SearchParams());
+        // std::vector<std::pair<size_t, element_t>> ids;
+        std::vector<nanoflann::ResultItem<size_t, element_t>> ids;
+        nanoflann::RadiusResultSet<element_t, size_t> rs(rad, ids);
+        m_index.findNeighbors(rs, query_point.data(),
+                            nanoflann::SearchParameters());
         const size_t nfound = ids.size();
         results_t ret(nfound);
         for (size_t ifound=0; ifound<nfound; ++ifound) {
@@ -145,13 +123,15 @@ struct QueryDynamic : public QueryStatic<IndexType>
     QueryDynamic() = delete;
     virtual ~QueryDynamic() = default;
 
-    QueryDynamic(Dataset& dataset, const name_list_t& selection, Metric mtype)
-        : QueryStatic<IndexType>(dataset, selection, mtype)
+    QueryDynamic(const selection_t& selection, Metric mtype)
+        : QueryStatic<IndexType>(selection, mtype)
     {
-        dataset.register_append([this](size_t beg, size_t end) {
-            // NOTE: we subtract one as nanoflann expects a closed
-            // range not the standard C++ right-open range.
-            this->m_index.addPoints(beg, end-1); });
+    }
+
+    virtual void update(size_t beg, size_t end)
+    {
+        // Subtract 1 because NF uses a closed interval.
+        this->m_index.addPoints(beg, end-1); 
     }
 
     virtual bool dynamic() const
@@ -160,24 +140,30 @@ struct QueryDynamic : public QueryStatic<IndexType>
     }
 };
 
-
 template<typename DistanceType>
 std::unique_ptr<Query<typename DistanceType::ElementType>>
 make_query_with_distance(Dataset& dataset,
-                         const name_list_t& selection,
+                         const name_list_t& names,
                          bool dynamic, Metric mtype)
 {
     using element_t = typename DistanceType::ElementType;
-    using dataset_adaptor_t = NanoflannAdaptor<element_t>;
+    using dataset_adaptor_t = DatasetSelectionAdaptor<element_t>;
+
+    auto selection = dataset.selection(names);
 
     if (dynamic) {
         using index_t = nanoflann::KDTreeSingleIndexDynamicAdaptor<DistanceType, dataset_adaptor_t>;
         using query_t = QueryDynamic<index_t>;
-        return std::make_unique<query_t>(dataset, selection, mtype);
+        auto ret = std::make_unique<query_t>(selection, mtype);
+        dataset.register_append([&](size_t beg, size_t end) {
+            ret->update(beg, end);
+        });
+        return std::move(ret);
     }
+
     using index_t = nanoflann::KDTreeSingleIndexAdaptor<DistanceType, dataset_adaptor_t>;
     using query_t = QueryStatic<index_t>;
-    return std::make_unique<query_t>(dataset, selection, mtype);
+    return std::make_unique<query_t>(selection, mtype);
 }
 
 template<typename ElementType>
@@ -186,7 +172,7 @@ make_query(Dataset& dataset, const name_list_t& selection,
            bool dynamic, Metric mtype)
 {
     using element_t = ElementType;
-    using dataset_adaptor_t = NanoflannAdaptor<element_t>;
+    using dataset_adaptor_t = DatasetSelectionAdaptor<element_t>;
 
     if (mtype == Metric::l2simple) {
         using distance_t = nanoflann::L2_Simple_Adaptor<element_t, dataset_adaptor_t>;
