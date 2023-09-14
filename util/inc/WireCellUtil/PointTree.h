@@ -1,60 +1,38 @@
-#ifndef WIRECELL_POINTTREE
-#define WIRECELL_POINTTREE
+/**
+   A point cloud with points organized in an n-ary tree structure.
+
+   See the Point class.
+ */
+
+#ifndef WIRECELLUTIL_POINTTREE
+#define WIRECELLUTIL_POINTTREE
 
 #include "WireCellUtil/PointCloud.h"
-#include "WireCellUtil/KDTree.h"
+#include "WireCellUtil/PointNFKD.h"
 #include "WireCellUtil/NaryTree.h"
+#include "WireCellUtil/KDTree.h"
 
-#include <vector>
-#include <memory>
-#include <string>
-#include <functional>
 
 namespace WireCell::PointCloud::Tree {
 
-    /** A "scope" describes a subset of the point cloud tree.
-
-        The scope spans a depth-first descent rooted in a given node.
-
-        The scope is delineated by three values:
-
-        - name :: the name of local point clouds that are selected.
-
-        - attrs :: list of PC attributes.
-
-        If a local PC of a given name is found it must provide these
-        attributes.
-
-        - depth :: descent extent.
-
-        The depth values are as described:
-
-        - 0 = unlimited depth, descend entire tree rooted on this node.
-        - 1 = the "local" PC is returned, similar to at().
-        - 2 = same as 1 plus PCs from children
-        - 3 = same as 2 plus PCs grandchildren
-        - N = etc.
-
-    */
+    /** A point cloud scope describes a descent to collect node-local
+     * point cloud data sets which have (at least) the arrays with
+     * names provided by the coords.
+     */
     struct Scope {
-        std::string name;
-        name_list_t attrs;
-        size_t depth;
-        std::size_t hash() const;
 
-        bool operator==(const Scope& other) const {
-            if (depth != other.depth) return false;
-            if (name != other.name) return false;
-            if (attrs.size() != other.attrs.size()) return false;
-            for (size_t ind = 0; ind<attrs.size(); ++ind) {
-                if (attrs[ind] != other.attrs[ind]) return false;
-            }
-            return true;
-        }
-        bool operator!=(const Scope& other) const {
-            if (*this == other) return false;
-            return true;
-        }
+        // The name of the node-local point clouds
+        std::string pcname;
+
+        // The list of PC attribute array names to interpret as coordinates.
+        name_list_t coords;
+
+        // The depth of the descent.
+        size_t depth;
+
+        std::size_t hash() const;
+        bool operator==(const Scope& other) const;
+        bool operator!=(const Scope& other) const;
     };
 }
 
@@ -69,87 +47,99 @@ namespace std {
 
 namespace WireCell::PointCloud::Tree {
 
-        
-    /** An N-ary tree node value holding named point clouds.
 
-    */
-    class NodeValue : public NaryTree::Notified<NodeValue> {
+    /** Points is a payload value type for a NaryTree::Node<Points> node.
+
+        A Points stores node-local point clouds by name, provides
+        results of a scoped query on the n-ary tree of node-local
+        point clouds in the form of "disjoint dataset" and allows
+        forming k-d trees upon these.
+
+        See Scope, DisjointDataset and NFKD for more explanation.
+
+     */
+    class Points : public NaryTree::Notified<Points> {
+        
+        using kdtree_base_t = NFKD;
+        using kdtree_base_ptr = std::unique_ptr<kdtree_base_t>;
+
       public:
 
         using pointcloud_t = Dataset;
-        // Set of named point clouds
-        using pointcloud_set = std::map<std::string, pointcloud_t>;
+        using named_pointclouds_t = std::map<std::string, pointcloud_t>;
 
-        // From this one may .get<type>(attrs) to get a k-d tree query
-        // object associated with a PC.
-        using kdtree_cache_t = KDTree::MultiQuery;
-
-        // The type of node that holds u
-        using node_type = NaryTree::Node<NodeValue>;
-
-        // Our node in the tree.  Set in on_construct()
-        node_type* node {nullptr};
-
-        NodeValue() = default;
-        virtual ~NodeValue() = default;
-
-        // Copy value
-        explicit NodeValue(const pointcloud_set& npcs_) : npcs(npcs_.begin(), npcs_.end()) {}
-
-        // Move value
-        explicit NodeValue(pointcloud_set&& npcs_) : npcs(std::move(npcs_)) {}
-
-        /** Access the named point cloud set.
-         */
-        const pointcloud_set& pcs() const { return npcs; } 
+        using node_t = NaryTree::Node<Points>;
+        using node_path_t = std::vector<node_t*>;
+        template<typename ElementType,
+                 typename DistanceTraits,
+                 typename IndexTraits>
+        using kdtree_t = NFKDT<ElementType, DistanceTraits, IndexTraits>;
 
 
-        /** A point cloud and its k-d tree multi-query
+        Points() = default;
+        virtual ~Points() = default;
 
-            When associated with a scope, the set of attributes of the
-            pc will be limited to those given by the scope's "attrs".
+        // Copy constructor disabled due to holding unique k-d tree 
+        Points(const Points& other) = delete;
+        // move is okay
+        Points(Points&& other) = default;
 
-         */
-        struct Payload {
-            pointcloud_t pc;
-            kdtree_cache_t kdc;
-            std::vector<PointCloud::selection_t> lpcs;
+        Points& operator=(const Points& other) = delete;
+        Points& operator=(Points&& other) = default;
 
-            explicit Payload(const pointcloud_t& pc_) : pc(pc_), kdc(pc) {};
-            explicit Payload(pointcloud_t&& pc_) : pc(std::move(pc_)), kdc(pc) {};
-        };
+        // Construct with local point clouds by copy
+        explicit Points(const named_pointclouds_t& pcs)
+            : m_lpcs(pcs.begin(), pcs.end()) {}
 
-        /** Return a scoped payload.
-         */
-        const Payload& payload(const Scope& scope) const;
+        // Construct with local point clouds by move
+        explicit Points(named_pointclouds_t&& pcs)
+            : m_lpcs(std::move(pcs)) {}
 
-        /**
-           Subclass should provide to receive notification of
-           "constructed" action.
-         */
-        virtual void on_construct(node_type* node);
-        /**
-           Subclass should provide to receive notification of
-           "inserted" action.  Return true to continue to propagate
-           toward root node.
-         */
-        virtual bool on_insert(const std::vector<node_type*>& path);
-        /**
-           Subclass should provide to receive notification of
-           "removing" action.  Return true to continue to propagate
-           toward root node.
-         */
-        virtual bool on_remove(const std::vector<node_type*>& path);
+        // Access the set of point clouds local to this node.
+        const named_pointclouds_t& local_pcs() const { return m_lpcs; }
+
+        /// Access a scoped PC.
+        const DisjointDataset& scoped_pc(const Scope& scope) const;
+
+        // Access the scoped k-d tree.
+        template<typename ElementType=double,
+                 typename DistanceTraits=KDTree::DistanceL2Simple,
+                 typename IndexTraits=KDTree::IndexDynamic>
+        const kdtree_t<ElementType, DistanceTraits, IndexTraits>&
+        scoped_kd(const Scope& scope) const {
+            using kd_t = kdtree_t<ElementType, DistanceTraits, IndexTraits>;
+            auto it = m_nfkds.find(scope);
+            if (it != m_nfkds.end()) {
+                return *(it->second.get());
+            }
+            DisjointDataset& dds = scoped_pc(scope);
+            kd_t* ptr = new kd_t(dds, scope.coords);
+            m_nfkds[scope] = kdtree_base_ptr(ptr);
+            return *ptr;
+
+        }
+
+        // Receive notification from n-ary tree to learn of our node.
+        virtual void on_construct(node_t* node);
+        // Receive notification from n-ary tree to update existing
+        // NFKDs if node is in any existing scope.
+        virtual bool on_insert(const node_path_t& path);
+        // FIXME: remove is not well supported and currently will
+        // simply invalidate any in-scope NFKDs.
+        virtual bool on_remove(const node_path_t& path);
 
       private:
-        pointcloud_set npcs;
 
+        // our node
+        node_t* m_node {nullptr};
+        // our node-local point clouds
+        named_pointclouds_t m_lpcs;
 
-        // Cache scopes
-        mutable std::unordered_map<Scope, Payload> cache;
-
+        // nanoflann k-d tree interfaces for a given scope.
+        mutable std::unordered_map<Scope, DisjointDataset> m_dds;
+        mutable std::unordered_map<Scope, kdtree_base_ptr> m_nfkds;
     };
 
-
 }
+
 #endif

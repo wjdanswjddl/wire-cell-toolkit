@@ -6,6 +6,7 @@
 #define WIRECELL_UTIL_KDTREE
 
 #include "WireCellUtil/PointCloud.h"
+#include "WireCellUtil/nanoflann.hpp"
 #include <boost/algorithm/string/join.hpp>
 
 namespace WireCell::KDTree {
@@ -17,6 +18,28 @@ namespace WireCell::KDTree {
         units.
     */
     enum class Metric { l2simple, l1, l2, so2, so3 };
+
+    /// Provide nanoflan index adaptor traits to make class templates
+    /// easier to supply.
+    struct IndexTraits {    };
+    struct IndexStatic : public IndexTraits {
+        template <typename Distance, 
+                  class DatasetAdaptor, int32_t DIM = -1,
+                  typename IndexType = uint32_t>
+        using index_t = nanoflann::KDTreeSingleIndexAdaptor<Distance, DatasetAdaptor, DIM, IndexType>;
+    };
+    struct IndexDynamic : public IndexTraits {
+        template <typename Distance, 
+                  class DatasetAdaptor, int32_t DIM = -1,
+                  typename IndexType = uint32_t>
+        using index_t = nanoflann::KDTreeSingleIndexDynamicAdaptor<Distance, DatasetAdaptor, DIM, IndexType>;
+    };
+    /// Likewise for distance.  Here, nanoflann provides them so we
+    /// simply forward their names for the ones supported here.
+    using DistanceTraits = nanoflann::Metric;
+    using DistanceL1 = nanoflann::metric_L1;
+    using DistanceL2 = nanoflann::metric_L2;
+    using DistanceL2Simple = nanoflann::metric_L2_Simple;    
 
     /// Query result type
     template<typename ElementType>

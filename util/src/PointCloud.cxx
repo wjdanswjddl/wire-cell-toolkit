@@ -224,3 +224,49 @@ void Dataset::append(const std::map<std::string, Array>& tail)
 }
 
 
+void DisjointDataset::append(Dataset& ds) {
+    // If DS changes, we invalidate any indexing
+    ds.register_append([this](size_t beg, size_t end) {
+        this->m_dirty = true;
+    });
+
+    m_dds.push_back(std::cref(ds));
+
+    // if already clean, save some time and stay clean
+    if (!m_dirty) {
+        m_npoints += ds.size_major();
+    }
+}
+
+DisjointDataset::dsindex_t DisjointDataset::index(size_t index) const
+{
+    // fixme: Right now, this can operate while dirty as
+    // npoints is not used.  However, this is O(N) in number
+    // of datasets.  May be faster to use interval map or some
+    // other indexing.  If so, that likely needs to hook into
+    // and here call:
+    //
+    // update();
+
+    const auto nds = m_dds.size();
+    for (size_t dsind=0; dsind < nds; ++dsind) {
+        const Dataset& ds = m_dds[dsind];
+        const size_t dsize = ds.size_major();
+        if (index < dsize) {
+            return std::make_pair(dsind, index);
+        }
+        index += dsize;
+    }
+    raise<IndexError>("DisjointDataset::index out of bounds");
+}
+
+void DisjointDataset::update() const
+{
+    if (!m_dirty) return;
+            
+    m_npoints = 0;
+    for (const Dataset& ds : m_dds) {
+        m_npoints += ds.size_major();
+    }
+    m_dirty = false;
+}

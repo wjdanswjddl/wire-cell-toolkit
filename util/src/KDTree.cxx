@@ -1,7 +1,5 @@
 #include "WireCellUtil/KDTree.h"
 
-#include "WireCellUtil/nanoflann.hpp"
-
 using namespace WireCell::KDTree;
 
 using WireCell::PointCloud::selection_t;

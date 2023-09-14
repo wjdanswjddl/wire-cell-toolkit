@@ -345,6 +345,7 @@ namespace WireCell::PointCloud {
     */
     using selection_t = std::vector<ArrayRef>;
 
+
     /** A set of arrays accessed by their name.  All arrays must be
         kept to the same number of elements (points).
     */
@@ -491,6 +492,42 @@ namespace WireCell::PointCloud {
     
     // A "null" filter which incurs a copy.
     inline Dataset copy(const Dataset& ds) { return ds; }
+
+    using DatasetRef = std::reference_wrapper<const Dataset>;
+
+    /// A light-weight sequence of references to individual PC
+    /// datasets.
+    ///
+    /// Caller must keep Datasets alive for the lifetime of the set.
+    ///
+    class DisjointDataset {
+      public:
+        using sequence_t = std::vector<DatasetRef>;
+        using dsindex_t = std::pair<size_t, size_t>;
+
+        const sequence_t& datasets() const { return m_dds; }
+
+        const size_t npoints() const {
+            update();
+            return m_npoints;
+        };
+
+        /// Append a dataset to this set.
+        void append(Dataset& ds);
+        
+        /// Return the dataset and local point index given a global index.
+        dsindex_t index(size_t index) const;
+
+      private:
+
+        void update() const;
+
+        sequence_t m_dds;
+        mutable size_t m_npoints{0};
+        mutable bool m_dirty{true};
+    };
+
+
 }
 
 #endif
