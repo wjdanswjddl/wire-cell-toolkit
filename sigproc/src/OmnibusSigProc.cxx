@@ -144,6 +144,9 @@ void OmnibusSigProc::configure(const WireCell::Configuration& config)
     m_use_multi_plane_protection = get<bool>(config, "use_multi_plane_protection", m_use_multi_plane_protection);
     m_mp3_roi_tag = get(config, "mp3_roi_tag", m_mp3_roi_tag);
     m_mp2_roi_tag = get(config, "mp2_roi_tag", m_mp2_roi_tag);
+    m_mp_th1 = get(config, "mp_th1", m_mp_th1);
+    m_mp_th2 = get(config, "mp_th1", m_mp_th2);
+    m_mp_tick_resolution = get(config, "mp_tick_resolution", m_mp_tick_resolution);
     
 
     if (config.isMember("rebase_planes")) {
@@ -285,6 +288,9 @@ WireCell::Configuration OmnibusSigProc::default_configuration() const
     cfg["use_multi_plane_protection"] = m_use_multi_plane_protection;  // default false
     cfg["mp3_roi_tag"] = m_mp3_roi_tag;
     cfg["mp2_roi_tag"] = m_mp2_roi_tag;
+    cfg["mp_th1"] = m_mp_th1;
+    cfg["mp_th2"] = m_mp_th2;
+    cfg["mp_tick_resolution"] = m_mp_tick_resolution;
     
     cfg["rebase_nbins"] = m_rebase_nbins;    
 
@@ -498,7 +504,8 @@ void OmnibusSigProc::save_roi(ITrace::vector& itraces, IFrame::trace_list_t& ind
             if (start < 0 or end < 0) continue;
             for (int i = start; i <= end; i++) {
                 if (i - prev_roi_end < 2) continue;  // skip one bin for visibility of two adjacent ROIs
-                charge.at(i) = 10.;                  // arbitary constant number for ROI display
+                // charge.at(i) = 10.;                  // arbitary constant number for ROI display
+                charge.at(i) = signal_roi->get_contents().at(i-start); // use actual content
             }
             prev_roi_end = end;
         }
@@ -1510,9 +1517,13 @@ bool OmnibusSigProc::operator()(const input_pointer& in, output_pointer& out)
             }
 
             if (m_use_multi_plane_protection) {
-                roi_refine.MultiPlaneProtection(iplane, m_anode, m_roi_ch_ch_ident, roi_form, 1000, m_anode->ident() % 2);
+                for (const auto& f : m_anode->faces()) {
+                    // mp3: 3 plane protection based on cleaup ROI
+                    roi_refine.MultiPlaneProtection(iplane, m_anode, m_roi_ch_ch_ident, roi_form, m_mp_th1, m_mp_th2, f->ident(), m_mp_tick_resolution);
+                    // mp2: 2 plane protection based on cleaup ROI
+                    roi_refine.MultiPlaneROI(iplane, m_anode, m_roi_ch_ch_ident, roi_form, m_mp_th1, m_mp_th2, f->ident(), m_mp_tick_resolution);
+                }
                 save_mproi(*itraces, mp3_roi_traces, iplane, roi_refine.get_mp3_rois());
-                roi_refine.MultiPlaneROI(iplane, m_anode, m_roi_ch_ch_ident, roi_form, 1000, m_anode->ident() % 2);
                 save_mproi(*itraces, mp2_roi_traces, iplane, roi_refine.get_mp2_rois());
             }
         }
@@ -1594,6 +1605,11 @@ bool OmnibusSigProc::operator()(const input_pointer& in, output_pointer& out)
             m_r_data[iplane].resize(0, 0);  // clear memory
         }
     }
+
+    // clear the overall response
+    // for (int i = 0; i != 3; i++) {
+    //     overall_resp[i].clear();
+    // }
 
     auto sframe = new Aux::SimpleFrame(in->ident(), in->time(), ITrace::shared_vector(itraces), in->tick(), in->masks());
     sframe->tag_frame(m_frame_tag);
