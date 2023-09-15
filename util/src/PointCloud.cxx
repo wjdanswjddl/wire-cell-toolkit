@@ -255,9 +255,10 @@ DisjointDataset::dsindex_t DisjointDataset::index(size_t index) const
         if (index < dsize) {
             return std::make_pair(dsind, index);
         }
-        index += dsize;
+        index -= dsize;
     }
     raise<IndexError>("DisjointDataset::index out of bounds");
+    return std::make_pair(-1, -1); // not reached, make compiler happy
 }
 
 void DisjointDataset::update() const

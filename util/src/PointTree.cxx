@@ -76,13 +76,15 @@ bool Tree::Points::on_insert(const Tree::Points::node_path_t& path)
         
         Dataset& ds = node->value.m_lpcs[scope.pcname];
 
+        size_t beg = dds.npoints();
         dds.append(ds);
+        size_t end = dds.npoints();
 
         auto kdit = m_nfkds.find(scope);
         if (kdit == m_nfkds.end()) {
             continue;
         }
-        kdit->second->update(ds);
+        kdit->second->addpoints(beg, end);
     }
 
     return true;

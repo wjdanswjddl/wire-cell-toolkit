@@ -25,14 +25,18 @@ namespace WireCell::KDTree {
     struct IndexStatic : public IndexTraits {
         template <typename Distance, 
                   class DatasetAdaptor, int32_t DIM = -1,
-                  typename IndexType = uint32_t>
-        using index_t = nanoflann::KDTreeSingleIndexAdaptor<Distance, DatasetAdaptor, DIM, IndexType>;
+                  typename IndexType = size_t>
+        struct traits {
+            using index_t = nanoflann::KDTreeSingleIndexAdaptor<Distance, DatasetAdaptor, DIM, IndexType>;
+        };
     };
     struct IndexDynamic : public IndexTraits {
         template <typename Distance, 
                   class DatasetAdaptor, int32_t DIM = -1,
-                  typename IndexType = uint32_t>
-        using index_t = nanoflann::KDTreeSingleIndexDynamicAdaptor<Distance, DatasetAdaptor, DIM, IndexType>;
+                  typename IndexType = size_t>
+        struct traits {
+            using index_t = nanoflann::KDTreeSingleIndexDynamicAdaptor<Distance, DatasetAdaptor, DIM, IndexType>;
+        };
     };
     /// Likewise for distance.  Here, nanoflann provides them so we
     /// simply forward their names for the ones supported here.

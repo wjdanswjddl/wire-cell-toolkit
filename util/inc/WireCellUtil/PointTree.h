@@ -60,6 +60,10 @@ namespace WireCell::PointCloud::Tree {
      */
     class Points : public NaryTree::Notified<Points> {
         
+        // This is a helper to interface with nanoflann.  It has
+        // typeless and typefull inheritance layers.  It gets a const
+        // reference to a DisjointDataset that we construct via a
+        // scoped descent.
         using kdtree_base_t = NFKD;
         using kdtree_base_ptr = std::unique_ptr<kdtree_base_t>;
 
@@ -95,6 +99,9 @@ namespace WireCell::PointCloud::Tree {
         explicit Points(named_pointclouds_t&& pcs)
             : m_lpcs(std::move(pcs)) {}
 
+        const node_t* node() const { return m_node; };
+        node_t* node() { return m_node; };
+
         // Access the set of point clouds local to this node.
         const named_pointclouds_t& local_pcs() const { return m_lpcs; }
 
@@ -110,9 +117,14 @@ namespace WireCell::PointCloud::Tree {
             using kd_t = kdtree_t<ElementType, DistanceTraits, IndexTraits>;
             auto it = m_nfkds.find(scope);
             if (it != m_nfkds.end()) {
-                return *(it->second.get());
+                const auto* ptr = it->second.get();
+                const auto* dptr = dynamic_cast<const kd_t*>(ptr);
+                if (!dptr) {
+                    raise<ValueError>("Tree::Points::scoped_kd(): type collision");
+                }
+                return *dptr;
             }
-            DisjointDataset& dds = scoped_pc(scope);
+            const DisjointDataset& dds = scoped_pc(scope);
             kd_t* ptr = new kd_t(dds, scope.coords);
             m_nfkds[scope] = kdtree_base_ptr(ptr);
             return *ptr;

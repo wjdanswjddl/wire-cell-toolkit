@@ -5,7 +5,9 @@
 
 #include "WireCellUtil/PointCloud.h"
 #include "WireCellUtil/DetectionIdiom.h"
+#include "WireCellUtil/Logging.h"
 #include "WireCellUtil/nanoflann.hpp"
+#include <unordered_map>
 
 namespace WireCell::PointCloud::Tree {
 
@@ -14,9 +16,20 @@ namespace WireCell::PointCloud::Tree {
     /// not directly by application code.
     class NFKD {
       protected:
-        DisjointDataset m_dds;
+        // The thing we glom on to
+        const DisjointDataset& m_dds;
       public:
         
+        NFKD() = delete;
+        NFKD(const NFKD& other) = delete;
+        NFKD& operator=(const NFKD& other) = delete;
+
+        explicit NFKD(const DisjointDataset& dds) : m_dds(dds) {}
+
+        // Caller notifies us that the underlying DisjointDataset has
+        // had points added.
+        virtual void addpoints(size_t beg, size_t end) = 0;
+
         /// The numeric distance between points for any type of k-d
         /// tree query is chosen to be of type double (even in the
         /// unusual choice that ElementType is integer and the
@@ -33,24 +46,12 @@ namespace WireCell::PointCloud::Tree {
         /// datasets.
         const DisjointDataset& pointclouds() const { return m_dds; }
 
-        /// Update the disjoint dataset and refresh the KD tree
-        void update(Dataset& newds)
-        {
-            size_t beg = m_dds.npoints();
-            m_dds.append(newds);
-            size_t end = m_dds.npoints();
-            this->addpoints(beg, end);
-        }
         // nanoflann dataset adaptor API (one more in KDQueryTyped).
         inline size_t kdtree_get_point_count() const {
             return m_dds.npoints();
         }
         template <class BBOX>
         bool kdtree_get_bbox(BBOX& /* bb */) const { return false; }
-
-      protected:
-        virtual void addpoints(size_t beg, size_t end) = 0;
-
     };
 
     /// Typed interface to nanoflann
@@ -61,7 +62,6 @@ namespace WireCell::PointCloud::Tree {
     ///
     /// - IndexTraits provides a .traits template giving the type for the index adaptor.  Eg IndexStatic.
     ///
-    /// FIXME: this may break if points are subsequently added to any DS.
     template<typename ElementType,
              typename DistanceTraits,
              typename IndexTraits>
@@ -75,23 +75,37 @@ namespace WireCell::PointCloud::Tree {
         // This class is a nanoflann dataset adaptor.
         using dataset_t = NFKDT<ElementType, DistanceTraits, IndexTraits>;
         // Derive the distance metric type.
-        using metric_t = typename DistanceTraits::template traits<element_t, dataset_t>;
+        using metric_t = typename DistanceTraits::template traits<element_t, dataset_t>::distance_t;
         // Derive the k-d tree index type.
-        using index_t = typename IndexTraits::template traits<metric_t, dataset_t>;
+        using index_t = typename IndexTraits::template traits<metric_t, dataset_t>::index_t;
 
         NFKDT() = delete;
+        NFKDT(const NFKDT& other) = delete;
+        NFKDT& operator=(const NFKDT& other) = delete;
 
         /// Construct with a dataset and a list of dataset attribute
         /// array names to interpret as coordinates.  These arrays
         /// must be typed consistent with ElementType.
         explicit NFKDT(const DisjointDataset& dds, const name_list_t& coords)
-            : m_dds(dds)
+            : NFKD(dds)
             , m_coords(coords)
-            , m_index(dds.npoints(), *this)
+            , m_index(coords.size(), *this)
         {
             // fixme: check coords types?
         }
 
+        // FIXME: the underlying k-d tree will become out of sync with
+        // the DisjointDataset when if points are added to any DS in
+        // the DisjointDataset (appending a new DS is okay).  We may
+        // keep sync by setting a callback on each new Dataset in the
+        // DisjointDataset to trigger a k-d tree update.  The change
+        // in the Dataset may not be an append and thus in general the
+        // callback must invalidate the k-d tree.  It can then be
+        // remade next time it is requested but it should be cleared
+        // in place to that any users holding on to a previously
+        // returned reference can see the update.  Alternatively, we
+        // may add API to allow the caller to initiate regenerating a
+        // k-d tree.
 
         /** Return the k-nearest neighbor points from the query point.
          */
@@ -107,7 +121,7 @@ namespace WireCell::PointCloud::Tree {
                                   nanoflann::SearchParameters());
             const size_t nfound = nf.size();
             for (size_t ind=0; ind<nfound; ++ind) {
-                ret.insert(indices[ind], distances[ind]);
+                ret.insert(std::make_pair(indices[ind], distances[ind]));
             }
             return ret;
         }
@@ -119,16 +133,18 @@ namespace WireCell::PointCloud::Tree {
             [length^2].
         */
         virtual results_t radius(distance_t rad, const point_t& query_point) const {
-            // nanoflann API change
+            /// nanoflann API change
             // std::vector<std::pair<size_t, element_t>> ids;
-            std::vector<nanoflann::ResultItem<size_t, element_t>> ids;
-            nanoflann::RadiusResultSet<element_t, size_t> rs(rad, ids);
-            m_index.findNeighbors(rs, query_point.data(),
-                                  nanoflann::SearchParameters());
+            std::vector<nanoflann::ResultItem<size_t, element_t>> res;
+            /// The non-underscore dynamic adaptor does not provide radiusSearch().
+            // m_index.radiusSearch(query_point.data(), rad, res);
+
+            nanoflann::RadiusResultSet<element_t, size_t> rs(rad, res);
+            m_index.findNeighbors(rs, &query_point[0]);
 
             results_t ret;
-            for (const auto& [index, distance] : ids) {
-                ret.insert(index, distance);
+            for (const auto& [index, distance] : res) {
+                ret.insert(std::make_pair(index, distance));
             }
             return ret;
         }
@@ -142,24 +158,25 @@ namespace WireCell::PointCloud::Tree {
             // Can speed things up by maintaining a vector of
             // selection_t or vector of span_t which is updated on
             // each append(ds).
-            auto [dind,lind] = m_dds.index(idx);
-            const Dataset& ds = m_dds.datasets()[dind];
+            const auto& dses = m_dds.datasets();
+            spdlog::debug("kdtree_get_pt({}, {}) dds: [{}] {} {}",
+                          idx, dim, m_dds.npoints(), dses.size(), (void*)&m_dds);
+            auto [dind,lind] = m_dds.index(idx); // may throw IndexError
+            const Dataset& ds = dses[dind];
             const auto& name = m_coords[dim];
             return ds.get(name).element<element_t>(lind);
         }
 
-      protected:
-
-        // This is called by parent class when ds is updated.
+        // This must be holder of the DisjointDataset to notify us
+        // that it has been enlarged.
         virtual void addpoints(size_t beg, size_t end)
         {
             addpoints_<index_t>(beg,end);
         }
 
       private:
-        DisjointDataset m_dds;
-        index_t m_index;
         name_list_t m_coords;
+        index_t m_index;
 
         // discovery idiom so we only try to call addPoints if our index is dynamic.
         template <typename T, typename ...Ts>
@@ -170,7 +187,7 @@ namespace WireCell::PointCloud::Tree {
 
         // Dynamic index case
         template <class T, std::enable_if_t<has_addpoints<T>::value>* = nullptr>
-        void addpoints_(size_t beg, size_t end) const {
+        void addpoints_(size_t beg, size_t end) {
             if (end > beg) {
                 this->m_index.addPoints(beg, end-1);
             }
@@ -178,8 +195,8 @@ namespace WireCell::PointCloud::Tree {
 
         // Static index case
         template <class T, std::enable_if_t<!has_addpoints<T>::value>* = nullptr>
-        void addpoints_(size_t beg, size_t end) const {
-            // fixme: should we throw here?
+        void addpoints_(size_t beg, size_t end) {
+            raise<LogicError>("NFKD: static index can not have points added");
             return; // no-op
         }
 
