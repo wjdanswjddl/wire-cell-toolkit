@@ -5,7 +5,7 @@
 
 #include "WireCellUtil/PointCloud.h"
 #include "WireCellUtil/DetectionIdiom.h"
-#include "WireCellUtil/Logging.h"
+// #include "WireCellUtil/Logging.h"
 #include "WireCellUtil/nanoflann.hpp"
 #include <unordered_map>
 
@@ -159,8 +159,8 @@ namespace WireCell::PointCloud::Tree {
             // selection_t or vector of span_t which is updated on
             // each append(ds).
             const auto& dses = m_dds.datasets();
-            spdlog::debug("kdtree_get_pt({}, {}) dds: [{}] {} {}",
-                          idx, dim, m_dds.npoints(), dses.size(), (void*)&m_dds);
+            // spdlog::debug("kdtree_get_pt({}, {}) dds: [{}] {} {}",
+            //               idx, dim, m_dds.npoints(), dses.size(), (void*)&m_dds);
             auto [dind,lind] = m_dds.index(idx); // may throw IndexError
             const Dataset& ds = dses[dind];
             const auto& name = m_coords[dim];

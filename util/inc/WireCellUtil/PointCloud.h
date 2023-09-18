@@ -329,7 +329,7 @@ namespace WireCell::PointCloud {
             m_bytes = span_t<std::byte>(m_store.data(), m_store.data() + m_store.size());
         }
 
-    };
+    };                          // Array
 
     /** A collection of indices of points in a point cloud */
     using indices_t = std::vector<size_t>;
@@ -344,6 +344,82 @@ namespace WireCell::PointCloud {
         updates are available to the user of the selection.
     */
     using selection_t = std::vector<ArrayRef>;
+
+    // An disjoint collection of Array or Dataset.
+    template<typename Value>
+    class Disjoint {
+      public:
+        using value_type = Value;
+        using reference_t = std::reference_wrapper<const value_type>;
+        using reference_vector = std::vector<reference_t>;
+        using address_t = std::pair<size_t,size_t>;
+
+        const reference_vector& values() const { return m_values; }
+        reference_vector& values() { return m_values; }
+
+        const size_t nelements() const {
+            update();
+            return m_nelements;
+        }
+
+        address_t address(size_t index) const {
+            // fixme: this algorithm likely can be optimized.
+            const auto nvals = m_values.size();
+            for (size_t valind=0; valind < nvals; ++valind) {
+                const value_type& val = m_values[valind];
+                const size_t vsize = val.size_major();
+                if (index < vsize) {
+                    return std::make_pair(valind, index);
+                }
+                index -= vsize;
+            }
+            raise<IndexError>("Disjoint::index out of bounds");
+            return std::make_pair(-1, -1); // not reached, make compiler happy
+        }
+
+        void append(const Value& val) {
+            m_values.push_back(std::cref(val));
+            // if already clean, save some time and stay clean
+            if (!m_dirty) {
+                m_nelements += val.size_major();
+            }
+        }
+
+        void update() const {
+            if (!m_dirty) return;
+
+            m_nelements = 0;
+            for (const Value& val : m_values) {
+                m_nelements += val.size_major();
+            }
+            m_dirty = false;
+        }
+
+      protected:
+        reference_vector m_values;
+        mutable size_t m_nelements{0};
+        mutable bool m_dirty{true};
+
+    };
+
+    // An array of Array
+    class DisjointArray : public Disjoint<Array> {
+      public:
+
+        template<typename Numeric>
+        Numeric element(const address_t& addr) const
+        {
+            const Array& arr = m_values.at(addr.first);
+            return arr.element<Numeric>(addr.second());
+        }
+
+        template<typename Numeric>
+        Numeric element(size_t index) const
+        {
+            auto addr = address(index);
+            return element<Numeric>(addr);
+        }
+    };
 
 
     /** A set of arrays accessed by their name.  All arrays must be
@@ -431,13 +507,14 @@ namespace WireCell::PointCloud {
         // FIXME, add something that returns something that produces a
         // typed tuple of array elements given their common index.
 
-        /// Return the names of the arrays in this.
-        using keys_t = std::set<std::string>;
+        /// Return the sorted names of the arrays in this.
+        using keys_t = std::vector<std::string>;
         keys_t keys() const {
             keys_t ret;
             for (const auto& [k,v] : m_store) {
-                ret.insert(k);
+                ret.push_back(k);
             }
+            std::sort(ret.begin(), ret.end());
             return ret;
         }
         bool has(const std::string& key) const {
@@ -500,31 +577,35 @@ namespace WireCell::PointCloud {
     ///
     /// Caller must keep Datasets alive for the lifetime of the set.
     ///
-    class DisjointDataset {
+    class DisjointDataset : public Disjoint<Dataset> {
       public:
-        using sequence_t = std::vector<DatasetRef>;
-        using dsindex_t = std::pair<size_t, size_t>;
-
-        const sequence_t& datasets() const { return m_dds; }
-
-        const size_t npoints() const {
-            update();
-            return m_npoints;
-        };
-
-        /// Append a dataset to this set.
-        void append(Dataset& ds);
         
-        /// Return the dataset and local point index given a global index.
-        dsindex_t index(size_t index) const;
+        // Return a disjoint arrays cooresponding to the named arrays.
+        std::vector<DisjointArray> selection(const name_list_t& names);
+
+
+        // // Return 
+        // template<typename Numeric>
+        // std::vector<Numeric> element(const address_t& addr) {
+            
+        // }
+        // template<typename Numeric>
+        // std::vector<Numeric> element(size_t index) {
+        //     auto addr = address(index);
+        //     return element(addr);
+        // }
+
+        // Append with registration
+        void append_react(Dataset& ds) {
+            // If DS changes, we invalidate any indexing
+            ds.register_append([this](size_t beg, size_t end) {
+                this->m_dirty = true;
+            });
+            append(ds);
+        }
 
       private:
 
-        void update() const;
-
-        sequence_t m_dds;
-        mutable size_t m_npoints{0};
-        mutable bool m_dirty{true};
     };
 
 

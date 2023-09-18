@@ -1,6 +1,10 @@
 #include "WireCellUtil/PointTree.h"
 #include <boost/container_hash/hash.hpp>
 
+#include <algorithm>
+#include <vector>
+#include <string>
+
 using namespace WireCell::PointCloud;
 
 std::size_t Tree::Scope::hash() const
@@ -109,8 +113,23 @@ const DisjointDataset& Tree::Points::scoped_pc(const Tree::Scope& scope) const
     DisjointDataset& dds = m_dds[scope];
     for (auto& nv : m_node->depth(scope.depth)) {
         // local pc dataset
-        Dataset& ds = nv.m_lpcs.at(scope.pcname); // throws
-        dds.append(ds);         // append even if empty
+        auto it = nv.m_lpcs.find(scope.pcname);
+        if (it == nv.m_lpcs.end()) {
+            continue;
+        }
+        Dataset& ds = it->second;
+        // check that it has the coordinate arrays
+        std::vector<std::string> have = ds.keys(), want(scope.coords), both;
+        std::sort(want.begin(), want.end());
+        std::set_intersection(have.begin(), have.end(), want.begin(), want.end(),
+                              std::back_inserter(both));
+
+        if (both.size() == want.size()) {
+            dds.append(ds);
+            continue;
+        }
+        raise<IndexError>("Tree::Points::scoped_pc %s lacks required coordinate arrays", scope.pcname);
+        
     };
     return dds;
 }

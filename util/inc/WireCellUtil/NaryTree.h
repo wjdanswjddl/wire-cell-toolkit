@@ -31,8 +31,6 @@
 #include <list>
 #include <memory>
 
-#include <iostream>             // debug
-
 #include <boost/iterator/iterator_facade.hpp>
 #include <boost/iterator/indirect_iterator.hpp>
 // Telling the truth
@@ -557,7 +555,8 @@ namespace WireCell::NaryTree {
     };
 
     // A base class for a Node Value type that helps dispatch actions
-    // to an inheriting subclass.
+    // to an inheriting subclass.  See NaryTesting::Introspective for
+    // an example.
     template<typename Data>
     class Notified {
       public:

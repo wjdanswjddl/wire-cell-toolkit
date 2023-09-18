@@ -4,6 +4,7 @@
 
 #include "WireCellUtil/Point.h"
 #include "WireCellUtil/PointCloud.h"
+#include "WireCellUtil/PointTesting.h"
 #include "WireCellUtil/KDTree.h"
 #include "WireCellUtil/Logging.h"
 
@@ -20,42 +21,16 @@ using namespace WireCell::PointCloud;
 namespace bh = boost::histogram;
 namespace bha = boost::histogram::algorithm;
 
-TEST_CASE("pointcloud hough janky track")
+TEST_CASE("point cloud hough janky track")
 {
     const double pi = 3.141592653589793;
 
-    // march up a diagonal line placing points
-    const double step_size = 0.01;
-    Ray box(Point(-1, -2, -3), Point(1, 2, 3));
-    const double line_length = ray_length(box);
-    const size_t nsteps = line_length / step_size;
-    const auto step_dir = ray_unit(box);
-
-    std::vector<double> x(nsteps,0), y(nsteps,0), z(nsteps,0), q(nsteps,0);
-
-    // Walk the track and place points on grid of step_size to
-    // construct the janky sampling
-    for (size_t step=0; step<nsteps; ++step) {
-        Point pt = box.first + step * step_size * step_dir;
-
-        x[step] = step_size * ( (int) ( 0.5 + ( pt.x() / step_size ) ) );
-        y[step] = step_size * ( (int) ( 0.5 + ( pt.y() / step_size ) ) );
-        z[step] = step_size * ( (int) ( 0.5 + ( pt.z() / step_size ) ) );
-
-        // Accumulte relative distance away from line to the grid
-        // point as some meaningless value to fill in for charge.
-        q[step] = std::abs(
-            pt.x()/step_size - ( (int) pt.x()/step_size ) +
-            pt.y()/step_size - ( (int) pt.y()/step_size ) +
-            pt.z()/step_size - ( (int) pt.z()/step_size ) );
-    }
-
-    Dataset ds;
-    ds.add("x", Array(x));
-    ds.add("y", Array(y));
-    ds.add("z", Array(z));
-    ds.add("q", Array(q));
-    CHECK(ds.get("x").num_elements() == nsteps);
+    Dataset ds = PointTesting::make_janky_track();
+    auto x = ds.get("x").elements<double>();
+    auto y = ds.get("y").elements<double>();
+    auto z = ds.get("z").elements<double>();
+    auto q = ds.get("q").elements<double>();
+    const size_t nsteps = q.size();
 
     const size_t nnn = 10;
     auto query = KDTree::query<double>(ds, {"x","y","z"});
@@ -70,7 +45,6 @@ TEST_CASE("pointcloud hough janky track")
     size_t nhistbins = 100;
     auto hist = bh::make_histogram(bh::axis::regular<>( nhistbins, -1.0, 1.0 ),
                                    bh::axis::regular<>( nhistbins,  -pi, pi ) );
-
 
     for (size_t ipt=0; ipt<nsteps; ipt+=10) {
         hist.reset();

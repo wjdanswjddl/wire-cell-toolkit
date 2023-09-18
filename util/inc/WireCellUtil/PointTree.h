@@ -22,13 +22,13 @@ namespace WireCell::PointCloud::Tree {
     struct Scope {
 
         // The name of the node-local point clouds
-        std::string pcname;
+        std::string pcname{""};
 
         // The list of PC attribute array names to interpret as coordinates.
-        name_list_t coords;
+        name_list_t coords{};
 
         // The depth of the descent.
-        size_t depth;
+        size_t depth{0};
 
         std::size_t hash() const;
         bool operator==(const Scope& other) const;
@@ -73,6 +73,7 @@ namespace WireCell::PointCloud::Tree {
         using named_pointclouds_t = std::map<std::string, pointcloud_t>;
 
         using node_t = NaryTree::Node<Points>;
+        using node_ptr = std::unique_ptr<node_t>;
         using node_path_t = std::vector<node_t*>;
         template<typename ElementType,
                  typename DistanceTraits,
@@ -85,30 +86,33 @@ namespace WireCell::PointCloud::Tree {
 
         // Copy constructor disabled due to holding unique k-d tree 
         Points(const Points& other) = delete;
-        // move is okay
+        /// Move constructor.
         Points(Points&& other) = default;
 
+        /// Copy assignment is deleted.
         Points& operator=(const Points& other) = delete;
+        /// Move assignment
         Points& operator=(Points&& other) = default;
 
-        // Construct with local point clouds by copy
+        /// Construct with local point clouds by copy
         explicit Points(const named_pointclouds_t& pcs)
             : m_lpcs(pcs.begin(), pcs.end()) {}
 
-        // Construct with local point clouds by move
+        /// Construct with local point clouds by move
         explicit Points(named_pointclouds_t&& pcs)
             : m_lpcs(std::move(pcs)) {}
 
+        /// Access the node that holds us, if any.
         const node_t* node() const { return m_node; };
         node_t* node() { return m_node; };
 
-        // Access the set of point clouds local to this node.
+        /// Access the set of point clouds local to this node.
         const named_pointclouds_t& local_pcs() const { return m_lpcs; }
 
         /// Access a scoped PC.
         const DisjointDataset& scoped_pc(const Scope& scope) const;
-
-        // Access the scoped k-d tree.
+        
+        /// Access the scoped k-d tree.
         template<typename ElementType=double,
                  typename DistanceTraits=KDTree::DistanceL2Simple,
                  typename IndexTraits=KDTree::IndexDynamic>

@@ -390,7 +390,7 @@ TEST_CASE("point cloud dataset")
 
 TEST_CASE("point cloud disjoint dataset")
 {
-    using dsindex_t = DisjointDataset::dsindex_t;
+    using dsindex_t = DisjointDataset::address_t;
 
     DisjointDataset dds;
     CHECK(dds.npoints() == 0);

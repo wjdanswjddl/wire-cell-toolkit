@@ -109,3 +109,4 @@ activities_t RayGrid::make_activities(Coordinates& coords, std::vector<measure_t
     }
     return activities;
 }
+
