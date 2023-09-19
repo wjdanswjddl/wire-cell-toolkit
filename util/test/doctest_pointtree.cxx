@@ -58,13 +58,13 @@ TEST_CASE("point tree points empty")
 
     Scope s;
     const auto& dds = p.scoped_pc(s);
-    CHECK(dds.datasets().empty());
-    CHECK(dds.npoints() == 0);
+    CHECK(dds.values().empty());
+    CHECK(dds.nelements() == 0);
 
     const auto& kd = p.scoped_kd(s);
     const auto& dds2 = kd.pointclouds();
-    CHECK(dds2.datasets().empty());
-    CHECK(dds2.npoints() == 0);
+    CHECK(dds2.values().empty());
+    CHECK(dds2.nelements() == 0);
     CHECK(&dds == &dds2);
 }
 
@@ -114,7 +114,7 @@ TEST_CASE("point tree real")
     Scope scope{ "3d", {"x","y","z"}};
 
     const auto& pc3d = rval.scoped_pc(scope);
-    CHECK(pc3d.datasets().size() == 2);
+    CHECK(pc3d.values().size() == 2);
 
     const auto& kd = rval.scoped_kd(scope);
     CHECK(&kd.pointclouds() == &pc3d);
@@ -122,8 +122,8 @@ TEST_CASE("point tree real")
     auto knn = kd.knn(6, {0,0,0});
     for (auto [ind,dist] : knn) {
         // fixme: warning this per index lookup is probably expensive.
-        auto [dsnum,dsind] = pc3d.index(ind);
-        const Dataset& ds = pc3d.datasets()[dsnum];
+        auto [dsnum,dsind] = pc3d.address(ind);
+        const Dataset& ds = pc3d.values()[dsnum];
         selection_t sel = ds.selection(scope.coords);
         debug("knn: {}=({},{}): {}", ind, dsnum, dsind, dist);
               // sel[0].get().element<double>(dsind),
@@ -136,8 +136,8 @@ TEST_CASE("point tree real")
 
     auto rad = kd.radius(.001, {0,0,0});
     for (auto [ind,dist] : rad) {
-        auto [dsnum,dsind] = pc3d.index(ind);
-        const Dataset& ds = pc3d.datasets()[dsnum];
+        auto [dsnum,dsind] = pc3d.address(ind);
+        const Dataset& ds = pc3d.values()[dsnum];
         selection_t sel = ds.selection(scope.coords);
         debug("rad: {}=({},{}): {}", ind, dsnum, dsind, dist);
         // debug("rad: {}: {} = ({},{},{},{})", ind, dist,

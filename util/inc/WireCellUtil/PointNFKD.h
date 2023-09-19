@@ -48,7 +48,7 @@ namespace WireCell::PointCloud::Tree {
 
         // nanoflann dataset adaptor API (one more in KDQueryTyped).
         inline size_t kdtree_get_point_count() const {
-            return m_dds.npoints();
+            return m_dds.nelements();
         }
         template <class BBOX>
         bool kdtree_get_bbox(BBOX& /* bb */) const { return false; }
@@ -158,10 +158,10 @@ namespace WireCell::PointCloud::Tree {
             // Can speed things up by maintaining a vector of
             // selection_t or vector of span_t which is updated on
             // each append(ds).
-            const auto& dses = m_dds.datasets();
+            const auto& dses = m_dds.values();
             // spdlog::debug("kdtree_get_pt({}, {}) dds: [{}] {} {}",
             //               idx, dim, m_dds.npoints(), dses.size(), (void*)&m_dds);
-            auto [dind,lind] = m_dds.index(idx); // may throw IndexError
+            auto [dind,lind] = m_dds.address(idx); // may throw IndexError
             const Dataset& ds = dses[dind];
             const auto& name = m_coords[dim];
             return ds.get(name).element<element_t>(lind);

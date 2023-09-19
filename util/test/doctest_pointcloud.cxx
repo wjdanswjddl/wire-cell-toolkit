@@ -393,7 +393,7 @@ TEST_CASE("point cloud disjoint dataset")
     using dsindex_t = DisjointDataset::address_t;
 
     DisjointDataset dds;
-    CHECK(dds.npoints() == 0);
+    CHECK(dds.nelements() == 0);
 
     Dataset ds({
             {"one", Array({1  ,2  ,3  })},
@@ -401,23 +401,23 @@ TEST_CASE("point cloud disjoint dataset")
 
     dds.append(ds);
     debug("dds append 1: has {} datasets and {} points",
-          dds.datasets().size(), dds.npoints());
+          dds.values().size(), dds.nelements());
 
-    CHECK(dds.datasets().size() == 1);
-    CHECK(dds.npoints() == 3);
-    CHECK(dds.index(0) == dsindex_t(0,0));
-    CHECK(dds.index(1) == dsindex_t(0,1));
-    CHECK(dds.index(2) == dsindex_t(0,2));
-    CHECK_THROWS_AS(dds.index(3), IndexError);
+    CHECK(dds.values().size() == 1);
+    CHECK(dds.nelements() == 3);
+    CHECK(dds.address(0) == dsindex_t(0,0));
+    CHECK(dds.address(1) == dsindex_t(0,1));
+    CHECK(dds.address(2) == dsindex_t(0,2));
+    CHECK_THROWS_AS(dds.address(3), IndexError);
 
     dds.append(ds);
     debug("dds append 2: has {} datasets and {} points",
-          dds.datasets().size(), dds.npoints());
+          dds.values().size(), dds.nelements());
 
-    CHECK(dds.datasets().size() == 2);
-    CHECK(dds.npoints() == 6);
-    CHECK(dds.index(3) == dsindex_t(1,0));
-    CHECK(dds.index(4) == dsindex_t(1,1));
-    CHECK(dds.index(5) == dsindex_t(1,2));
-    CHECK_THROWS_AS(dds.index(6), IndexError);
+    CHECK(dds.values().size() == 2);
+    CHECK(dds.nelements() == 6);
+    CHECK(dds.address(3) == dsindex_t(1,0));
+    CHECK(dds.address(4) == dsindex_t(1,1));
+    CHECK(dds.address(5) == dsindex_t(1,2));
+    CHECK_THROWS_AS(dds.address(6), IndexError);
 }
