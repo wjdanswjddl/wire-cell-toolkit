@@ -655,7 +655,8 @@ void OmnibusSigProc::save_mproi(ITrace::vector& itraces, IFrame::trace_list_t& i
             if (och.channel != signal_roi.first.first) continue;
             int start = signal_roi.second.first;
             int end = signal_roi.second.second;
-            for (int i = start; i <= end; i++) {
+            // end is should be included but not larger than m_nticks
+            for (int i = start; i <= end && i < m_nticks; i++) {
                 charge.at(i) = 4000.;  // arbitary constant number for ROI display
             }
         }
