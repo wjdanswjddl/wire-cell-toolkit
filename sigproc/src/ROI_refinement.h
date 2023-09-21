@@ -34,11 +34,11 @@ namespace WireCell {
 
             void MultiPlaneProtection(const int plane, const IAnodePlane::pointer anode,
                                       const std::map<int, int>& map_ch, ROI_formation& roi_form,
-                                      const double threshold = 0., const int faceid = 1, const int tick_resolution = 10,
+                                      const double mp_th1 = 0., const double mp_th2 = 0., const int faceid = 1, const int tick_resolution = 10,
                                       const int wire_resolution = 2, const int nbounds_layers = 2);
 
             void MultiPlaneROI(const int plane, const IAnodePlane::pointer anode, const std::map<int, int>& map_ch,
-                               ROI_formation& roi_form, const double threshold = 0., const int faceid = 1,
+                               ROI_formation& roi_form, const double mp_th1 = 0., const double mp_th2 = 0., const int faceid = 1,
                                const int tick_resolution = 10, const int wire_resolution = 2,
                                const int nbounds_layers = 2);
 

@@ -218,6 +218,9 @@ namespace WireCell {
             bool m_use_multi_plane_protection{false};
             std::string m_mp3_roi_tag{"mp3_roi"};
             std::string m_mp2_roi_tag{"mp2_roi"};
+            double m_mp_th1{1000.};
+            double m_mp_th2{500.};
+            int m_mp_tick_resolution{4};
 
 	    //Rebase waveforms for each channel of spesific wire-plane. 
 	    std::vector<int> m_rebase_planes{}; 
