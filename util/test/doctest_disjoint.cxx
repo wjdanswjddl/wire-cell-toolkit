@@ -1,193 +1,36 @@
-//#include "WireCellUtil/Disjoint.h"
+#include "WireCellUtil/Disjoint.h"
 #include "WireCellUtil/doctest.h"
 #include "WireCellUtil/Logging.h"
 
-// local imp
-#include <boost/iterator/iterator_adaptor.hpp>
-#include <map>
-
-
-using namespace WireCell;
 using spdlog::debug;
+using namespace WireCell;
 
-template <typename OuterIter>
-class disjoint_iterator :
-    public boost::iterator_facade<disjoint_iterator<OuterIter>,
-                                  // value
-                                  typename OuterIter::value_type::iterator::value_type,
-                                  // cagegory
-                                  //boost::random_access_traversal_tag
-                                  boost::forward_traversal_tag
-                                  >
-{
-  private:
-    using outer_iterator = OuterIter;
-    using inner_iterator = typename OuterIter::value_type::iterator;
+TEST_CASE("disjoint iterator test stl") {
 
-    struct inner_range_type {
-        outer_iterator outer;
-        // Number of inners in range
-        size_t size() const { return std::distance(begin(), end()); }
-        inner_iterator begin() const { return outer->begin(); }
-        inner_iterator end() const { return outer->end(); }
-        bool empty() const { return begin() == end(); }
-    };
-    using accum_map = std::map<size_t, inner_range_type>;
-    using accum_iterator = typename accum_map::iterator;
-    struct cursor_type {
-        accum_iterator accum{}; // -> {Naccum, inner range}
-        inner_iterator inner{}; // current inner iterator in range
-        size_t index{0};        // corresponding global index comparable to size()
-
-        bool operator==(const cursor_type& o) {
-            return accum == o.accum
-                and inner == o.inner;
-        }
-
-        bool at_inner_end() const {
-            return inner == accum->second.end();
-        }
-    };
-
-    // Index and order by how many inners came before a range.
-    accum_map accums;
-    // Where we are in the accumulation
-    cursor_type cursor;
-
-    // total number of inners
-    size_t inners_size_{0};
-
-  public:
-    void trace(const std::string& msg) {
-        debug("{}: index={}", msg, cursor.index);
-    }
-
-    // Construct an "end" iterator.
-    disjoint_iterator(OuterIter end)
     {
-        trace("construct(end)");
-        cursor.accum = accums.end();
-        cursor.index = 0;       // equal to size
-        trace("constructed(end)");
+        std::map<int, int> m = { {0,0}, {1,1}, {2,2} };
+        auto mit = m.begin();
+        CHECK(mit->second == 0);
+        ++mit;
+        CHECK(mit->second == 1);
+        --mit;
+        CHECK(mit->second == 0);
+        mit = m.end();
+        --mit;
+        CHECK(mit->second == 2);
     }
 
-    // Construct a full iterator.
-    disjoint_iterator(OuterIter beg, OuterIter end)
     {
-        trace("construct(beg,end)");
-
-        for (auto it = beg; it != end; ++it) {
-            inner_range_type ir{it};
-            if (ir.empty()) { continue; }
-            accums[inners_size_] = ir;
-            inners_size_ += ir.size();
-        }
-
-        if (inners_size_ == 0) {
-            trace("construct(end,end)");
-            cursor.accum = accums.end();
-            cursor.index = 0;       // equal to size
-            trace("constructed(end,end)");
-            return;
-        }
-
-        // initialize cursor at start
-        cursor.accum = accums.begin();
-        cursor.inner = cursor.accum->second.begin();
-        cursor.index = 0;
-        trace("constructed(beg,end)");
+        std::vector<int> want = {0,1,2,3,4};
+        auto vit = want.end();
+        debug("test_sequence: go one before end");
+        --vit;
+        debug("test_sequence: gone one before end");
+        CHECK(*vit == want.back());
+        debug("test_sequence: gone one before end okay");
     }
-
-    // Size of all inners
-    size_t size() const { return inners_size_; }
-
-  private:
-
-    friend class boost::iterator_core_access;
-
-    bool at_outer_end() const {
-        return cursor.accum == accums.end();
-    }
-
-    template <typename OtherOuterIter>
-    bool equal(disjoint_iterator<OtherOuterIter> const& x) const {
-        if (at_outer_end() and x.at_outer_end()) return true;
-        if (at_outer_end() or x.at_outer_end()) return false;
-        // both are non-end
-        return cursor.accum == x.cursor.accum
-            and cursor.inner == x.cursor.inner;
-    }
-
-    void increment()
-    {
-        trace("incrementing");
-        if (at_outer_end()) {
-            throw std::runtime_error("increment past end");
-        }
-
-        if (cursor.at_inner_end()) {
-            // go next cursor
-            ++cursor.accum;
-            // fell off
-            if (at_outer_end()) {
-                cursor.inner = inner_iterator{};
-                cursor.index = size();
-                trace("increment at end");
-                return;
-            }
-            // at start of non-empty range
-            cursor.inner = cursor.accum->second.begin();
-            ++cursor.index;
-            trace("increment inter-range");
-            return;
-        }
-        // in range
-        ++cursor.inner;
-        ++cursor.index;
-        trace("increment intra-range");
-    }
-
-    // void advance(difference_type n)
-    // {
-        
-    // }
-
-    // difference_type distance_to(disjoint_iterator<OuterIter> const& other) const
-    // {
-    //     return cursor.index - this->cursor.index;
-    // }
-
-
-    using value_type = typename OuterIter::value_type::iterator::value_type;
-    value_type& dereference() const
-    {
-        return *cursor.inner;
-    }
-};
-
-
-
-template<typename OuterIter>
-struct disjoint_range {
-    using iterator = disjoint_iterator<OuterIter>;
-
-    OuterIter b, e;
-    iterator begin() const { return iterator(b,e); }
-    iterator end() const { return iterator(e); }
-};
-
-
-
-template <typename OuterIter>
-auto flatten(OuterIter end) -> disjoint_iterator<OuterIter>
-{
-    return disjoint_iterator<OuterIter>(end);
 }
-template <typename OuterIter>
-auto flatten(OuterIter begin, OuterIter end) -> disjoint_iterator<OuterIter>
-{
-    return disjoint_iterator<OuterIter>(begin, end);
-}
+
 
 TEST_CASE("disjoint iterator simple") {
     std::vector<std::vector<int>> hier;
@@ -196,21 +39,79 @@ TEST_CASE("disjoint iterator simple") {
     CHECK(di1 == di2);
 }
 
-TEST_CASE("disjoint iterator no empties") {
-    std::vector<std::vector<int>> hier = { {0,1,2}, {3}, {4} };
-
-    for (auto i = flatten(hier.begin(), hier.end());
-         i != flatten(hier.end());
-         ++i) {
-        debug("dji: {}", *i);
+void test_sequence(std::vector<std::vector<int>> hier,
+                   std::vector<int> want)
+{
+    size_t ind = 0;
+    auto end = flatten(hier.end());
+    for (auto i = flatten(hier.begin(), hier.end()); i != end; ++i) {
+        CHECK(ind < 5);
+        debug("dji: ind={} want={} got={}", ind, want[ind], *i);
+        CHECK(*i == want[ind]);
+        ++ind;
     }
+
+
+    auto djit = disjoint_iterator(hier.begin(), hier.end());
+    ++djit;
+    CHECK(*djit == want[1]);
+    --djit;
+    CHECK(*djit == want[0]);
+    djit += 2;
+    CHECK(*djit == want[2]);    
+    djit -= 2;
+    CHECK(*djit == want[0]);
+    djit += want.size();
+    CHECK(djit == end);
+    debug("try backwards from end");
+    --djit;                     // backwards from end
+    debug("survived, now check equality");
+    CHECK(*djit == want.back());
+    debug("try backwards from last to first");
+    djit -= want.size() - 1;
+    debug("made it, now checking equality with front");
+    CHECK(*djit == want.front());
+    debug("still okay, let's try one step before begin and assure that throws");
+    CHECK_THROWS_AS(--djit, std::runtime_error);
+}
+
+TEST_CASE("disjoint iterator no empties") {
+    test_sequence({ {0,1,2}, {3}, {4} }, {0,1,2,3,4});
 }
 TEST_CASE("disjoint iterator with empties") {
-    std::vector<std::vector<int>> hier = { {}, {0,1,2}, {}, {3}, {4}, {}};
+    test_sequence({ {}, {0,1,2}, {}, {3}, {4}, {}}, {0,1,2,3,4});
+}
+TEST_CASE("disjoint iterator mutate") {
+    std::vector<std::vector<int>> hier = { {0,1,2}, {3}, {4} };
+    auto djit = disjoint_iterator(hier.begin(), hier.end());
 
-    for (auto i = flatten(hier.begin(), hier.end());
-         i != flatten(hier.end());
-         ++i) {
-        debug("dji: {}", *i);
-    }
+    CHECK(*djit == 0);
+    *djit = 42;
+    CHECK(*djit == 42);
+    CHECK(hier[0][0] == 42);
+}
+
+TEST_CASE("disjoint iterator const") {
+    using vi = std::vector<int>;
+    using vvi = std::vector<vi>;
+
+    using dji_vvivc = disjoint_iterator<vvi::iterator, vi::const_iterator>;
+    vvi hier = { {0,1,2}, {3}, {4} };
+  
+    auto vvivc = dji_vvivc(hier.begin(), hier.end());
+    ++vvivc;
+    int val = *vvivc;
+    CHECK(val == 1);
+
+    // should not compile!
+    int& ref2 = *vvivc;
+    CHECK(ref2 == 1);
+
+    int const& ref = *vvivc;
+    CHECK(ref == 1);
+
+    // using dji_vvcvc = disjoint_iterator<vvi::const_iterator, vi::const_iterator>;
+    // auto vvcvc = dji_vvcvc(hier.cbegin(), hier.cend());
+    // ++vvcvc;
+
 }

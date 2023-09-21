@@ -3,7 +3,7 @@
 // boost::histogram to do a hough transform.
 
 #include "WireCellUtil/Point.h"
-#include "WireCellUtil/PointCloud.h"
+#include "WireCellUtil/PointCloudDataset.h"
 #include "WireCellUtil/PointTesting.h"
 #include "WireCellUtil/KDTree.h"
 #include "WireCellUtil/Logging.h"

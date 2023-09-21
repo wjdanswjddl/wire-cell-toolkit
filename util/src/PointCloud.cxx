@@ -1,4 +1,4 @@
-#include "WireCellUtil/PointCloud.h"
+#include "WireCellUtil/PointCloudDataset.h"
 
 using namespace WireCell::PointCloud;
 

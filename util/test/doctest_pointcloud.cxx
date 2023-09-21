@@ -1,4 +1,4 @@
-#include "WireCellUtil/PointCloud.h"
+#include "WireCellUtil/PointCloudDisjoint.h"
 #include "WireCellUtil/doctest.h"
 #include "WireCellUtil/Logging.h"
 #include "WireCellUtil/Exceptions.h"

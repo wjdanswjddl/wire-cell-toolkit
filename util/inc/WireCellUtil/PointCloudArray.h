@@ -1,9 +1,8 @@
 #ifndef WIRECELL_POINTCLOUDARRAY
 #define WIRECELL_POINTCLOUDARRAY
 
-#include "WireCellUtil/Disjoint.h"
-
 #include "WireCellUtil/Dtype.h"
+#include "WireCellUtil/Exceptions.h"
 #include "WireCellUtil/Configuration.h"
 
 // fixme: Only need to keep this ifdef in place unil users upgrade to
@@ -343,25 +342,6 @@ namespace WireCell::PointCloud {
     */
     using selection_t = std::vector<ArrayRef>;
 
-
-    // An array of Array
-    class DisjointArray : public Disjoint<Array> {
-      public:
-
-        template<typename Numeric>
-        Numeric element(const address_t& addr) const
-        {
-            const Array& arr = m_values.at(addr.first);
-            return arr.element<Numeric>(addr.second());
-        }
-
-        template<typename Numeric>
-        Numeric element(size_t index) const
-        {
-            auto addr = address(index);
-            return element<Numeric>(addr);
-        }
-    };
 
 
 

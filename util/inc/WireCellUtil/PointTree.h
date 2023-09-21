@@ -7,7 +7,7 @@
 #ifndef WIRECELLUTIL_POINTTREE
 #define WIRECELLUTIL_POINTTREE
 
-#include "WireCellUtil/PointCloud.h"
+#include "WireCellUtil/PointCloudDataset.h"
 #include "WireCellUtil/PointNFKD.h"
 #include "WireCellUtil/NaryTree.h"
 #include "WireCellUtil/KDTree.h"

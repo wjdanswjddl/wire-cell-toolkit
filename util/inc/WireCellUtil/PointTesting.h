@@ -3,7 +3,7 @@
 #ifndef WIRECELLUTIL_POINTTESTING
 #define WIRECELLUTIL_POINTTESTING
 
-#include "WireCellUtil/PointCloud.h"
+#include "WireCellUtil/PointCloudDataset.h"
 #include "WireCellUtil/Point.h"
 
 namespace WireCell::PointTesting {

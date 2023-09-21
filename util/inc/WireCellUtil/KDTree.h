@@ -5,7 +5,7 @@
 #ifndef WIRECELL_UTIL_KDTREE
 #define WIRECELL_UTIL_KDTREE
 
-#include "WireCellUtil/PointCloud.h"
+#include "WireCellUtil/PointCloudDataset.h"
 #include "WireCellUtil/nanoflann.hpp"
 #include <boost/algorithm/string/join.hpp>
 

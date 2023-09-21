@@ -8,7 +8,7 @@
 #define WIRECELL_IBLOBSAMPLER
 
 #include "WireCellUtil/IComponent.h"
-#include "WireCellUtil/PointCloud.h"
+#include "WireCellUtil/PointCloudDataset.h"
 #include "WireCellIface/IBlob.h"
 
 namespace WireCell {

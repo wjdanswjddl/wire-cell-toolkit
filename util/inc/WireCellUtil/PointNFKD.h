@@ -3,7 +3,7 @@
 #ifndef WIRECELLUTIL_POINTNFKD
 #define WIRECELLUTIL_POINTNFKD
 
-#include "WireCellUtil/PointCloud.h"
+#include "WireCellUtil/PointCloudDisjoint.h"
 #include "WireCellUtil/DetectionIdiom.h"
 // #include "WireCellUtil/Logging.h"
 #include "WireCellUtil/nanoflann.hpp"

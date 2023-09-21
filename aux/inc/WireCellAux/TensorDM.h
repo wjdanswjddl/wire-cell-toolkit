@@ -9,7 +9,7 @@
 #include "WireCellIface/ITrace.h"
 #include "WireCellIface/ICluster.h"
 #include "WireCellIface/IAnodePlane.h"
-#include "WireCellUtil/PointCloud.h"
+#include "WireCellUtil/PointCloudDataset.h"
 #include "WireCellUtil/PointGraph.h"
 #include "WireCellUtil/Waveform.h"
 

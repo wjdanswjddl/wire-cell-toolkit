@@ -1,9 +1,7 @@
 #ifndef WIRECELL_POINTCLOUDDATASET
 #define WIRECELL_POINTCLOUDDATASET
 
-#include "WireCellUtil/Disjoint.h"
 #include "WireCellUtil/PointCloudArray.h"
-#include "WireCellUtil/Exceptions.h"
 
 namespace WireCell::PointCloud {
 
@@ -160,41 +158,6 @@ namespace WireCell::PointCloud {
 
     using DatasetRef = std::reference_wrapper<const Dataset>;
 
-    /// A light-weight sequence of references to individual PC
-    /// datasets.
-    ///
-    /// Caller must keep Datasets alive for the lifetime of the set.
-    ///
-    class DisjointDataset : public Disjoint<Dataset> {
-      public:
-        
-        // Return a disjoint arrays cooresponding to the named arrays.
-        std::vector<DisjointArray> selection(const name_list_t& names);
-
-
-        // // Return 
-        // template<typename Numeric>
-        // std::vector<Numeric> element(const address_t& addr) {
-            
-        // }
-        // template<typename Numeric>
-        // std::vector<Numeric> element(size_t index) {
-        //     auto addr = address(index);
-        //     return element(addr);
-        // }
-
-        // Append with registration
-        void append_react(Dataset& ds) {
-            // If DS changes, we invalidate any indexing
-            ds.register_append([this](size_t beg, size_t end) {
-                this->m_dirty = true;
-            });
-            append(ds);
-        }
-
-      private:
-
-    };
 
 
 }

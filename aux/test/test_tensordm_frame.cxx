@@ -3,7 +3,7 @@
 #include "WireCellUtil/Testing.h"
 #include "WireCellUtil/Units.h"
 #include "WireCellUtil/String.h"
-#include "WireCellUtil/PointCloud.h"
+#include "WireCellUtil/PointCloudDataset.h"
 #include "WireCellAux/SimpleFrame.h"
 #include "WireCellAux/SimpleTrace.h"
 
