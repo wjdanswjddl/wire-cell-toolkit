@@ -20,7 +20,7 @@ local fcl_params = {
     wires: 'dunevd10kt_3view_30deg_v5_refactored_1x8x6ref.json.bz2',
     ncrm: 24,
     use_dnnroi: false,
-    process_crm: 'test1',
+    process_crm: 'test2',
 };
 local params_maker =
 if fcl_params.ncrm ==320 then import 'pgrapher/experiment/dune-vd/params-10kt.jsonnet'
@@ -49,8 +49,8 @@ local tools =
 if fcl_params.process_crm == "partial"
 then tools_all {anodes: [tools_all.anodes[n] for n in std.range(32, 79)]}
 else if fcl_params.process_crm == "test1"
-// then tools_all {anodes: [tools_all.anodes[n] for n in [0,1,4,5]]}
-then tools_all {anodes: [tools_all.anodes[n] for n in [0]]}
+then tools_all {anodes: [tools_all.anodes[n] for n in [0,1,4,5]]}
+// then tools_all {anodes: [tools_all.anodes[n] for n in [0]]}
 else if fcl_params.process_crm == "test2"
 then tools_all {anodes: [tools_all.anodes[n] for n in std.range(0, 7)]}
 else tools_all;
@@ -109,8 +109,8 @@ local sn_pipes = sim.splusn_pipelines;
 local sp_maker = import 'pgrapher/experiment/dune-vd/sp.jsonnet';
 local sp_override = {
     sparse: true,
-    use_roi_debug_mode: true,
-    use_multi_plane_protection: true,
+    use_roi_debug_mode: false,
+    use_multi_plane_protection: false,
     mp_tick_resolution: 4,
 };
 local sp = sp_maker(params, tools, sp_override);
@@ -166,7 +166,7 @@ local parallel_pipes = [
                 //     tags=["orig%d"%tools.anodes[n].data.ident],
                 //     digitize=true
                 // ),
-                sinks.orig_pipe[n],
+                // sinks.orig_pipe[n],
                 sp_pipes[n],
                 // frame_tap(
                 //     name="gauss%d"%tools.anodes[n].data.ident,
@@ -174,10 +174,10 @@ local parallel_pipes = [
                 //     tags=["gauss%d"%tools.anodes[n].data.ident],
                 //     digitize=false
                 // ),
-                sinks.decon_pipe[n],
-                sinks.debug_pipe[n], // use_roi_debug_mode=true in sp.jsonnet
-                dnnroi(tools.anodes[n], ts, output_scale=1.2),
-                sinks.dnnroi_pipe[n],
+                // sinks.decon_pipe[n],
+                // sinks.debug_pipe[n], // use_roi_debug_mode=true in sp.jsonnet
+                // dnnroi(tools.anodes[n], ts, output_scale=1.2),
+                // sinks.dnnroi_pipe[n],
                 // g.pnode({type: "DumpFrames", name: "dumpframes-%d"%tools.anodes[n].data.ident}, nin = 1, nout=0),
                 // img_pipes[n],
           ], 
@@ -198,8 +198,8 @@ local tag_rules = {
 // local parallel_graph = f.multifanpipe('DepoSetFanout', parallel_pipes, 'FrameFanin', [1,4], [4,1], [1,4], [4,1], 'sn_mag', outtags, tag_rules);
 local parallel_graph = 
 if fcl_params.process_crm == "test1"
-// then f.multifanpipe('DepoSetFanout', parallel_pipes, 'FrameFanin', [1,4], [4,1], [1,4], [4,1], 'sn_mag', outtags, tag_rules)
-then f.multifanpipe('DepoSetFanout', parallel_pipes, 'FrameFanin', [1,1], [1,1], [1,1], [1,1], 'sn_mag', outtags, tag_rules)
+then f.multifanpipe('DepoSetFanout', parallel_pipes, 'FrameFanin', [1,4], [4,1], [1,4], [4,1], 'sn_mag', outtags, tag_rules)
+// then f.multifanpipe('DepoSetFanout', parallel_pipes, 'FrameFanin', [1,1], [1,1], [1,1], [1,1], 'sn_mag', outtags, tag_rules)
 // then f.multifanout('DepoSetFanout', parallel_pipes, [1,4], [4,1], 'sn_mag', tag_rules)
 else if fcl_params.process_crm == "test2"
 then f.multifanpipe('DepoSetFanout', parallel_pipes, 'FrameFanin', [1,8], [8,1], [1,8], [8,1], 'sn_mag', outtags, tag_rules)
