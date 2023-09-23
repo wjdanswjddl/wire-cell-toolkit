@@ -59,12 +59,12 @@ TEST_CASE("point tree points empty")
     Scope s;
     const auto& dds = p.scoped_pc(s);
     CHECK(dds.values().empty());
-    CHECK(dds.nelements() == 0);
+    CHECK(dds.size() == 0);
 
     const auto& kd = p.scoped_kd(s);
     const auto& dds2 = kd.pointclouds();
     CHECK(dds2.values().empty());
-    CHECK(dds2.nelements() == 0);
+    CHECK(dds2.size() == 0);
     CHECK(&dds == &dds2);
 }
 

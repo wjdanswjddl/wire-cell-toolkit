@@ -22,7 +22,7 @@ TEST_CASE("point nfkd empty")
 
     DisjointDataset dds;
     CHECK(dds.values().size() == 0);
-    CHECK(dds.nelements() == 0);
+    CHECK(dds.size() == 0);
 
     name_list_t coords = {"x","y","z"};
 
@@ -42,7 +42,7 @@ TEST_CASE("point nfkd empty")
     dds.append(ds);
     CHECK(&dds == &nfkd.pointclouds());
     CHECK(dds.values().size() == 1);
-    CHECK(dds.nelements() == 3);
+    CHECK(dds.size() == 3);
     CHECK(&dds == &nfkd.pointclouds());
 
     debug("doctest_pointnfkd: addpoints: {}", (void*)&dds);

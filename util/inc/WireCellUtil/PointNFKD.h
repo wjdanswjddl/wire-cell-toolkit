@@ -48,7 +48,7 @@ namespace WireCell::PointCloud::Tree {
 
         // nanoflann dataset adaptor API (one more in KDQueryTyped).
         inline size_t kdtree_get_point_count() const {
-            return m_dds.nelements();
+            return m_dds.size();
         }
         template <class BBOX>
         bool kdtree_get_bbox(BBOX& /* bb */) const { return false; }

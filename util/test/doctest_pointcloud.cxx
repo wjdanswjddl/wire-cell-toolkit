@@ -1,4 +1,4 @@
-#include "WireCellUtil/PointCloudDisjoint.h"
+#include "WireCellUtil/PointCloudDataset.h"
 #include "WireCellUtil/doctest.h"
 #include "WireCellUtil/Logging.h"
 #include "WireCellUtil/Exceptions.h"
@@ -386,38 +386,4 @@ TEST_CASE("point cloud dataset")
         }
     }        
 
-}
-
-TEST_CASE("point cloud disjoint dataset")
-{
-    using dsindex_t = DisjointDataset::address_t;
-
-    DisjointDataset dds;
-    CHECK(dds.nelements() == 0);
-
-    Dataset ds({
-            {"one", Array({1  ,2  ,3  })},
-            {"two", Array({1.1,2.2,3.3})}});
-
-    dds.append(ds);
-    debug("dds append 1: has {} datasets and {} points",
-          dds.values().size(), dds.nelements());
-
-    CHECK(dds.values().size() == 1);
-    CHECK(dds.nelements() == 3);
-    CHECK(dds.address(0) == dsindex_t(0,0));
-    CHECK(dds.address(1) == dsindex_t(0,1));
-    CHECK(dds.address(2) == dsindex_t(0,2));
-    CHECK_THROWS_AS(dds.address(3), IndexError);
-
-    dds.append(ds);
-    debug("dds append 2: has {} datasets and {} points",
-          dds.values().size(), dds.nelements());
-
-    CHECK(dds.values().size() == 2);
-    CHECK(dds.nelements() == 6);
-    CHECK(dds.address(3) == dsindex_t(1,0));
-    CHECK(dds.address(4) == dsindex_t(1,1));
-    CHECK(dds.address(5) == dsindex_t(1,2));
-    CHECK_THROWS_AS(dds.address(6), IndexError);
 }

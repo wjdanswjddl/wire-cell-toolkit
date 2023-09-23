@@ -4,7 +4,7 @@
 #include "WireCellUtil/Exceptions.h"
 
 #include <boost/iterator/iterator_adaptor.hpp>
-#include <iterator>             // std::advace
+
 #include <functional>           // reference_wrapper
 #include <vector>
 #include <map>                  // pair
@@ -83,6 +83,11 @@ namespace WireCell {
         using reference = typename base_type::value_type&;
 
         // Construct an "end" iterator.
+        disjoint_iterator()
+        {
+            cursor.accum = accums.end();
+            cursor.index = 0;       // equal to size
+        }
         disjoint_iterator(OuterIter end)
         {
             cursor.accum = accums.end();
@@ -109,6 +114,14 @@ namespace WireCell {
             cursor.accum = accums.begin();
             cursor.inner = cursor.accum->second.begin();
             cursor.index = 0;
+        }
+
+        // Give range API
+        disjoint_iterator begin() const {
+            return *this;
+        }
+        disjoint_iterator end() const {
+            return disjoint_iterator();
         }
 
         // Size of all inners
@@ -211,10 +224,10 @@ namespace WireCell {
 
         difference_type distance_to(disjoint_iterator<OuterIter> const& other) const
         {
-            return cursor.index - this->cursor.index;
+            return other.cursor.index - this->cursor.index;
         }
 
-        value_type& dereference() const
+        reference dereference() const
         {
             return *cursor.inner;
         }
@@ -228,10 +241,8 @@ namespace WireCell {
 
         OuterIter b, e;
         iterator begin() const { return iterator(b,e); }
-        iterator end() const { return iterator(e); }
+        iterator end() const { return iterator(); }
     };
-
-
 
     template <typename OuterIter>
     auto flatten(OuterIter end) -> disjoint_iterator<OuterIter>
@@ -244,61 +255,6 @@ namespace WireCell {
         return disjoint_iterator<OuterIter>(begin, end);
     }
 
-    template<typename Value>
-    class Disjoint {
-      public:
-        using value_type = Value;
-        using reference_t = std::reference_wrapper<const value_type>;
-        using reference_vector = std::vector<reference_t>;
-        using address_t = std::pair<size_t,size_t>;
-
-        const reference_vector& values() const { return m_values; }
-        reference_vector& values() { return m_values; }
-
-        const size_t nelements() const {
-            update();
-            return m_nelements;
-        }
-
-        address_t address(size_t index) const {
-            // fixme: this algorithm likely can be optimized.
-            const auto nvals = m_values.size();
-            for (size_t valind=0; valind < nvals; ++valind) {
-                const value_type& val = m_values[valind];
-                const size_t vsize = val.size_major();
-                if (index < vsize) {
-                    return std::make_pair(valind, index);
-                }
-                index -= vsize;
-            }
-            raise<IndexError>("Disjoint::index out of bounds");
-            return std::make_pair(-1, -1); // not reached, make compiler happy
-        }
-
-        void append(const Value& val) {
-            m_values.push_back(std::cref(val));
-            // if already clean, save some time and stay clean
-            if (!m_dirty) {
-                m_nelements += val.size_major();
-            }
-        }
-
-        void update() const {
-            if (!m_dirty) return;
-
-            m_nelements = 0;
-            for (const Value& val : m_values) {
-                m_nelements += val.size_major();
-            }
-            m_dirty = false;
-        }
-
-      protected:
-        reference_vector m_values;
-        mutable size_t m_nelements{0};
-        mutable bool m_dirty{true};
-
-    };
 }
 
 #endif

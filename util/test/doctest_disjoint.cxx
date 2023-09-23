@@ -1,3 +1,6 @@
+/** Test the Disjoint API.
+ */
+
 #include "WireCellUtil/Disjoint.h"
 #include "WireCellUtil/doctest.h"
 #include "WireCellUtil/Logging.h"
@@ -5,7 +8,8 @@
 using spdlog::debug;
 using namespace WireCell;
 
-TEST_CASE("disjoint iterator test stl") {
+TEST_CASE("disjoint iterator test stl")
+{
 
     {
         std::map<int, int> m = { {0,0}, {1,1}, {2,2} };

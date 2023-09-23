@@ -5,7 +5,6 @@
 
 namespace WireCell::PointCloud {
 
-
     /** A set of arrays accessed by their name.  All arrays must be
         kept to the same number of elements (points).
     */
