@@ -1,3 +1,7 @@
+/**
+   Aggregate disjoint PointCloud::Datasets 
+ */
+
 #ifndef WIRECELLUTIL_POINTCLOUDDISJOINT
 #define WIRECELLUTIL_POINTCLOUDDISJOINT
 
@@ -119,22 +123,29 @@ namespace WireCell::PointCloud {
     class DisjointDataset : public DisjointBase<Dataset> {
       public:
         
-        // Use like:
-        //   for (auto vec : djds.selection({"x","y","z"})) { ... }
-        template<typename ElementType>
-        disjoint_selection<ElementType>
+        
+        template<typename VectorType>
+        disjoint_selection<VectorType>
         selection(const name_list_t& names) const {
-            return disjoint_selection<ElementType>(*this, names);
+            return disjoint_selection<VectorType>(*this, names);
         }
 
     };
 
-    template<typename ElementType>
+    /** The disjoint selection is a place to hold the selection and
+     *  dispense coordinate iterators on the selection. 
+     */
+    template<typename VectorType>
     class disjoint_selection {
       public:
 
-        // column wise iterator on homotypic selection
-        using coordinates_type = coordinates<ElementType>;
+        // The coordinate vector type
+        using vector_type = VectorType;
+        // The type of one coordinate
+        // using element_type = typename vector_type::value_type;
+
+        // column-wise iterator on homotypic selection
+        using coordinates_type = coordinates<VectorType>;
         // type to store those ranges
         using disjoint_coordinates = std::vector<coordinates_type>;
         // flat iterator on above
@@ -153,7 +164,7 @@ namespace WireCell::PointCloud {
         {
             for (const Dataset& ds : dj.values()) {
                 auto sel = ds.selection(names);
-                m_coords.push_back(coordinates<ElementType>(sel));
+                m_coords.push_back(coordinates<VectorType>(sel));
             }
         }
             

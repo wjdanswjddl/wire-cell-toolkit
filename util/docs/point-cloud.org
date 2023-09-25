@@ -367,6 +367,46 @@ into a form that may also be registered to be called from the update
 hook.
 
 
+* Disjoint
+
+Some usage needs a concept of "collection of point clouds".  It is
+possible to approximate such a collection by concatenating the PCs to
+a single PC and adding an array that stores an index into the original
+collection of PCs.  This "flattened" PC is monolithic and requires
+duplicating all points.
+
+On the other hand, a "light-weight" collection of PCs that keeps each
+original PC distinct and requires no duplication is provided by
+~PointCloud::DisjointDataset~ in ~WireCellUtil/PointCloudDisjoint.h~.  It
+is "light weight" as the PCs are held by reference which requires that
+they are retained by value by some external entity.
+
+* Iterating
+
+** Coordinates
+
+Arrays in a PC dataset may be used as coordinates (eg for [[file:kdtree.org][k-d trees]]).
+In this use, two specializations from the ~Dataset~ are desired:
+
+1. The coordinate arrays are all of the same type.
+2. The conceptual alignment order is reversed.
+
+That is, if we consider a dataset to be composed of rows of arrays we
+wish to be able to identify a specific column down a subset of these
+array rows and use that column as a coordinate vector.
+
+This is provided by the ~PointCloud::coordinate_iterator~ from
+~WireCellUtil/PointCloudIterators.h~.  It is operates on a
+~PointCloud::selection_t~ (a vector of ~Array~).  The iterator is
+templated on a coordinate vector type (eg ~vector<double>~ or ~Point~) and
+yields an instance of this type.  The elements of the coordinate
+vector correspond to the elements of each array in the selection at a
+given location along their arrays.
+
+** Disjoint
+
+
+
 * nanoflann
 
 This section provides developer documentation for ~nanoflann~ as what that package provides is rather slim.  What info that is available is at the [[https://github.com/jlblancoc/nanoflann][repo readme]] and in the [[https://jlblancoc.github.io/nanoflann/][doxygen docs]].  The additional information given here is not required to use WCT PCs.

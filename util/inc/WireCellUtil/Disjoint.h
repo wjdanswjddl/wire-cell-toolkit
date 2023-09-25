@@ -2,6 +2,7 @@
 #define WIRECELLUTIL_DISJOINT
 
 #include "WireCellUtil/Exceptions.h"
+#include "WireCellUtil/Logging.h"
 
 #include <boost/iterator/iterator_adaptor.hpp>
 
@@ -97,11 +98,15 @@ namespace WireCell {
         // Construct a full iterator.
         disjoint_iterator(OuterIter beg, OuterIter end)
         {
+            spdlog::debug("disjoint_iterator: load {} disjoint ranges",
+                          std::distance(beg, end));
             for (auto it = beg; it != end; ++it) {
                 inner_range_type ir{it};
                 if (ir.empty()) { continue; }
                 accums[inners_size_] = ir;
                 inners_size_ += ir.size();
+                spdlog::debug("disjoint_iterator: load range of size {}/{} thinks it is size={}",
+                              ir.size(), inners_size_, std::distance(it->begin(), it->end()));
             }
 
             if (inners_size_ == 0) {
@@ -151,6 +156,7 @@ namespace WireCell {
 
         void increment()
         {
+            spdlog::debug("disjoint_iterator::increment index={}", cursor.index);
             if (accums.empty()) {
                 throw std::runtime_error("incrementing empty outer");
             }
