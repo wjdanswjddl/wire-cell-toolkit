@@ -80,7 +80,7 @@ TEST_CASE("nfkd static")
     };
         
     debug("nfkd: making k-d tree");
-    Tree<points_t::iterator, DistanceL2Simple, IndexStatic> kd(dimension, points.begin(), points.end());
+    Tree<points_t::iterator, IndexStatic> kd(dimension, points.begin(), points.end());
 
     CHECK(kd.size() == 3);
     debug("nfkd: {} point calls", kd.point_calls());

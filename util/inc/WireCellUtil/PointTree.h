@@ -8,7 +8,9 @@
 #define WIRECELLUTIL_POINTTREE
 
 #include "WireCellUtil/PointCloudDataset.h"
-#include "WireCellUtil/PointNFKD.h"
+#include "WireCellUtil/PointCloudCoordinates.h"
+#include "WireCellUtil/PointCloudDisjoint.h"
+#include "WireCellUtil/NFKD.h"
 #include "WireCellUtil/NaryTree.h"
 #include "WireCellUtil/KDTree.h"
 
@@ -47,6 +49,52 @@ namespace std {
 
 namespace WireCell::PointCloud::Tree {
 
+    struct KDTreeBase {
+
+        // Append more points.
+        virtual void append(const Dataset& ds) = 0;
+    };
+
+
+    // Bind together a disjoint store of selection coordinates and
+    // their k-d tree. 
+    template<typename ValueType>
+    struct KDTree : public KDTreeBase {
+
+        using value_type = ValueType;
+        using point_type = std::vector<ValueType>;
+        using point_group = coordinates<point_type>;
+        using group_vector = std::vector<point_group>;
+        
+        using kdtree_type = NFKD::Tree<typename point_group::iterator>;
+
+        group_vector store;
+        kdtree_type kdtree;
+        name_list_t names;
+
+        explicit KDTree(const name_list_t& names)
+            : kdtree(names.size())
+            , names(names)
+        {
+        }
+
+        KDTree(const DisjointDataset& djds, const name_list_t& names)
+            : kdtree(names.size())
+            , names(names)
+        {
+            for (const Dataset& ds : djds.values()) {
+                append(ds);
+            }
+        }
+
+        
+        virtual void append(const Dataset& ds) {
+            point_group grp(ds.selection(names));
+            store.push_back(grp);
+            kdtree.append(grp.begin(), grp.end());
+        }
+    };
+
 
     /** Points is a payload value type for a NaryTree::Node<Points> node.
 
@@ -60,26 +108,18 @@ namespace WireCell::PointCloud::Tree {
      */
     class Points : public NaryTree::Notified<Points> {
         
-        // This is a helper to interface with nanoflann.  It has
-        // typeless and typefull inheritance layers.  It gets a const
-        // reference to a DisjointDataset that we construct via a
-        // scoped descent.
-        using kdtree_base_t = NFKD;
-        using kdtree_base_ptr = std::unique_ptr<kdtree_base_t>;
-
       public:
 
-        using pointcloud_t = Dataset;
-        using named_pointclouds_t = std::map<std::string, pointcloud_t>;
 
         using node_t = NaryTree::Node<Points>;
         using node_ptr = std::unique_ptr<node_t>;
         using node_path_t = std::vector<node_t*>;
-        template<typename ElementType,
-                 typename DistanceTraits,
-                 typename IndexTraits>
-        using kdtree_t = NFKDT<ElementType, DistanceTraits, IndexTraits>;
 
+        using pointcloud_t = Dataset;
+        using named_pointclouds_t = std::map<std::string, pointcloud_t>;
+
+        template<typename ValueType>
+        using kdtree_t = typename KDTree<ValueType>::kdtree_type;
 
         Points() = default;
         virtual ~Points() = default;
@@ -113,12 +153,10 @@ namespace WireCell::PointCloud::Tree {
         const DisjointDataset& scoped_pc(const Scope& scope) const;
         
         /// Access the scoped k-d tree.
-        template<typename ElementType=double,
-                 typename DistanceTraits=KDTree::DistanceL2Simple,
-                 typename IndexTraits=KDTree::IndexDynamic>
-        const kdtree_t<ElementType, DistanceTraits, IndexTraits>&
+        template<typename ValueType=double>
+        const kdtree_t<ValueType>&
         scoped_kd(const Scope& scope) const {
-            using kd_t = kdtree_t<ElementType, DistanceTraits, IndexTraits>;
+            using kd_t = KDTree<ValueType>;
             auto it = m_nfkds.find(scope);
             if (it != m_nfkds.end()) {
                 const auto* ptr = it->second.get();
@@ -126,12 +164,12 @@ namespace WireCell::PointCloud::Tree {
                 if (!dptr) {
                     raise<ValueError>("Tree::Points::scoped_kd(): type collision");
                 }
-                return *dptr;
+                return dptr->kdtree;
             }
             const DisjointDataset& dds = scoped_pc(scope);
             kd_t* ptr = new kd_t(dds, scope.coords);
-            m_nfkds[scope] = kdtree_base_ptr(ptr);
-            return *ptr;
+            m_nfkds[scope] = std::unique_ptr<KDTreeBase>(ptr);
+            return ptr->kdtree;
 
         }
 
@@ -152,8 +190,8 @@ namespace WireCell::PointCloud::Tree {
         named_pointclouds_t m_lpcs;
 
         // nanoflann k-d tree interfaces for a given scope.
-        mutable std::unordered_map<Scope, DisjointDataset> m_dds;
-        mutable std::unordered_map<Scope, kdtree_base_ptr> m_nfkds;
+        mutable std::unordered_map<Scope, DisjointDataset> m_djds;
+        mutable std::unordered_map<Scope, std::unique_ptr<KDTreeBase>> m_nfkds;
     };
 
 }

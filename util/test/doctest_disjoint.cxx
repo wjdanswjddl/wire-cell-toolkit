@@ -37,35 +37,81 @@ TEST_CASE("disjoint iterator test stl")
 
 
 TEST_CASE("disjoint iterator simple") {
-    std::vector<std::vector<int>> hier;
-    auto di1 = flatten(hier.begin(), hier.end());
-    auto di2 = flatten(hier.end());
-    CHECK(di1 == di2);
+    using value_type = int;
+    using inner_vector = std::vector<value_type>;
+    using outer_vector = std::vector<inner_vector>;
+    using disjoint_type = disjoint<outer_vector::iterator>;
+    outer_vector hier;
+
+    {
+        auto dj = disjoint_type(hier.begin(), hier.end());
+        CHECK(dj.begin() == dj.end()); // because hier is empty
+    }
+    {
+        auto dj = flatten(hier);
+        CHECK(dj.begin() == dj.end()); // because hier is empty
+    }    
 }
 
 void test_sequence(std::vector<std::vector<int>> hier,
                    std::vector<int> want)
 {
-    size_t ind = 0;
-    auto end = flatten(hier.end());
-    for (auto i = flatten(hier.begin(), hier.end()); i != end; ++i) {
-        CHECK(ind < 5);
-        debug("dji: ind={} want={} got={}", ind, want[ind], *i);
-        CHECK(*i == want[ind]);
-        ++ind;
+    auto numbers = flatten(hier);
+    REQUIRE(numbers.end() == numbers.end());
+    {
+        REQUIRE(numbers.size() == want.size());
+        auto beg = numbers.begin();
+        auto end = numbers.end();
+        REQUIRE(beg != end);
+        REQUIRE(std::distance(beg, end) == want.size());
+    }
+    {
+        auto n2 = numbers;
+        REQUIRE(n2.size() == want.size());
+        REQUIRE(n2.begin() == numbers.begin());
+    }
+    {
+        auto it = numbers.begin();
+        REQUIRE(it != numbers.end());
+        it += want.size();
+        debug("jump to {} now at distance {}", want.size(), std::distance(it, numbers.end()));
+        REQUIRE(it == numbers.end());
+    }
+    {
+        auto it = numbers.begin();
+        for (size_t left=want.size(); left; --left) {
+            REQUIRE(it != numbers.end());
+            ++it;
+        }
+        REQUIRE(it == numbers.end());        
     }
 
 
-    auto djit = disjoint_iterator(hier.begin(), hier.end());
-    ++djit;
+    debug("flatten test sequence of native outer size={}", hier.size());
+    size_t ind = 0;
+    for (const auto& num : numbers) {
+        CHECK(ind < 5);
+        debug("dji: ind={} want={} got={}", ind, want[ind], num);
+        CHECK(num == want[ind]);
+        ++ind;
+    }
+    debug("flatten test sequence of native outer size={}", hier.size());
+    auto dj = flatten(hier);
+    debug("manual stepping of iterator");
+    auto djit = dj.begin();     // 0
+    auto end = dj.end();
+    CHECK(djit == dj);
+    ++djit;                     // 1
+    CHECK(djit != dj);
     CHECK(*djit == want[1]);
-    --djit;
+    --djit;                     // 0
     CHECK(*djit == want[0]);
-    djit += 2;
+    djit += 2;                  // 2
     CHECK(*djit == want[2]);    
-    djit -= 2;
+    djit -= 2;                  // 0
     CHECK(*djit == want[0]);
-    djit += want.size();
+    debug("adding {} to begin", want.size());
+    djit += want.size();        // 5
     CHECK(djit == end);
     debug("try backwards from end");
     --djit;                     // backwards from end
@@ -87,7 +133,7 @@ TEST_CASE("disjoint iterator with empties") {
 }
 TEST_CASE("disjoint iterator mutate") {
     std::vector<std::vector<int>> hier = { {0,1,2}, {3}, {4} };
-    auto djit = disjoint_iterator(hier.begin(), hier.end());
+    auto djit = flatten(hier);
 
     CHECK(*djit == 0);
     *djit = 42;
@@ -99,7 +145,7 @@ TEST_CASE("disjoint iterator const") {
     using vi = std::vector<int>;
     using vvi = std::vector<vi>;
 
-    using dji_vvivc = disjoint_iterator<vvi::iterator, vi::const_iterator>;
+    using dji_vvivc = disjoint<vvi::iterator, vi::const_iterator>;
     vvi hier = { {0,1,2}, {3}, {4} };
   
     auto vvivc = dji_vvivc(hier.begin(), hier.end());
@@ -114,7 +160,7 @@ TEST_CASE("disjoint iterator const") {
     int const& ref = *vvivc;
     CHECK(ref == 1);
 
-    // using dji_vvcvc = disjoint_iterator<vvi::const_iterator, vi::const_iterator>;
+    // using dji_vvcvc = disjoint<vvi::const_iterator, vi::const_iterator>;
     // auto vvcvc = dji_vvcvc(hier.cbegin(), hier.cend());
     // ++vvcvc;
 

@@ -35,26 +35,38 @@ namespace WireCell::NFKD {
     /// Likewise for distance.  Here, nanoflann provides them so we
     /// simply forward their names for the ones supported here.
     using DistanceTraits = nanoflann::Metric;
+    // L1 - sum of absolute linear difference on each coordinate.  The
+    // radius and distances in results sets are in units of [LENGTH].
     using DistanceL1 = nanoflann::metric_L1;
+    // L2 - sum of squared difference on each coordinate.  NOTE: the
+    // value for this metric is in length units SQUARED.  The "radius"
+    // given to a radius() query and the distances between the query
+    // point and the points in the result set (including that from
+    // knn() query) are all in units of [LENGTH]^2.  They are not NOT
+    // in units of [LENGTH].
     using DistanceL2 = nanoflann::metric_L2;
+    // L2 but optimize for low-dimension L2, 2D or 3D.  This is
+    // default.
     using DistanceL2Simple = nanoflann::metric_L2_Simple;    
 
 
-    template<typename Iter,
-             typename DistanceTraits = DistanceL2Simple,
-             typename IndexTraits = IndexDynamic> 
+    // Interface to a k-d tree with points accessed by an iterator.
+    template<typename PointIter
+             ,typename IndexTraits = IndexDynamic
+             ,typename DistanceTraits = DistanceL2Simple
+             >    
     class Tree {
 
       public:
         // Iterator must yield a vector-like object with dimension
         // equal to that of the k-d tree.
-        using iterator_type = Iter;
+        using iterator_type = PointIter;
         // The point type itself must appear as a vector-like...
         using point_type = typename iterator_type::value_type;
         // ...iterable of elements
         using element_type = typename point_type::value_type;
 
-        using self_type = Tree<Iter, DistanceTraits, IndexTraits>;
+        using self_type = Tree<PointIter, IndexTraits, DistanceTraits>;
         using metric_type = typename DistanceTraits::template traits<element_type, self_type>::distance_t;
         using index_type = typename IndexTraits::template traits<metric_type, self_type>::index_t;
 

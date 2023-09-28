@@ -7,7 +7,9 @@
 
 #include "WireCellUtil/Disjoint.h"
 #include "WireCellUtil/PointCloudDataset.h"
-#include "WireCellUtil/PointCloudIterators.h"
+#include "WireCellUtil/PointCloudCoordinates.h"
+
+#include "WireCellUtil/Logging.h" // debug
 
 namespace WireCell::PointCloud {
 
@@ -48,26 +50,29 @@ namespace WireCell::PointCloud {
 
         void append(const Value& val) {
             m_values.push_back(std::cref(val));
-            // if already clean, save some time and stay clean
-            if (!m_dirty) {
-                m_nelements += val.size_major();
+            spdlog::debug("DisjointBase: append size={}", m_nelements);
+            if (m_dirty) {
+                return;
             }
+            // if clean, save some time, directly update
+            m_nelements += val.size_major();
         }
 
         void update() const {
-            if (!m_dirty) return;
-
-            m_nelements = 0;
-            for (const Value& val : m_values) {
-                m_nelements += val.size_major();
+            if (m_dirty) {
+                m_nelements = 0;
+                for (const Value& val : m_values) {
+                    m_nelements += val.size_major();
+                }
+                m_dirty = false;
+                spdlog::debug("DisjointBase: update size={}", m_nelements);
             }
-            m_dirty = false;
         }
 
       protected:
         reference_vector m_values;
         mutable size_t m_nelements{0};
-        mutable bool m_dirty{true};
+        mutable bool m_dirty{false};
 
     };
 
@@ -92,7 +97,7 @@ namespace WireCell::PointCloud {
     //     using span_vector = typename std::vector<Array::span_t<ElementType>>;
     //     mutable span_vector spans;
 
-    //     using iterator = disjoint_iterator<typename span_vector::iterator>;
+    //     using iterator = disjoint<typename span_vector::iterator>;
             
     //     void update_() const
     //     {
@@ -149,37 +154,44 @@ namespace WireCell::PointCloud {
         // type to store those ranges
         using disjoint_coordinates = std::vector<coordinates_type>;
         // flat iterator on above
-        using iterator = disjoint_iterator<
-            typename disjoint_coordinates::iterator
-            , typename coordinates_type::iterator
-            , typename coordinates_type::value_type
-            , typename coordinates_type::value_type // reference type is value type
-            >;
-
+        using disjoint_type = disjoint<typename disjoint_coordinates::iterator>;
+        using iterator = disjoint_type;
 
         // construct a disjoint selection on a dataset and a list of
         // attribute array names.
         disjoint_selection(DisjointDataset dj, const name_list_t& names)
-            : m_dj(dj)
+            : m_names(names)
         {
             for (const Dataset& ds : dj.values()) {
                 auto sel = ds.selection(names);
-                m_coords.push_back(coordinates<VectorType>(sel));
+                m_store.push_back(coordinates<VectorType>(sel));
             }
+            m_djc = flatten(m_store);
         }
             
-        size_t size() const { return m_dj.size(); }
+        size_t size() const { return m_djc.size(); }
 
         // Range API
-        iterator begin() {
-            return iterator(m_coords.begin(), m_coords.end());
+        iterator begin() const {
+            return m_djc.begin();
         }
-        iterator end() {
-            return iterator();
+        iterator end() const {
+            return m_djc.end();
         }
+
+        void append(const Dataset& ds) {
+            auto sel = ds.selection(m_names);
+            m_store.push_back(coordinates<VectorType>(sel));
+            auto it = m_store.end();
+            --it;
+            m_djc.append(it);
+        }
+
+
       private:
-        DisjointDataset m_dj;
-        disjoint_coordinates m_coords;
+        name_list_t m_names;
+        disjoint_type m_djc;
+        disjoint_coordinates m_store;
      };
 }
 

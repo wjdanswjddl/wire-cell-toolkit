@@ -62,10 +62,11 @@ TEST_CASE("point tree points empty")
     CHECK(dds.size() == 0);
 
     const auto& kd = p.scoped_kd(s);
-    const auto& dds2 = kd.pointclouds();
-    CHECK(dds2.values().empty());
-    CHECK(dds2.size() == 0);
-    CHECK(&dds == &dds2);
+    CHECK(kd.size() == 0);
+    // const auto& dds2 = kd.pointclouds();
+    // CHECK(dds2.values().empty());
+    // CHECK(dds2.size() == 0);
+    // CHECK(&dds == &dds2);
 }
 
 static
@@ -113,38 +114,26 @@ TEST_CASE("point tree real")
 
     Scope scope{ "3d", {"x","y","z"}};
 
-    const auto& pc3d = rval.scoped_pc(scope);
+    const DisjointDataset& pc3d = rval.scoped_pc(scope);
     CHECK(pc3d.values().size() == 2);
 
     const auto& kd = rval.scoped_kd(scope);
-    CHECK(&kd.pointclouds() == &pc3d);
+    // CHECK(&kd.pointclouds() == &pc3d);
 
     auto knn = kd.knn(6, {0,0,0});
-    for (auto [ind,dist] : knn) {
-        // fixme: warning this per index lookup is probably expensive.
-        auto [dsnum,dsind] = pc3d.address(ind);
-        const Dataset& ds = pc3d.values()[dsnum];
-        selection_t sel = ds.selection(scope.coords);
-        debug("knn: {}=({},{}): {}", ind, dsnum, dsind, dist);
-              // sel[0].get().element<double>(dsind),
-              // sel[1].get().element<double>(dsind),
-              // sel[2].get().element<double>(dsind),
-              // sel[3].get().element<double>(dsind));
+    for (auto [it,dist] : knn) {
+        auto& pt = *it;
+        debug("knn: pt=({},{},{}) dist={}",
+              pt[0], pt[1], pt[2], dist);
     }
     CHECK(knn.size() == 6);
 
 
     auto rad = kd.radius(.001, {0,0,0});
-    for (auto [ind,dist] : rad) {
-        auto [dsnum,dsind] = pc3d.address(ind);
-        const Dataset& ds = pc3d.values()[dsnum];
-        selection_t sel = ds.selection(scope.coords);
-        debug("rad: {}=({},{}): {}", ind, dsnum, dsind, dist);
-        // debug("rad: {}: {} = ({},{},{},{})", ind, dist,
-        //       sel[0].get().element<double>(dsind),
-        //       sel[1].get().element<double>(dsind),
-        //       sel[2].get().element<double>(dsind),
-        //       sel[3].get().element<double>(dsind));
+    for (auto [it,dist] : rad) {
+        auto& pt = *it;
+        debug("rad: pt=({},{},{}) dist={}",
+              pt[0], pt[1], pt[2], dist);
     }
     CHECK(rad.size() == 6);
 

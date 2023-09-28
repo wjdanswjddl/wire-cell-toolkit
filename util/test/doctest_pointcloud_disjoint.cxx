@@ -43,99 +43,89 @@ TEST_CASE("point cloud disjoint dataset")
     CHECK(dds.address(5) == dsindex_t(1,2));
     CHECK_THROWS_AS(dds.address(6), IndexError);
 
-    using vpoint_t = std::vector<double>;
-    struct ci_range {
-        using iterator = coordinate_iterator<vpoint_t>;
-        iterator it;
-        iterator begin() const { return it; }
-        iterator end() const { return iterator(); }
-    };
-    using ci_ranges = std::vector<ci_range>;
-    ci_ranges cis;
+    using point_type = std::vector<double>;
+    using coordinates_type = coordinates<point_type>;
+    using coordinates_vector = std::vector<coordinates_type>;
+    coordinates_vector cov;
 
     std::vector<std::string> names = {"x","y","z"};
     for (const Dataset& ds : dds.values()) {
         auto sel = ds.selection(names);
-        ci_range::iterator cit(sel);
-        REQUIRE(cit.size() == 3);
-        REQUIRE(cit.ndim() == 3);
-        cis.push_back(ci_range{cit});
-        REQUIRE(cis.back().begin().size() == 3);
-        REQUIRE(cis.back().begin().ndim() == 3);
-        debug("doctest_pointcloud_iterator: load a {}-selection of size {}",
-              cit.ndim(), cit.size());
+        coordinates_type coords(sel);
+        REQUIRE(coords.size() == 3);
+        REQUIRE(coords.ndim() == 3);
+        cov.push_back(coords);
+        REQUIRE(cov.back().begin().size() == 3);
+        REQUIRE(cov.back().begin().ndim() == 3);
     }
 
-    for (const auto& cir : cis) {
-        for (const auto& v : cir) {
-            REQUIRE(v.size() == 3);
+    for (const auto& coords : cov) {
+        for (const auto& vec : coords) {
+            REQUIRE(vec.size() == 3);
         }
     }
 
     {
-        auto cir = cis.front();
-        REQUIRE(cir.it.size() == 3);
+        auto coords = cov.front();
+        REQUIRE(coords.size() == 3);
     }
 
-    
-    using djit_t = disjoint_iterator<ci_ranges::iterator, ci_range::iterator, vpoint_t>;
-    djit_t djit(cis.begin(), cis.end());
-    // for (const auto& v : djit) {
-    for (djit_t it = djit; it != djit_t(); ++it) {
-        REQUIRE(it.size() == 3);
+    {
+        disjoint_selection<point_type> djs(dds, names);
+        REQUIRE(std::distance(djs.begin(), djs.end()) == 6);
 
-        const auto& v = *it;
-        REQUIRE(v.size() == 3);
-        debug("x={} y={} z={}", v[0], v[1], v[2]);
+        for (auto pt : djs) {
+            debug("x={} y={} z={}", pt[0], pt[1], pt[2]);
+        }
+
+        auto djit = djs.begin();
+        REQUIRE(djit != djs.end());
+
+        point_type v;
+        v = (*djit);
+        CHECK(v.at(0) == 1.0);
+        CHECK(v.at(1) == 2.0);
+        CHECK(v.at(2) == 1.0);
+
+        ++djit;
+
+        v = (*djit);
+        CHECK(v.at(0) == 1.0);
+        CHECK(v.at(1) == 1.0);
+        CHECK(v.at(2) == 4.0);
+
+        ++djit;
+
+        v = (*djit);
+        CHECK(v.at(0) == 1.0);
+        CHECK(v.at(1) == 3.0);
+        CHECK(v.at(2) == 1.0);
+
+        ++djit;
+
+        v = (*djit);
+        CHECK(v.at(0) == 1.0);
+        CHECK(v.at(1) == 2.0);
+        CHECK(v.at(2) == 1.0);
+
+        ++djit;
+
+        v = (*djit);
+        CHECK(v.at(0) == 1.0);
+        CHECK(v.at(1) == 1.0);
+        CHECK(v.at(2) == 4.0);
+
+        ++djit;
+
+        v = (*djit);
+        CHECK(v.at(0) == 1.0);
+        CHECK(v.at(1) == 3.0);
+        CHECK(v.at(2) == 1.0);
+
+        ++djit;                 // end
+
+        CHECK(djit == djs.end());
     }
-    // for (const auto& pt : djit) {
-    //     debug("x={} y={} z={}", pt.x(), pt.y(), pt.z());
-    // }
 
-
-    // See similar test narrowed to a singular data set in
-    // doctest_pointcloud_iterator.cxx
-    // auto points = dds.selection<std::vector<double>>({"x","y","z"});
-    // CHECK(points.size() == 6);
-
-
-    // auto djit = points.begin();
-    
-    // const auto& v = (*djit);
-    // CHECK(v.at(0) == 1.0);
-    // CHECK(v.at(1) == 2.0);
-    // CHECK(v.at(2) == 1.0);
-
-    // ++djit;
-
-    // CHECK(djit->at(0) == 1.0);
-    // CHECK(djit->at(1) == 1.0);
-    // CHECK(djit->at(2) == 4.0);
-
-    // ++djit;
-
-    // CHECK(djit->at(0) == 1.0);
-    // CHECK(djit->at(1) == 3.0);
-    // CHECK(djit->at(2) == 1.0);
-
-    // ++djit;                     // at start of 2nd copy
-
-    // CHECK(djit->at(0) == 1.0);
-    // CHECK(djit->at(1) == 2.0);
-    // CHECK(djit->at(2) == 1.0);
-
-    // ++djit;
-
-    // CHECK(djit->at(0) == 1.0);
-    // CHECK(djit->at(1) == 1.0);
-    // CHECK(djit->at(2) == 4.0);
-
-    // ++djit;
-
-    // CHECK(djit->at(0) == 1.0);
-    // CHECK(djit->at(1) == 3.0);
-    // CHECK(djit->at(2) == 1.0);
-
-    // ++djit;                     // at end
 }
 

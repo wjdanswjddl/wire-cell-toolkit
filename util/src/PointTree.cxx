@@ -73,22 +73,20 @@ bool Tree::Points::on_insert(const Tree::Points::node_path_t& path)
     auto* node = path.back();
     size_t depth = path.size();
 
-    for (auto [scope,dds] : m_dds) {
+    for (auto [scope,djds] : m_djds) {
         if (! in_scope(scope, node, depth)) {
             continue;
         }
         
         Dataset& ds = node->value.m_lpcs[scope.pcname];
 
-        size_t beg = dds.size();
-        dds.append(ds);
-        size_t end = dds.size();
+        djds.append(ds);
 
         auto kdit = m_nfkds.find(scope);
         if (kdit == m_nfkds.end()) {
             continue;
         }
-        kdit->second->addpoints(beg, end);
+        kdit->second->append(ds);
     }
 
     return true;
@@ -104,13 +102,13 @@ bool Tree::Points::on_remove(const Tree::Points::node_path_t& path)
 
 const DisjointDataset& Tree::Points::scoped_pc(const Tree::Scope& scope) const
 {
-    auto it = m_dds.find(scope);
-    if (it != m_dds.end()) {
+    auto it = m_djds.find(scope);
+    if (it != m_djds.end()) {
         return it->second;
     }
 
     // construct and store
-    DisjointDataset& dds = m_dds[scope];
+    DisjointDataset& djds = m_djds[scope];
     for (auto& nv : m_node->depth(scope.depth)) {
         // local pc dataset
         auto it = nv.m_lpcs.find(scope.pcname);
@@ -125,12 +123,12 @@ const DisjointDataset& Tree::Points::scoped_pc(const Tree::Scope& scope) const
                               std::back_inserter(both));
 
         if (both.size() == want.size()) {
-            dds.append(ds);
+            djds.append(ds);
             continue;
         }
         raise<IndexError>("Tree::Points::scoped_pc %s lacks required coordinate arrays", scope.pcname);
         
     };
-    return dds;
+    return djds;
 }
 

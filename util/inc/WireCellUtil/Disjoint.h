@@ -2,7 +2,6 @@
 #define WIRECELLUTIL_DISJOINT
 
 #include "WireCellUtil/Exceptions.h"
-#include "WireCellUtil/Logging.h"
 
 #include <boost/iterator/iterator_adaptor.hpp>
 
@@ -18,8 +17,8 @@ namespace WireCell {
               , typename Value = typename InnerIter::value_type
               , typename Reference = Value&
               >
-    class disjoint_iterator :
-        public boost::iterator_facade<disjoint_iterator<OuterIter>
+    class disjoint :
+        public boost::iterator_facade<disjoint<OuterIter>
                                       // value
                                       , Value
                                       // cagegory
@@ -29,7 +28,7 @@ namespace WireCell {
                                       >
     {
       private:
-        using base_type = boost::iterator_facade<disjoint_iterator<OuterIter>
+        using base_type = boost::iterator_facade<disjoint<OuterIter>
                                                  , Value
                                                  , boost::random_access_traversal_tag
                                                  , Reference
@@ -55,9 +54,11 @@ namespace WireCell {
         using accum_map = std::map<size_t, inner_range_type>;
         using accum_iterator = typename accum_map::iterator;
         struct cursor_type {
-            accum_iterator accum{}; // -> {Naccum, inner range}
-            inner_iterator inner{}; // current inner iterator in range
-            size_t index{0};        // corresponding global index comparable to size()
+            cursor_type(accum_iterator ait) : accum(ait), index(0) {}
+
+            accum_iterator accum; // -> {Naccum, inner range}
+            size_t index; // corresponding global index comparable to size()
+            inner_iterator inner; // current inner iterator in range
 
             bool operator==(const cursor_type& o) {
                 return accum == o.accum
@@ -83,50 +84,54 @@ namespace WireCell {
         using pointer = typename base_type::value_type*;
         using reference = typename base_type::value_type&;
 
-        // Construct an "end" iterator.
-        disjoint_iterator()
+        disjoint()
+            : cursor(accums.end())
         {
-            cursor.accum = accums.end();
-            cursor.index = 0;       // equal to size
-        }
-        disjoint_iterator(OuterIter end)
-        {
-            cursor.accum = accums.end();
-            cursor.index = 0;       // equal to size
+            // cursor.accum = accums.end();
+            // cursor.index = 0;       // equal to size
+            // inners_size_ = 0;
         }
 
         // Construct a full iterator.
-        disjoint_iterator(OuterIter beg, OuterIter end)
+        disjoint(OuterIter beg, OuterIter end)
+            : cursor(accums.end())
         {
-            spdlog::debug("disjoint_iterator: load {} disjoint ranges",
-                          std::distance(beg, end));
+
+            // fixme: for now, give up on figuring out how to
+            // dynamically iterate just given the outer beg/end and
+            // make a map that accumulates the inner ranges
+
+            inners_size_ = 0;
             for (auto it = beg; it != end; ++it) {
                 inner_range_type ir{it};
                 if (ir.empty()) { continue; }
                 accums[inners_size_] = ir;
                 inners_size_ += ir.size();
-                spdlog::debug("disjoint_iterator: load range of size {}/{} thinks it is size={}",
-                              ir.size(), inners_size_, std::distance(it->begin(), it->end()));
             }
 
-            if (inners_size_ == 0) {
-                cursor.accum = accums.end();
-                cursor.index = 0;       // equal to size
-                return;
-            }
-
-            // initialize cursor at start
-            cursor.accum = accums.begin();
-            cursor.inner = cursor.accum->second.begin();
             cursor.index = 0;
+            cursor.accum = accums.begin();
+            if (inners_size_ > 0) {
+                cursor.inner = cursor.accum->second.begin();
+            } // undefined if we are empty.
+        }
+
+        void append(OuterIter it) {
+            inner_range_type ir{it};
+            if (ir.empty()) { return; }
+            accums[inners_size_] = ir;
+            inners_size_ += ir.size();
         }
 
         // Give range API
-        disjoint_iterator begin() const {
+        disjoint begin() const {
             return *this;
         }
-        disjoint_iterator end() const {
-            return disjoint_iterator();
+        disjoint end() const {
+            auto it = *this;
+            it.cursor.accum == it.accums.end();
+            it.cursor.index = it.inners_size_;
+            return it;
         }
 
         // Size of all inners
@@ -137,26 +142,49 @@ namespace WireCell {
         friend class boost::iterator_core_access;
 
         bool at_outer_end() const {
-            return cursor.accum == accums.end();
+            return cursor.index == inners_size_; //  cursor.accum == accums.end();
         }
 
         bool at_outer_begin() const {
-            return cursor.accum == accums.begin()
-                and cursor.inner == cursor.accum->second.begin();
+            return cursor.index == 0;
+            // return cursor.accum == accums.begin()
+            //     and cursor.inner == cursor.accum->second.begin();
         }
 
         template <typename OtherOuterIter>
-        bool equal(disjoint_iterator<OtherOuterIter> const& x) const {
-            if (at_outer_end() and x.at_outer_end()) return true;
-            if (at_outer_end() or x.at_outer_end()) return false;
-            // both are non-end
-            return cursor.accum == x.cursor.accum
-                and cursor.inner == x.cursor.inner;
+        bool equal(disjoint<OtherOuterIter> const& x) const {
+            if (at_outer_end() and x.at_outer_end()) {
+                return true;
+            }
+            if (at_outer_end() or x.at_outer_end()) {
+                return false;
+            }
+            if (cursor.index != x.cursor.index) {
+                return false;
+            }
+            if (size() != x.size()) {
+                return false;
+            }
+            if (accums.size() != x.accums.size()) {
+                return false;
+            }
+            // what is left is to figure out if we both see the same set of inners.
+            auto it1 = accums.begin();
+            auto it2 = x.accums.begin();
+            while (it1 != accums.end() and it2 != x.accums.end()) {
+                if (it1->first == it2->first
+                    and it1->second.outer == it2->second.outer) {
+                    ++it1;
+                    ++it2;
+                    continue;
+                }
+                return false;
+            }
+            return true;        // hi me
         }
 
         void increment()
         {
-            spdlog::debug("disjoint_iterator::increment index={}", cursor.index);
             if (accums.empty()) {
                 throw std::runtime_error("incrementing empty outer");
             }
@@ -185,11 +213,7 @@ namespace WireCell {
 
         void decrement()
         {
-            if (accums.empty()) {
-                throw std::runtime_error("decrementing empty outer");
-            }
-
-            if (at_outer_begin()) {
+            if (cursor.index == 0) {
                 throw std::runtime_error("decrementing past begin");
             }
 
@@ -228,7 +252,7 @@ namespace WireCell {
             }
         }
 
-        difference_type distance_to(disjoint_iterator<OuterIter> const& other) const
+        difference_type distance_to(disjoint<OuterIter> const& other) const
         {
             return other.cursor.index - this->cursor.index;
         }
@@ -237,28 +261,19 @@ namespace WireCell {
         {
             return *cursor.inner;
         }
-    };                              // disjoint_iterator
 
+    };                              // disjoint
 
-
-    template<typename OuterIter>
-    struct disjoint_range {
-        using iterator = disjoint_iterator<OuterIter>;
-
-        OuterIter b, e;
-        iterator begin() const { return iterator(b,e); }
-        iterator end() const { return iterator(); }
-    };
-
+    // deduce types from arguments
     template <typename OuterIter>
-    auto flatten(OuterIter end) -> disjoint_iterator<OuterIter>
+    auto flatten(OuterIter begin, OuterIter end) -> disjoint<OuterIter>
     {
-        return disjoint_iterator<OuterIter>(end);
-    }
-    template <typename OuterIter>
-    auto flatten(OuterIter begin, OuterIter end) -> disjoint_iterator<OuterIter>
+        return disjoint<OuterIter>(begin, end);
+    }        
+    template <typename OuterContainer>
+    auto flatten(OuterContainer& cont) -> disjoint<typename OuterContainer::iterator>
     {
-        return disjoint_iterator<OuterIter>(begin, end);
+        return flatten(cont.begin(), cont.end());
     }
 
 }
