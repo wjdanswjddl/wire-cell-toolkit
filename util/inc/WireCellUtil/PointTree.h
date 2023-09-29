@@ -13,7 +13,7 @@
 #include "WireCellUtil/NFKD.h"
 #include "WireCellUtil/NaryTree.h"
 #include "WireCellUtil/KDTree.h"
-
+#include <ostream>
 
 namespace WireCell::PointCloud::Tree {
 
@@ -35,7 +35,11 @@ namespace WireCell::PointCloud::Tree {
         std::size_t hash() const;
         bool operator==(const Scope& other) const;
         bool operator!=(const Scope& other) const;
+
     };
+    std::ostream& operator<<(std::ostream& o, Scope const& s);
+
+
 }
 
 namespace std {
@@ -149,6 +153,11 @@ namespace WireCell::PointCloud::Tree {
         /// Access the set of point clouds local to this node.
         const named_pointclouds_t& local_pcs() const { return m_lpcs; }
 
+        /// Access local PCs in mutable form.  Note, manipulating the
+        /// PCs directly may circumvent their use in up-tree scoped
+        /// PCs.
+        // named_pointclouds_t& local_pcs() { return m_lpcs; }
+
         /// Access a scoped PC.
         const DisjointDataset& scoped_pc(const Scope& scope) const;
         
@@ -175,11 +184,16 @@ namespace WireCell::PointCloud::Tree {
 
         // Receive notification from n-ary tree to learn of our node.
         virtual void on_construct(node_t* node);
+
         // Receive notification from n-ary tree to update existing
         // NFKDs if node is in any existing scope.
         virtual bool on_insert(const node_path_t& path);
-        // FIXME: remove is not well supported and currently will
-        // simply invalidate any in-scope NFKDs.
+
+        // This is a brutal response to a removed node.  Any scope
+        // containing the removed node will be removed from the cached
+        // scoped data sets and k-d trees.  This will invalidate any
+        // references and iterators from these objects that the caller
+        // may be holding.
         virtual bool on_remove(const node_path_t& path);
 
       private:

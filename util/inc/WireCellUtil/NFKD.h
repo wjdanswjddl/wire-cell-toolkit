@@ -82,21 +82,24 @@ namespace WireCell::NFKD {
         explicit Tree(size_t dimensionality)
             : m_index(dimensionality, *this)
         {
-            spdlog::debug("NFKD: constructor dimensionality {}", dimensionality);
+            // spdlog::debug("NFKD: constructor dimensionality {}", dimensionality);
         }
         Tree(size_t dimensionality, iterator_type beg, iterator_type end)
             : m_ranges{ {0, IterRange{beg, end}} }
             , m_size(std::distance(beg, end))
             , m_index(dimensionality, *this)
         {
-            spdlog::debug("NFKD: constructor dimensionality {} range size {}",
-                          dimensionality, m_size);
+            // spdlog::debug("NFKD: constructor dimensionality {} range size {}",
+            //               dimensionality, m_size);
         }
 
         // Number of points.
         size_t size() const {
             return m_size;
         }
+
+        // Return the number calls made so far to resolve a point
+        // coordinate.  Mostly for debugging/perfing.
         size_t point_calls() const {
             return m_point_calls;
         }
@@ -109,7 +112,7 @@ namespace WireCell::NFKD {
             m_ranges[oldsize] = ir;
             const size_t adding = ir.size();
             m_size += adding;
-            spdlog::debug("NFKD::append: oldsize={} adding={}", oldsize, adding);
+            // spdlog::debug("NFKD::append: oldsize={} adding={}", oldsize, adding);
             this->addn<index_type>(oldsize, adding);
         }
 
@@ -144,7 +147,7 @@ namespace WireCell::NFKD {
 
         // nanoflann dataset adaptor API.
         inline size_t kdtree_get_point_count() const {
-            spdlog::debug("NFKD: size={}", size());
+            // spdlog::debug("NFKD: size={}", size());
             return size();
         }
         template <class BBOX>
@@ -167,7 +170,7 @@ namespace WireCell::NFKD {
             const auto& pt = *it;
             const element_type val = pt.at(dim);
             ++m_point_calls;
-            spdlog::debug("NFKD: get pt({},{})={}", idx,dim,val);
+            // spdlog::debug("NFKD: get pt({},{})={}", idx,dim,val);
             return val;
         }
 
@@ -196,7 +199,7 @@ namespace WireCell::NFKD {
         template <class T, std::enable_if_t<has_addpoints<T>::value>* = nullptr>
         void addn(size_t beg, size_t n) {
             if (n) {
-                spdlog::debug("NFKD: addn({},{})", beg, n);
+                // spdlog::debug("NFKD: addn({},{})", beg, n);
                 this->m_index.addPoints(beg, beg+n-1);
             }
         }

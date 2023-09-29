@@ -28,6 +28,7 @@ namespace WireCell::PointCloud {
         const reference_vector& values() const { return m_values; }
         reference_vector& values() { return m_values; }
 
+        // The number of elements, sum of size_major().
         const size_t size() const {
             update();
             return m_nelements;

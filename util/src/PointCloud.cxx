@@ -116,6 +116,28 @@ void Array::append(const std::byte* data, size_t nbytes)
 }
 
 
+bool Array::operator==(const Array& other) const
+{
+    // same size, shape, type, content and metadata.  Cheapest
+    // test first.  bail early.
+    if (this->size_major() != other.size_major()) return false;
+        
+    const auto s1 = this->shape();
+    const auto s2 = other.shape();
+    if (s1.size() != s2.size()) return false;
+    if (! std::equal(s1.begin(), s1.end(), s2.begin())) return false;
+    const auto b1 = this->bytes();
+    const auto b2 = other.bytes();
+    if (! std::equal(b1.begin(), b1.end(), b2.begin())) return false;
+    if (this->metadata() != other.metadata()) return false;
+    return true;
+}
+bool Array::operator!=(const Array& other) const 
+{
+    return !(*this == other);
+}
+
+
 
 /*
  *  Dataset
@@ -223,52 +245,22 @@ void Dataset::append(const std::map<std::string, Array>& tail)
     }
 }
 
+bool Dataset::operator==(Dataset const& other) const
+{
+    if (this->size_major() != other.size_major()) return false;
+    const auto k1 = this->keys();
+    const auto k2 = other.keys();
+    if (k1.size() != k2.size()) return false;
+    if (!std::equal(k1.begin(), k1.end(), k2.begin())) return false;
+    for (auto key : k1) {
+        if (this->get(key) == other.get(key)) continue;
+        return false;
+    }
+    if (this->metadata() != other.metadata()) return false;
+    return true;
+}
 
-// void DisjointDataset::append_react(Dataset& ds) {
-//     // If DS changes, we invalidate any indexing
-//     ds.register_append([this](size_t beg, size_t end) {
-//         this->m_dirty = true;
-//     });
-
-//     m_values.push_back(std::cref(ds));
-
-//     // if already clean, save some time and stay clean
-//     if (!m_dirty) {
-//         m_nelements += ds.size_major();
-//     }
-// }
-
-// DisjointDataset::dsindex_t DisjointDataset::index(size_t index) const
-// {
-//     // fixme: Right now, this can operate while dirty as
-//     // npoints is not used.  However, this is O(N) in number
-//     // of datasets.  May be faster to use interval map or some
-//     // other indexing.  If so, that likely needs to hook into
-//     // and here call:
-//     //
-//     // update();
-
-//     const auto nds = m_dds.size();
-//     for (size_t dsind=0; dsind < nds; ++dsind) {
-//         const Dataset& ds = m_dds[dsind];
-//         const size_t dsize = ds.size_major();
-//         if (index < dsize) {
-//             return std::make_pair(dsind, index);
-//         }
-//         index -= dsize;
-//     }
-//     raise<IndexError>("DisjointDataset::index out of bounds");
-//     return std::make_pair(-1, -1); // not reached, make compiler happy
-// }
-
-// void DisjointDataset::update() const
-// {
-//     if (!m_dirty) return;
-            
-//     m_npoints = 0;
-//     for (const Dataset& ds : m_dds) {
-//         m_npoints += ds.size_major();
-//     }
-//     m_dirty = false;
-// }
-// std::vector<DisjointArray> selection(const name_list_t& names);
+bool Dataset::operator!=(Dataset const& other) const
+{
+    return !(*this == other);
+}

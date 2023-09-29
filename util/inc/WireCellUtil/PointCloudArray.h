@@ -306,6 +306,8 @@ namespace WireCell::PointCloud {
 
         metadata_t& metadata() { return m_metadata; }
         const metadata_t& metadata() const { return m_metadata; }
+        bool operator==(const Array& other) const;
+        bool operator!=(const Array& other) const;
 
       private:
 
@@ -343,8 +345,7 @@ namespace WireCell::PointCloud {
     using selection_t = std::vector<ArrayRef>;
 
 
-
-
 }
+
 
 #endif

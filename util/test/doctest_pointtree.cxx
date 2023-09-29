@@ -49,7 +49,7 @@ TEST_CASE("point tree scope")
 
 }
 
-TEST_CASE("point tree points empty")
+TEST_CASE("point tree no points")
 {
     Points p;
     CHECK(p.node() == nullptr);
@@ -76,16 +76,23 @@ Points::node_ptr make_simple_pctree()
 
     // Insert a child with a set of named points clouds with one point
     // cloud from a track.
-    root->insert(Points({ {"3d", make_janky_track()} }));
+    auto* n1 = root->insert(Points({ {"3d", make_janky_track()} }));
+
+    const Dataset& pc1 = n1->value.local_pcs().at("3d");
 
     // Ibid from a different track
-    root->insert(Points({ {"3d", make_janky_track(
+    auto* n2 = root->insert(Points({ {"3d", make_janky_track(
                         Ray(Point(-1, 2, 3), Point(1, -2, -3)))} }));
+
+    const Dataset& pc2 = n2->value.local_pcs().at("3d");
+
+    REQUIRE(pc1 != pc2);
+    REQUIRE_FALSE(pc1 == pc2);
 
     return root;
 }
 
-TEST_CASE("point tree real")
+TEST_CASE("point tree with points")
 {
     auto root = make_simple_pctree();
     CHECK(root.get());
@@ -138,3 +145,64 @@ TEST_CASE("point tree real")
     CHECK(rad.size() == 6);
 
 }
+
+TEST_CASE("point tree remove node")
+{
+    auto root = make_simple_pctree();
+    Scope scope{ "3d", {"x","y","z"}};
+    auto& rval = root->value;
+
+    // NOTE: it is the nodes that hold the Datasets
+
+    const DisjointDataset& pc3d_orig = rval.scoped_pc(scope);
+    const Dataset& pc3d_one = pc3d_orig.values().at(0);
+    const Dataset& pc3d_two = pc3d_orig.values().at(1);
+    
+    SUBCASE("remove child one") {
+        const size_t nleft = pc3d_two.size_major();
+        auto it = root->children().begin();
+        // NOTE: receiving the dead node keeps its datasets alive.
+        auto dead = root->remove(it);
+        CHECK(dead);
+        CHECK(root->children().size() == 1);
+        const DisjointDataset& pc3d = rval.scoped_pc(scope);
+        CHECK(pc3d.values().size() == 1);
+        CHECK(pc3d.values()[0].get() == pc3d_two);
+
+        const auto& kd = rval.scoped_kd(scope);
+        CHECK(kd.size() == nleft);
+    }
+    SUBCASE("remove child two") {
+        const size_t nleft = pc3d_one.size_major();
+        auto it = root->children().begin();
+        ++it;
+        // NOTE: receiving the dead node keeps its datasets alive.
+        auto dead = root->remove(it);
+        CHECK(dead);
+        CHECK(root->children().size() == 1);
+        const DisjointDataset& pc3d = rval.scoped_pc(scope);
+        CHECK(pc3d.values().size() == 1);
+        CHECK(pc3d.values()[0].get() == pc3d_one);
+
+        const auto& kd = rval.scoped_kd(scope);
+        CHECK(kd.size() == nleft);
+    }
+}
+TEST_CASE("point tree merge trees")
+{
+    auto r1 = make_simple_pctree();
+    auto r2 = make_simple_pctree();
+
+    Points::node_t root;
+    root.insert(std::move(r1));
+    root.insert(std::move(r2));
+    CHECK(!r1);
+    CHECK(!r2);
+
+
+    Scope scope{ "3d", {"x","y","z"}};
+    auto& rval = root.value;
+    const DisjointDataset& pc3d = rval.scoped_pc(scope);
+    CHECK(pc3d.values().size() == 4);
+}
+

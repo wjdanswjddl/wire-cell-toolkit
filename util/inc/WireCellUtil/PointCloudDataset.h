@@ -142,6 +142,9 @@ namespace WireCell::PointCloud {
         metadata_t& metadata() { return m_metadata; }
         const metadata_t& metadata() const { return m_metadata; }
 
+        bool operator==(Dataset const& other) const;
+        bool operator!=(Dataset const& other) const;
+
       private:
 
         store_t m_store;
@@ -157,8 +160,8 @@ namespace WireCell::PointCloud {
 
     using DatasetRef = std::reference_wrapper<const Dataset>;
 
-
-
 }
+
+
 
 #endif
