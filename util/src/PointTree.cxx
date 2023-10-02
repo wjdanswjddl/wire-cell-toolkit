@@ -86,7 +86,9 @@ bool in_scope(const Tree::Scope& scope, const Tree::Points::node_t* node, size_t
         return false;
     }
 
-    // The node-local PC must have all the coords
+    // The node-local PC must have all the coords.  coords may be
+    // empty such as when the tested scope is a key in cached point
+    // clouds (m_djds).
     const auto& ds = pcit->second;
     for (const auto& name : scope.coords) {
         if (!ds.has(name)) {
@@ -102,13 +104,12 @@ bool Tree::Points::on_insert(const Tree::Points::node_path_t& path)
 {
     auto* node = path.back();
 
-    for (auto [scope,djds] : m_djds) {
+    for (auto& [scope,djds] : m_djds) {
         if (! in_scope(scope, node, path.size())) {
             continue;
         }
         
         Dataset& ds = node->value.m_lpcs[scope.pcname];
-
         djds.append(ds);
 
         auto kdit = m_nfkds.find(scope);
@@ -121,68 +122,88 @@ bool Tree::Points::on_insert(const Tree::Points::node_path_t& path)
     return true;
 }
 
-bool Tree::Points::on_remove(const Tree::Points::node_path_t& path)
+template<typename Store>
+void purge(Store& store, const Tree::Points::node_path_t& path)
 {
-    // brutal remove
-
     auto* leaf = path.front();
     size_t psize = path.size();
 
-    // debug("Tree::Points::on_remove node path length={}", psize);
-    // for (auto const& [name,_] : leaf->value.local_pcs()) {
-    //     debug("\tpcname: {}", name);
-    // }
-
     std::vector<Tree::Scope> dead;
-    for (auto const& [scope,_] : m_djds) {
-        // debug("Tree::Points::on_remove consider scope={}", scope);
-        if (! in_scope(scope, leaf, psize)) {
-            continue;
+    for (auto const& [scope,_] : store) {
+        if (in_scope(scope, leaf, psize)) {
+            dead.push_back(scope);
         }
-        dead.push_back(scope);
     }
-    if (dead.empty()) {
-        // debug("Tree::Points::on_remove no scope to remove");
-        return true;
-    }
-    
     for (auto scope : dead) {
-        m_djds.erase(scope);
-        m_nfkds.erase(scope);
+        store.erase(scope);
     }
+}
 
-    return true;
+bool Tree::Points::on_remove(const Tree::Points::node_path_t& path)
+{
+    purge(m_nfkds, path);
+    purge(m_djds,  path);
+
+    return true;                // continue ascent
 }
     
+static void assure_arrays(const Dataset& ds,
+                          const Tree::Scope& scope)                          
+{
+    // check that it has the coordinate arrays
+    std::vector<std::string> have = ds.keys(), want(scope.coords), both, missing;
+    std::sort(want.begin(), want.end());
+    std::set_intersection(have.begin(), have.end(), want.begin(), want.end(),
+                          std::back_inserter(both));
+    if (both.size() == want.size()) {
+        return;                 // arrays exist
+    }
+
+    // collect missing for exception message
+    std::set_difference(have.begin(), have.end(), want.begin(), want.end(),
+                        std::back_inserter(missing));
+    std::string s;
+    for (const auto& m : missing) {
+        s += " " + m;
+    }
+    WireCell::raise<WireCell::IndexError>("Tree::Points data set missing arrays \"%s\" from scope %s",
+                                          s, scope);    
+}
 
 const DisjointDataset& Tree::Points::scoped_pc(const Tree::Scope& scope) const
 {
-    auto it = m_djds.find(scope);
+    // Since we cache full dataset we do not include coords in the
+    // lookup key to encourage sharing.  But we will still assure it
+    // holds the scope's arrays.
+    Tree::Scope dscope = scope;
+    dscope.coords.clear();
+
+    // cache hit?
+    auto it = m_djds.find(dscope);
     if (it != m_djds.end()) {
-        return it->second;
+        const DisjointDataset& djds = it->second;
+        // Repeat this check as we may do initial construction with a
+        // scope that has a different set of coordinate arrays.
+        for (const Dataset& ds : djds.values()) {
+            assure_arrays(ds, scope);
+        }
+        return djds;
     }
 
-    // construct and store
-    DisjointDataset& djds = m_djds[scope];
+    // construct, assure and cache.
+    DisjointDataset& djds = m_djds[dscope];
     for (auto& nv : m_node->depth(scope.depth)) {
         // local pc dataset
         auto it = nv.m_lpcs.find(scope.pcname);
         if (it == nv.m_lpcs.end()) {
-            continue;
+            continue;           // it is okay if node lacks PC
         }
-        Dataset& ds = it->second;
-        // check that it has the coordinate arrays
-        std::vector<std::string> have = ds.keys(), want(scope.coords), both;
-        std::sort(want.begin(), want.end());
-        std::set_intersection(have.begin(), have.end(), want.begin(), want.end(),
-                              std::back_inserter(both));
 
-        if (both.size() == want.size()) {
-            djds.append(ds);
-            continue;
-        }
-        raise<IndexError>("Tree::Points::scoped_pc %s lacks required coordinate arrays", scope.pcname);
-        
+        // Check for coordintate arrays on first construction. 
+        Dataset& ds = it->second;
+        assure_arrays(ds, scope);
+
+        djds.append(ds);
     };
     return djds;
 }

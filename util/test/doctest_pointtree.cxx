@@ -187,6 +187,13 @@ TEST_CASE("point tree remove node")
         const auto& kd = rval.scoped_kd(scope);
         CHECK(kd.size() == nleft);
     }
+    SUBCASE("shared cached point cloud") {
+        Scope sxy{ "3d", {"x","y"}};
+        Scope syz{ "3d", {"y","z"}};
+        const DisjointDataset& pcxy = rval.scoped_pc(sxy);
+        const DisjointDataset& pcyz = rval.scoped_pc(syz);
+        CHECK(pcxy == pcyz);
+    }
 }
 TEST_CASE("point tree merge trees")
 {

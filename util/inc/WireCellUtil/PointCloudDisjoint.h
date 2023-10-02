@@ -69,6 +69,23 @@ namespace WireCell::PointCloud {
                 spdlog::debug("DisjointBase: update size={}", m_nelements);
             }
         }
+        bool operator==(DisjointBase const& other) const {
+            const size_t nparts = m_values.size();
+            if (nparts != other.m_values.size()) {
+                return false;
+            }
+            for (size_t ind=0; ind < nparts; ++ind) {
+                const Value& a = m_values[ind];
+                const Value& b = m_values[ind];
+                if (a == b) { continue; }
+                spdlog::debug("DisjointBase: datasets differ at index {}", ind);
+                return false;
+            }
+            return true;            
+        }
+        bool operator!=(DisjointBase const& other) const {
+            return !(*this == other);
+        }
 
       protected:
         reference_vector m_values;

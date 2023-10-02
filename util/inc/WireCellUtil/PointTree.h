@@ -17,13 +17,13 @@
 
 namespace WireCell::PointCloud::Tree {
 
-    /** A point cloud scope describes a descent to collect node-local
-     * point cloud data sets which have (at least) the arrays with
-     * names provided by the coords.
+    /** A point cloud scope describes selection of point cloud data
+     * formed from a subset of tree nodes reached by a depth-first
+     * descent.  
      */
     struct Scope {
 
-        // The name of the node-local point clouds
+        // The name of the node-local point clouds.
         std::string pcname{""};
 
         // The list of PC attribute array names to interpret as coordinates.
