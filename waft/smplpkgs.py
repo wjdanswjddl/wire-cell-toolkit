@@ -476,9 +476,11 @@ def smplpkg(bld, name, use='', app_use='', test_use=''):
         text = '''
 #define DOCTEST_CONFIG_IMPLEMENT
 #include "WireCellUtil/doctest.h"
+#include "WireCellUtil/Logging.h"
 #include "spdlog/spdlog.h"
 #include "spdlog/cfg/env.h"
 int main(int argc, char** argv) {
+    WireCell::Log::add_stderr();
     spdlog::cfg::load_env_levels();
     doctest::Context context;
     context.applyCommandLine(argc, argv);
