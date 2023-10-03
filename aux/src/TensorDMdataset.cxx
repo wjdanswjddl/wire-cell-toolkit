@@ -10,7 +10,7 @@ using namespace WireCell::Aux::TensorDM;
 
 
 template<typename ElementType>
-ITensor::pointer make_tensor(const PointCloud::Array& array, const std::string& datapath)
+ITensor::pointer make_array_tensor(const PointCloud::Array& array, const std::string& datapath)
 {
     ElementType* data = (ElementType*)array.bytes().data();
     auto md = array.metadata();
@@ -22,23 +22,23 @@ ITensor::pointer make_tensor(const PointCloud::Array& array, const std::string& 
 ITensor::pointer WireCell::Aux::TensorDM::as_tensor(const PointCloud::Array& array,
                                                     const std::string& datapath)
 {
-    if (array.is_type<char>()) return make_tensor<char>(array, datapath);
-    if (array.is_type<std::byte>()) return make_tensor<std::byte>(array, datapath);
+    if (array.is_type<char>()) return make_array_tensor<char>(array, datapath);
+    if (array.is_type<std::byte>()) return make_array_tensor<std::byte>(array, datapath);
 
-    if (array.is_type<int8_t>())  return make_tensor<int8_t>(array, datapath);
-    if (array.is_type<int16_t>()) return make_tensor<int16_t>(array, datapath);
-    if (array.is_type<int32_t>()) return make_tensor<int32_t>(array, datapath);
-    if (array.is_type<int64_t>()) return make_tensor<int64_t>(array, datapath);
+    if (array.is_type<int8_t>())  return make_array_tensor<int8_t>(array, datapath);
+    if (array.is_type<int16_t>()) return make_array_tensor<int16_t>(array, datapath);
+    if (array.is_type<int32_t>()) return make_array_tensor<int32_t>(array, datapath);
+    if (array.is_type<int64_t>()) return make_array_tensor<int64_t>(array, datapath);
 
-    if (array.is_type<uint8_t>()) return make_tensor<uint8_t>(array, datapath);
-    if (array.is_type<uint16_t>()) return make_tensor<uint16_t>(array, datapath);
-    if (array.is_type<uint32_t>()) return make_tensor<uint32_t>(array, datapath);
-    if (array.is_type<uint64_t>()) return make_tensor<uint64_t>(array, datapath);
+    if (array.is_type<uint8_t>()) return make_array_tensor<uint8_t>(array, datapath);
+    if (array.is_type<uint16_t>()) return make_array_tensor<uint16_t>(array, datapath);
+    if (array.is_type<uint32_t>()) return make_array_tensor<uint32_t>(array, datapath);
+    if (array.is_type<uint64_t>()) return make_array_tensor<uint64_t>(array, datapath);
 
-    if (array.is_type<float>()) return make_tensor<float>(array, datapath);
-    if (array.is_type<double>()) return make_tensor<double>(array, datapath);
-    if (array.is_type<std::complex<float>>()) return make_tensor<std::complex<float>>(array, datapath);
-    if (array.is_type<std::complex<double>>()) return make_tensor<std::complex<double>>(array, datapath);
+    if (array.is_type<float>()) return make_array_tensor<float>(array, datapath);
+    if (array.is_type<double>()) return make_array_tensor<double>(array, datapath);
+    if (array.is_type<std::complex<float>>()) return make_array_tensor<std::complex<float>>(array, datapath);
+    if (array.is_type<std::complex<double>>()) return make_array_tensor<std::complex<double>>(array, datapath);
 
     THROW(ValueError() << errmsg{"unsupported point cloud array type: " + array.dtype()});
 }
@@ -104,7 +104,7 @@ PointCloud::Array WireCell::Aux::TensorDM::as_array(const ITensor::pointer& ten,
 
 PointCloud::Dataset
 WireCell::Aux::TensorDM::as_dataset(const ITensor::vector& tens,
-                                    const std::string datapath,
+                                    const std::string& datapath,
                                     bool share)
 {
     // Index the tensors by datapath and find main "pcdataset" tensor.
@@ -150,7 +150,7 @@ WireCell::Aux::TensorDM::as_dataset(const ITensor::vector& tens,
 
 PointCloud::Dataset
 WireCell::Aux::TensorDM::as_dataset(const ITensorSet::pointer& tens,
-                                    const std::string datapath,
+                                    const std::string& datapath,
                                     bool share)
 {
     auto sv = tens->tensors();

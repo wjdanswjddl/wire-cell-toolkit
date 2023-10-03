@@ -50,7 +50,7 @@ std::ostream& dump_spectra(std::ostream& os, const std::string& fname)
 
 int main(int argc, char* argv[])
 {
-    Testing::loginit(argv[0]);
+    // Testing::loginit(argv[0]);
 
     auto rng = Testing::get_random();
     auto dft = Testing::get_dft();

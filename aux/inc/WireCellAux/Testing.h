@@ -50,7 +50,7 @@ namespace WireCell::Aux::Testing {
     IAnodePlane::vector anodes(const std::string detector);
 
     // Initialize WCT logging with argv[0].
-    void loginit(const char* argv0);
+    // void loginit(const char* argv0);
 
 }
 

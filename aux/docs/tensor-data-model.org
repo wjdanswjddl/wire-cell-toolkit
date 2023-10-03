@@ -107,31 +107,41 @@ The *datatype* of *pcarray* indicates a tensor representing one ~PointCloud::Arr
 
 ** pcdataset
 
-The *datatype* of *pcdataset* indicates a tensor representing on ~PointCloud::Dataset~.  The tensor array shall be empty.  The tensor MD shall have the following attributes:
+The *datatype* of *pcdataset* indicates a tensor representing one ~PointCloud::Dataset~.  The tensor array shall be empty.  The tensor MD shall have the following attributes:
 
 - arrays :: an object representing the named arrays.  Each attribute name provides the array name and each attribute value provides a *datapath* to a tensor of type *pcarray* holding the named array.  Additional user application ~Dataset~ metadata may reside in the tensor MD.
 
 ** pcgraph
 
-The *datatype* of *pcgraph* indicates a tensor representing a "point cloud
-graph".  This extends a point cloud to include relationships between
-pairs of points.  The array part of a *pcgraph* tensor shall be empty.
-The MD part of a *pcgraph* tensor shall provide reference to two
-*pcdataset* instances with the following MD attributes:
+The *datatype* of *pcgraph* indicates a tensor representing a "point cloud graph".  This extends a point cloud to include relationships between pairs of points.  The array part of a *pcgraph* tensor shall be empty.  The MD part of a *pcgraph* tensor shall provide reference to two *pcdataset* instances with the following MD attributes:
 
 - nodes :: a *datapath* refering to a *pcdataset* representing graph vertex features.
 
 - edges :: a *datapath* refering to a *pcdataset* representing graph edges and their features.
 
-In addition, the *pcdataset* referred to by the *edges* attribute shall
-provide two arrays of integer type with names *tails* and *heads*.  Each
-shall provide indices into the *nodes* point cloud representing the tail
-and head endpoint of graph edges.  A node or edge dataset may be
-shared between different *pcgraph* instances.
+In addition, the *pcdataset* referred to by the *edges* attribute shall provide two arrays of integer type with names *tails* and *heads*.  Each shall provide indices into the *nodes* point cloud representing the tail and head endpoint of graph edges.  A node or edge dataset may be shared between different *pcgraph* instances.
+
+** pcnamedset
+
+The *datatype* of *pcnamedset* indicates a tensor representing a ~std::map<std::string, PointCloud::Dataset>~.  The tensor array shall be empty.  The tensor MD shall have the following attributes:
+
+- items :: an object representing the named point cloud set.  Each attribute name provides the name of the point cloud and the value provides the *datapath* to a *pcdataset*.
 
 ** pctree
 
-t.b.d.  A tree node uses MD to encode datapath to *parent* node, an array of datapaths to encode ownership of the *children* and a set of *named datasets* to encode the payload PCs.
+The *datatype* of *pctree* indicates a tensor representing an $n$-ary tree built of nodes that provide *pcnamedset*.
+The tensor array of the *pctree* tensor shall be empty and the MD shall have the following attributes:
+
+- nodes :: an object representing the $n$-ary tree.  Each attribute name is an encoding of the tree path from root node (node with no parent) to a descendant node and the value provides a *datapath* to a *pcnamedset*.
+
+The encoding of the tree path is built from indices of children in a parent node utilizing a ~/~ separator.  For example, in a tree of three levels: L0: root node, L1: 2 children nodes, L3: 3 grandchildren per L2 node the following tree paths would exhaustively identify the nodes:
+
+- ~0~ :: L0 root note
+- ~0/{0,1}~ :: L1 children nodes
+- ~0/{0,1}/{0,1,2}~ :: L2 grandchildren nodes
+
+A *pctree* may represent an $n$-ary tree with multiple root nodes.
+
 
 ** trace
 
@@ -263,4 +273,19 @@ and there is a conceptual mapping between the two:
 - HDF5 dataspace and datatype $\leftrightarrow$ ~ITensor~ methods ~shape()~, ~dtype()~, etc.
 - HDF5 group or dataset attribute $\leftrightarrow$ ~ITensor~ metadata attribute
 
+
+
+* C++ API
+
+The WCT ~aux~ sub-package provides ~WireCellAux/TensorDM.h~ API for converting instances of WCT ~IData~ and more concrete classes to and from ~ITensor~ representation.  This API is used in with components named like ~XxxTensor~ and ~TensorXxx~ to apply the conversions in the context of a WCT data flow graph.  Additionally, the ~sio~ package provides ~TensorFileSink~ and ~TensorFileSource~ to serialize ~ITensor~ representations with files.
+
+** ~TensorDM.h~
+
+This API collects conversion methods which follow the forms:
+
+#+begin_example
+ITensor::pointer as_tensor(<concrete types>);
+ITensor::vector as_tensors(<concrete types>);
+<concrete types> as_<concrete name>(<ITensor types>);
+#+end_example
 

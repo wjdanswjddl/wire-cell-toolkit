@@ -6,17 +6,17 @@ using namespace WireCell;
 using namespace WireCell::Aux;
 using namespace WireCell::Aux::TensorDM;
 
+
 WireCell::PointGraph
 WireCell::Aux::TensorDM::as_pointgraph(const ITensor::vector& tens,
                                        const std::string& datapath)
 {
-    ITensor::pointer top = nullptr;
     std::unordered_map<std::string, ITensor::pointer> located;
+    ITensor::pointer top = nullptr;
     for (const auto& iten : tens) {
         const auto& tenmd = iten->metadata();
         const auto dtype = tenmd["datatype"].asString();
         const auto dpath = tenmd["datapath"].asString();
-
         if (!top and dtype == "pcgraph") {
             if (datapath.empty() or datapath == dpath) {
                 top = iten;
@@ -41,7 +41,7 @@ WireCell::Aux::TensorDM::as_pointgraph(const ITensor::vector& tens,
 
 ITensor::vector
 WireCell::Aux::TensorDM::as_tensors(const PointGraph& pcgraph,
-                                    const std::string datapath)
+                                    const std::string& datapath)
 {
     Configuration md;
     md["datatype"] = "pcgraph";

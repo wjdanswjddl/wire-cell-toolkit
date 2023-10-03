@@ -4,6 +4,8 @@
 #ifndef WIRECELLAUX_TENSORDM
 #define WIRECELLAUX_TENSORDM
 
+// FIXME: factor each portion of the DM into its own header to reduce
+// monolith header inclusion.
 #include "WireCellIface/ITensorSet.h"
 #include "WireCellIface/IFrame.h"
 #include "WireCellIface/ITrace.h"
@@ -11,6 +13,7 @@
 #include "WireCellIface/IAnodePlane.h"
 #include "WireCellUtil/PointCloudDataset.h"
 #include "WireCellUtil/PointGraph.h"
+#include "WireCellUtil/PointTree.h"
 #include "WireCellUtil/Waveform.h"
 
 #include <boost/multi_array.hpp>
@@ -18,7 +21,22 @@
 
 namespace WireCell::Aux::TensorDM {
 
-    /// Generic support
+    /** Build metadata-only (array-less) tensor in the DM.
+     */
+    ITensor::pointer make_metadata_tensor(const std::string& datatype,
+                                          const std::string& datapath,
+                                          Configuration metadata = {});
+
+    /** Return first itensor of matching datatype.
+     *
+     *  If datapath is not empty, further require it to match.
+     *
+     *  Raises ValueError if no tensor found in the set tens.
+     */
+    ITensor::pointer top_tensor(const ITensor::vector& tens,
+                                const std::string& datatype,
+                                const std::string& datapath="");
+
 
     /// Build a tensor set from set of tensors.  The tensor data model
     /// makes no requirements on the ITensorSet itself.  The user may
@@ -73,14 +91,14 @@ namespace WireCell::Aux::TensorDM {
     /// "pcdataset" is taken as the kernel of aggregation.  A
     /// ValueError is thrown if tensors are badly formed.
     PointCloud::Dataset as_dataset(const ITensor::vector& tensors,
-                                   const std::string datapath="",
+                                   const std::string& datapath="",
                                    bool share=false);
 
     /// Convenience function calling above using the tensors from the
     /// ITensorSet.  Note the dataset level metadata is taken from the
     /// ITensor with datatype "pcdataset" and not from ITensorSet.
     PointCloud::Dataset as_dataset(const ITensorSet::pointer& its,
-                                   const std::string datapath="",
+                                   const std::string& datapath="",
                                    bool share=false);
 
 
@@ -103,8 +121,65 @@ namespace WireCell::Aux::TensorDM {
         <datapath>/edges/.
     */
     ITensor::vector as_tensors(const PointGraph& pcgraph,
-                               const std::string datapath);
+                               const std::string& datapath);
 
+
+    /// Named point cloud sets
+
+    /** Convert a named point cloud set to tensors.
+
+        The first tensor in the returned vector will represent the
+        pcnamedset and subsequent entries will represent each item in
+        the set.
+
+        If <store> is not given it will be set to <datapath>/namedpcs.
+        The pcdataset tensors will have datapaths of <store>/<name>.
+
+     */
+    template<typename PairIter>
+    ITensor::vector pcnamedset_as_tensors(PairIter beg, PairIter end,
+                                          const std::string& datapath,
+                                          std::string store = "") {
+        if (store.empty()) {
+            store = datapath + "/namedpcs";
+        }
+
+        Configuration md, items = Json::objectValue;
+
+        ITensor::vector ret;
+        ret.push_back(nullptr);     // fill in below
+        for (auto it = beg; it != end; ++it) {
+            const std::string& name = it->first;
+            const PointCloud::Dataset& ds = it->second;
+            auto dp = store + "/" + name;
+            items[name] = dp;
+            auto tens = as_tensors(ds, dp);
+            ret.insert(ret.end(), tens.begin(), tens.end());
+        }
+        md["items"] = items;
+        ret[0] = make_metadata_tensor("pcnamedset", datapath, md);
+        return ret;
+    }
+
+    using named_pointcloud_t = std::pair<std::string, PointCloud::Dataset>;
+    using named_pointclouds_t = std::vector<named_pointcloud_t>;
+
+    inline
+    ITensor::vector as_tensors(const named_pointclouds_t& pcns,
+                               const std::string& datapath,
+                               std::string store = "") {
+        return pcnamedset_as_tensors(pcns.begin(), pcns.end(), datapath, store);
+    }
+
+    
+    /** Convert tensors representing a named point cloud set.
+
+       The tensor found at datapath is converted unless datapath is
+       empty in which case the first pcnamedset found is used.
+
+     */
+    named_pointclouds_t as_pcnamedset(const ITensor::vector& tens, const std::string& datapath = "");
+                                                             
 
     /// Frame support
 
@@ -229,7 +304,29 @@ namespace WireCell::Aux::TensorDM {
     */
     ICluster::pointer as_cluster(const ITensor::vector& tens,
                                  const IAnodePlane::vector& anodes,
-                                 const std::string datapath="");
+                                 const std::string& datapath="");
+
+    /**
+     * Convert a point cloud tree to vector of ITensors.
+     *
+     * The tensors represent the deconstructed DM components (pctree,
+     * pcnamedsets, pcdataset, pcarray) that make up a pctree.
+     *
+     * The datapath will be that of the pctree tensor.
+     */ 
+    ITensor::vector as_tensors(const WireCell::PointCloud::Tree::Points::node_t& node,
+                               const std::string& datapath);
+
+    /**
+     * Convert sequence of ITensor to a point cloud tree.
+     *
+     * The datapath specifies which in the sequence of tensors is the
+     * pctree.  If empty then the first tensor of type pctree is
+     * assumed.
+     */
+    std::unique_ptr<WireCell::PointCloud::Tree::Points::node_t>
+    as_pctree(const ITensor::vector& tens,
+              const std::string& datapath="");
 
 }
 
