@@ -161,8 +161,7 @@ namespace WireCell::Aux::TensorDM {
         return ret;
     }
 
-    using named_pointcloud_t = std::pair<std::string, PointCloud::Dataset>;
-    using named_pointclouds_t = std::vector<named_pointcloud_t>;
+    using named_pointclouds_t = WireCell::PointCloud::Tree::Points::named_pointclouds_t;
 
     inline
     ITensor::vector as_tensors(const named_pointclouds_t& pcns,
@@ -312,10 +311,15 @@ namespace WireCell::Aux::TensorDM {
      * The tensors represent the deconstructed DM components (pctree,
      * pcnamedsets, pcdataset, pcarray) that make up a pctree.
      *
-     * The datapath will be that of the pctree tensor.
+     * The datapath will be that of the main pctreenode tensor.
+     *
+     * If the node has a parent, the parent's datapath must be
+     * provided.
      */ 
-    ITensor::vector as_tensors(const WireCell::PointCloud::Tree::Points::node_t& node,
-                               const std::string& datapath);
+    ITensor::vector as_tensors(
+        const WireCell::PointCloud::Tree::Points::node_t& node,
+        const std::string& datapath,
+        const std::string& parent_datapath="");
 
     /**
      * Convert sequence of ITensor to a point cloud tree.

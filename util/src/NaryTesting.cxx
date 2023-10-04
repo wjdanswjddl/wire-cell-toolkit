@@ -54,9 +54,10 @@ NaryTesting::Introspective::~Introspective()
 }
 
 
-void NaryTesting::Introspective::on_construct(node_type* node)
+void NaryTesting::Introspective::on_construct(node_type* n)
 {
-    debug("constructed {}", name);
+    node = n;
+    debug("constructed {} with node@0x{}", name, (void*)node);
     ++nactions["constructed"];
 }
 
@@ -85,6 +86,16 @@ std::ostream& NaryTesting::operator<<(std::ostream& o, const NaryTesting::Intros
     return o;
 }
 
+static
+NaryTesting::Introspective::owned_ptr
+make_a_node(const std::string name)
+{
+    return std::make_unique<Introspective::node_type>(Introspective(name));
+}
+
+//
+//  Warning: tests rely on the structure of this tree.  Don't go changing it willy nilly. 
+//
 NaryTesting::Introspective::owned_ptr NaryTesting::make_simple_tree(const std::string& base_name)
 {
     auto root = std::make_unique<Introspective::node_type>(Introspective(base_name));
@@ -100,8 +111,9 @@ NaryTesting::Introspective::owned_ptr NaryTesting::make_simple_tree(const std::s
     }
 
     {
-        auto nup = std::make_unique<Introspective::node_type>(Introspective(base_name + ".2"));
-        root->insert(std::move(nup));
+        root->insert(make_a_node(base_name + ".2"));
+        // auto nup = std::make_unique<Introspective::node_type>(Introspective(base_name + ".2"));
+        // root->insert(std::move(nup));
     }
 
     return root;

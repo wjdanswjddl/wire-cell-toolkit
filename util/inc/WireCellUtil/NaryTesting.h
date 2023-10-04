@@ -22,6 +22,8 @@ namespace WireCell::NaryTesting {
         size_t ndef{0}, nctor{0}, ncopy{0}, nmove{0};
         std::map<std::string, size_t> nactions;
 
+        node_type* node{nullptr};
+
         Introspective();
         Introspective(const Introspective& d);
         Introspective(Introspective&& d);

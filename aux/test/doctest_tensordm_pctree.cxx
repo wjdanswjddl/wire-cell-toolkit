@@ -42,4 +42,7 @@ TEST_CASE("tensordm pctree")
     const std::string datapath = "mypctree";
     auto tens = as_tensors(*root.get(), datapath);
     CHECK(tens.size() > 0);
+
+    auto root2 = as_pctree(tens, datapath);
+    CHECK(root2);
 }

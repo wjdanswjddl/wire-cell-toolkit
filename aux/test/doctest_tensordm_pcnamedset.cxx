@@ -36,8 +36,8 @@ TEST_CASE("tensordm pcnamedset")
 
     auto pcns2 = as_pcnamedset(tens, datapath);
     CHECK(pcns2.size() == 2);
-    CHECK(pcns2[0].first == "one");
-    CHECK(pcns2[1].first == "two");
+    CHECK(pcns2.find("one") != pcns2.end());
+    CHECK(pcns2.find("two") != pcns2.end());
 
 }
 

@@ -131,7 +131,7 @@ namespace WireCell::NaryTree {
 
             node->parent = this;
             children_.push_back(std::move(node));
-            children_.back()->sibling = std::prev(children_.end());
+            children_.back()->sibling_ = std::prev(children_.end());
             Node* child = children_.back().get();
             if (!child) {
                 throw std::runtime_error("NaryTree::Node insert on null child node");
@@ -163,7 +163,7 @@ namespace WireCell::NaryTree {
 
             owned_ptr ret = std::move(*sib);
             children_.erase(sib);
-            ret->sibling = children_.end();
+            ret->sibling_ = children_.end();
             ret->parent = nullptr;
             
             return ret;
@@ -179,7 +179,36 @@ namespace WireCell::NaryTree {
         // Iterator locating self in list of siblings.  If parent is
         // null, this iterator is invalid.  It is set which this node
         // is inserted as a anothers child.
-        sibling_iter sibling;
+        sibling_iter sibling_;
+        sibling_iter sibling() const {
+            if (!parent) {
+                raise<ValueError>("node with no parent is not a sibling");
+            }
+            return sibling_;
+        }
+
+        // Return index of self in parent's list of children.  This is
+        // an O(nchildren) call and will throw if we have no parent.
+        size_t sibling_index() const {
+            auto me = sibling(); // throws
+            auto first_born = parent->children().begin();
+            return std::distance(first_born, me);
+        }
+        // Call sibling_index recursively up toward root, returning
+        // result with my index first.
+        std::vector<size_t> sibling_path() const {
+            std::vector<size_t> ret;
+            const auto* n = this;
+            while (n) {
+                if (! n->parent) {
+                    break;
+                }
+                ret.push_back(n->sibling_index());
+                n = n->parent;
+            }
+            return ret;
+        }
+
 
         self_type* first() const {
             if (children_.empty()) return nullptr;
@@ -197,10 +226,10 @@ namespace WireCell::NaryTree {
             const auto& sibs = parent->children_;
             if (sibs.empty()) return nullptr;
 
-            if (sibling == sibs.begin()) {
+            if (sibling_ == sibs.begin()) {
                 return nullptr;
             }
-            auto sib = sibling;
+            auto sib = sibling_;
             --sib;
             return sib->get();
         }
@@ -210,7 +239,7 @@ namespace WireCell::NaryTree {
             const auto& sibs = parent->children_;
             if (sibs.empty()) return nullptr;
 
-            auto sib = sibling;
+            auto sib = sibling_;
             ++sib;
             if (sib == sibs.end()) {
                 return nullptr;
@@ -369,8 +398,7 @@ namespace WireCell::NaryTree {
     };    
 
 
-
-    // Iterator and range for descent.  First parent then children.
+    // Iterator and range for depth-first descent.  First parent then children.
     template<typename Value>
     class depth_iter : public boost::iterator_facade<
         depth_iter<Value>

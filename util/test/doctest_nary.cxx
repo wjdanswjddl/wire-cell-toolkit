@@ -300,3 +300,23 @@ TEST_CASE("nary tree notify")
     }
     
 }
+TEST_CASE("nary tree flatten")
+{
+    Introspective::node_type root(Introspective("r"));
+    auto& rval = root.value;
+    REQUIRE(rval.node == &root);
+    root.insert(make_simple_tree("r.0"));
+    root.insert(make_simple_tree("r.1"));
+    debug("descend root node \"{}\"", rval.name);
+    for (auto& value : rval.node->depth()) {
+        debug("\tpath to parents from node \"{}\":", value.name);
+        auto* node = value.node;
+        REQUIRE(node);
+        std::string path="", slash="";
+        for (auto n : node->sibling_path()) {
+            path += slash + std::to_string(n);
+            slash = "/";
+        }
+        debug("\t\tpath: {}  \t (\"{}\")", path, node->value.name);
+    }
+}
