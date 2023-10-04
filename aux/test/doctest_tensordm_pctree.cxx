@@ -39,10 +39,17 @@ Points::node_ptr make_simple_pctree()
 TEST_CASE("tensordm pctree")
 {
     auto root = make_simple_pctree();
-    const std::string datapath = "mypctree";
+    const std::string datapath = "root";
     auto tens = as_tensors(*root.get(), datapath);
     CHECK(tens.size() > 0);
+
+    debug("{:20} {}", "datatype", "datapath");
+    for (auto ten : tens) {
+        auto md = ten->metadata();
+        debug("{:20} {}", md["datatype"].asString(), md["datapath"].asString());
+    }
 
     auto root2 = as_pctree(tens, datapath);
     CHECK(root2);
 }
+

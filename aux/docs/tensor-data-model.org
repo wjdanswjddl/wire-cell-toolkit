@@ -137,8 +137,27 @@ The *datatype* of *pctreenode* indicates a tensor representing an $n$-ary tree n
 
 - pointclouds :: the "local" point cloud datasets held as a *pcnamedset*
 
-The tree structure shall be definitely represented by the *datapath* values held in the *parent* and *children* attributes.  The tree structure may additionally be reflected in a hierarchical *datapath* naming convention.  If such a convention is used it shall reflect the descending order from root to leaf.
+The tree structure shall be definitely represented by the *datapath* values held in the *parent* and *children* attributes.  The tree structure may additionally be reflected in a hierarchical *datapath* naming convention.  If such a convention is used it shall reflect the descending order from root to leaf.  For example a tree with three nodes, one root and two children and the children have named point cloud sets each with a single point cloud named "3d" and each of those have arrays named "x", "y", "z", and "q":
 
+#+begin_example
+datatype             datapath
+----------           ---------
+pctreenode           root
+pctreenode           root/0
+pcnamedset           root/0/pointclouds
+pcdataset            root/0/pointclouds/namedpcs/3d
+pcarray              root/0/pointclouds/namedpcs/3d/arrays/q
+pcarray              root/0/pointclouds/namedpcs/3d/arrays/x
+pcarray              root/0/pointclouds/namedpcs/3d/arrays/y
+pcarray              root/0/pointclouds/namedpcs/3d/arrays/z
+pctreenode           root/1
+pcnamedset           root/1/pointclouds
+pcdataset            root/1/pointclouds/namedpcs/3d
+pcarray              root/1/pointclouds/namedpcs/3d/arrays/q
+pcarray              root/1/pointclouds/namedpcs/3d/arrays/x
+pcarray              root/1/pointclouds/namedpcs/3d/arrays/y
+pcarray              root/1/pointclouds/namedpcs/3d/arrays/z
+#+end_example
 
 ** trace
 
