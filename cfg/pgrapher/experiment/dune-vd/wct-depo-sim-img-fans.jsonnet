@@ -80,8 +80,22 @@ local setdrifter = g.pnode({
 local sn_pipes = sim.splusn_pipelines;
 
 local sp_maker = import 'pgrapher/experiment/dune-vd/sp.jsonnet';
-local sp = sp_maker(params, tools, { sparse: false, use_roi_debug_mode: false,} );
+local sp = sp_maker(params, tools, { sparse: true, use_roi_debug_mode: false,} );
 local sp_pipes = [sp.make_sigproc(a) for a in tools.anodes];
+
+local reframers_sp = [
+    g.pnode({
+        type: 'Reframer',
+        name: 'reframer-sigproc-'+a.name,
+        data: {
+            anode: wc.tn(a),
+            tags: ["gauss%d"%a.data.ident, "wiener%d"%a.data.ident],
+            fill: 0.0,
+            tbin: params.sim.reframer.tbin,
+            toffset: 0,
+            nticks: params.sim.reframer.nticks,
+        },
+    }, nin=1, nout=1) for a in tools.anodes];
 
 local img = import 'pgrapher/experiment/dune-vd/img.jsonnet';
 local img_maker = img();
@@ -124,6 +138,7 @@ local parallel_pipes = [
                 // ),
                 // sinks.orig_pipe[n],
                 sp_pipes[n],
+                reframers_sp[n],
                 // frame_tap(
                 //     name="gauss%d"%tools.anodes[n].data.ident,
                 //     outname="frame-gauss%d.tar.bz2"%tools.anodes[n].data.ident,
