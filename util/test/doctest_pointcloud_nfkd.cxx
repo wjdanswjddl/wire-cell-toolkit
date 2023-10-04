@@ -118,3 +118,39 @@ TEST_CASE("nfkd dataset disjoint")
         }
     }
 }
+
+#include <random>
+#include <algorithm>
+
+TEST_CASE("nfkd dataset big")
+{
+    std::random_device rnd_device;
+    // Specify the engine and distribution.
+    std::mt19937 mersenne_engine {rnd_device()};  // Generates random integers
+    std::uniform_int_distribution<int> dist {1, 52};
+    
+    auto gen = [&dist, &mersenne_engine](){
+                   return dist(mersenne_engine);
+               };
+    const size_t n = 1024;
+    std::vector<double> x(n), y(n), z(n), q(n);
+    generate(begin(x), end(x), gen);
+    generate(begin(y), end(y), gen);
+    generate(begin(z), end(z), gen);
+
+    Dataset ds({
+            {"x", Array(x)},
+            {"y", Array(y)},
+            {"z", Array(z)},
+        });
+    
+    using point_type = std::vector<double>;
+    using coords_type = coordinates<point_type>;
+
+    coords_type coords(ds.selection(names));
+    using kdtree_type = NFKD::Tree<coords_type::iterator, NFKD::IndexStatic>;
+    std::vector<std::string> names = {"x","y","z"};
+    kdtree_type kd(names.size(), coords.begin(), coords.end());
+
+    CHECK(kd.size() == n);
+}
