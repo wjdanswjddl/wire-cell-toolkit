@@ -1,4 +1,4 @@
-#include "WireCellAux/TensorDM.h"
+#include "WireCellAux/TensorDMpointtree.h"
 #include "WireCellUtil/PointTree.h"
 #include "WireCellUtil/PointTesting.h"
 

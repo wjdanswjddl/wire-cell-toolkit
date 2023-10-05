@@ -1,4 +1,4 @@
-#include "WireCellAux/TensorDM.h"
+#include "WireCellAux/TensorDMcommon.h"
 
 #include "WireCellUtil/doctest.h"
 #include "WireCellUtil/Logging.h"

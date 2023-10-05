@@ -1,5 +1,5 @@
 #include "WireCellAux/TensorFrame.h"
-#include "WireCellAux/TensorDM.h"
+#include "WireCellAux/TensorDMframe.h"
 #include "WireCellAux/FrameTools.h"
 
 #include "WireCellUtil/NamedFactory.h"

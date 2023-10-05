@@ -3,7 +3,8 @@
 #include "WireCellUtil/NamedFactory.h"
 
 #include "WireCellUtil/IndexedGraph.h"
-#include "WireCellAux/TensorDM.h"
+#include "WireCellAux/TensorDMdataset.h"
+#include "WireCellAux/TensorDMcommon.h"
 
 WIRECELL_FACTORY(BlobSampling, WireCell::Img::BlobSampling,
                  WireCell::INamed,

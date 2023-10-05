@@ -175,6 +175,12 @@ namespace WireCell::PointCloud {
         using disjoint_type = disjoint<typename disjoint_coordinates::iterator>;
         using iterator = disjoint_type;
 
+        disjoint_selection() = default;
+        disjoint_selection(const disjoint_selection&) = default;
+        disjoint_selection(disjoint_selection&&) = default;
+        disjoint_selection& operator=(const disjoint_selection&) = default;
+        disjoint_selection& operator=(disjoint_selection&&) = default;
+
         // construct a disjoint selection on a dataset and a list of
         // attribute array names.
         disjoint_selection(DisjointDataset dj, const name_list_t& names)

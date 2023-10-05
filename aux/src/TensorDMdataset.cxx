@@ -1,4 +1,4 @@
-#include "WireCellAux/TensorDM.h"
+#include "WireCellAux/TensorDMdataset.h"
 #include "WireCellAux/SimpleTensor.h"
 #include "WireCellAux/SimpleTensorSet.h"
 #include "WireCellUtil/Type.h"

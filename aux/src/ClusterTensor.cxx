@@ -1,7 +1,8 @@
 #include "WireCellAux/ClusterTensor.h"
 #include "WireCellAux/ClusterHelpers.h"
 
-#include "WireCellAux/TensorDM.h"
+#include "WireCellAux/TensorDMcluster.h"
+#include "WireCellAux/TensorDMcommon.h"
 
 #include "WireCellUtil/String.h"
 #include "WireCellUtil/NamedFactory.h"

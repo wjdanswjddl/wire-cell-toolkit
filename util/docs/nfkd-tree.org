@@ -1,0 +1,96 @@
+#+title: Wire-Cell interface to nanoflann K-D Tree
+
+* Overview
+
+WCT provides ~WireCellUtil/NFKD.h~ API in the ~WireCell::NFKD~ namespace
+to interface to the nanoflann package.  This API provides
+simplification and uniformity compared to the native nanoflann API.
+Unlike nanoflann's API being based on the user providing a "dataset
+adapter" that uses index semantics to query values of the
+k-dimensional point vectors, ~NFKD~ uses iterators.  This allows the
+adapter to be used with a variety of underlying point collections.
+
+* Performance
+
+Tests to output performance metrics can be run with the following
+command:
+
+#+begin_example
+SPDLOG_LEVEL=debug ./build/util/wcdoctest-util -tc='nfkd dataset performance*
+#+end_example
+
+A number of tests provided:
+
+- monolithic {static,dynamic} :: the point store is a single ~Dataset~ with either static or dynamic k-d tree
+- disjoint :: the point store is multiple ~Dataset~ with (necessarily) dynamic k-d tree
+
+Summaries of benchmarks run on a single core of i7-4770K CPU @ 3.50GHz
+with 32785 points in the k-d tree for construction ("k-d") and the
+"knn" and "radius" query type, each returning all points.  The "knn"
+and "radius" values are for the queries with the largest result sets.
+  
+
+The test here is for a single dataset and a dynamic or static k-d
+tree.
+
+| (time ms for 32768) | k-d | knn | radius |
+|---------------------+-----+-----+--------|
+| monolithic dynamic  | 105 | 253 |      6 |
+| monolithic static   | 104 | 243 |      6 |
+|---------------------+-----+-----+--------|
+
+The test space for disjoint datasets spans different total sizes of
+point clouds and distributed over different numbers of datasets.  
+
+| points | datasets |  k-d |  knn | radius |
+|        |          | (ms) | (ms) |   (ms) |
+|--------+----------+------+------+--------|
+|   1024 |       64 |    8 |    1 |      0 |
+|   1024 |        8 |    5 |    0 |      0 |
+|   1024 |        1 |    2 |    0 |      0 |
+|   2048 |      128 |   21 |    1 |      0 |
+|   2048 |       64 |   13 |    1 |      0 |
+|   2048 |        2 |    6 |    1 |      0 |
+|   4096 |      256 |   53 |    5 |      1 |
+|   4096 |       32 |   33 |    4 |      0 |
+|   4096 |        4 |   19 |    4 |      0 |
+|   8192 |      512 |  148 |   17 |      2 |
+|   8192 |       64 |   90 |   16 |      1 |
+|   8192 |        8 |   51 |   15 |      1 |
+|   8192 |        1 |   22 |   15 |      1 |
+|  16384 |     1024 |  412 |   66 |      5 |
+|  16384 |      128 |  232 |   58 |      3 |
+|  16384 |       16 |  136 |   56 |      3 |
+|  16384 |        2 |   68 |   57 |      2 |
+|  32768 |     2048 | 1301 |  130 |     10 |
+|  32768 |      256 |  615 |  219 |      7 |
+|  32768 |       32 |  354 |  224 |      1 |
+|  32768 |        4 |  195 |  221 |      5 |
+
+This is after some optimization of the k-d tree point lookup.  For a
+fixed set of points, increasing the granularity by eight times leads
+to doubling in construction time while query time is largely
+unchanged.  Fixing the number of points per dataset leads to about
+three times more construction or query time for a doubling of the
+number of datasets.
+
+* Testing 
+
+To log performance metrics:
+
+#+begin_example
+ $ ./build/util/wcdoctest-util -ltc | grep 'nfkd dataset performance'
+
+ $ SPDLOG_LEVEL=debug ./build/util/wcdoctest-util \
+   -tc='nfkd dataset performance monolithic static'
+#+end_example
+
+To investigate performance optimization:
+
+#+begin_example
+ $ CPUPROFILE=nfkd-disjoint.prof \
+   LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libprofiler.so.0 \
+   ./build/util/wcdoctest-util -tc='nfkd dataset performance disjoint'
+ $ google-pprof --lines --pdf ./build/util/wcdoctest-util nfkd-disjoint.prof > nfkd-disjoint.pdf
+#+end_example
+

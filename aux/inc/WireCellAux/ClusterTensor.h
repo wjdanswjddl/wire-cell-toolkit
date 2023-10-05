@@ -3,7 +3,6 @@
 
 #include "WireCellIface/IConfigurable.h"
 #include "WireCellIface/IClusterTensorSet.h"
-#include "WireCellAux/TensorDM.h"
 #include "WireCellAux/Logger.h"
 
 namespace WireCell::Aux {

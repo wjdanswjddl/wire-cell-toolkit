@@ -80,12 +80,15 @@ namespace WireCell::NFKD {
         using results_type = std::vector<result_item>;
 
         explicit Tree(size_t dimensionality)
-            : m_index(dimensionality, *this)
+            : m_ranges{}
+            , m_last_range(m_ranges.end())
+            , m_index(dimensionality, *this)
         {
             // spdlog::debug("NFKD: constructor dimensionality {}", dimensionality);
         }
         Tree(size_t dimensionality, iterator_type beg, iterator_type end)
-            : m_ranges{ {0, IterRange{beg, end}} }
+            : m_ranges{ {0, IterRange(beg, end)} }
+            , m_last_range(m_ranges.begin())
             , m_size(std::distance(beg, end))
             , m_index(dimensionality, *this)
         {
@@ -108,12 +111,16 @@ namespace WireCell::NFKD {
         virtual void append(iterator_type beg, iterator_type end)
         {
             const size_t oldsize = size();
-            IterRange ir{beg,end};
+            IterRange ir(beg,end);
             m_ranges[oldsize] = ir;
             const size_t adding = ir.size();
             m_size += adding;
             // spdlog::debug("NFKD::append: oldsize={} adding={}", oldsize, adding);
             this->addn<index_type>(oldsize, adding);
+            // we are created pointed to end, make valid.
+            if (m_last_range == m_ranges.end()) {
+                m_last_range = m_ranges.begin();
+            }
         }
 
         virtual results_type knn(size_t kay, const point_type& query_point) const {
@@ -155,13 +162,26 @@ namespace WireCell::NFKD {
 
         // Return the iterator at global index
         iterator_type at(size_t idx) const {
-            for (const auto& one : m_ranges) {
-                if (one.first <= idx and idx < one.first + one.second.size()) {
-                    return one.second.begin() + idx - one.first;
-                }
+
+            // too high
+            while (idx < m_last_range->first) {
+                --m_last_range;
             }
-            raise<IndexError>("NFKD::Tree index past end");
-            return iterator_type(); // not reached
+            // too low
+            while (idx >= m_last_range->first + m_last_range->second.size()) {
+                ++m_last_range;
+            }
+            // just right
+            return m_last_range->second.begin + (idx - m_last_range->first);
+
+
+            // for (const auto& one : m_ranges) {
+            //     if (one.first <= idx and idx < one.first + one.second.size()) {
+            //         return one.second.begin() + idx - one.first;
+            //     }
+            // }
+            // raise<IndexError>("NFKD::Tree index past end");
+            // return iterator_type(); // not reached
         }
 
         // unwantedly, nanoflan deals in indices
@@ -176,13 +196,19 @@ namespace WireCell::NFKD {
 
       private:
         struct IterRange {
-            iterator_type b,e;
-            size_t size() const { return std::distance(b,e); } // maybe cache for speed
-            iterator_type begin() const { return b; }
-            iterator_type end() const { return e; }
+            iterator_type begin, end;
+            size_t size_{0};
+            IterRange() = default;
+            IterRange(iterator_type b, iterator_type e)
+                : begin(b), end(e), size_(std::distance(begin,end)) {}
+            //size_t size() const { return std::distance(b,e); } // maybe cache for speed
+            size_t size() const { return size_; }
+            // iterator_type begin() const { return b; }
+            // iterator_type end() const { return e; }
         };
         using cumulative_ranges = std::map<size_t, IterRange>;
         cumulative_ranges m_ranges{};
+        mutable typename cumulative_ranges::const_iterator m_last_range;
         size_t m_size{0};
         index_type m_index;
         mutable size_t m_point_calls{0};

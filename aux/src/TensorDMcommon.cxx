@@ -1,6 +1,7 @@
-#include "WireCellAux/TensorDM.h"
+#include "WireCellAux/TensorDMcommon.h"
 #include "WireCellAux/SimpleTensorSet.h"
 #include "WireCellAux/SimpleTensor.h"
+#include "WireCellUtil/Exceptions.h"
 #include <regex>
 
 using namespace WireCell;

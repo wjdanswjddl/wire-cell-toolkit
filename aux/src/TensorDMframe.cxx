@@ -1,9 +1,11 @@
-#include "WireCellAux/TensorDM.h"
+#include "WireCellAux/TensorDMframe.h"
+#include "WireCellAux/TensorDMdataset.h"
 #include "WireCellAux/FrameTools.h"
 #include "WireCellAux/SimpleFrame.h"
 #include "WireCellAux/SimpleTrace.h"
 #include "WireCellAux/SimpleTensor.h"
 #include "WireCellUtil/Type.h"
+#include "WireCellUtil/PointCloudDataset.h"
 #include <boost/filesystem.hpp>
 
 using namespace WireCell;

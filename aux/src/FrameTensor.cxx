@@ -1,7 +1,6 @@
 #include "WireCellAux/FrameTensor.h"
 #include "WireCellAux/FrameTools.h"
-#include "WireCellAux/TensorDM.h"
-
+#include "WireCellAux/TensorDMcommon.h"
 #include "WireCellUtil/String.h"
 #include "WireCellUtil/NamedFactory.h"
 

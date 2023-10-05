@@ -1,4 +1,5 @@
-#include "WireCellAux/TensorDM.h"
+#include "WireCellAux/TensorDMpointtree.h"
+#include "WireCellAux/TensorDMcommon.h"
 #include "WireCellAux/SimpleTensor.h"
 
 
