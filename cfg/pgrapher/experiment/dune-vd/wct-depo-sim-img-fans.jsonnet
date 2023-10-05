@@ -91,9 +91,9 @@ local reframers_sp = [
             anode: wc.tn(a),
             tags: ["gauss%d"%a.data.ident, "wiener%d"%a.data.ident],
             fill: 0.0,
-            tbin: params.sim.reframer.tbin,
+            tbin: 0,
             toffset: 0,
-            nticks: params.sim.reframer.nticks,
+            nticks: fcl_params.nticks,
         },
     }, nin=1, nout=1) for a in tools.anodes];
 
