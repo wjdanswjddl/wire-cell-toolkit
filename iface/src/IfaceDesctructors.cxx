@@ -12,6 +12,8 @@
 #include "WireCellIface/IApplication.h"
 #include "WireCellIface/IBlob.h"
 #include "WireCellIface/IBlobDepoFill.h"
+#include "WireCellIface/IBlobSampler.h"
+#include "WireCellIface/IBlobSampling.h"
 #include "WireCellIface/IBlobSet.h"
 #include "WireCellIface/IBlobSetFanin.h"
 #include "WireCellIface/IBlobSetFanout.h"
@@ -112,6 +114,8 @@ IAnodePlane::~IAnodePlane() {}
 IApplication::~IApplication() {}
 IBlob::~IBlob() {}
 IBlobDepoFill::~IBlobDepoFill() {}
+IBlobSampler::~IBlobSampler() {}
+IBlobSampling::~IBlobSampling() {}
 IBlobSet::~IBlobSet() {}
 IBlobSetFanin::~IBlobSetFanin() {}
 IBlobSetFanout::~IBlobSetFanout() {}

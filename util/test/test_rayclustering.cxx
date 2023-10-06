@@ -51,70 +51,71 @@ static std::vector<Point> make_points(std::default_random_engine& generator, dou
 
 typedef std::vector<Activity::value_t> measure_t;
 
-static std::vector<measure_t> make_measures(Coordinates& coords, const std::vector<Point>& points)
-{
-    int nlayers = coords.nlayers();
-    std::vector<measure_t> measures(nlayers);
-    const auto& pitches = coords.pitch_dirs();
-    const auto& centers = coords.centers();
-    const auto& pitch_mags = coords.pitch_mags();
+// moved to RayHelpers
+// static std::vector<measure_t> make_measures(Coordinates& coords, const std::vector<Point>& points)
+// {
+//     int nlayers = coords.nlayers();
+//     std::vector<measure_t> measures(nlayers);
+//     const auto& pitches = coords.pitch_dirs();
+//     const auto& centers = coords.centers();
+//     const auto& pitch_mags = coords.pitch_mags();
 
-    for (size_t ipt = 0; ipt < points.size(); ++ipt) {
-        const auto& p = points[ipt];
-        for (int ilayer = 0; ilayer < nlayers; ++ilayer) {
-            const auto& pit = pitches[ilayer];
-            const auto& cen = centers[ilayer];
-            const auto rel = p - cen;
-            const int pit_ind = pit.dot(rel) / pitch_mags[ilayer];
-            if (pit_ind < 0) {
-                warn("Negative pitch indices not allowed, got {} from ilayer {} ipt {} for point {}", pit_ind, ilayer,
-                     ipt, p);
-                continue;
-            }
-            if (ilayer <= 1) {
-                if (pit_ind >= 1 or pit_ind < 0) {
-                    debug("mm: pit_ind={} with ipt={}", pit_ind, ipt);
-                    if (pit_ind == 1) {
-                        debug("\tpit={} cen={} rel={}", pit, cen, rel);
-                    }
-                    continue;
-                }
-            }
-            measure_t& m = measures[ilayer];
-            if ((int) m.size() <= pit_ind) {
-                debug("resize for ipt {} ilayer {} from {} to {}", ipt, ilayer, m.size(), pit_ind + 1);
-                m.resize(pit_ind + 1, 0.0);
-                debug("done");
-            }
+//     for (size_t ipt = 0; ipt < points.size(); ++ipt) {
+//         const auto& p = points[ipt];
+//         for (int ilayer = 0; ilayer < nlayers; ++ilayer) {
+//             const auto& pit = pitches[ilayer];
+//             const auto& cen = centers[ilayer];
+//             const auto rel = p - cen;
+//             const int pit_ind = pit.dot(rel) / pitch_mags[ilayer];
+//             if (pit_ind < 0) {
+//                 warn("Negative pitch indices not allowed, got {} from ilayer {} ipt {} for point {}", pit_ind, ilayer,
+//                      ipt, p);
+//                 continue;
+//             }
+//             if (ilayer <= 1) {
+//                 if (pit_ind >= 1 or pit_ind < 0) {
+//                     debug("mm: pit_ind={} with ipt={}", pit_ind, ipt);
+//                     if (pit_ind == 1) {
+//                         debug("\tpit={} cen={} rel={}", pit, cen, rel);
+//                     }
+//                     continue;
+//                 }
+//             }
+//             measure_t& m = measures[ilayer];
+//             if ((int) m.size() <= pit_ind) {
+//                 debug("resize for ipt {} ilayer {} from {} to {}", ipt, ilayer, m.size(), pit_ind + 1);
+//                 m.resize(pit_ind + 1, 0.0);
+//                 debug("done");
+//             }
 
-            debug("adding to pit_ind {} ilayer {} ipt {}", pit_ind, ilayer, ipt);
-            m[pit_ind] += 1.0;
-            debug("valud: {}", m[pit_ind]);
-        }
-    }
+//             debug("adding to pit_ind {} ilayer {} ipt {}", pit_ind, ilayer, ipt);
+//             m[pit_ind] += 1.0;
+//             debug("valud: {}", m[pit_ind]);
+//         }
+//     }
 
-    return measures;
-}
+//     return measures;
+// }
 
-static activities_t make_activities(Coordinates& coords, std::vector<measure_t>& measures)
-{
-    int nlayers = coords.nlayers();
-    activities_t activities;
-    for (int ilayer = 0; ilayer < nlayers; ++ilayer) {
-        auto& m = measures[ilayer];
-        info("Make activity for layer: {}: {}", ilayer, m.size());
-        std::stringstream ss;
-        for (const auto& v : m) {
-            ss << v << " ";
-        }
-        info("\t{}", ss.str());
+// static activities_t make_activities(Coordinates& coords, std::vector<measure_t>& measures)
+// {
+//     int nlayers = coords.nlayers();
+//     activities_t activities;
+//     for (int ilayer = 0; ilayer < nlayers; ++ilayer) {
+//         auto& m = measures[ilayer];
+//         info("Make activity for layer: {}: {}", ilayer, m.size());
+//         std::stringstream ss;
+//         for (const auto& v : m) {
+//             ss << v << " ";
+//         }
+//         info("\t{}", ss.str());
 
-        Activity activity(ilayer, {m.begin(), m.end()});
-        Assert(!activity.empty());
-        activities.push_back(activity);
-    }
-    return activities;
-}
+//         Activity activity(ilayer, {m.begin(), m.end()});
+//         Assert(!activity.empty());
+//         activities.push_back(activity);
+//     }
+//     return activities;
+// }
 
 struct Chirp {
     const blobs_t& one;

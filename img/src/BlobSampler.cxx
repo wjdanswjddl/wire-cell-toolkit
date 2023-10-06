@@ -370,28 +370,48 @@ struct BlobSampler::Sampler : public Aux::Logger
     }
 };
 
-
-PointCloud::Dataset BlobSampler::sample_blobs(const IBlob::vector& iblobs)
+PointCloud::Dataset BlobSampler::sample_blob(const IBlob::pointer& iblob,
+                                             int blob_index)
 {
-    PointCloud::Dataset ret;
-    size_t nblobs = iblobs.size();
-    size_t points_added = 0;
-    for (size_t bind=0; bind<nblobs; ++bind) {
-        auto fresh_iblob = iblobs[bind];
-        for (auto& sampler : m_samplers) {
-            if (!fresh_iblob) {
-                THROW(ValueError() << errmsg{"can not sample null blob"});
-            }
-            sampler->begin_sample(bind, fresh_iblob);
-            sampler->sample(ret);
-            points_added += sampler->points_added;
-            sampler->end_sample();
-        }
+    if (!iblob) {
+        THROW(ValueError() << errmsg{"can not sample null blob"});
     }
-    log->debug("got {} blobs, sampled {} points with {} samplers, returning {}",
-               nblobs, points_added, m_samplers.size(), ret.size_major());
+
+    PointCloud::Dataset ret;
+    size_t points_added = 0;
+
+    for (auto& sampler : m_samplers) {
+        sampler->begin_sample(blob_index, iblob);
+        sampler->sample(ret);
+        points_added += sampler->points_added;
+        sampler->end_sample();
+    }
+    // log->debug("got {} blobs, sampled {} points with {} samplers, returning {}",
+    //            nblobs, points_added, m_samplers.size(), ret.size_major());
     return ret;
 }
+
+// PointCloud::Dataset BlobSampler::sample_blobs(const IBlob::vector& iblobs)
+// {
+//     PointCloud::Dataset ret;
+//     size_t nblobs = iblobs.size();
+//     size_t points_added = 0;
+//     for (size_t bind=0; bind<nblobs; ++bind) {
+//         auto fresh_iblob = iblobs[bind];
+//         for (auto& sampler : m_samplers) {
+//             if (!fresh_iblob) {
+//                 THROW(ValueError() << errmsg{"can not sample null blob"});
+//             }
+//             sampler->begin_sample(bind, fresh_iblob);
+//             sampler->sample(ret);
+//             points_added += sampler->points_added;
+//             sampler->end_sample();
+//         }
+//     }
+//     log->debug("got {} blobs, sampled {} points with {} samplers, returning {}",
+//                nblobs, points_added, m_samplers.size(), ret.size_major());
+//     return ret;
+// }
         
 
 struct Center : public BlobSampler::Sampler

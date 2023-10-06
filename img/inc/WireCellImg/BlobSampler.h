@@ -20,10 +20,12 @@ namespace WireCell::Img {
       public:
 
         BlobSampler();
-        virtual ~BlobSampler() = default;
+        virtual ~BlobSampler() {};
 
         // IBlobSampler
-        virtual PointCloud::Dataset sample_blobs(const IBlob::vector& blobs);
+        // virtual PointCloud::Dataset sample_blobs(const IBlob::vector& blobs);
+        virtual PointCloud::Dataset sample_blob(const IBlob::pointer& blob,
+                                                int bob_index = 0);
         
         // IConfigurable
         virtual void configure(const WireCell::Configuration& cfg);

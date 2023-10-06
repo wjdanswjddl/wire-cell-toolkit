@@ -1,6 +1,6 @@
-/** Sample blobs to make point cloud datasets as tensor sets.
+/** Sample blobs to make point cloud tree and output as tensors.
 
- The heaving lifting is done via an IBlobSamper.
+    The heaving lifting is done via IBlobSamper instances.
 */
 #ifndef WIRECELL_IMG_BLOBSAMPLING
 #define WIRECELL_IMG_BLOBSAMPLING
@@ -27,19 +27,21 @@ namespace WireCell::Img {
 
       private:
         
-        /** Configuration: "sampler"
+        /** Configuration: "samplers"
 
-            Set the blob samper.
+            An object with attributes providing names of
+            IBlobSamplers.  The attribute names will be used to name
+            the point cloud produced by the samplers.
         */
-        IBlobSampler::pointer m_sampler;
+        std::map<std::string, IBlobSampler::pointer> m_samplers;
 
         /** Config: "datapath"
 
-            Set the datapath for the tensor representing the frame.
-            The string may provide a %d format code which will be
-            interpolated with the frame's ident number.
+            Set the datapath for the tensor representing the point
+            cloud tree.  If a %d format code is found it wil be
+            interpolated with the IBlobSet::ident() value.
          */
-        std::string m_datapath = "pointclouds/%d";
+        std::string m_datapath = "pointtrees/%d";
 
         size_t m_count{0};
 

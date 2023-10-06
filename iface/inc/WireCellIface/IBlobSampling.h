@@ -16,7 +16,7 @@ namespace WireCell {
     public:
         typedef std::shared_ptr<IBlobSampling> pointer;
 
-        virtual ~IBlobSampling() {}
+        virtual ~IBlobSampling();
 
         virtual std::string signature() { return typeid(IBlobSampling).name(); }
 

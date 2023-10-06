@@ -153,8 +153,9 @@ make_query_with_distance(Dataset& dataset,
         using index_t = nanoflann::KDTreeSingleIndexDynamicAdaptor<DistanceType, dataset_adaptor_t>;
         using query_t = QueryDynamic<index_t>;
         auto ret = std::make_unique<query_t>(selection, mtype);
-        dataset.register_append([&](size_t beg, size_t end) {
-            ret->update(beg, end);
+        auto* raw = ret.get();
+        dataset.register_append([=](size_t beg, size_t end) {
+            raw->update(beg, end);
         });
         return std::move(ret);
     }

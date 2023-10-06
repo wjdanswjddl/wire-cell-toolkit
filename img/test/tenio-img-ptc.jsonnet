@@ -47,7 +47,7 @@ function(detector, variant="nominal",
                 type:"BlobSampling",
                 name:anode.data.ident,
                 data: {
-                    sampler: wc.tn(bs),
+                    samplers: {samples: wc.tn(bs)},
                 },
             }, nin=1, nout=1, uses=[bs]),
 

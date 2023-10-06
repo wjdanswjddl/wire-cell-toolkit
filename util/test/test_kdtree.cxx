@@ -79,6 +79,7 @@ void test_dynamic()
 
     // This must have registered update callback.
     auto kdq = query<double>(d, {"one", "two"}, true);
+    Assert(kdq);
 
     auto arrs = d.selection({"one", "two"});
 

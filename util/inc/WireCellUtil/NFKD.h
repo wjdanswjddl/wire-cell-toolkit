@@ -178,14 +178,6 @@ namespace WireCell::NFKD {
             // just right
             return m_last_range->second.begin + (idx - m_last_range->first);
 
-
-            // for (const auto& one : m_ranges) {
-            //     if (one.first <= idx and idx < one.first + one.second.size()) {
-            //         return one.second.begin() + idx - one.first;
-            //     }
-            // }
-            // raise<IndexError>("NFKD::Tree index past end");
-            // return iterator_type(); // not reached
         }
 
         // unwantedly, nanoflan deals in indices
