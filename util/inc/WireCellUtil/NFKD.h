@@ -163,6 +163,10 @@ namespace WireCell::NFKD {
         // Return the iterator at global index
         iterator_type at(size_t idx) const {
 
+            if (idx >= size()) {
+                raise<IndexError>("index %d beyond end %d", idx, size());
+            }
+
             // too high
             while (idx < m_last_range->first) {
                 --m_last_range;

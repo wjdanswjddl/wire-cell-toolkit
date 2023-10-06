@@ -25,7 +25,7 @@ TEST_CASE("nfkd dynamic")
     debug("nfkd: making k-d tree");
     Tree<points_t::iterator> kd(dimension, points.begin(), points.end());
 
-    CHECK(kd.size() == 3);
+    REQUIRE(kd.size() == 3);
     debug("nfkd: {} point calls", kd.point_calls());
 
     CHECK(*kd.at(0) == points[0]);

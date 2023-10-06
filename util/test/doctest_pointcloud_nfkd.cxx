@@ -130,9 +130,9 @@ static const size_t start_size = 1024;
 
 // How many times we double the point cloud size in tests.  Want to
 // keep this somewhat small to allow the test to run quickly.  Feel
-// free to increase it for a local build and test but keep it at ~5
-// for commits.
-static const size_t max_doubling = 5;
+// free to increase it for a local build and test but keep it at ~3
+// for commits.  see util/docs/nary-tree.org for some benchmarks.
+static const size_t max_doubling = 3;
 
 // A list of coordinate names and thus dimension of the k-d space.
 static const std::vector<std::string> coord_names = {"x","y","z"};
