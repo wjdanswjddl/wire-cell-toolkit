@@ -105,12 +105,12 @@ IAnodePlane::vector Testing::anodes(std::string detector)
 }
 
 
-void Testing::loginit(const char* argv0)
-{
-    std::string name = argv0;
-    name += ".log";
-    Log::add_stderr(true, "trace");
-    Log::add_file(name, "trace");
-    Log::set_level("trace");
-    Log::set_pattern("[%H:%M:%S.%03e] %L [%^%=8n%$] %v");
-}
+// void Testing::loginit(const char* argv0)
+// {
+//     std::string name = argv0;
+//     name += ".log";
+//     Log::add_stderr(true, "trace");
+//     Log::add_file(name, "trace");
+//     Log::set_level("trace");
+//     Log::set_pattern("[%H:%M:%S.%03e] %L [%^%=8n%$] %v");
+// }

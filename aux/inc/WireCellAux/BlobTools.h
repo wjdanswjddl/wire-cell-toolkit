@@ -4,7 +4,6 @@
 #ifndef WIRECELLAUX_BLOBTOOLS
 #define WIRECELLAUX_BLOBTOOLS
 
-#include "WireCellUtil/PointCloud.h"
 #include "WireCellIface/IBlobSampler.h"
 
 namespace WireCell::Aux {

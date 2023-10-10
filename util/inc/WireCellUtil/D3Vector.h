@@ -29,6 +29,7 @@ namespace WireCell {
 
       public:
 
+        using value_type = T;   // mimic std::vector
         using coordinate_t = T;
 
         /// Construct from elements.
@@ -84,6 +85,19 @@ namespace WireCell {
         T x(const T& val) { return m_v[0] = val; }
         T y(const T& val) { return m_v[1] = val; }
         T z(const T& val) { return m_v[2] = val; }
+
+        // make this look like std::vector
+        const T& at(size_t index) const {
+            return m_v.at(index);
+        }
+        T& at(size_t index) {
+            return m_v.at(index);
+        }
+        const T* data() const { return m_v.data(); }
+        T* data() { return m_v.data(); }
+        const size_t size() const { return 3; }
+        void clear() { m_v[0] = m_v[1] = m_v[2] = 0; }
+        void resize(size_t /*s*/) { /* no-op */ }
 
         /// Convert from other typed vector.
         template <class TT>

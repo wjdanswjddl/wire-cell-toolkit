@@ -1,4 +1,4 @@
-#include "WireCellAux/TensorDM.h"
+#include "WireCellAux/TensorDMcluster.h"
 #include "WireCellAux/ClusterArrays.h"
 #include "WireCellAux/SimpleTensor.h"
 #include "WireCellAux/SimpleCluster.h"
@@ -9,9 +9,9 @@ using namespace WireCell::Aux;
 using namespace WireCell::Aux::ClusterArrays;
 
 template<typename ElementType>
-ITensor::pointer make_tensor(const boost::multi_array<ElementType, 2>& arr,
-                              const std::string& datatype,
-                              const std::string & datapath)
+ITensor::pointer make_array_tensor(const boost::multi_array<ElementType, 2>& arr,
+                                   const std::string& datatype,
+                                   const std::string& datapath)
 {
     Json::Value md = Json::objectValue;
     md["datatype"] = datatype;
@@ -45,7 +45,7 @@ ITensor::vector TensorDM::as_tensors(ICluster::pointer cluster,
             const std::string ncs(1, nc);
             const std::string path = root + ncs;
             md["nodes"][ncs] = path;
-            ret.push_back(make_tensor<double>(na, "clnodeset", path));
+            ret.push_back(make_array_tensor<double>(na, "clnodeset", path));
         }
     }
 
@@ -55,7 +55,7 @@ ITensor::vector TensorDM::as_tensors(ICluster::pointer cluster,
             const std::string ecs = to_string(ec);
             const std::string path = root + ecs;
             md["edges"][ecs] = path;
-            ret.push_back(make_tensor<int>(ea, "cledgeset", path));
+            ret.push_back(make_array_tensor<int>(ea, "cledgeset", path));
         }
     }
 
@@ -67,7 +67,7 @@ ITensor::vector TensorDM::as_tensors(ICluster::pointer cluster,
 
 ICluster::pointer TensorDM::as_cluster(const ITensor::vector& tens,
                                        const IAnodePlane::vector& anodes,
-                                       const std::string datapath)
+                                       const std::string& datapath)
 {
     // Index the tensors by datapath and find main "cluster" tensor.
     ITensor::pointer top = nullptr;

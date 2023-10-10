@@ -1,1 +1,1 @@
-bld.smplpkg('WireCellAux', use='WireCellIface', test_use='WireCellIface')
+bld.smplpkg('WireCellAux', use='WireCellIface')

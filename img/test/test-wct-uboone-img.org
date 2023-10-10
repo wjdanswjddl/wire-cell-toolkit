@@ -1,0 +1,72 @@
+#+title: The Uboone Imaging test
+
+* Goals
+
+** Imaging on uboone data
+
+- Produce plots and expected performance
+
+** Check ~ICluster~ I/O
+
+As side-effect, save ~ICluster~ to different formats, read and convert
+and assure we always get the same data.
+
+* Output
+
+- ~dag.pdf~ :: WCT flow graph DAG for imgaging job.
+- ~roundtrip*.png~ :: WCT flow graph DAGs for I/O test.
+- ~blob-views.pdf~ :: made by ~wirecell-img plot-blobs~
+- ~found-projection.pdf~ :: ~wirecell-img blob-activity-mask~.
+
+That last one shows in black regions covered (masked) by a blob and in
+color any activity not captured by a blob.  Dead wires are shown as
+gray horizontal lines.
+
+- ~found-projection.json~ :: ~wirecell-img blob-activity-stats~.
+
+This provides a summary of what is seen in the similarly named PDF
+file.  Some values are tested for being in "blessed" range.
+
+* Notes
+
+** Speed up
+
+This is one of the slower tests.
+
+*** Compression of temporary files
+
+The I/O tests lead to a lot of gzip'ing.  Maybe we can avoid that and run faster?
+
+| file    | speed s | size MB |
+|---------+---------+---------|
+| ~.tar.gz~ |     170 |     108 |
+| ~.tar~    |     166 |     360 |
+
+Or not.  Note, the ~.tar~ case still must ~gzip~ the main output files for
+~saveout~ while the ~.tar.gz~ case does not.
+
+Here are detailed timings in ~.tar~ case.
+#+begin_example
+✓ make history [1589]
+ ✓ dotify dag [643]
+ ✓ check wire-cell log file [24]
+ ✓ inspect blobs quietly [9480]
+ ✓ inspect blobs verbosely [10088]
+ ✓ dump blobs [11072]
+ ✓ plot blobs [17570]
+ ✓ valid cluster graph schema [17001]
+ ✓ plot view projections [5450]
+ ✓ check view projections [3408]
+ ✓ round trip json to json [12766]
+ ✓ round trip numpy to numpy [16189]
+ ✓ round trip numpy to json [14279]
+ ✓ round trip json to numpy [14562]
+ ✓ round trip json to tensor [16132]
+
+15 tests, 0 failures in 166 seconds
+
+#+end_example
+
+*** Factor
+
+Perhaps best to factor the I/O parts to benefit from Waf-level parallelism.

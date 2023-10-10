@@ -1,26 +1,30 @@
-#include "WireCellUtil/PointCloud.h"
-#include "WireCellUtil/Testing.h"
+#include "WireCellUtil/PointCloudDataset.h"
+#include "WireCellUtil/doctest.h"
+#include "WireCellUtil/Logging.h"
+#include "WireCellUtil/Exceptions.h"
 
 #include <vector>
 #include <iostream>
 
 using namespace WireCell;
 using namespace WireCell::PointCloud;
+using spdlog::debug;
 
 template<typename ElementType>
 void assure_equal(const Array& a, const std::vector<ElementType>& v)
 {
-    std::cerr << " dtype=" << a.dtype() << " num_elements=" << a.num_elements() << " size=" << v.size() << "\n";
-    Assert(a.is_type<ElementType>());
-    Assert(v.size() == a.num_elements()); // these two are 
-    Assert(v.size() == a.size_major());   // degenerate for
-    Assert(a.shape().size() == 1);        // a 1D array.
+    debug("dtype={} num_elements={} size={}",
+          a.dtype(), a.num_elements(), v.size());
+    CHECK(a.is_type<ElementType>());
+    CHECK(v.size() == a.num_elements()); // these two are 
+    CHECK(v.size() == a.size_major());   // degenerate for
+    CHECK(a.shape().size() == 1);        // a 1D array.
 
     auto ele = a.elements<ElementType>();
 
     for (size_t ind=0; ind<v.size(); ++ind) {
-        std::cerr << ind << ": " << v[ind] << " =?= " << ele[ind] << "\n";
-        Assert(v[ind] == ele[ind]);
+        debug("{}: {} =?= {}", ind, v[ind], ele[ind]);
+        CHECK(v[ind] == ele[ind]);
     }
 }
 
@@ -86,8 +90,9 @@ void test_array_noshare()
     assure_equal(ns, w);
 }
 
-void test_array()
+TEST_CASE("point cloud array 1d")
 {
+
     std::vector<int> v{1,2,3};
     const std::vector<int>& w = v;
 
@@ -104,7 +109,7 @@ void test_array()
 
     {
         auto flat_span = ms.elements<int>();
-        Assert(flat_span.size() == v.size());
+        CHECK(flat_span.size() == v.size());
         ms.elements<float>(); // same size okay (for now)
         bool caught = true;
         try {
@@ -113,7 +118,7 @@ void test_array()
         catch (const ValueError& err) {
             caught = true;
         }
-        Assert(caught);
+        CHECK(caught);
     }
 
     v.push_back(4);
@@ -122,10 +127,10 @@ void test_array()
     cs.assign(w.data(), {w.size()}, true);
     cc.assign(w.data(), {w.size()}, false);
 
-    Assert(ms.size_major() == 4);
-    Assert(mc.size_major() == 4);
-    Assert(cs.size_major() == 4);
-    Assert(cc.size_major() == 4);
+    CHECK(ms.size_major() == 4);
+    CHECK(mc.size_major() == 4);
+    CHECK(cs.size_major() == 4);
+    CHECK(cc.size_major() == 4);
 
     assure_equal(ms, v);
     assure_equal(mc, v);
@@ -134,10 +139,10 @@ void test_array()
 
     v[0] = 42;
 
-    Assert(ms.element<int>(0) == 42);
-    Assert(mc.element<int>(0) == 1);
-    Assert(cs.element<int>(0) == 42);
-    Assert(cc.element<int>(0) == 1);
+    CHECK(ms.element<int>(0) == 42);
+    CHECK(mc.element<int>(0) == 1);
+    CHECK(cs.element<int>(0) == 42);
+    CHECK(cc.element<int>(0) == 1);
 
     std::vector<double> d{1., 2., 3.};
     const std::vector<double>& p=d;
@@ -165,28 +170,28 @@ void test_array()
 
     d[0] = 42;
 
-    Assert(ms.element<double>(0) == 42);
-    Assert(mc.element<double>(0) == 1);
-    Assert(cs.element<double>(0) == 42);
-    Assert(cc.element<double>(0) == 1);
+    CHECK(ms.element<double>(0) == 42);
+    CHECK(mc.element<double>(0) == 1);
+    CHECK(cs.element<double>(0) == 42);
+    CHECK(cc.element<double>(0) == 1);
 
     auto msarr = ms.indexed<double, 1>();
-    Assert(msarr[0] == 42);
+    CHECK(msarr[0] == 42);
 
     auto msele = ms.elements<double>();
-    Assert(msele[0] == 42);
+    CHECK(msele[0] == 42);
 
     std::vector<double> d2{4.,5.,6.};
     {
         const size_t before = ms.size_major();
         ms.append(d2);
         const size_t after = ms.size_major();
-        Assert( before + d2.size() == after);
+        CHECK( before + d2.size() == after);
     }
-    Assert(ms.element<double>(3) == 4);
+    CHECK(ms.element<double>(3) == 4);
     {
-        Assert(ms.shape().size() == 1);
-        Assert(ms.shape()[0] == 7);
+        CHECK(ms.shape().size() == 1);
+        CHECK(ms.shape()[0] == 7);
     }
 
     ms.clear();
@@ -194,51 +199,51 @@ void test_array()
     cs.clear();
     cc.clear();
 
-    std::cerr << "ms.size_major after clear: " << ms.size_major() << "\n";
-    Assert(ms.size_major() == 0);
-    Assert(mc.size_major() == 0);
-    Assert(cs.size_major() == 0);
-    Assert(cc.size_major() == 0);
+    debug("ms.size_major after clear: {}", ms.size_major());
+    CHECK(ms.size_major() == 0);
+    CHECK(mc.size_major() == 0);
+    CHECK(cs.size_major() == 0);
+    CHECK(cc.size_major() == 0);
 
-    std::cerr << "ms.num_elements after clear: " << ms.num_elements() << "\n";
-    Assert(ms.num_elements() == 0);
-    Assert(mc.num_elements() == 0);
-    Assert(cs.num_elements() == 0);
-    Assert(cc.num_elements() == 0);
+    debug("ms.num_elements after clear: {}", ms.num_elements());
+    CHECK(ms.num_elements() == 0);
+    CHECK(mc.num_elements() == 0);
+    CHECK(cs.num_elements() == 0);
+    CHECK(cc.num_elements() == 0);
 
 }
 
-void test_array2d()
+TEST_CASE("point cloud array 2d")
 {
     Array::shape_t shape = {2,5};
     std::vector<int> user(shape[0]*shape[1],0);
     Array arr(user, shape, true);
-    Assert(arr.shape() == shape);
+    CHECK(arr.shape() == shape);
     arr.append(user);
     shape[0] += shape[0];
-    Assert(arr.shape() == shape);    
+    CHECK(arr.shape() == shape);    
 
     std::vector<double> fuser(10,0);
     bool caught = false;
     try {
         arr.append(fuser);      // should throw
-        std::cerr << "failed to through on type size error\n";
+        debug("failed to throw on type size error");
     }
     catch (const ValueError& err) {
-        std::cerr << "error on type mismatch as expected\n";
+        debug("error on type mismatch as expected");
         caught=true;
     }
-    Assert(caught);
+    CHECK(caught);
     
-    Assert(arr.shape() == shape);    
-    Assert(arr.size_major() == 4);
+    CHECK(arr.shape() == shape);    
+    CHECK(arr.size_major() == 4);
 
     {
         auto ma = arr.indexed<int, 2>();
-        Assert(ma.num_dimensions() == 2);
-        Assert(ma.num_elements() == 20);
-        Assert(ma.shape()[0] == 4);
-        Assert(ma.shape()[1] == 5);
+        CHECK(ma.num_dimensions() == 2);
+        CHECK(ma.num_elements() == 20);
+        CHECK(ma.shape()[0] == 4);
+        CHECK(ma.shape()[1] == 5);
     }
 
     {                           // wrong ndims
@@ -249,7 +254,7 @@ void test_array2d()
         catch (const ValueError& err) {
             caught = true;
         }
-        Assert(caught);
+        CHECK(caught);
     }
 
     {                           // wrong element size
@@ -260,22 +265,22 @@ void test_array2d()
         catch (const ValueError& err) {
             caught = true;
         }
-        Assert(caught);
+        CHECK(caught);
     }
 
 
 }
 
-void test_dataset()
+TEST_CASE("point cloud dataset")
 {
     Dataset::store_t s = {
         {"one", Array({1  ,2  ,3  })},
         {"two", Array({1.1,2.2,3.3})},
     };
     Dataset d(s);
-    Assert(d.size_major() == 3);
-    Assert(d.keys().size() == 2);
-    Assert(d.store().size() == 2);
+    CHECK(d.size_major() == 3);
+    CHECK(d.keys().size() == 2);
+    CHECK(d.store().size() == 2);
 
     {
         auto d2 = d;
@@ -296,35 +301,35 @@ void test_dataset()
         catch (const ValueError& err) {
             caught = true;
         }
-        Assert(caught);
+        CHECK(caught);
     }
 
     {
         auto sel = d.selection({"one", "two"});
-        Assert(sel.size() == 2);
+        CHECK(sel.size() == 2);
         const Array& arr = sel[0];
-        Assert(arr.size_major() == 3);
-        Assert(sel[1].get().size_major() == 3);
+        CHECK(arr.size_major() == 3);
+        CHECK(sel[1].get().size_major() == 3);
     }
 
     {
         Dataset d1(d);
-        Assert(d.size_major() == 3);
-        Assert(d1.size_major() == 3);
-        Assert(d1.keys().size() == 2);
+        CHECK(d.size_major() == 3);
+        CHECK(d1.size_major() == 3);
+        CHECK(d1.keys().size() == 2);
         
         Dataset d2 = d;
-        Assert(d.size_major() == 3);
-        Assert(d2.size_major() == 3);
-        Assert(d2.keys().size() == 2);
+        CHECK(d.size_major() == 3);
+        CHECK(d2.size_major() == 3);
+        CHECK(d2.keys().size() == 2);
     
         Dataset d3 = std::move(d2);
-        Assert(d2.size_major() == 0);
-        Assert(d3.size_major() == 3);
-        Assert(d2.keys().size() == 0);
-        Assert(d3.keys().size() == 2);
+        CHECK(d2.size_major() == 0);
+        CHECK(d3.size_major() == 3);
+        CHECK(d2.keys().size() == 0);
+        CHECK(d3.keys().size() == 2);
     }
-    Assert(d.size_major() == 3);
+    CHECK(d.size_major() == 3);
 
     {
         Dataset::store_t s = {
@@ -332,15 +337,15 @@ void test_dataset()
             {"two", Array({1.1,2.2,3.3})},
         };
         Dataset d(s);
-        Assert(d.size_major() == 3);
-        Assert(d.keys().size() == 2);
+        CHECK(d.size_major() == 3);
+        CHECK(d.keys().size() == 2);
 
         size_t beg=0, end=0;
         d.register_append([&](size_t b, size_t e) { beg=b; end=e; });
 
         Dataset tail;
         tail.add("one", Array({4  , 5}));
-        Assert(tail.size_major() == 2);
+        CHECK(tail.size_major() == 2);
 
         bool caught = false;
         try {
@@ -349,46 +354,36 @@ void test_dataset()
         catch (const ValueError& err) {
             caught = true;
         }
-        Assert(caught);
+        CHECK(caught);
 
         tail.add("two", Array({4.4, 5.4}));
-        Assert(tail.keys().size() == 2);
-        Assert(tail.size_major() == 2);
+        CHECK(tail.keys().size() == 2);
+        CHECK(tail.size_major() == 2);
 
         d.append(tail);
-        std::cerr << "HAS " << d.size_major() << "\n";
+        debug("HAS {}", d.size_major());
 
-        Assert(beg == 3);
-        Assert(end == 5);
+        CHECK(beg == 3);
+        CHECK(end == 5);
 
-        Assert(d.keys().size() == 2);
-        Assert(d.size_major() == 5);
+        CHECK(d.keys().size() == 2);
+        CHECK(d.size_major() == 5);
 
         {
             auto tail2 = d.zeros_like(7);
-            Assert(tail2.size_major() == 7);
+            CHECK(tail2.size_major() == 7);
 
             auto& arr2 = tail2.get("one");
             auto one2 = arr2.indexed<int, 1>();
             one2[0] = 42;
-            Assert(arr2.element<int>(0) == 42);
+            CHECK(arr2.element<int>(0) == 42);
 
             d.append(tail2);
-            Assert(d.size_major() == 12);
+            CHECK(d.size_major() == 12);
             auto& arr22 = d.get("one");
-            Assert(arr22.size_major() == 12);
-            Assert(arr22.element<int>(5) == 42);
+            CHECK(arr22.size_major() == 12);
+            CHECK(arr22.element<int>(5) == 42);
         }
     }        
 
-}
-
-int main()
-{
-    test_array();
-    test_array_noshare();
-    test_array2d();
-    test_dataset();
-
-    return 0;
 }

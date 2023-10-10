@@ -1,6 +1,8 @@
 #include "WireCellImg/PointGraphProcessor.h"
 #include "WireCellUtil/NamedFactory.h"
-#include "WireCellAux/TensorDM.h"
+#include "WireCellAux/TensorDMpointgraph.h"
+#include "WireCellAux/TensorDMdataset.h"
+#include "WireCellAux/TensorDMcommon.h"
 #include "WireCellAux/SimpleTensorSet.h"
 
 WIRECELL_FACTORY(PointGraphProcessor, WireCell::Img::PointGraphProcessor,

@@ -1,0 +1,42 @@
+#+title: WCT Point Cloud Tree
+#+include: ../../docs/include-topic.org
+
+* Conceptual Overview
+
+In WCT, a /point cloud tree/ (pctree) builds upon the N-ary tree (see
+[[file:nary-tree.org]]) by providing a node value type that holds a set of
+/point clouds/ (PCs, see [[file:point-cloud.org]]) that are referenced by
+key names.
+
+The PCs of a given name held locally by a set of nodes may be
+aggregated into a larger PC by requesting it by the same name through
+an ancestor of the set of nodes.  This aggregation is performed in
+depth-first order and may be limited to a particular *depth scope*.  The
+depth scope counts levels of tree hierarchy starting at the node in
+which the descent is initiated.  Thus a depth scope of unity refers to
+just the "local" PCs of the given node.  A depth scope of two would
+concatenate the PC from the starting node and the PCs from all direct
+children of the starting node.  A depth scope with the special value
+of zero represents unlimited descent.
+
+A pctree node also provides a k-d tree query interface object built
+upon any PC available through the node.  Once built, the k-d tree is
+cached to accelerate future use.  The k-d tree query is parameterized
+by the following information:
+
+- the PC name
+- its depth scope
+- a list of attribute names used as coordinates
+
+
+* Applications
+
+The pctree data structure is designed with some generality but it is
+specifically intended to represent a hierarchy relevant to WCT imaging
+and pattern recognition:
+
+#+begin_example
+cluster group -> cluster -> sub-cluster -> blob
+#+end_example
+For more information see [[file:cluster-tree.org]].
+

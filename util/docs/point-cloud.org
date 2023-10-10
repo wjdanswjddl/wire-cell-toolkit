@@ -367,6 +367,46 @@ into a form that may also be registered to be called from the update
 hook.
 
 
+* Disjoint
+
+Some usage needs a concept of "collection of point clouds".  It is
+possible to approximate such a collection by concatenating the PCs to
+a single PC and adding an array that stores an index into the original
+collection of PCs.  This "flattened" PC is monolithic and requires
+duplicating all points.
+
+On the other hand, a "light-weight" collection of PCs that keeps each
+original PC distinct and requires no duplication is provided by
+~PointCloud::DisjointDataset~ in ~WireCellUtil/PointCloudDisjoint.h~.  It
+is "light weight" as the PCs are held by reference which requires that
+they are retained by value by some external entity.
+
+* Iterating
+
+** Coordinates
+
+Arrays in a PC dataset may be used as coordinates (eg for [[file:kdtree.org][k-d trees]]).
+In this use, two specializations from the ~Dataset~ are desired:
+
+1. The coordinate arrays are all of the same type.
+2. The conceptual alignment order is reversed.
+
+That is, if we consider a dataset to be composed of rows of arrays we
+wish to be able to identify a specific column down a subset of these
+array rows and use that column as a coordinate vector.
+
+This is provided by the ~PointCloud::coordinate_iterator~ from
+~WireCellUtil/PointCloudIterators.h~.  It is operates on a
+~PointCloud::selection_t~ (a vector of ~Array~).  The iterator is
+templated on a coordinate vector type (eg ~vector<double>~ or ~Point~) and
+yields an instance of this type.  The elements of the coordinate
+vector correspond to the elements of each array in the selection at a
+given location along their arrays.
+
+** Disjoint
+
+
+
 * nanoflann
 
 This section provides developer documentation for ~nanoflann~ as what that package provides is rather slim.  What info that is available is at the [[https://github.com/jlblancoc/nanoflann][repo readme]] and in the [[https://jlblancoc.github.io/nanoflann/][doxygen docs]].  The additional information given here is not required to use WCT PCs.
@@ -376,10 +416,9 @@ This section provides developer documentation for ~nanoflann~ as what that packa
 A ~nanoflann~ /dataset adaptor/ must be provided for each unique type of PC data.  One that makes use of Eigen3 arrays is provided by ~nanoflann~.  WCT provides one for ~boost::multi_array~ that comes from an ~ITensor~ as described above.  A dataset adaptor must provide two methods and may provide a third, optional method.  As copied from comments in the source and embelished these are:
 
 #+begin_src c++
-  template<...>
+  template<typename ElementType>
   class MyDatasetAdaptor {
   public:
-      using point_type = ...;
   
       // Must return the number of data poins
       inline size_t kdtree_get_point_count() const
@@ -389,9 +428,9 @@ A ~nanoflann~ /dataset adaptor/ must be provided for each unique type of PC data
   
       // Must return the dim'th component of the idx'th point in the
       // class:
-      inline point_type kdtree_get_pt(const size_t idx, const size_t dim) const
+      inline ElementType kdtree_get_pt(const size_t idx, const size_t dim) const
       {
-          // return a point
+          // return element
       }
   
       // Optional bounding-box computation: return false to default to a
@@ -413,15 +452,37 @@ A ~nanoflann~ /dataset adaptor/ must be provided for each unique type of PC data
 
 ** Distance
 
-A distance metric must be provided to measure separation of points in the space.  L1, L2 and some other metrics are provided.  Note, the units of "distance" depend on the metric.  For example, when the L2 metric is used the distance is in units of length-squared.
+A ~Distance~ type defines the metric by which distance between points is measured.  L1, L2 and some other metrics are provided.  Note, the units of "distance" depend on the metric.  For example, when the L2 metric is used the distance is in units of length-squared.
+
+The ~Distance~ types have common template arguments.  Taking the most commonly used L2 as example:
+
+#+begin_example
+template <
+    class T, class DataSource, typename _DistanceType = T,
+    typename IndexType = uint32_t>
+struct L2_Adaptor {/*...*/};
+#+end_example
+
+The ~Distance~ type is needed by an *index* (see below).  To avoid recursive type (CRTP) chaos, a simple (not template) ~Metric~ derived type is provided for each ~Distance~ and which exposes the ~Distance~ template as a templated ~traits~ member.
+
+#+begin_example
+template<typename ElementType, class Distance = nanoflann::metric_L2 /*,...*/>
+struct Adaptor {
+    using element_t = ElementType;
+    // This class is a data source
+    using datasource_t = typename XxxIndexAdaptor<ElementType,Distance>;
+    using metric_t = typename Distance::template traits<element_t, datasource_t>;
+    using index_t = KDTreeSingleIndexAdaptor<metric_t, datasource_t>;
+};
+#+end_example
 
 ** Index
 
-A ~nanoflann~ /index adaptor/ provides the k-d tree query interface.  ~KDTreeSingleIndexAdaptor~ provides one implementation.  It is templated in terms of a /distance/ type, a /dataset adaptor/, the dimensionality and the index type.  It operates assuming the adapted dataset remains unchanged.
+A ~nanoflann~ /index adaptor/ in the example above provides the k-d tree query interface.  ~KDTreeSingleIndexAdaptor~ provides one implementation.  It is templated in terms of a /distance/ type, a /dataset adaptor/, the dimensionality and the index type.  The dimensionality can be determined at compilation or construction time.  This particular index adaptor operates assuming the adapted dataset remains unchanged.
 
-The ~KDTreeSingleIndexDynamicAdaptor~ is another which allows for points to be added or removed from the k-d tree.  Points may be removed from the k-d tree without removing them from the dataset.  When adding points, they are first added to the dataset and the adaptor is notified about the range of indices which are added.
+The ~KDTreeSingleIndexDynamicAdaptor~ is another which allows for points to be added or removed from the k-d tree.  Points may be removed from the k-d tree without removing them from the dataset.  When adding points, they are first added to the dataset and the adaptor is notified about the range of indices which are added.  Any points that have been marked as removed from the k-d tree are "backfilled" with new points before the k-d tree is enlarged.
 
-The ~nanoflann~ library also defines an ~KDTreeEigenMatrixAdaptor~.  This class shears across both dataset adaptor and index adaptor design layers.  It provides a dataset adaptor for ~Eigen::Matrix~ and then internally creates an maintains a ~KDTreeSingleIndexAdaptor~ using itself as the dataset adaptor.
+The ~nanoflann~ library also defines an ~KDTreeEigenMatrixAdaptor~.  This class defines both dataset adaptor and index adaptor APIs.  It provides a dataset adaptor for ~Eigen::Matrix~ and then internally creates an maintains a ~KDTreeSingleIndexAdaptor~ using itself as the dataset adaptor.
 
 ** Query methods
 

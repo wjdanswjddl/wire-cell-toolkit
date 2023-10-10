@@ -1,4 +1,4 @@
-#include "WireCellUtil/PointCloud.h"
+#include "WireCellUtil/PointCloudDataset.h"
 
 using namespace WireCell::PointCloud;
 
@@ -116,8 +116,32 @@ void Array::append(const std::byte* data, size_t nbytes)
 }
 
 
+bool Array::operator==(const Array& other) const
+{
+    // same size, shape, type, content and metadata.  Cheapest
+    // test first.  bail early.
+    if (this->size_major() != other.size_major()) return false;
+        
+    const auto s1 = this->shape();
+    const auto s2 = other.shape();
+    if (s1.size() != s2.size()) return false;
+    if (! std::equal(s1.begin(), s1.end(), s2.begin())) return false;
+    const auto b1 = this->bytes();
+    const auto b2 = other.bytes();
+    if (! std::equal(b1.begin(), b1.end(), b2.begin())) return false;
+    if (this->metadata() != other.metadata()) return false;
+    return true;
+}
+bool Array::operator!=(const Array& other) const 
+{
+    return !(*this == other);
+}
 
-//// dataset
+
+
+/*
+ *  Dataset
+ */
 
 bool Dataset::add(const std::string& name, const Array& arr)
 {
@@ -155,7 +179,7 @@ Dataset::keys_t store_keys(const Dataset::store_t& store)
 {
     Dataset::keys_t ret;
     for (const auto& [k,v] : store) {
-        ret.insert(k);
+        ret.push_back(k);
     }
     return ret;
 }
@@ -221,4 +245,22 @@ void Dataset::append(const std::map<std::string, Array>& tail)
     }
 }
 
+bool Dataset::operator==(Dataset const& other) const
+{
+    if (this->size_major() != other.size_major()) return false;
+    const auto k1 = this->keys();
+    const auto k2 = other.keys();
+    if (k1.size() != k2.size()) return false;
+    if (!std::equal(k1.begin(), k1.end(), k2.begin())) return false;
+    for (auto key : k1) {
+        if (this->get(key) == other.get(key)) continue;
+        return false;
+    }
+    if (this->metadata() != other.metadata()) return false;
+    return true;
+}
 
+bool Dataset::operator!=(Dataset const& other) const
+{
+    return !(*this == other);
+}
