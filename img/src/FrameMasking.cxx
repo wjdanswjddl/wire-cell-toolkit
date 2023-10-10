@@ -93,7 +93,7 @@ bool FrameMasking::operator()(const input_pointer& in, output_pointer& out)
 
     // tag traces
     for (auto tag : m_trace_tags) {
-        log->debug("out_trace_indices: {} {} {}", tag, out_trace_indices[tag].front(), out_trace_indices[tag].back());
+        log->debug("out_trace_indices: {} {}", tag, out_trace_indices[tag].size());
         // TODO: pass through summary?
         const auto& summary = in->trace_summary(tag);
         sfout->tag_traces(tag, out_trace_indices[tag], summary);

@@ -144,6 +144,9 @@ void OmnibusSigProc::configure(const WireCell::Configuration& config)
     m_use_multi_plane_protection = get<bool>(config, "use_multi_plane_protection", m_use_multi_plane_protection);
     m_mp3_roi_tag = get(config, "mp3_roi_tag", m_mp3_roi_tag);
     m_mp2_roi_tag = get(config, "mp2_roi_tag", m_mp2_roi_tag);
+    m_mp_th1 = get(config, "mp_th1", m_mp_th1);
+    m_mp_th2 = get(config, "mp_th1", m_mp_th2);
+    m_mp_tick_resolution = get(config, "mp_tick_resolution", m_mp_tick_resolution);
     
 
     if (config.isMember("rebase_planes")) {
@@ -198,6 +201,7 @@ void OmnibusSigProc::configure(const WireCell::Configuration& config)
     for (int iplane = 0; iplane < 3; ++iplane) {
         m_nwires[iplane] = plane_channels[iplane].size();
         int osp_wire_number = 0;
+        // note the order here is the IChannel::index or Wire Attachment Number
         for (auto ichan : plane_channels[iplane]) {
             const int wct_chan_ident = ichan->ident();
             OspChan och(osp_channel_number, osp_wire_number, iplane, wct_chan_ident);
@@ -284,6 +288,9 @@ WireCell::Configuration OmnibusSigProc::default_configuration() const
     cfg["use_multi_plane_protection"] = m_use_multi_plane_protection;  // default false
     cfg["mp3_roi_tag"] = m_mp3_roi_tag;
     cfg["mp2_roi_tag"] = m_mp2_roi_tag;
+    cfg["mp_th1"] = m_mp_th1;
+    cfg["mp_th2"] = m_mp_th2;
+    cfg["mp_tick_resolution"] = m_mp_tick_resolution;
     
     cfg["rebase_nbins"] = m_rebase_nbins;    
 
@@ -300,7 +307,7 @@ void OmnibusSigProc::load_data(const input_pointer& in, int plane)
 
     auto traces = in->traces();
 
-    auto& bad = m_cmm["bad"];
+    auto& bad = m_wanmm["bad"];
     int nbad = 0;
 
     for (auto trace : *traces.get()) {
@@ -398,7 +405,7 @@ void OmnibusSigProc::save_data(
             }
         }
         {
-            auto& bad = m_cmm["bad"];
+            auto& bad = m_wanmm["bad"];
             auto badit = bad.find(och.channel);
             if (badit != bad.end()) {
                 for (auto bad : badit->second) {
@@ -497,13 +504,14 @@ void OmnibusSigProc::save_roi(ITrace::vector& itraces, IFrame::trace_list_t& ind
             if (start < 0 or end < 0) continue;
             for (int i = start; i <= end; i++) {
                 if (i - prev_roi_end < 2) continue;  // skip one bin for visibility of two adjacent ROIs
-                charge.at(i) = 10.;                  // arbitary constant number for ROI display
+                // charge.at(i) = 10.;                  // arbitary constant number for ROI display
+                charge.at(i) = signal_roi->get_contents().at(i-start); // use actual content
             }
             prev_roi_end = end;
         }
 
         {
-            auto& bad = m_cmm["bad"];
+            auto& bad = m_wanmm["bad"];
             auto badit = bad.find(och.channel);
             if (badit != bad.end()) {
                 for (auto bad : badit->second) {
@@ -586,7 +594,7 @@ void OmnibusSigProc::save_ext_roi(ITrace::vector& itraces, IFrame::trace_list_t&
         }
 
         {
-            auto& bad = m_cmm["bad"];
+            auto& bad = m_wanmm["bad"];
             auto badit = bad.find(och.channel);
             if (badit != bad.end()) {
                 for (auto bad : badit->second) {
@@ -647,13 +655,14 @@ void OmnibusSigProc::save_mproi(ITrace::vector& itraces, IFrame::trace_list_t& i
             if (och.channel != signal_roi.first.first) continue;
             int start = signal_roi.second.first;
             int end = signal_roi.second.second;
-            for (int i = start; i <= end; i++) {
+            // end is should be included but not larger than m_nticks
+            for (int i = start; i <= end && i < m_nticks; i++) {
                 charge.at(i) = 4000.;  // arbitary constant number for ROI display
             }
         }
 
         {
-            auto& bad = m_cmm["bad"];
+            auto& bad = m_wanmm["bad"];
             auto badit = bad.find(och.channel);
             if (badit != bad.end()) {
                 for (auto bad : badit->second) {
@@ -1294,7 +1303,7 @@ bool OmnibusSigProc::masked_neighbors(const std::string& cmname, OspChan& ochan,
         return false;
     }
 
-    auto& cm = m_cmm[cmname];
+    auto& cm = m_wanmm[cmname];
     for (int och = lo_chan; och <= hi_chan; ++och) {
         if (cm.find(och) != cm.end()) {
             return true;
@@ -1390,7 +1399,7 @@ bool OmnibusSigProc::operator()(const input_pointer& in, output_pointer& out)
     }
 
     // Convert to OSP cmm indexed by OSB sequential channels, NOT WCT channel ID.
-    m_cmm.clear();
+    m_wanmm.clear();
     // double emap: name -> channel -> pair<int,int>
     for (auto cm : in->masks()) {
         const std::string name = cm.first;
@@ -1400,7 +1409,9 @@ bool OmnibusSigProc::operator()(const input_pointer& in, output_pointer& out)
             if (och.plane < 0) {
                 continue;  // in case user gives us multi apa frame
             }
-            m_cmm[name][och.channel] = m.second;
+            // need to make sure the input names follow the OSP convention
+            // e.g., bad, ls_noisy
+            m_wanmm[name][och.channel] = m.second;
         }
     }
 
@@ -1417,11 +1428,11 @@ bool OmnibusSigProc::operator()(const input_pointer& in, output_pointer& out)
     init_overall_response(in);
 
     // create a class for ROIs ...
-    ROI_formation roi_form(m_cmm, m_nwires[0], m_nwires[1], m_nwires[2], m_nticks, m_th_factor_ind, m_th_factor_col,
+    ROI_formation roi_form(m_wanmm, m_nwires[0], m_nwires[1], m_nwires[2], m_nticks, m_th_factor_ind, m_th_factor_col,
                            m_pad, m_asy, m_rebin, m_l_factor, m_l_max_th, m_l_factor1, m_l_short_length,
                            m_l_jump_one_bin);
     ROI_refinement roi_refine(
-        m_cmm, m_nwires[0], m_nwires[1], m_nwires[2], m_r_th_factor, m_r_fake_signal_low_th, m_r_fake_signal_high_th,
+        m_wanmm, m_nwires[0], m_nwires[1], m_nwires[2], m_r_th_factor, m_r_fake_signal_low_th, m_r_fake_signal_high_th,
         m_r_fake_signal_low_th_ind_factor, m_r_fake_signal_high_th_ind_factor, m_r_pad, m_r_break_roi_loop, m_r_th_peak,
         m_r_sep_peak, m_r_low_peak_sep_threshold_pre, m_r_max_npeaks, m_r_sigma, m_r_th_percent, m_isWrapped);  //
 
@@ -1507,9 +1518,13 @@ bool OmnibusSigProc::operator()(const input_pointer& in, output_pointer& out)
             }
 
             if (m_use_multi_plane_protection) {
-                roi_refine.MultiPlaneProtection(iplane, m_anode, m_roi_ch_ch_ident, roi_form, 1000, m_anode->ident() % 2);
+                for (const auto& f : m_anode->faces()) {
+                    // mp3: 3 plane protection based on cleaup ROI
+                    roi_refine.MultiPlaneProtection(iplane, m_anode, m_roi_ch_ch_ident, roi_form, m_mp_th1, m_mp_th2, f->ident(), m_mp_tick_resolution);
+                    // mp2: 2 plane protection based on cleaup ROI
+                    roi_refine.MultiPlaneROI(iplane, m_anode, m_roi_ch_ch_ident, roi_form, m_mp_th1, m_mp_th2, f->ident(), m_mp_tick_resolution);
+                }
                 save_mproi(*itraces, mp3_roi_traces, iplane, roi_refine.get_mp3_rois());
-                roi_refine.MultiPlaneROI(iplane, m_anode, m_roi_ch_ch_ident, roi_form, 1000, m_anode->ident() % 2);
                 save_mproi(*itraces, mp2_roi_traces, iplane, roi_refine.get_mp2_rois());
             }
         }
@@ -1592,7 +1607,12 @@ bool OmnibusSigProc::operator()(const input_pointer& in, output_pointer& out)
         }
     }
 
-    auto sframe = new Aux::SimpleFrame(in->ident(), in->time(), ITrace::shared_vector(itraces), in->tick(), m_cmm);
+    // clear the overall response
+    // for (int i = 0; i != 3; i++) {
+    //     overall_resp[i].clear();
+    // }
+
+    auto sframe = new Aux::SimpleFrame(in->ident(), in->time(), ITrace::shared_vector(itraces), in->tick(), in->masks());
     sframe->tag_frame(m_frame_tag);
 
     // this assumes save_data produces itraces in OSP channel order
