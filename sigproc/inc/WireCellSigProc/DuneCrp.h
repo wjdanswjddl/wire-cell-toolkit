@@ -20,6 +20,13 @@ namespace WireCell {
     namespace SigProc {
         namespace DuneCrp {
 
+            bool SignalFilter(WireCell::Waveform::realseq_t& sig);
+            float CalcRMSWithFlags(const WireCell::Waveform::realseq_t& sig);
+            bool RawAdapativeBaselineAlg(WireCell::Waveform::realseq_t& sig);
+
+            bool RemoveFilterFlags(WireCell::Waveform::realseq_t& sig);
+            bool NoisyFilterAlg(WireCell::Waveform::realseq_t& spec, float min_rms, float max_rms);
+
             class OneChannelNoise : public WireCell::IChannelFilter, public WireCell::IConfigurable {
                public:
                 OneChannelNoise(const std::string& anode_tn = "AnodePlane",
