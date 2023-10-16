@@ -43,7 +43,8 @@ Points::node_ptr make_simple_pctree()
 
     // Insert a child with a set of named points clouds with one point
     // cloud from a track.
-    /// TODO: can only do this on construction?
+    /// QUESTION: can only do this on construction?
+    /// QUESTION: units?
     auto* n1 = root->insert(Points({
         {"center", make_janky_track(Ray(Point(0.5, 0, 0), Point(0.7, 0, 0)))},
         {"3d", make_janky_track(Ray(Point(0, 0, 0), Point(1, 0, 0)))}
@@ -111,7 +112,8 @@ TEST_CASE("PointCloudFacade test")
     const auto& kd = rval.scoped_kd(scope);
     // CHECK(&kd.pointclouds() == &pc3d);
 
-    auto knn = kd.knn(2, {0.5, 0, 0});
+    /// QUESTION: how to get it -> node?
+    auto knn = kd.knn(2, {1, 0, 0});
     for (auto [it,dist] : knn) {
         auto& pt = *it;
         debug("knn: pt=({},{},{}) dist={}",
@@ -120,7 +122,7 @@ TEST_CASE("PointCloudFacade test")
     CHECK(knn.size() == 2);
 
 
-    auto rad = kd.radius(.01, {0.5, 0, 0});
+    auto rad = kd.radius(.01, {1, 0, 0});
     for (auto [it,dist] : rad) {
         auto& pt = *it;
         debug("rad: pt=({},{},{}) dist={}",
