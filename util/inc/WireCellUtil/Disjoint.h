@@ -12,6 +12,24 @@
 namespace WireCell {
 
 
+    /** Disjoint.
+
+        A disjoint models an iterator and an iterator range over a
+        collection-of-collections that presents as an iterator and an
+        iterator range over a flat monolithic collection.
+
+        Eg, a std::vector<std::map<int,string>> may be accessed via a
+        disjoint as a std::vector<int>.  In this example, the std::vector
+        is the "outer" collection and the std::map is the "inner"
+        collection.
+
+        If the outer iterator type provides standard STL types then
+        the inner iterator type is infered.
+
+        It is the callers responsibility to maintain the lifetime of the
+        original collection of collections as disjoint deals only with
+        iterators.
+    */
     template <typename OuterIter
               , typename InnerIter = typename OuterIter::value_type::iterator
               , typename Value = typename InnerIter::value_type
@@ -230,26 +248,67 @@ namespace WireCell {
             --cursor.index;
         }
 
+        difference_type local_distance() const {
+            return std::distance(cursor.accum->second.begin(), cursor.inner);
+        }
+
+        // Move to start of next outer
+        void outer_increment() {
+            ++cursor.accum;
+            cursor.index = cursor.accum->first;
+            cursor.inner = cursor.accum->second.begin();
+        }
+
+        // Move to start of previous outer
+        void outer_decrement() {
+            --cursor.accum;
+            cursor.index = cursor.accum->first;
+            cursor.inner = cursor.accum->second.begin();
+        }
+
         void advance(difference_type n)
         {
+            // local distance from current inner the bound of current outer.
+            difference_type ldist = 0;
+
+            // We are too high
+            ldist = local_distance();
+            while (n < ldist) {
+                outer_decrement();
+                n += ldist + cursor.accum->second.size();
+                ldist = 0;
+            }
+
+            // We are too low
+            ldist = cursor.accum->second.size() - ldist;
+            while (n >= ldist) {
+                n -= ldist;
+                outer_increment();
+                ldist = cursor.accum->second.size();
+            }
+
+            // just right
+            cursor.index += n;
+            cursor.inner += n;
+
             // Fixme: this method can be optimized by using the
             // cursor.accum.first and cursor.accum.size() to walk
             // outer itterators until landing on the one holding the
             // target distance.
-            if (n>0) {
-                while (n) {
-                    ++(*this);
-                    --n;
-                }
-                return;
-            }
-            if (n<0) {
-                while (n) {
-                    --(*this);
-                    ++n;
-                }
-                return;
-            }
+            // if (n>0) {
+            //     while (n) {
+            //         ++(*this);
+            //         --n;
+            //     }
+            //     return;
+            // }
+            // if (n<0) {
+            //     while (n) {
+            //         --(*this);
+            //         ++n;
+            //     }
+            //     return;
+            // }
         }
 
         difference_type distance_to(disjoint<OuterIter> const& other) const

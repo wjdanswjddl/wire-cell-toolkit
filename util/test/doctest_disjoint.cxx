@@ -5,10 +5,14 @@
 #include "WireCellUtil/doctest.h"
 #include "WireCellUtil/Logging.h"
 
+#include <random>
+#include <vector>
+#include <map>
+
 using spdlog::debug;
 using namespace WireCell;
 
-TEST_CASE("disjoint iterator test stl")
+TEST_CASE("disjoint iterator test stl basics")
 {
 
     {
@@ -164,4 +168,52 @@ TEST_CASE("disjoint iterator const") {
     // auto vvcvc = dji_vvcvc(hier.cbegin(), hier.cend());
     // ++vvcvc;
 
+}
+TEST_CASE("disjoint iterator perf") {
+    using value_type = size_t;
+    using inner_type = std::vector<value_type>;
+    using outer_type = std::vector<inner_type>;
+    using disjoint_type = disjoint<outer_type::iterator>;
+
+    const size_t onums=10000;
+    const size_t inums=10000;
+    const size_t nrands=100;
+
+    std::random_device rnd_device;
+    std::mt19937 rnd_engine {rnd_device()};  // Generates random integers
+    std::uniform_int_distribution<size_t> dist {0, onums * inums};
+
+    size_t count = 0;
+    outer_type outer;
+    for (size_t onum=0; onum < onums; ++onum) {
+        inner_type inner(inums);
+        for (size_t inum=0; inum < inums; ++inum) {
+            inner[inum] = count;
+            ++count;
+        }
+        outer.emplace_back(std::move(inner));
+    }
+    
+    auto dj = disjoint_type(outer.begin(), outer.end());
+    size_t ntot = onums * inums;
+    REQUIRE(ntot == count);
+    REQUIRE(ntot == dj.size());
+
+    // random access flat dj many times
+    for (size_t dummy = 0; dummy<nrands; ++dummy) {
+        const size_t rind = dist(rnd_engine);
+        const size_t got = dj[rind];
+        if (got == rind) continue;
+        REQUIRE(got == rind);
+    }
+
+    for (size_t ind = 0; ind<ntot; ++ind) {
+        if (ind == *dj) {
+            ++dj;
+            continue;
+        }
+        REQUIRE(ind == *dj);
+    }
+    REQUIRE( dj == dj.end() );
+    
 }
