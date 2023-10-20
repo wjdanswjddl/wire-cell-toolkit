@@ -148,6 +148,8 @@ void Gen::AnodePlane::configure(const WireCell::Configuration& cfg)
 
     m_faces.resize(nfaces);
     // note, WireSchema requires front/back face ordering in an anode
+    // note, iface is a per-anode index and can be different with the per-anode ident
+    // it will be used as WirePlandID::face() and IAnodeFace::which()
     for (size_t iface = 0; iface < nfaces; ++iface) {
         const auto& ws_face = ws_faces[iface];
         std::vector<WireSchema::Plane> ws_planes = ws_store.planes(ws_face);

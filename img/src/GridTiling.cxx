@@ -60,7 +60,7 @@ bool Img::GridTiling::operator()(const input_pointer& slice, output_pointer& out
     }
 
     const auto anodeid = m_anode->ident();
-    const auto faceid = m_face->ident();
+    const auto faceid = m_face->which(); // per-Anode face index
 
     auto chvs = slice->activity();
 

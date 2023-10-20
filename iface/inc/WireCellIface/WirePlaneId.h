@@ -29,7 +29,7 @@ namespace WireCell {
         /// Layer as index number (0,1 or 2).  -1 if unknown
         int index() const;
 
-        /// APA face number
+        /// per-Anode face index NOT ident!
         int face() const;
 
         /// APA number
