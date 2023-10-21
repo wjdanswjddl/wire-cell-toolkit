@@ -48,7 +48,7 @@ namespace WireCell::Aux::TensorDM {
         return ret;
     }
 
-    using named_pointclouds_t = WireCell::PointCloud::Tree::Points::named_pointclouds_t;
+    using named_pointclouds_t = WireCell::PointCloud::Tree::named_pointclouds_t;
 
     inline
     ITensor::vector as_tensors(const named_pointclouds_t& pcns,

@@ -68,8 +68,9 @@ namespace WireCell::PointCloud {
             const Array& one = sel[0];
             size_t num_in_two = sel[1].get().num_elements();
         */
-        selection_t selection(const name_list_t& names) const;
-
+        selection_t selection(const name_list_t& names);
+        const_selection_t selection(const name_list_t& names) const;
+        
         /** Return named array or empty if not found */
         const Array& get(const std::string& name) const {
             auto it = m_store.find(name);
@@ -158,7 +159,8 @@ namespace WireCell::PointCloud {
     // A "null" filter which incurs a copy.
     inline Dataset copy(const Dataset& ds) { return ds; }
 
-    using DatasetRef = std::reference_wrapper<const Dataset>;
+    using dataset_ref = std::reference_wrapper<Dataset>;
+    using const_dataset_ref = std::reference_wrapper<const Dataset>;
 
 }
 

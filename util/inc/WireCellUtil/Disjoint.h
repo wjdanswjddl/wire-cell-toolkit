@@ -1,340 +1,159 @@
 #ifndef WIRECELLUTIL_DISJOINT
 #define WIRECELLUTIL_DISJOINT
 
-#include "WireCellUtil/Exceptions.h"
-
 #include <boost/iterator/iterator_adaptor.hpp>
-
-#include <functional>           // reference_wrapper
-#include <vector>
-#include <map>                  // pair
+#include <stdexcept>
 
 namespace WireCell {
 
-
-    /** Disjoint.
-
-        A disjoint models an iterator and an iterator range over a
-        collection-of-collections that presents as an iterator and an
-        iterator range over a flat monolithic collection.
-
-        Eg, a std::vector<std::map<int,string>> may be accessed via a
-        disjoint as a std::vector<int>.  In this example, the std::vector
-        is the "outer" collection and the std::map is the "inner"
-        collection.
-
-        If the outer iterator type provides standard STL types then
-        the inner iterator type is infered.
-
-        It is the callers responsibility to maintain the lifetime of the
-        original collection of collections as disjoint deals only with
-        iterators.
-    */
-    template <typename OuterIter
-              , typename InnerIter = typename OuterIter::value_type::iterator
-              , typename Value = typename InnerIter::value_type
-              , typename Reference = Value&
-              >
-    class disjoint :
-        public boost::iterator_facade<disjoint<OuterIter>
-                                      // value
-                                      , Value
-                                      // cagegory
-                                      , boost::random_access_traversal_tag
-                                      // reference
-                                      , Reference
-                                      >
+    // Iterate on a outer range of inner ranges.
+    template <typename MajorIter,
+              typename MinorIter = typename MajorIter::iterator::value_type::iterator,
+              typename MinorValue = typename MinorIter::value_type>
+    class disjoint_iterator
+        : public boost::iterator_facade<disjoint_iterator<MajorIter, MinorIter, MinorValue>
+                                        // value
+                                        , MinorValue
+                                        // cagegory
+                                        , boost::random_access_traversal_tag
+                                        // reference
+                                        , MinorValue&
+                                        >
     {
-      private:
-        using base_type = boost::iterator_facade<disjoint<OuterIter>
-                                                 , Value
-                                                 , boost::random_access_traversal_tag
-                                                 , Reference
-                                                 >;
-
-        using outer_iterator = OuterIter;
-        using inner_iterator = InnerIter;
-
-        struct inner_range_type {
-            outer_iterator outer;
-            // Number of inners in range
-            size_t size() const { return std::distance(begin(), end()); }
-            inner_iterator begin() const {
-                auto it = outer->begin();
-                return it;
-            }
-            inner_iterator end() const { 
-                auto it = outer->end();
-                return it;
-            }
-            bool empty() const { return begin() == end(); }
-        };
-        using accum_map = std::map<size_t, inner_range_type>;
-        using accum_iterator = typename accum_map::iterator;
-        struct cursor_type {
-            cursor_type(accum_iterator ait) : accum(ait), index(0) {}
-
-            accum_iterator accum; // -> {Naccum, inner range}
-            size_t index; // corresponding global index comparable to size()
-            inner_iterator inner; // current inner iterator in range
-
-            bool operator==(const cursor_type& o) {
-                return accum == o.accum
-                    and inner == o.inner;
-            }
-
-            bool at_inner_end() const {
-                return inner == accum->second.end();
-            }
-        };
-
-        // Index and order by how many inners came before a range.
-        accum_map accums;
-        // Where we are in the accumulation
-        cursor_type cursor;
-
-        // total number of inners
-        size_t inners_size_{0};
-
       public:
+
+        using major_iterator = MajorIter;
+        using minor_iterator = MinorIter;
+
+        // iterator facade types
+        using base_type =
+            boost::iterator_facade<disjoint_iterator<MajorIter, MinorIter, MinorValue>
+                                   , MinorValue
+                                   , boost::random_access_traversal_tag
+                                   , MinorValue&
+                                   >;
         using difference_type = typename base_type::difference_type;
         using value_type = typename base_type::value_type;
-        using pointer = typename base_type::value_type*;
-        using reference = typename base_type::value_type&;
+        using pointer = typename base_type::pointer;
+        using reference = typename base_type::reference;
 
-        disjoint()
-            : cursor(accums.end())
-        {
-            // cursor.accum = accums.end();
-            // cursor.index = 0;       // equal to size
-            // inners_size_ = 0;
-        }
-
-        // Construct a full iterator.
-        disjoint(OuterIter beg, OuterIter end)
-            : cursor(accums.end())
-        {
-
-            // fixme: for now, give up on figuring out how to
-            // dynamically iterate just given the outer beg/end and
-            // make a map that accumulates the inner ranges
-
-            inners_size_ = 0;
-            for (auto it = beg; it != end; ++it) {
-                inner_range_type ir{it};
-                if (ir.empty()) { continue; }
-                accums[inners_size_] = ir;
-                inners_size_ += ir.size();
-            }
-
-            cursor.index = 0;
-            cursor.accum = accums.begin();
-            if (inners_size_ > 0) {
-                cursor.inner = cursor.accum->second.begin();
-            } // undefined if we are empty.
-        }
-
-        void append(OuterIter it) {
-            inner_range_type ir{it};
-            if (ir.empty()) { return; }
-            accums[inners_size_] = ir;
-            inners_size_ += ir.size();
-        }
-
-        // Give range API
-        disjoint begin() const {
-            return *this;
-        }
-        disjoint end() const {
-            auto it = *this;
-            it.cursor.accum == it.accums.end();
-            it.cursor.index = it.inners_size_;
-            return it;
-        }
-
-        // Size of all inners
-        size_t size() const { return inners_size_; }
 
       private:
+        major_iterator major_end;
+        major_iterator major_; // accum->minor_range
+        minor_iterator minor_;
+        size_t index_{0};    // into the flattened iteration
 
-        friend class boost::iterator_core_access;
+      public:
 
-        bool at_outer_end() const {
-            return cursor.index == inners_size_; //  cursor.accum == accums.end();
-        }
-
-        bool at_outer_begin() const {
-            return cursor.index == 0;
-            // return cursor.accum == accums.begin()
-            //     and cursor.inner == cursor.accum->second.begin();
-        }
-
-        template <typename OtherOuterIter>
-        bool equal(disjoint<OtherOuterIter> const& x) const {
-            if (at_outer_end() and x.at_outer_end()) {
-                return true;
-            }
-            if (at_outer_end() or x.at_outer_end()) {
-                return false;
-            }
-            if (cursor.index != x.cursor.index) {
-                return false;
-            }
-            if (size() != x.size()) {
-                return false;
-            }
-            if (accums.size() != x.accums.size()) {
-                return false;
-            }
-            // what is left is to figure out if we both see the same set of inners.
-            auto it1 = accums.begin();
-            auto it2 = x.accums.begin();
-            while (it1 != accums.end() and it2 != x.accums.end()) {
-                if (it1->first == it2->first
-                    and it1->second.outer == it2->second.outer) {
-                    ++it1;
-                    ++it2;
-                    continue;
-                }
-                return false;
-            }
-            return true;        // hi me
-        }
-
-        void increment()
+        // To create an "end" cursor, pass b==e and index==size.
+        // To create a "begin" cursor, pass b!=e and index==0.
+        disjoint_iterator(major_iterator b, major_iterator e, size_t index=0)
+            : major_end(e)
+            , index_(index)
         {
-            if (accums.empty()) {
-                throw std::runtime_error("incrementing empty outer");
-            }
-
-            if (at_outer_end()) {
-                throw std::runtime_error("increment past end");
-            }
-
-            ++cursor.inner;
-            ++cursor.index;
-
-            if (cursor.at_inner_end()) {
-                // go next cursor
-                ++cursor.accum;
-
-                if (at_outer_end()) { // fell off
-                    cursor.inner = inner_iterator{};
-                    cursor.index = size();
-                    return;
-                }
-                // at start of non-empty range
-                cursor.inner = cursor.accum->second.begin();
+            major_ = b;
+            if (b == e) {
+                // never deref minor_ if major_ == end!
                 return;
             }
+            minor_ = b->second.begin();
         }
 
-        void decrement()
+        major_iterator major() const { return major_; }
+        minor_iterator minor() const { return minor_; }
+        size_t index() const { return index_; }
+
+      private:
+        friend class boost::iterator_core_access;
+
+        bool equal(disjoint_iterator const& o) const {
+            return
+                // both are at end
+                (major_ == major_end && o.major_ == o.major_end)
+                or
+                // same cursor location
+                (major_ == o.major_ && minor_ == o.minor_);
+        }
+
+        void increment() {
+            if (major_ == major_end) {
+                throw std::out_of_range("increment beyond end");
+            }
+            ++minor_;
+            if (minor_ == major_->second.end()) {
+                ++major_;
+                minor_ = major_->second.begin();
+            }
+            ++index_;
+        }
+        void decrement() {
+            if (index_ == 0) {
+                throw std::out_of_range("decrement beyond begin");
+            }
+
+            // if sitting just off end of major
+            if (major_ == major_end) {
+                --major_;        // back off to end of last range
+                minor_ = major_->second.end();
+            }
+
+            if (minor_ == major_->second.begin()) {
+                --major_;        // back off to end of previous range
+                minor_ = major_->second.end();
+            }
+            --minor_;
+            --index_;
+        }
+
+        difference_type distance_to(disjoint_iterator const& other) const
         {
-            if (cursor.index == 0) {
-                throw std::runtime_error("decrementing past begin");
-            }
-
-            // If we are one past an outer
-            if (cursor.inner == cursor.accum->second.begin()
-                or at_outer_end()) {
-                // reverse by one outer.  must work even if we were at
-                // outer_end.
-                --cursor.accum;
-                // inner starts at end
-                cursor.inner = cursor.accum->second.end();
-            }
-            --cursor.inner;
-            --cursor.index;
+            return other.index_ - this->index_;
         }
-
-        difference_type local_distance() const {
-            return std::distance(cursor.accum->second.begin(), cursor.inner);
-        }
-
-        // Move to start of next outer
-        void outer_increment() {
-            ++cursor.accum;
-            cursor.index = cursor.accum->first;
-            cursor.inner = cursor.accum->second.begin();
-        }
-
-        // Move to start of previous outer
-        void outer_decrement() {
-            --cursor.accum;
-            cursor.index = cursor.accum->first;
-            cursor.inner = cursor.accum->second.begin();
+        
+        reference dereference() const
+        {
+            return *minor_;
         }
 
         void advance(difference_type n)
         {
-            // local distance from current inner the bound of current outer.
-            difference_type ldist = 0;
+            if (n == 0) return;
 
-            // We are too high
-            ldist = local_distance();
+            // first, local distance from minor_ to current range begin
+            difference_type ldist = major_->first - index_; // negative
+
+            // We are too high, back up.
             while (n < ldist) {
-                outer_decrement();
-                n += ldist + cursor.accum->second.size();
+                const size_t old_index = index_;
+                --major_;
+                index_ = major_->first;
+                minor_ = major_->second.begin();
+                n += old_index - index_;
                 ldist = 0;
             }
 
-            // We are too low
-            ldist = cursor.accum->second.size() - ldist;
+            // ldist is either still negative or zero.  next find
+            // distance from where we are to the end of the current
+            // range.
+            ldist = major_->second.size() + ldist;
+
+            // We are too low, go forward.
             while (n >= ldist) {
-                n -= ldist;
-                outer_increment();
-                ldist = cursor.accum->second.size();
+                const size_t old_index = index_;
+                ++major_;
+                index_ = major_->first;
+                minor_ = major_->second.begin();
+                ldist = major_->second.size();
+                n -= index_ - old_index;
             }
 
             // just right
-            cursor.index += n;
-            cursor.inner += n;
-
-            // Fixme: this method can be optimized by using the
-            // cursor.accum.first and cursor.accum.size() to walk
-            // outer itterators until landing on the one holding the
-            // target distance.
-            // if (n>0) {
-            //     while (n) {
-            //         ++(*this);
-            //         --n;
-            //     }
-            //     return;
-            // }
-            // if (n<0) {
-            //     while (n) {
-            //         --(*this);
-            //         ++n;
-            //     }
-            //     return;
-            // }
+            index_ += n;
+            minor_ += n;
         }
-
-        difference_type distance_to(disjoint<OuterIter> const& other) const
-        {
-            return other.cursor.index - this->cursor.index;
-        }
-
-        reference dereference() const
-        {
-            return *cursor.inner;
-        }
-
-    };                              // disjoint
-
-    // deduce types from arguments
-    template <typename OuterIter>
-    auto flatten(OuterIter begin, OuterIter end) -> disjoint<OuterIter>
-    {
-        return disjoint<OuterIter>(begin, end);
-    }        
-    template <typename OuterContainer>
-    auto flatten(OuterContainer& cont) -> disjoint<typename OuterContainer::iterator>
-    {
-        return flatten(cont.begin(), cont.end());
-    }
-
+    };
+     
 }
 
 #endif

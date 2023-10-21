@@ -161,13 +161,25 @@ bool Dataset::add(const std::string& name, const Array& arr)
     return false;
 }
 
-selection_t Dataset::selection(const std::vector<std::string>& names) const
+selection_t Dataset::selection(const std::vector<std::string>& names)
 {
     selection_t ret;
     for (const auto& name : names) {
         auto it = m_store.find(name);
         if (it == m_store.end()) {
             return selection_t();
+        }
+        ret.push_back(std::ref(it->second));
+    }
+    return ret;
+}
+const_selection_t Dataset::selection(const std::vector<std::string>& names) const
+{
+    const_selection_t ret;
+    for (const auto& name : names) {
+        auto it = m_store.find(name);
+        if (it == m_store.end()) {
+            return const_selection_t();
         }
         ret.push_back(std::cref(it->second));
     }

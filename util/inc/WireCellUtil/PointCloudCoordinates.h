@@ -8,132 +8,187 @@
 
 namespace WireCell::PointCloud {
 
-    // fixme: rename file to PointCloudCoordinates
+    /**
+       A coordinate point is a vector-like slice across the arrays of
+       a coordinate selection at a given index.
 
-    // An iterator on a PointCloud::selection_t that returns a
-    // vector-like value.
-    template<typename VectorType>
-    class coordinates
-        : public boost::iterator_facade<coordinates<VectorType>
-                                        , VectorType
-                                        , boost::random_access_traversal_tag
-                                        >
+       coordinate_point cp(selection_of_four,42);
+       x = cp[0];
+       y = cp[1];
+       z = cp[2];
+       t = cp[3];
+
+       Note, the coordinate_point retains a pointer to the selection.
+       Caller must assure the lifetime of the selection exceeds that
+       of the coordinate_point.
+
+    */
+    template<typename ElementType, typename SelectionType=selection_t>
+    class coordinate_point {
+      public:
+        using value_type = ElementType;
+
+        coordinate_point()
+            : selection_(nullptr), index_(0) {}
+
+        explicit coordinate_point(SelectionType& sel, size_t ind=0)
+            : selection_(&sel), index_(ind) {}
+
+        explicit coordinate_point(SelectionType* sel, size_t ind=0)
+            : selection_(sel), index_(ind) {}
+
+        size_t size() const {
+            return selection_->size();
+        }
+
+        value_type operator[](size_t dim) const {
+            // selections hold ref to const arrays 
+            const Array& arr = (*selection_)[dim];
+            return arr.element<ElementType>(index_);
+        }
+
+        void assure_valid(size_t dim) const {
+            if (dim >= size()) {
+                throw std::out_of_range("coordinate dimension out of range");
+            }
+            if (index_ >= selection_->at(0).get().size_major()) {
+                throw std::out_of_range("coordinate index out of range");
+            }
+        }
+
+        value_type at(size_t dim) const {
+            assure_valid(dim);
+            return (*this)[dim];
+        }
+
+        size_t& index() { return index_; }
+        size_t index() const { return index_; }
+
+        bool operator==(const coordinate_point& other) const {
+            return selection_ == other.selection_ && index_ == other.index_;
+        }
+
+      private:
+        SelectionType* selection_;
+        size_t index_;
+    };
+
+
+    /**
+       Iterator over a coordinate range.
+     */
+    template<typename PointType, typename SelectionType=selection_t>
+    class coordinate_iterator
+        : public boost::iterator_facade<coordinate_iterator <PointType, SelectionType>
+                                        , PointType
+                                        , boost::random_access_traversal_tag>
     {
       public:
-        using base_type = boost::iterator_facade<coordinates<VectorType>
-                                                 , VectorType
-                                                 , boost::random_access_traversal_tag
-                                                 >;
-        using self_type = coordinates<VectorType>;
-        using iterator = coordinates<VectorType>;
+        using self_type = coordinate_iterator<PointType, SelectionType>;
+        using base_type = boost::iterator_facade<self_type
+                                                 , PointType
+                                                 , boost::random_access_traversal_tag>;
         using difference_type = typename base_type::difference_type;
         using value_type = typename base_type::value_type;
-        using pointer = typename base_type::value_type*;
-        using reference = typename base_type::value_type&;
+        using pointer = typename base_type::pointer;
+        using reference = typename base_type::reference;
 
-        using element_type = typename VectorType::value_type;
+        coordinate_iterator()
+            : point() {}
 
-        coordinates()
-        {
-        }
+        coordinate_iterator(const coordinate_iterator&) = default;
+        coordinate_iterator(coordinate_iterator&&) = default;
+        coordinate_iterator& operator=(const coordinate_iterator&) = default;
+        coordinate_iterator& operator=(coordinate_iterator&&) = default;
 
-        coordinates(const coordinates&) = default;
-        coordinates(coordinates&&) = default;
-        coordinates& operator=(const coordinates&) = default;
-        coordinates& operator=(coordinates&&) = default;
+        coordinate_iterator(SelectionType& sel, size_t ind)
+            : point(&sel,ind) {}
 
-        // Construct with copy of value
-        coordinates(const selection_t& selection, const VectorType& value)
-            : m_value(value)
-        {
-            init(selection);
-        }
-        // Construct value with dimension from selection size.
-        explicit coordinates(const selection_t& selection)
-            : m_value(selection.size())
-        {
-            init(selection);
-        }
+        coordinate_iterator(SelectionType* sel, size_t ind)
+            : point(sel,ind) {}
 
-        iterator begin() const {
-            return *this;
-        }
-        iterator end() const {
-            auto it = *this;
-            it.m_index = it.size();
-            return it;
-        }
-
-        // The size of the vector-like value
-        size_t ndim() const {
-            return m_value.size();
-        }
-
-        // The size of each of the spans
-        size_t size() const {
-            if (! m_spansp) return 0;
-            if (m_spansp->empty()) return 0;
-            //m_spans.empty()) { return 0; }
-            // return m_spans[0].size();
-            return m_spansp->at(0).size();
-        }
+      private:
+        mutable value_type point;
 
       private:
         friend class boost::iterator_core_access;
 
-        using span_type = typename Array::span_t<const element_type>;
-        using span_vector = std::vector<span_type>;
-
-        // index in the span
-        size_t m_index{0};
-        // one span per dimension.  It is a little weird to use a
-        // shared pointer here but it reduces the cost of a copy.  
-        std::shared_ptr<span_vector> m_spansp{};
-        // we must hold m_value so we may return a reference.
-        mutable value_type m_value{}; 
-
-        void init(const selection_t& selection) {
-            m_spansp = std::make_shared<span_vector>();
-            for (const Array& array : selection) {
-                span_type span = array.elements<element_type>();
-                // m_spans.push_back(span);
-                m_spansp->push_back(span);
-            }
-        }
-
-        bool at_end() const {
-            return m_index == size();
-        }
-
-        template <typename OtherType>
-        bool equal(const coordinates<OtherType> & x) const {
-            return m_index == x.m_index;
+        bool equal(const coordinate_iterator& o) const {
+            return point == o.point;
         }
 
         void increment () {
-            ++m_index;
+            ++point.index();
         }
-        void decrement () { --m_index; }
+        void decrement () {
+            --point.index();
+        }
         void advance (difference_type n) {
-            m_index += n;
+            point.index() += n;
         }
 
         difference_type
         distance_to(self_type const& other) const
         {
-            return other.m_index - this->m_index;
+            return other.point.index() - this->point.index();
         }
 
         reference dereference() const
         {
-            const size_t ndims = ndim();
-            for (size_t ind=0; ind<ndims; ++ind) {
-                // m_value[ind] = m_spans[ind][m_index];
-                m_value[ind] = m_spansp->at(ind)[m_index];
-            }
-            return m_value;
+            return point;
         }
     };
+
+
+    /**
+       A transpose of a point cloud selection.
+
+       coordinate_range<double> cr(selection);
+       for (const coordinate_point& cp : cr) {
+           assert(cp.size() == selection.size());
+           auto dim0 = cp[0];
+           for (auto x : c) {
+               //...
+           }
+       }
+
+     */
+    template<typename PointType, typename SelectionType=selection_t>
+    class coordinate_range {
+      public:
+        using iterator = coordinate_iterator<PointType, SelectionType>;
+        using const_iterator = coordinate_iterator<PointType const, SelectionType const>;
+
+        coordinate_range() : selection_(nullptr) {}
+
+        explicit coordinate_range(SelectionType& sel)
+            : selection_(&sel) {}
+
+        size_t size() const {
+            if (!selection_) return 0;
+            if (selection_->empty()) return 0;
+            const Array& arr = selection_->at(0);
+            return arr.size_major();
+        }
+
+        iterator begin()  { 
+            return iterator(selection_, 0);
+        }
+        iterator end()  {
+            return iterator(selection_, size());
+        }
+        const_iterator begin() const { 
+            return const_iterator(selection_, 0);
+        }
+        const_iterator end() const {
+            return const_iterator(selection_, size());
+        }
+
+      private:
+        SelectionType* selection_;
+        
+    };
+
 
 }
 

@@ -57,16 +57,11 @@ TEST_CASE("point tree no points")
     CHECK(lpcs.empty());
 
     Scope s;
-    const auto& dds = p.scoped_pc(s);
-    CHECK(dds.values().empty());
-    CHECK(dds.size() == 0);
+    auto pcr = p.scoped_pc(s);
+    CHECK(pcr.size() == 0);
 
-    const auto& kd = p.scoped_kd(s);
-    CHECK(kd.size() == 0);
-    // const auto& dds2 = kd.pointclouds();
-    // CHECK(dds2.values().empty());
-    // CHECK(dds2.size() == 0);
-    // CHECK(&dds == &dds2);
+    const auto& kd = p.scoped_kd<double>(s);
+    CHECK(kd.points().size() == 0);
 }
 
 static
@@ -121,13 +116,14 @@ TEST_CASE("point tree with points")
 
     Scope scope{ "3d", {"x","y","z"}};
 
-    const DisjointDataset& pc3d = rval.scoped_pc(scope);
-    CHECK(pc3d.values().size() == 2);
+    const auto& pc3d = rval.scoped_pc(scope);
+    CHECK(pc3d.size() == 2);
 
-    const auto& kd = rval.scoped_kd(scope);
+    auto& kd = rval.scoped_kd(scope);
     // CHECK(&kd.pointclouds() == &pc3d);
 
-    auto knn = kd.knn(6, {0,0,0});
+    std::vector<double> origin = {0,0,0};
+    auto knn = kd.knn(6, origin);
     for (auto [it,dist] : knn) {
         auto& pt = *it;
         debug("knn: pt=({},{},{}) dist={}",
@@ -136,7 +132,7 @@ TEST_CASE("point tree with points")
     CHECK(knn.size() == 6);
 
 
-    auto rad = kd.radius(.001, {0,0,0});
+    auto rad = kd.radius(.001, origin);
     for (auto [it,dist] : rad) {
         auto& pt = *it;
         debug("rad: pt=({},{},{}) dist={}",
@@ -152,11 +148,11 @@ TEST_CASE("point tree remove node")
     Scope scope{ "3d", {"x","y","z"}};
     auto& rval = root->value;
 
-    // NOTE: it is the nodes that hold the Datasets
+    // NOTE: it is the nodes that hold the Datasets so we get a collection of std::ref.
 
-    const DisjointDataset& pc3d_orig = rval.scoped_pc(scope);
-    const Dataset& pc3d_one = pc3d_orig.values().at(0);
-    const Dataset& pc3d_two = pc3d_orig.values().at(1);
+    const auto& pc3d_orig = rval.scoped_pc(scope);
+    const Dataset& pc3d_one = pc3d_orig.at(0).get();
+    const Dataset& pc3d_two = pc3d_orig.at(1).get();
     
     SUBCASE("remove child one") {
         const size_t nleft = pc3d_two.size_major();
@@ -165,12 +161,12 @@ TEST_CASE("point tree remove node")
         auto dead = root->remove(it);
         CHECK(dead);
         CHECK(root->children().size() == 1);
-        const DisjointDataset& pc3d = rval.scoped_pc(scope);
-        CHECK(pc3d.values().size() == 1);
-        CHECK(pc3d.values()[0].get() == pc3d_two);
+        const auto& pc3d = rval.scoped_pc(scope);
+        CHECK(pc3d.size() == 1);
+        CHECK(pc3d[0].get() == pc3d_two);
 
         const auto& kd = rval.scoped_kd(scope);
-        CHECK(kd.size() == nleft);
+        CHECK(kd.points().size() == nleft);
     }
     SUBCASE("remove child two") {
         const size_t nleft = pc3d_one.size_major();
@@ -180,19 +176,20 @@ TEST_CASE("point tree remove node")
         auto dead = root->remove(it);
         CHECK(dead);
         CHECK(root->children().size() == 1);
-        const DisjointDataset& pc3d = rval.scoped_pc(scope);
-        CHECK(pc3d.values().size() == 1);
-        CHECK(pc3d.values()[0].get() == pc3d_one);
+        const auto& pc3d = rval.scoped_pc(scope);
+        CHECK(pc3d.size() == 1);
+        CHECK(pc3d[0].get() == pc3d_one);
 
         const auto& kd = rval.scoped_kd(scope);
-        CHECK(kd.size() == nleft);
+        CHECK(kd.points().size() == nleft);
     }
     SUBCASE("shared cached point cloud") {
         Scope sxy{ "3d", {"x","y"}};
         Scope syz{ "3d", {"y","z"}};
-        const DisjointDataset& pcxy = rval.scoped_pc(sxy);
-        const DisjointDataset& pcyz = rval.scoped_pc(syz);
-        CHECK(pcxy == pcyz);
+        auto& pcxy = rval.scoped_pc(sxy);
+        auto& pcyz = rval.scoped_pc(syz);
+        CHECK(pcxy.size() == pcyz.size());
+
     }
 }
 TEST_CASE("point tree merge trees")
@@ -209,7 +206,7 @@ TEST_CASE("point tree merge trees")
 
     Scope scope{ "3d", {"x","y","z"}};
     auto& rval = root.value;
-    const DisjointDataset& pc3d = rval.scoped_pc(scope);
-    CHECK(pc3d.values().size() == 4);
+    const auto& pc3d = rval.scoped_pc(scope);
+    CHECK(pc3d.size() == 4);
 }
 

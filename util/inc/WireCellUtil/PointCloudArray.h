@@ -334,7 +334,8 @@ namespace WireCell::PointCloud {
     using indices_t = std::vector<size_t>;
 
     /** An array reference. */
-    using ArrayRef = std::reference_wrapper<const Array>;
+    using array_ref = std::reference_wrapper<Array>;
+    using const_array_ref = std::reference_wrapper<const Array>;
 
     /** A list of names, such as used to form a selection. */
     using name_list_t = std::vector<std::string>;
@@ -342,7 +343,8 @@ namespace WireCell::PointCloud {
     /** A selection of arrays.  Arrays are held by ref so that any
         updates are available to the user of the selection.
     */
-    using selection_t = std::vector<ArrayRef>;
+    using selection_t = std::vector<array_ref>;
+    using const_selection_t = std::vector<const_array_ref>;
 
 
 }
