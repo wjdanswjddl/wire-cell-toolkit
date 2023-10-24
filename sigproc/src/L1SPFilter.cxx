@@ -2,12 +2,11 @@
 
 #include "WireCellAux/DftTools.h"
 #include "WireCellAux/FrameTools.h"
+#include "WireCellAux/SimpleFrame.h"
 
-#include "WireCellIface/SimpleFrame.h"
 #include "WireCellIface/IFieldResponse.h"
 
 #include "WireCellUtil/LassoModel.h"
-
 #include "WireCellUtil/NamedFactory.h"
 
 #include <Eigen/Dense>
@@ -20,6 +19,10 @@ WIRECELL_FACTORY(L1SPFilter, WireCell::SigProc::L1SPFilter, WireCell::IFrameFilt
 using namespace Eigen;
 using namespace WireCell;
 using namespace WireCell::SigProc;
+
+using WireCell::Aux::DftTools::fwd_r2c;
+using WireCell::Aux::DftTools::inv_c2r;
+
 
 L1SPFilter::L1SPFilter(double gain, double shaping, double postgain, double ADC_mV, double fine_time_offset,
                        double coarse_time_offset)
@@ -56,7 +59,7 @@ void L1SPFilter::init_resp()
         Response::ColdElec ce(m_gain, m_shaping);
         auto ewave = ce.generate(tbins);
         Waveform::scale(ewave, m_postgain * m_ADC_mV * (-1));  // ADC to electron ...
-        elec = Aux::fwd_r2c(m_dft, ewave); 
+        elec = fwd_r2c(m_dft, ewave); 
 
         std::complex<float> fine_period(fravg.period, 0);
 
@@ -64,8 +67,8 @@ void L1SPFilter::init_resp()
         WireCell::Waveform::realseq_t resp_V = fravg.planes[1].paths[0].current;
         WireCell::Waveform::realseq_t resp_W = fravg.planes[2].paths[0].current;
 
-        auto spectrum_V = Aux::fwd_r2c(m_dft, resp_V);
-        auto spectrum_W = Aux::fwd_r2c(m_dft, resp_W);
+        auto spectrum_V = fwd_r2c(m_dft, resp_V);
+        auto spectrum_W = fwd_r2c(m_dft, resp_W);
 
         WireCell::Waveform::scale(spectrum_V, elec);
         WireCell::Waveform::scale(spectrum_W, elec);
@@ -74,8 +77,8 @@ void L1SPFilter::init_resp()
         WireCell::Waveform::scale(spectrum_W, fine_period);
 
         // Now this response is ADC for 1 electron .
-        resp_V = Aux::inv_c2r(m_dft, spectrum_V);
-        resp_W = Aux::inv_c2r(m_dft, spectrum_W);
+        resp_V = inv_c2r(m_dft, spectrum_V);
+        resp_W = inv_c2r(m_dft, spectrum_W);
 
         // convolute with V and Y average responses ...
         double intrinsic_time_offset = fravg.origin / fravg.speed;
@@ -337,7 +340,7 @@ bool L1SPFilter::operator()(const input_pointer& in, output_pointer& out)
     std::map<int, std::vector<int>> map_ch_flag_rois;
     // prepare for the output signal ...
     for (auto trace : sigtraces) {
-        auto newtrace = std::make_shared<SimpleTrace>(trace->channel(), trace->tbin(), trace->charge());
+        auto newtrace = std::make_shared<Aux::SimpleTrace>(trace->channel(), trace->tbin(), trace->charge());
         // How to access the sigtraces together ???
         if (map_ch_rois.find(trace->channel()) != map_ch_rois.end()) {
             std::vector<std::pair<int, int>>& rois_save = map_ch_rois[trace->channel()];
@@ -409,7 +412,7 @@ bool L1SPFilter::operator()(const input_pointer& in, output_pointer& out)
     }
 
     for (size_t i2 = 0; i2 != out_traces.size(); i2++) {
-        auto new_trace = std::make_shared<SimpleTrace>(out_traces.at(i2)->channel(), out_traces.at(i2)->tbin(),
+        auto new_trace = std::make_shared<Aux::SimpleTrace>(out_traces.at(i2)->channel(), out_traces.at(i2)->tbin(),
                                                        out_traces.at(i2)->charge());
         int ch = out_traces.at(i2)->channel();
         if (map_ch_rois.find(ch) != map_ch_rois.end()) {
@@ -462,14 +465,14 @@ bool L1SPFilter::operator()(const input_pointer& in, output_pointer& out)
     IFrame::trace_list_t tl(out_traces.size());
     std::iota(tl.begin(), tl.end(), 0);
 
-    auto sf = new SimpleFrame(in->ident(), in->time(), out_traces, in->tick());
+    auto sf = new Aux::SimpleFrame(in->ident(), in->time(), out_traces, in->tick());
     sf->tag_traces(outtag, tl);
     out = IFrame::pointer(sf);
 
     return true;
 }
 
-int L1SPFilter::L1_fit(std::shared_ptr<WireCell::SimpleTrace>& newtrace,
+int L1SPFilter::L1_fit(std::shared_ptr<Aux::SimpleTrace>& newtrace,
                        std::shared_ptr<const WireCell::ITrace>& adctrace, int start_tick, int end_tick,
                        bool flag_shorted)
 {
@@ -596,10 +599,10 @@ int L1SPFilter::L1_fit(std::shared_ptr<WireCell::SimpleTrace>& newtrace,
         }
 
         double sum1 = 0;
-        double sum2 = 0;
+        // double sum2 = 0;
         for (int i = 0; i != nbin_fit; i++) {
             sum1 += final_beta(i);
-            sum2 += final_beta(nbin_fit + i);
+            // sum2 += final_beta(nbin_fit + i);
         }
 
         if (sum1 > adc_l1_threshold) {

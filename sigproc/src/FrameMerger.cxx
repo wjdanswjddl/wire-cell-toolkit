@@ -1,6 +1,6 @@
 #include "WireCellSigProc/FrameMerger.h"
 #include "WireCellUtil/NamedFactory.h"
-#include "WireCellIface/SimpleFrame.h"
+#include "WireCellAux/SimpleFrame.h"
 #include "WireCellIface/ITrace.h"
 
 #include "WireCellAux/FrameTools.h"
@@ -125,7 +125,7 @@ bool SigProc::FrameMerger::operator()(const input_tuple_type& intup, output_poin
         }
     }
 
-    auto sf = new SimpleFrame(two->ident(), two->time(), out_traces, two->tick());
+    auto sf = new Aux::SimpleFrame(two->ident(), two->time(), out_traces, two->tick());
     if (nsets) {
         for (int ind = 0; ind < nsets; ++ind) {
             std::string otag = jmergemap[ind][2].asString();

@@ -1,5 +1,5 @@
 #include "WireCellGen/DepoPlaneX.h"
-#include "WireCellIface/SimpleDepo.h"
+#include "WireCellAux/SimpleDepo.h"
 
 #include <iostream>
 
@@ -17,7 +17,7 @@ void test_depoplanex()
         t *= tunit;
         for (auto x : xes) {
             x *= units::cm;
-            auto depo = std::make_shared<SimpleDepo>(t, Point(x, 0.0, 0.0));
+            auto depo = std::make_shared<Aux::SimpleDepo>(t, Point(x, 0.0, 0.0));
             auto newdepo = dpx.add(depo);
             std::cerr << "\tx=" << x / units::cm << "cm, t=" << newdepo->time() / tunit << "us\n";
         }

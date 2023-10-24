@@ -1,0 +1,3 @@
+#!/bin/bash
+tdir="$(dirname $(dirname $BASH_SOURCE))"
+exec $tdir/bats/bin/bats $@

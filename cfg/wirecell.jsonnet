@@ -330,11 +330,20 @@
     unique_list(l):: std.foldl($.unique_helper, l, []),
 
 
-
     // Round a floating point to nearest integer.  It's a bit weird to
     // go through a format/parse.  Maybe there's a better way?
     roundToInt(x):: std.parseInt("%d" % (x+0.5)),
 
+    // Like the shell command of the same name.  
+    basename(name, ext="",  delim="/") ::
+        local parts = std.split(name, delim);
+        local base = parts[std.length(parts)-1];
+        if std.endsWith(base, ext) then
+            base[:std.length(base)-std.length(ext)]
+        else
+            base, 
+
+    
     freqbinner :: function(tick, nsamples) {
         nyquist : 0.5 / tick,
         hz_perbin : 1.0/(tick/$.second * nsamples),

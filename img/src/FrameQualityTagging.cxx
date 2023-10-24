@@ -1,6 +1,5 @@
 #include "WireCellImg/FrameQualityTagging.h"
-#include "WireCellIface/SimpleFrame.h"
-#include "WireCellIface/SimpleTrace.h"
+#include "WireCellAux/SimpleFrame.h"
 #include "WireCellIface/IWaveformMap.h"
 #include "WireCellAux/FrameTools.h"
 
@@ -130,6 +129,8 @@ bool FrameQualityTagging::operator()(const input_pointer& in, output_pointer& ou
         return true;  // eos
     }
 
+    log->debug("input frame: {}", Aux::taginfo(in));
+
     // Prepare a cmm for output
     auto cmm = in->masks();
     if (cmm.find(m_cm_tag)==cmm.end()) {
@@ -147,6 +148,8 @@ bool FrameQualityTagging::operator()(const input_pointer& in, output_pointer& ou
             THROW(RuntimeError() << errmsg{"Illegal wpid"});
         }
         // TODO: asumming this sorted?
+        // NO! YOU CAN NOT ASSUME THIS!!!!
+        // IChannel::Index returns a "wire attachement number" which orders channels (maybe) in what you expect.
         chbyplane[iplane].push_back(channel);
     }
 
@@ -167,6 +170,10 @@ bool FrameQualityTagging::operator()(const input_pointer& in, output_pointer& ou
 
     // Prepare threshold for wiener
     auto threshold = in->trace_summary(m_wiener_trace_tag);
+    if (threshold.empty()) {
+        log->error("wiener threshold trace summary is empty");
+        THROW(RuntimeError() << errmsg{"wiener threshold trace summary is empty"});
+    }
     log->debug("threshold.size() {}", threshold.size());
 
     // begin for Xin
@@ -245,7 +252,7 @@ bool FrameQualityTagging::operator()(const input_pointer& in, output_pointer& ou
       int n_fire = 0;
       int start_time =0;
       int end_time = 0;
-      int acc_cover = 0;
+      // int acc_cover = 0;
       int acc_total = 0;
       int acc_fire = 0;
 
@@ -264,7 +271,7 @@ bool FrameQualityTagging::operator()(const input_pointer& in, output_pointer& ou
 	  }
 	  n_cover = 0;
 	  n_fire = 0;
-	  acc_cover = 0;
+	  // acc_cover = 0;
 	  acc_total = 0;
 	  acc_fire = 0;
 	  start_time = time;
@@ -276,7 +283,7 @@ bool FrameQualityTagging::operator()(const input_pointer& in, output_pointer& ou
 	if (ncover * percentage > m_threshold2[iplane]){
 	  n_fire ++;
 	  acc_total += nchannels[iplane];
-	  acc_cover += ncover;
+	  // acc_cover += ncover;
 	  acc_fire  += ncover*percentage;
 	}
 	prev_time = time;
@@ -458,7 +465,7 @@ bool FrameQualityTagging::operator()(const input_pointer& in, output_pointer& ou
         // make a copy of all input trace pointers
         ITrace::vector out_traces(*in->traces());
         // Basic frame stays the same.
-        auto sfout = new SimpleFrame(in->ident(), in->time(), out_traces, in->tick(), cmm);
+        auto sfout = new Aux::SimpleFrame(in->ident(), in->time(), out_traces, in->tick(), cmm);
         // passing through other parts of the original frame
         for (auto ftag : in->frame_tags()) {
             sfout->tag_frame(ftag);
@@ -470,9 +477,15 @@ bool FrameQualityTagging::operator()(const input_pointer& in, output_pointer& ou
         };
         out = IFrame::pointer(sfout);
         log->debug("output: {} size: {}", m_cm_tag, out->masks()[m_cm_tag].size());
+        log->debug("output frame: {}", Aux::taginfo(out));
         return true;
     }
 
-    // bad frame, out = nullptr for now
+    log->warn("frame quality = {}, returning empty frame");
+    {
+        ITrace::vector no_traces;
+        out = std::make_shared<Aux::SimpleFrame>(in->ident(), in->time(), no_traces, in->tick());
+    }
+
     return true;
 }

@@ -32,7 +32,7 @@ ITensorSet::pointer Pytorch::to_itensor(const std::vector<torch::IValue> &inputs
         std::vector<size_t> shape = {(size_t) ten.size(0), (size_t) ten.size(1), (size_t) ten.size(2),
                                      (size_t) ten.size(3)};
         // TODO need to figure out type from dtyp
-        Aux::SimpleTensor<float> *st = new Aux::SimpleTensor<float>(shape);
+        Aux::SimpleTensor *st = new Aux::SimpleTensor(shape, (float*)nullptr);
         size_t nbyte = 4;
         for (auto n : shape) nbyte *= n;
         auto data = (float *) st->data();

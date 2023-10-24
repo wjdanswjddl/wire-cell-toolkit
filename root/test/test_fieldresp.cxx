@@ -15,6 +15,7 @@
 #include <iostream>
 
 using namespace WireCell;
+using namespace WireCell::Aux::DftTools;
 using namespace std;
 using spdlog::debug;
 using spdlog::error;
@@ -84,7 +85,7 @@ int main(int argc, char* argv[])
     Response::ColdElec ce(14.0 * units::mV / units::fC, 2.0 * units::microsecond);
     auto ewave = ce.generate(tbins);
     Waveform::scale(ewave, 1.2 * 4096 / 2000.);
-    elec = Aux::fwd_r2c(idft, ewave);
+    elec = fwd_r2c(idft, ewave);
 
     std::complex<float> fine_period(fravg.period, 0);
 
@@ -110,7 +111,7 @@ int main(int argc, char* argv[])
 
         // do FFT for response ...
         // Array::array_xxc c_data = Array::dft_rc(arr, 0);
-        Array::array_xxc c_data = Aux::fwd_r2c(idft, arr, 1);
+        Array::array_xxc c_data = fwd_r2c(idft, arr, 1);
         int nrows = c_data.rows();
         int ncols = c_data.cols();
 
@@ -121,7 +122,7 @@ int main(int argc, char* argv[])
         }
 
         // arr = Array::idft_cr(c_data, 0);
-        arr = Aux::inv_c2r(idft, c_data, 1);
+        arr = inv_c2r(idft, c_data, 1);
 
         // figure out how to do fine ... shift (good ...)
         auto arr1 = arr.block(0, 0, nrows, 100);

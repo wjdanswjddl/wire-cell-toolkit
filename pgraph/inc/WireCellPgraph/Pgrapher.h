@@ -53,28 +53,31 @@
 
 #include "WireCellIface/IApplication.h"
 #include "WireCellIface/IConfigurable.h"
-#include "WireCellUtil/Logging.h"
+#include "WireCellAux/Logger.h"
 #include "WireCellPgraph/Graph.h"
 
-namespace WireCell {
-    namespace Pgraph {
-        class Pgrapher : public WireCell::IApplication, public WireCell::IConfigurable {
-           public:
-            Pgrapher();
-            virtual ~Pgrapher();
+namespace WireCell::Pgraph {
 
-            // IApplication
-            virtual void execute();
+    class Pgrapher : public Aux::Logger,
+                     public IApplication,
+                     public IConfigurable
+    {
+      public:
+        Pgrapher();
+        virtual ~Pgrapher();
 
-            // IConfigurable
-            virtual void configure(const WireCell::Configuration& config);
-            virtual WireCell::Configuration default_configuration() const;
+        // IApplication
+        virtual void execute();
 
-           private:
-            Graph m_graph;
-            Log::logptr_t l;
-        };
-    }  // namespace Pgraph
-}  // namespace WireCell
+        // IConfigurable
+        virtual void configure(const WireCell::Configuration& config);
+        virtual WireCell::Configuration default_configuration() const;
+
+      private:
+        Graph m_graph;
+
+    };
+
+}  // namespace WireCell::Pgraph
 
 #endif

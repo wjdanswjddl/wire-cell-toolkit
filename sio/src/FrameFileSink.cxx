@@ -4,6 +4,7 @@
 #include "WireCellUtil/Stream.h"
 #include "WireCellUtil/Exceptions.h"
 #include "WireCellUtil/NamedFactory.h"
+#include "WireCellUtil/Waveform.h"
 
 #include "WireCellAux/FrameTools.h"
 
@@ -15,6 +16,7 @@ WIRECELL_FACTORY(FrameFileSink, WireCell::Sio::FrameFileSink,
 
 using namespace WireCell;
 using namespace WireCell::Stream;
+using namespace WireCell::Waveform;
 
 Sio::FrameFileSink::FrameFileSink()
     : Aux::Logger("FrameFileSink", "io")
@@ -57,6 +59,8 @@ WireCell::Configuration Sio::FrameFileSink::default_configuration() const
     // casting to dtype.
     cfg["offset"] = 0.0;
 
+    cfg["masks"] = true;
+
     // If the "dense" option is given the frame array will be extended
     // and padded prior to output.  The value of "dense" should be an
     // object with keys "chbeg" and "chend" which give half-inclusive
@@ -72,9 +76,11 @@ void Sio::FrameFileSink::configure(const WireCell::Configuration& cfg)
 {
     m_outname = get(cfg, "outname", m_outname);
 
+    m_masks = get(cfg, "masks", m_masks);
+
     m_out.clear();
     output_filters(m_out, m_outname);
-    if (m_out.size() < 2) {     // must have at least get tar filter + file sink.
+    if (m_out.size() < 1) {
         THROW(ValueError() << errmsg{"FrameFileSink: unsupported outname: " + m_outname});
     }
 
@@ -118,7 +124,8 @@ void Sio::FrameFileSink::one_tag(const IFrame::pointer& frame,
                                  const std::string& tag)
 {
     ITrace::vector traces;
-    if (tag == "*") {
+    IFrame::trace_summary_t summary;
+    if (tag == "*") {           // all traces
         // The designer of IFrame was a dumb dumb in chosing to return
         // a shared vector.  He is also to blame for writing this
         // comment.
@@ -127,6 +134,7 @@ void Sio::FrameFileSink::one_tag(const IFrame::pointer& frame,
     }
     else {
         traces = Aux::tagged_traces(frame, tag);
+        summary = frame->trace_summary(tag);
     }
     if (traces.empty()) {
         log->warn("call={} frame={} ntraces={} tag=\"{}\" zero traces",
@@ -153,7 +161,6 @@ void Sio::FrameFileSink::one_tag(const IFrame::pointer& frame,
         tbinmm = Aux::tbin_range(traces);
     }
     
-
     const size_t ncols = tbinmm.second - tbinmm.first;
     const size_t nrows = std::distance(channels.begin(), channels.end());
 
@@ -175,6 +182,10 @@ void Sio::FrameFileSink::one_tag(const IFrame::pointer& frame,
     {  // the channel array
         const std::string aname = String::format("channels_%s_%d.npy", tag.c_str(), frame->ident());
         write(m_out, aname, channels);
+        if (channels.size() != nrows) {
+            log->warn("channels for tag \"{}\" ident {} has {} but there are {} waveform rows in frame",
+                      tag, frame->ident(), channels.size(), nrows);
+        }
     }
 
     {  // the tick array
@@ -182,9 +193,70 @@ void Sio::FrameFileSink::one_tag(const IFrame::pointer& frame,
         const std::vector<double> tickinfo{frame->time(), frame->tick(), (double) tbinmm.first};
         write(m_out, aname, tickinfo);
     }
+
+    if (summary.size()) { // the summary array
+        const std::string aname = String::format("summary_%s_%d.npy", tag.c_str(), frame->ident());
+        write(m_out, aname, summary);
+        if (summary.size() != nrows) {
+            log->warn("summary for tag \"{}\" ident {} has {} but there are {} waveform rows in frame",
+                      tag, frame->ident(), summary.size(), nrows);
+        }
+    }
+
     m_out.flush();
 
 }
+
+static
+size_t cms_size(const ChannelMasks& cms)
+{
+    size_t size = 0;
+    for (const auto& [chid, brl] : cms) {
+        size += brl.size();
+    }
+    return size;
+}
+
+void Sio::FrameFileSink::masks(const IFrame::pointer& frame)
+{
+    // - cmm :: string -> ChannelMasks
+    // - ChannelMasks :: int -> BinRangeList
+    // - BinRangeList :: vector<BinRange>
+    // - BinRange :: pair<int,int>
+
+    // Flatten each ChannelMasks to array shape (N,3) with colums:
+    // (chid, begin_time_bin, end_time_bin).  chid values will be
+    // duplicated for each BinRange in a BinRangeList.
+    constexpr size_t ncols = 3;
+
+    auto cmm = frame->masks();
+    if (cmm.empty()) {
+        log->debug("no channel mask maps at call {}", m_count);
+        return;
+    }
+
+    for (const auto& [name, cms] : cmm) {
+
+        const size_t nrows = cms_size(cms);
+        Eigen::Array<int, Eigen::Dynamic, ncols> arr(nrows, ncols);
+        size_t irow = 0;
+        for (const auto& [chid, brl] : cms) {
+            for (const auto& [tbeg, tend] : brl) {
+                arr(irow, 0) = chid;
+                arr(irow, 1) = tbeg;
+                arr(irow, 2) = tend;
+                ++irow;
+            }
+        }
+
+        const std::string aname = String::format("chanmask_%s_%d.npy", name.c_str(), frame->ident());
+        write(m_out, aname, arr);
+
+        log->debug("save {} with {} entries", aname, nrows);
+    }
+}
+
+
 bool Sio::FrameFileSink::operator()(const IFrame::pointer& frame)
 {
     if (! frame) { // eos
@@ -193,9 +265,15 @@ bool Sio::FrameFileSink::operator()(const IFrame::pointer& frame)
         return true;
     }
 
+    log->debug("input frame: {}", Aux::taginfo(frame));
+
     for (auto tag : m_tags) {
         one_tag(frame, tag);
     }
+    if (m_masks) {
+        masks(frame);
+    }
+
     ++m_count;
     return true;
 }

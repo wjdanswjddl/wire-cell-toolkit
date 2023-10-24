@@ -1,4 +1,5 @@
-* Simple I/O for Wire Cell Toolkit
+#+title: Simple I/O for Wire Cell Toolkit
+#+include: ../docs/include-readme.org
 
 This package provides some WCT "simple" input/ouput file support.  It
 does not depend on ROOT and some ROOT based I/O components may be

@@ -1,53 +1,80 @@
-// This was chopped out of NoiseSource, originally by Xin.
+#include "WireCellGen/Noise.h"
 
-#include "Noise.h"
+#include "WireCellAux/DftTools.h"
+#include "WireCellAux/RandTools.h"
 
+#include "WireCellUtil/NamedFactory.h"
+
+#include <unordered_set>
+
+
+using namespace std;
 using namespace WireCell;
+using namespace WireCell::Aux::RandTools;
 
-Waveform::compseq_t Gen::Noise::generate_spectrum(const std::vector<float>& spec, IRandom::pointer rng, double replace)
+Gen::NoiseBase::NoiseBase(const std::string& tn)
+    : Aux::Logger(tn, "gen")
 {
-    // reuse randomes a bit to optimize speed.
-    static std::vector<double> random_real_part;
-    static std::vector<double> random_imag_part;
+}
+Gen::NoiseBase::~NoiseBase() 
+{
+}
 
-    if (random_real_part.size() != spec.size()) {
-        random_real_part.resize(spec.size(), 0);
-        random_imag_part.resize(spec.size(), 0);
-        for (unsigned int i = 0; i < spec.size(); i++) {
-            random_real_part.at(i) = rng->normal(0, 1);
-            random_imag_part.at(i) = rng->normal(0, 1);
-        }
+WireCell::Configuration Gen::NoiseBase::default_configuration() const
+{
+    Configuration cfg;
+    // The name of the noise model.  Or, if an array is given, the
+    // names of multiple noise models.  The plural spelling "models"
+    // is also checked for an array of model names.
+    cfg["model"] = "";
+    // The IRandom
+    cfg["rng"] = "Random";
+    // The IDFT
+    cfg["dft"] = "FftwDFT";
+    // The size (number of ticks) of the noise waveforms
+    cfg["nsamples"] = (unsigned int)(m_nsamples);
+    // Percentage of fresh randomness added in using the recyled
+    // random normal-Gaussian distribution.  Note, to match prior
+    // interpreation of "percent" we apply twice this amount of
+    // refreshing.  0.02 remains a reasonable choice.
+    cfg["replacement_percentage"] = m_rep_percent;
+    return cfg;
+}
+
+void Gen::NoiseBase::configure(const WireCell::Configuration& cfg)
+{
+    std::string rng_tn = get<std::string>(cfg, "rng", "Random");
+    m_rng = Factory::find_tn<IRandom>(rng_tn);
+
+    std::string dft_tn = get<std::string>(cfg, "dft", "FftwDFT");
+    m_dft = Factory::find_tn<IDFT>(dft_tn);
+
+    // Specify a single model name or an array of model names.  We
+    // also accept an array given as a pluralized "models".
+    m_model_tns.clear();
+    auto jmodel = cfg["model"];
+    if (jmodel.isString()) {
+        m_model_tns.insert(jmodel.asString());
     }
     else {
-        const int shift1 = rng->uniform(0, random_real_part.size());
-        // replace certain percentage of the random number
-        const int step = 1. / replace;
-        for (int i = shift1; i < shift1 + int(spec.size()); i += step) {
-            if (i < int(spec.size())) {
-                random_real_part.at(i) = rng->normal(0, 1);
-                random_imag_part.at(i) = rng->normal(0, 1);
-            }
-            else {
-                random_real_part.at(i - spec.size()) = rng->normal(0, 1);
-                random_imag_part.at(i - spec.size()) = rng->normal(0, 1);
-            }
+        for (const auto& jmod : jmodel) {
+            m_model_tns.insert(jmod.asString());
         }
     }
-
-    const int shift = rng->uniform(0, random_real_part.size());
-
-    WireCell::Waveform::compseq_t noise_freq(spec.size(), 0);
-
-    for (int i = shift; i < int(spec.size()); i++) {
-        const double amplitude = spec.at(i - shift) * sqrt(2. / 3.1415926);  // / units::mV;
-        noise_freq.at(i - shift).real(random_real_part.at(i) * amplitude);
-        noise_freq.at(i - shift).imag(random_imag_part.at(i) * amplitude);  //= complex_t(real_part,imag_part);
+    if (cfg["models"].isArray()) {
+        for (const auto& jmod : cfg["models"]) {
+            m_model_tns.insert(jmod.asString());
+        }
     }
-    for (int i = 0; i < shift; i++) {
-        const double amplitude = spec.at(i + int(spec.size()) - shift) * sqrt(2. / 3.1415926);
-        noise_freq.at(i + int(spec.size()) - shift).real(random_real_part.at(i) * amplitude);
-        noise_freq.at(i + int(spec.size()) - shift).imag(random_imag_part.at(i) * amplitude);
+    for (const auto& mtn : m_model_tns) {
+        log->debug("using noise model: \"{}\"", mtn);
     }
 
-    return noise_freq;
+    m_nsamples = get<int>(cfg, "nsamples", m_nsamples);
+    m_rep_percent = get<double>(cfg, "replacement_percentage", m_rep_percent);
+    m_bug202 = get<double>(cfg, "bug202", 0.0);
+    if (m_bug202>0) {
+        log->warn("BUG 202 IS ACTIVATED: {}", m_bug202);
+    }
 }
+

@@ -8,7 +8,7 @@ using namespace WireCell::SigProc;
 
 // #define __DEBUG__
 #ifdef __DEBUG__
-#define LogDebug(x) std::cerr << "[yuhw]: " << __LINE__ << " : " << x << std::endl
+#define LogDebug(x) std::cout << "[yuhw]: " << __LINE__ << " : " << x << std::endl
 #else
 #define LogDebug(x)
 #endif
@@ -2565,14 +2565,14 @@ void ROI_refinement::refine_data_debug_mode(int plane, ROI_formation &roi_form, 
     }
 }
 
+// mp3: 3 plane protection based on cleanup_roi_traces
 void ROI_refinement::MultiPlaneProtection(const int plane, const IAnodePlane::pointer anode,
                                           const std::map<int, int> &map_ch, ROI_formation &roi_form,
-                                          const double threshold, const int faceid, const int tick_resolution,
+                                          const double mp_th1, const double mp_th2, const int faceid, const int tick_resolution,
                                           const int wire_resolution, const int nbounds_layers)
 {
     //log->info("ROI_refinement::MultiPlaneProtection:");
-    const double th2 = 500;
-    LogDebug("th1: " << threshold << ", th2: " << th2);
+    LogDebug("mp_th1: " << mp_th1 << ", mp_th2: " << mp_th2);
     std::set<int> print_chids = {1441, 875};
 
     if (plane == 2) return;
@@ -2595,7 +2595,8 @@ void ROI_refinement::MultiPlaneProtection(const int plane, const IAnodePlane::po
                     auto pit_id = wire->index();
                     coord.grid = pit_id;
                     coord.layer = iplane + nbounds_layers;
-                    for (int tick = roi->get_start_bin() / tick_resolution; tick < roi->get_end_bin() / tick_resolution;
+                    // integer division choose floor, including end bin seems better
+                    for (int tick = roi->get_start_bin() / tick_resolution; tick <= roi->get_end_bin() / tick_resolution;
                          ++tick) {
                         int content_id = tick * tick_resolution - roi->get_start_bin();
                         if (content_id < 0) content_id = 0;
@@ -2603,10 +2604,10 @@ void ROI_refinement::MultiPlaneProtection(const int plane, const IAnodePlane::po
 
                         //  if (print_chids.find(chid)!=print_chids.end())
                         LogDebug(tick * tick_resolution << ", " << chid << " : {" << roi->get_chid() << ", "
-                                                        << roi->get_start_bin()
+                                                        << roi->get_start_bin() << ", " << roi->get_end_bin()
                                                         << " } : " << roi->get_contents().at(content_id));
 
-                        if (roi->get_contents().at(content_id) < th2) continue;
+                        if (roi->get_contents().at(content_id) < mp_th2) continue;
 
                         if (map_tick_pitch_roi[iplane].find(tick) == map_tick_pitch_roi[iplane].end()) {
                             std::map<int, SignalROI *> mtmp;
@@ -2617,14 +2618,14 @@ void ROI_refinement::MultiPlaneProtection(const int plane, const IAnodePlane::po
                             map_tick_pitch_roi[iplane][tick][pit_id] = roi;
                         }
 
-                        //  LogDebug(iplane << ", " << tick*tick_resolution << ", " << pit_id);
+                         LogDebug(iplane << ", " << tick*tick_resolution << ", " << pit_id);
 
                         if (roi->get_contents().at(content_id) <
-                            //  threshold * roi_form.get_rms_by_plane(iplane).at(roi->get_chid())
-                            threshold)
+                            //  mp_th1 * roi_form.get_rms_by_plane(iplane).at(roi->get_chid())
+                            mp_th1)
                             continue;
 
-                        //  LogDebug(iplane << ", " << tick*tick_resolution << ", " << coord.grid);
+                         LogDebug(iplane << ", " << tick*tick_resolution << ", " << coord.grid);
 
                         if (map_tick_coord[iplane].find(tick) == map_tick_coord[iplane].end()) {
                             std::vector<WireCell::RayGrid::coordinate_t> vtmp;
@@ -2639,9 +2640,8 @@ void ROI_refinement::MultiPlaneProtection(const int plane, const IAnodePlane::po
             }
         }
 
-        //  std::cout << " map_tick_coord:     " << map_tick_coord[iplane].size()
-        //            << " map_tick_pitch_roi: " << map_tick_pitch_roi[iplane].size()
-        //            << std::endl;
+        LogDebug(" map_tick_coord:     " << map_tick_coord[iplane].size()
+                << " map_tick_pitch_roi: " << map_tick_pitch_roi[iplane].size());
     }
 
     auto face = anode->face(faceid);
@@ -2654,7 +2654,7 @@ void ROI_refinement::MultiPlaneProtection(const int plane, const IAnodePlane::po
                 for (auto c2 : tc2.second) {
                     auto pitch = face->raygrid().pitch_location(c1, c2, layer);
                     auto index = face->raygrid().pitch_index(pitch, layer);
-                    //  LogDebug(tick*tick_resolution << ", " << c1.grid << ", " << c2.grid);
+                    LogDebug(tick*tick_resolution << ", " << c1.grid << ", " << c2.grid);
                     if (map_tick_pitch_roi[plane].find(tick) == map_tick_pitch_roi[plane].end()) continue;
                     for (auto pitch_roi : map_tick_pitch_roi[plane][tick]) {
                         auto pitch = pitch_roi.first;
@@ -2705,6 +2705,7 @@ void ROI_refinement::MultiPlaneProtection(const int plane, const IAnodePlane::po
         }
     }
 
+#ifdef __DEBUG__
     {
         LogDebug(" total rois:          " << get_rois_by_plane(plane).size() << " at plane " << plane
                                           << " protected_rois:      " << proteced_rois.size());
@@ -2712,23 +2713,23 @@ void ROI_refinement::MultiPlaneProtection(const int plane, const IAnodePlane::po
         for (auto roi : proteced_rois) {
             tmp.insert({map_ch.at(roi.first.first), roi});
         }
-#ifdef __DEBUG__
         for (auto ch : tmp) {
             LogDebug(ch.first << " : {" << ch.second.first.first << ", " << ch.second.first.second << "} : {"
                               << ch.second.second.first << ", " << ch.second.second.second << "}, ");
         }
-#endif
     }
+#endif
 }
 
+
+// mp2: 2 plane protection based on cleaup ROI
 void ROI_refinement::MultiPlaneROI(const int target_plane, const IAnodePlane::pointer anode,
                                    const std::map<int, int> &map_roichid_anodechid,  // ROI chid -> Anode chid
-                                   ROI_formation &roi_form, const double threshold, const int faceid,
+                                   ROI_formation &roi_form, const double mp_th1, const double mp_th2, const int faceid,
                                    const int tick_resolution, const int wire_resolution, const int nbounds_layers)
 {
     //log->info("ROI_refinement::MultiPlaneROI:");
-    const double th2 = 500;
-    LogDebug("th1: " << threshold << ", th2: " << th2);
+    LogDebug("mp_th1: " << mp_th1 << ", mp_th2: " << mp_th2);
     std::set<int> print_chids = {1441, 875};
 
     // reverse map
@@ -2770,7 +2771,7 @@ void ROI_refinement::MultiPlaneROI(const int target_plane, const IAnodePlane::po
                     auto pit_id = wire->index();
                     coord.grid = pit_id;
                     coord.layer = iplane + nbounds_layers;
-                    for (int tick = roi->get_start_bin() / tick_resolution; tick < roi->get_end_bin() / tick_resolution;
+                    for (int tick = roi->get_start_bin() / tick_resolution; tick <= roi->get_end_bin() / tick_resolution;
                          ++tick) {
                         int content_id = tick * tick_resolution - roi->get_start_bin();
                         if (content_id < 0) content_id = 0;
@@ -2781,7 +2782,7 @@ void ROI_refinement::MultiPlaneROI(const int target_plane, const IAnodePlane::po
                                                         << roi->get_start_bin()
                                                         << " } : " << roi->get_contents().at(content_id));
 
-                        if (roi->get_contents().at(content_id) < th2) continue;
+                        if (roi->get_contents().at(content_id) < mp_th2) continue;
 
                         if (map_tick_pitch_roi[iplane].find(tick) == map_tick_pitch_roi[iplane].end()) {
                             std::map<int, SignalROI *> mtmp;
@@ -2795,8 +2796,8 @@ void ROI_refinement::MultiPlaneROI(const int target_plane, const IAnodePlane::po
                         //  LogDebug(iplane << ", " << tick*tick_resolution << ", " << pit_id);
 
                         if (roi->get_contents().at(content_id) <
-                            //  threshold * roi_form.get_rms_by_plane(iplane).at(roi->get_chid())
-                            threshold)
+                            //  mp_th1 * roi_form.get_rms_by_plane(iplane).at(roi->get_chid())
+                            mp_th1)
                             continue;
 
                         //  LogDebug(iplane << ", " << tick*tick_resolution << ", " << coord.grid);
@@ -2814,9 +2815,8 @@ void ROI_refinement::MultiPlaneROI(const int target_plane, const IAnodePlane::po
             }
         }
 
-        //  std::cout << " map_tick_coord:     " << map_tick_coord[iplane].size()
-        //            << " map_tick_pitch_roi: " << map_tick_pitch_roi[iplane].size()
-        //            << std::endl;
+        LogDebug(" map_tick_coord:     " << map_tick_coord[iplane].size()
+                << " map_tick_pitch_roi: " << map_tick_pitch_roi[iplane].size());
     }
 
     auto face = anode->face(faceid);
@@ -2843,6 +2843,7 @@ void ROI_refinement::MultiPlaneROI(const int target_plane, const IAnodePlane::po
         }
     }
 
+#ifdef __DEBUG__
     {
         LogDebug(" total rois:          " << get_rois_by_plane(target_plane).size() << " at target_plane "
                                           << target_plane << " protected_rois:      " << mp_rois.size());
@@ -2850,13 +2851,12 @@ void ROI_refinement::MultiPlaneROI(const int target_plane, const IAnodePlane::po
         for (auto roi : mp_rois) {
             tmp.insert({map_roichid_anodechid.at(roi.first.first), roi});
         }
-#ifdef __DEBUG__
         for (auto ch : tmp) {
             LogDebug(ch.first << " : {" << ch.second.first.first << ", " << ch.second.first.second << "} : {"
                               << ch.second.second.first << ", " << ch.second.second.second << "}, ");
         }
-#endif
     }
+#endif
 }
 
 void ROI_refinement::TestROIs()

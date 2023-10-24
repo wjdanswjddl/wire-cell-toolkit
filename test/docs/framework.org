@@ -1,0 +1,143 @@
+#+title: WCT Testing Framework
+#+include: ../../docs/include-topic.org
+
+This describes the WCT test framework.
+
+* Overview
+
+WCT provides a large and growing suite of self-tests.  When they pass, they assure a variety of correct or at least expected behavior.  Examples of the behavior tested:
+
+- compilation against the WCT API.
+
+- run-time against the WCT libraries.
+
+- code functionality at different scales.
+
+- validity of results from known input.
+
+- stability of results across releases.
+
+Tests are developed in the WCT testing framework as described in this document.
+
+* Executing tests
+:PROPERTIES:
+:CUSTOM_ID: exec-tests
+:END:
+
+
+A user may execute tests in three different ways.
+
+** Automated campaign
+
+By default, *no tests are executed* by the WCT builder (~waf~ or the provided ~wcb~).  To execute tests the ~--tests~ option may be given at configure time:
+#+begin_example
+  waf configure --tests [...]
+#+end_example
+By default, when tests are enabled, the entire test group sequence is executed in the order listed above.  This sequence can be shortened by naming a different terminating group:
+#+begin_example
+  waf configure --tests --test-group=atomic [...]
+#+end_example
+A user may change their mind about the testing.  They may either rerun the ~configure~ step or they may pass the options again at the ~waf build~ phase.  For example, ~waf configure --tests~ was ran but subsequently the user wants to disable tests or to set a terminating group:
+#+begin_example
+  waf --test-group=atomic
+  waf --notests
+#+end_example
+Likewise, if testing was not configured (the default), one can turn it back on during building
+#+begin_example
+  waf --tests
+#+end_example
+The values remembered by ~waf configure~ may be viewed with:
+#+begin_example
+  waf dumpenv|grep 'waf: TEST'
+#+end_example
+Some tests take many minutes to complete.  Each time they are run, their run time is recorded.  Subsequent testing campaigns may exclude all test that are expected to require more time than a given test duration:
+#+begin_example
+  waf --test-duration=<seconds>
+#+end_example
+
+** Targeted execution
+
+Assuming the build was configured with ~--test~, an individual test may be run explicitly via ~waf~ by giving its "target name":
+#+begin_example
+  waf --target=test_testing
+#+end_example
+Test target names are derived from source file names with file name extension removed.  Interpreted tests will have the interpreter name appended.
+A listing of all targets including those for tests can be found with:
+#+begin_example
+  waf list
+#+end_example
+To force a particular test to be rerun after it has been run once:
+#+begin_example
+  waf --target=test_testing --alltests
+#+end_example
+If the build was not configured with the ~--test~ option, this option must be added to the above examples to enable them to actually operate on tests.
+
+** Direct execution
+
+A test program may be executed directly from the shell command line.  Compiled tests are found under ~build/<pkg>/<prefix><sep><name>~.  Interpreted test files are left in-place in the source trees and must be run with an appropriate interpreter.  Here are some examples of directly running tests:
+
+#+begin_example
+./build/util/test_testing
+wcsonnet cfg/test/test_wirecell.jsonnet
+bats test/test/test_bats.bats
+#+end_example
+
+
+* Test requirements
+:PROPERTIES:
+:CUSTOM_ID: requirements
+:END:
+
+
+A test program:
+- should include at least one check for proper behavior that may fail,
+- must exit with a non-zero status code when failure is encountered.
+- must exit with a zero status code when no failure is encountered.
+- should be fast to compile/interpret and execute.
+- should cover a minimum of code scope needed to perform its checks.
+- must not depend on the execution of other tests (in its group).
+
+* Test source
+:PROPERTIES:
+:CUSTOM_ID: source
+:END:
+
+
+The source file for a test program must found as:
+
+#+begin_example
+<pkg>/test/<prefix><sep><name>.<ext>
+#+end_example
+With the following elements:
+- ~<pkg>~ names the sub package directory name, eg ~util~.
+- ~<prefix>~ names a test /group/ or an alias for a group.  See below.
+- ~<sep>~ is optional and may be an underscore ("~_~") or hyphen ("=~=").
+- ~<name>~ should briefly describe the scope of a test and should follow the uniqueness guidelines given below.
+- ~<ext>~ defines how the test should be dispatched (compiled or interpreted).
+
+Some examples:
+#+begin_example
+util/test/test_testing.cxx
+gen/test/test-addnoise.bats
+util/test/check_act2viz.cxx
+#+end_example
+
+* Test groups
+:PROPERTIES:
+:CUSTOM_ID: groups
+:END:
+
+
+All tests in a test /group/ are executed independently and each group is executed in sequence.  A test in one group may depend on programs or their results from a prior group.
+
+The test groups names are listed.  Their ~<prefix>~ matches the group name or in some cases aliases are checked.
+
+- check :: simply compile a program but do not run.  The ~<prefix>~ is ~check~.
+- atomic :: is a basic test, depending on no other tests (but see [[file:datarepo.org][Data repository]]).  Besides a ~<prefix>~ of ~atomic~ the prefix ~test~ may be (and usually is) given.
+- history :: intended to run after all atomic tests and potentially consume data from prior campaigns and/or produce data for future campaigns.  See [[file:datarepo.org][Data repository]].  The ~<prefix>~ is ~history~.
+- report :: intended as a final stage to produce material for human inspection.  The ~<prefix>~ is ~report~.
+
+Finally, the ~<ext>~ determines if compilation or interpolation is required.  See [[file:cpp.org][C++ testing]] for information about compiled tests.
+
+Most simply, the ~<name>~ should made be unique across the entire toolkit.  It is however acceptable to have more than one test with a given ~<name>~ as long as it differs in ~<prefix>~, ~<sep>~ or ~<ext>~.  Developers of such tests must assure the tests are mutually compatible.  No test may have ~<prefix>~, ~<sep>, <name>~ and ~<ext>~ in common as only one will be run.
+

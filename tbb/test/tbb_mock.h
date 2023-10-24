@@ -5,7 +5,7 @@
 #include "WireCellIface/IDrifter.h"
 #include "WireCellIface/IDepoSink.h"
 #include "WireCellAux/Logger.h"
-#include "WireCellIface/SimpleDepo.h"
+#include "WireCellAux/SimpleDepo.h"
 #include "WireCellUtil/Units.h"
 
 #include <iostream>
@@ -45,9 +45,8 @@ namespace WireCellTbb {
             double dist = m_count * WireCell::units::millimeter;
             double time = m_count * WireCell::units::microsecond;
             WireCell::Point pos(dist, dist, dist);
-            out = WireCell::IDepo::pointer(new WireCell::SimpleDepo(time, pos));
-            std::cerr << "Source: " << out->time() / WireCell::units::microsecond << std::endl;
-            ++m_count;
+            out = WireCell::IDepo::pointer(new WireCell::Aux::SimpleDepo(time, pos));
+            std::cerr << "Source: " << out->time() / WireCell::units::millimeter << std::endl;
             return true;
         }
     };

@@ -1,17 +1,20 @@
 #include "WireCellGen/SilentNoise.h"  // holly noise
 #include "WireCellUtil/NamedFactory.h"
 #include "WireCellUtil/Units.h"
-#include "WireCellIface/SimpleFrame.h"
-#include "WireCellIface/SimpleTrace.h"
+#include "WireCellAux/SimpleFrame.h"
+#include "WireCellAux/SimpleTrace.h"
 
 #include <memory>
 
 WIRECELL_FACTORY(SilentNoise, WireCell::Gen::SilentNoise, WireCell::IFrameSource, WireCell::IConfigurable)
 
 using namespace WireCell;
+using WireCell::Aux::SimpleTrace;
+using WireCell::Aux::SimpleFrame;
 
 Gen::SilentNoise::SilentNoise()
-  : m_count(0)
+    : Aux::Logger("SilentNoise", "gen")
+    , m_count(0)
 {
 }
 
@@ -22,6 +25,8 @@ void Gen::SilentNoise::configure(const WireCell::Configuration& cfg)
     m_noutputs = get(cfg, "noutputs", 0);
     m_nchannels = get(cfg, "nchannels", 0);
     m_traces_tag = cfg["traces_tag"].asString();
+    log->debug("noutputs={} nchannels={} tag=\"{}\"",
+               m_noutputs, m_nchannels, m_traces_tag);
 }
 
 WireCell::Configuration Gen::SilentNoise::default_configuration() const
@@ -37,10 +42,12 @@ bool Gen::SilentNoise::operator()(output_pointer& out)
 {
     out = nullptr;
     if (m_noutputs and m_count == m_noutputs) {
+        log->debug("count={} EOS", m_count);
         ++m_count;
         return true;
     }
     if (m_noutputs and m_count >= m_noutputs) {
+        log->debug("count={} empty", m_count);
         return false;
     }
     // std::cerr << "SilentNoise: output #" << m_count << " / " << m_noutputs << std::endl;
@@ -55,6 +62,7 @@ bool Gen::SilentNoise::operator()(output_pointer& out)
         sfout->tag_traces(m_traces_tag, tl);
     }
     out = IFrame::pointer(sfout);
+    log->debug("count={}", m_count);
     ++m_count;
     return true;
 }

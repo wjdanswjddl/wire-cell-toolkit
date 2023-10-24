@@ -1,4 +1,5 @@
 bld.smplpkg('WireCellPytorch', use='WireCellAux LIBTORCH')
+#    p.rule("./${SRC}", source=["test_idft", "TorchDFT", "WireCellPytorch"])
 
 ## when building with __DEBUG__ defined in DNNROIFinding you need to
 ## temporarily add HDF5 as a dependency.

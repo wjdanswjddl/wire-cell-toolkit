@@ -1,5 +1,5 @@
 bld.install_files('${PREFIX}/share/wirecell',
-                  bld.path.ant_glob("*.jsonnet") +
+                       bld.path.ant_glob("*.jsonnet") +
                   bld.path.ant_glob("pgrapher/common/**/*.jsonnet") +
                   bld.path.ant_glob("pgrapher/ui/**/*.jsonnet"),
                   relative_trick=True)
@@ -11,3 +11,5 @@ if exps:
                           bld.path.ant_glob("pgrapher/experiment/%s/**/*.jsonnet" % exp) +
                           bld.path.ant_glob("pgrapher/experiment/%s/**/*.fcl" % exp),
                           relative_trick=True)
+
+bld.smplpkg('WireCellCfg')

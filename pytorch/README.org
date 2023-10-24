@@ -1,4 +1,5 @@
 #+title: WCT usages of libtorch 
+#+include: ../docs/include-readme.org
 
 We call this package "pytorch" but really it is C++.
 

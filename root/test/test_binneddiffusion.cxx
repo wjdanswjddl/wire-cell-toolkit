@@ -1,7 +1,7 @@
 #include "WireCellAux/DftTools.h"
 
 #include "WireCellGen/BinnedDiffusion.h"
-#include "WireCellIface/SimpleDepo.h"
+#include "WireCellAux/SimpleDepo.h"
 #include "WireCellUtil/ExecMon.h"
 #include "WireCellUtil/Testing.h"
 #include "WireCellUtil/Point.h"
@@ -107,7 +107,7 @@ void test_track(Meta& meta, double charge, double track_time, const Ray& track_r
         const double sigmaL = sqrt(tmpcm2) * units::centimeter / drift_speed;
         const double sigmaT = sqrt(2 * DT * drift_time / units::centimeter2) * units::centimeter2;
 
-        auto depo = std::make_shared<SimpleDepo>(time, pt, charge);
+        auto depo = std::make_shared<Aux::SimpleDepo>(time, pt, charge);
         bd.add(depo, sigmaL, sigmaT);
         // cerr << "dist: " <<dist/units::mm << "mm, drift: " << drift_time/units::us << "us depo:" << depo->pos() << "
         // @ " << depo->time()/units::us << "us\n";

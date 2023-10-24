@@ -1,0 +1,12 @@
+; DO NOT EDIT (unless you know what you are doing)
+;
+; This subdirectory is a git "subrepo", and this file is maintained by the
+; git-subrepo command. See https://github.com/ingydotnet/git-subrepo#readme
+;
+[subrepo]
+	remote = https://github.com/bats-core/bats-core.git
+	branch = master
+	commit = a710639259917292afd3a997390586f126a4b9dc
+	parent = bd90b968876af2fd3d53c93d5404cb22c55296d9
+	method = merge
+	cmdver = 0.4.5

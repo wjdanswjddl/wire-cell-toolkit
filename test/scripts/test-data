@@ -1,0 +1,70 @@
+#!/bin/bash
+# Helper commands to deal with test data
+
+repo_url="https://www.phy.bnl.gov/~bviren/tmp/wcttest/data_repo"
+
+topdir=$(dirname $(dirname $(dirname $(realpath $BASH_SOURCE))))
+tstdir="$topdir/build/tests"
+
+
+cmd_versions () {
+    cd $tstdir
+    for one in */*
+    do
+        echo $(basename $one)
+    done | sort -u
+}
+
+cmd_categories () {
+    cd $tstdir
+    for one in *
+    do
+        echo $(basename $one)
+    done
+}
+
+# Pack test data into archives
+cmd_pack () {
+    
+    local here=$(pwd)
+    cd $tstdir
+
+    for categ in $(cmd_categories)
+    do
+        for verdir in ${categ}/*
+        do
+            local ver=$(basename $verdir)
+            local tfile=$here/${categ}-${ver}.tar
+            tar -cf $tfile $verdir
+            echo $tfile
+        done
+    done
+}
+
+die () {
+    echo "$@" 1>&2
+    exit 1
+}
+
+# Get an archive
+cmd_get () {
+
+    cd $tstdir
+
+    if [ -z "$1" ] ; then
+        curl --silent "${repo_url}/input.tar" | tar -xf -
+        echo "$tstdir/input"
+        return
+    fi
+
+    for version in $@
+    do
+        curl --silent "${repo_url}/history-${version}.tar" | tar -xf -
+        echo "$tstdir/history/$version"
+    done
+}
+
+
+
+cmd=$1 ; shift
+cmd_$cmd $@

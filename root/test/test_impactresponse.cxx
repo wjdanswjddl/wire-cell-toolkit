@@ -25,6 +25,7 @@
 
 using namespace WireCell;
 using namespace WireCell::Test;
+using namespace WireCell::Aux::DftTools;
 using namespace std;
 
 using spdlog::debug;
@@ -107,7 +108,7 @@ void plot_time(MultiPdf& mpdf, const IDFT::pointer& idft,
         // }
         auto spec = ir->spectrum();
         // auto wave = Waveform::idft(spec);
-        auto wave = Aux::inv_c2r(idft, spec);
+        auto wave = inv_c2r(idft, spec);
         pitch += 0.001 * impact_dist;
         for (int ind = 0; ind < ntbins; ++ind) {
             const double time = tbins.center(ind);

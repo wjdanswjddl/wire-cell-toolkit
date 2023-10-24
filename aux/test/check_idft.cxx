@@ -49,6 +49,7 @@
 using namespace WireCell;
 using namespace WireCell::Stream;
 using namespace WireCell::Aux::Test;
+using namespace WireCell::Aux::DftTools;
 
 using scalar_t = float;
 using array_xxf = Eigen::Array<scalar_t, Eigen::Dynamic, Eigen::Dynamic>;
@@ -116,42 +117,42 @@ pig_array dispatch(const IDFT::pointer& dft, const pig_array& pa, const std::str
     // vector
 
     if (op == "fwd1d") 
-        return v2p<complex_t>(Aux::fwd(dft, p2v<complex_t>(pa)));
+        return v2p<complex_t>(fwd(dft, p2v<complex_t>(pa)));
 
     if (op == "inv1d") 
-        return v2p<complex_t>(Aux::inv(dft, p2v<complex_t>(pa)));
+        return v2p<complex_t>(inv(dft, p2v<complex_t>(pa)));
             
     if (op == "fwd1d_r2c") 
-        return v2p<complex_t>(Aux::fwd_r2c(dft, p2v<scalar_t>(pa)));
+        return v2p<complex_t>(fwd_r2c(dft, p2v<scalar_t>(pa)));
 
     if (op == "inv1d_c2r") 
-        return v2p<scalar_t>(Aux::inv_c2r(dft, p2v<complex_t>(pa)));
+        return v2p<scalar_t>(inv_c2r(dft, p2v<complex_t>(pa)));
 
     // array
 
     if (op == "fwd2d")
-        return a2p<complex_t>(Aux::fwd(dft, p2a<complex_t>(pa)));
+        return a2p<complex_t>(fwd(dft, p2a<complex_t>(pa)));
 
     if (op == "inv2d")
-        return a2p<complex_t>(Aux::inv(dft, p2a<complex_t>(pa)));
+        return a2p<complex_t>(inv(dft, p2a<complex_t>(pa)));
 
     // if (op == "fwd2d_r2c")
-    //     return a2p<complex_t>(Aux::fwd_r2c(dft, p2a<scalar_t>(pa)));
+    //     return a2p<complex_t>(fwd_r2c(dft, p2a<scalar_t>(pa)));
 
     // if (op == "inv2d_c2r")
-    //     return a2p<scalar_t>(Aux::inv_c2r(dft, p2a<complex_t>(pa)));
+    //     return a2p<scalar_t>(inv_c2r(dft, p2a<complex_t>(pa)));
 
     if (op == "fwd1b0")
-        return a2p<complex_t>(Aux::fwd(dft, p2a<complex_t>(pa), 0));
+        return a2p<complex_t>(fwd(dft, p2a<complex_t>(pa), 0));
 
     if (op == "fwd1b1")
-        return a2p<complex_t>(Aux::fwd(dft, p2a<complex_t>(pa), 1));
+        return a2p<complex_t>(fwd(dft, p2a<complex_t>(pa), 1));
 
     if (op == "inv1b0")
-        return a2p<complex_t>(Aux::inv(dft, p2a<complex_t>(pa), 0));
+        return a2p<complex_t>(inv(dft, p2a<complex_t>(pa), 0));
 
     if (op == "inv1b1")
-        return a2p<complex_t>(Aux::inv(dft, p2a<complex_t>(pa), 1));
+        return a2p<complex_t>(inv(dft, p2a<complex_t>(pa), 1));
 
     if (op == "" or op == "noop" or op == "no-op") {
         return pa;

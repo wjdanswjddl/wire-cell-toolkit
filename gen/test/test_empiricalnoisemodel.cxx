@@ -50,7 +50,7 @@ std::ostream& dump_spectra(std::ostream& os, const std::string& fname)
 
 int main(int argc, char* argv[])
 {
-    Testing::loginit(argv[0]);
+    // Testing::loginit(argv[0]);
 
     auto rng = Testing::get_random();
     auto dft = Testing::get_dft();
@@ -84,7 +84,7 @@ int main(int argc, char* argv[])
     std::map<uint32_t, IChannelSpectrum::amplitude_t> amps;
 
     for (auto chid : anodes[0]->channels()) {
-        const auto& spec = (*enm)(chid);
+        const auto& spec = enm->channel_spectrum(chid);
         if (spec.size() != nsamples) {
             std::cerr << "EmpiricalNoiseModel is broken: ask for " << nsamples << " got " << spec.size() << "\n";
         }

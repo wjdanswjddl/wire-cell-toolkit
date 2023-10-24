@@ -1,4 +1,5 @@
 #+title: wire-cell-root
+#+include: ../docs/include-readme.org
 
 This packages houses dependencies on ROOT.
 

@@ -9,6 +9,8 @@ WIRECELL_FACTORY(testChannelNoiseDB, WireCell::SigProc::SimpleChannelNoiseDB, Wi
 
 using namespace WireCell;
 using namespace WireCell::SigProc;
+using WireCell::Aux::DftTools::fwd_r2c;
+
 
 SimpleChannelNoiseDB::SimpleChannelNoiseDB(double tick, int nsamples)
   : m_tick(-1)
@@ -255,7 +257,7 @@ void SimpleChannelNoiseDB::set_rcrc_constant(const std::vector<int>& channels, d
     //    auto signal = rcres.generate(WireCell::Binning(m_nsamples, 0, m_nsamples*m_tick));
     auto signal = rcres.generate(WireCell::Waveform::Domain(0, m_nsamples * m_tick), m_nsamples);
 
-    Waveform::compseq_t spectrum = Aux::fwd_r2c(m_dft, signal);
+    Waveform::compseq_t spectrum = fwd_r2c(m_dft, signal);
 
     // std::cout << rcrc << " " << m_tick << " " << m_nsamples << " " << signal.front() << " " << signal.at(1) << " " <<
     // signal.at(2) << std::endl;
@@ -310,9 +312,9 @@ void SimpleChannelNoiseDB::set_gains_shapings(const std::vector<int>& channels, 
     auto to_sig = to_ce.generate(WireCell::Waveform::Domain(0, m_nsamples * m_tick), m_nsamples);
     auto from_sig = from_ce.generate(WireCell::Waveform::Domain(0, m_nsamples * m_tick), m_nsamples);
 
-    auto to_filt = Aux::fwd_r2c(m_dft, to_sig);
+    auto to_filt = fwd_r2c(m_dft, to_sig);
 
-    auto from_filt = Aux::fwd_r2c(m_dft, from_sig);
+    auto from_filt = fwd_r2c(m_dft, from_sig);
 
     // auto from_filt_sum = Waveform::sum(from_filt);
     // auto to_filt_sum   = Waveform::sum(to_filt);

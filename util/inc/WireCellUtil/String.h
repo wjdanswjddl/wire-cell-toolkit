@@ -44,13 +44,16 @@ namespace WireCell {
         inline boost::format format_flatten(boost::format f) { return f; }
 
         /** The format() function provides an sprintf() like function.
-         It's a wrapper on boost::format() but returns a string
-         instead of a stream and has function calling semantics
-         instead of the "%" list.  Use like:
 
-         int a=42;
-         std::string foo = "bar";
-         std::string msg = format("the answer to %s is %d", foo, a);
+            It's a wrapper on boost::format() but returns a string
+            instead of a stream and printf() like semantics.
+
+            int a=42;
+            std::string foo = "bar";
+            std::string msg = format("the answer to %s is %d", foo, a);
+
+            Note, the "%"-formatting markup syntax is different than
+            that used in logging.
         */
 
         template <typename... TYPES>
@@ -70,6 +73,17 @@ namespace WireCell {
             ss << obj;
             return ss.str();
         }
+
+        inline
+        std::string indent(size_t num, const std::string& tab="\t")
+        {
+            std::stringstream ss;
+            for (size_t ind=0; ind<num; ++ind) ss << tab;
+            return ss.str();
+        }
+
+        bool endswith(const std::string& whole, const std::string& part);
+        bool startswith(const std::string& whole, const std::string& part);
 
     }  // namespace String
 }  // namespace WireCell

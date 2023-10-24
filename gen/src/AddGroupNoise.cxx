@@ -1,10 +1,9 @@
 #include "WireCellGen/AddGroupNoise.h"
-#include "Noise.h"
 
 #include "WireCellAux/DftTools.h"
 
-#include "WireCellIface/SimpleFrame.h"
-#include "WireCellIface/SimpleTrace.h"
+#include "WireCellAux/SimpleFrame.h"
+#include "WireCellAux/SimpleTrace.h"
 
 #include "WireCellUtil/NamedFactory.h"
 #include "WireCellUtil/Persist.h"
@@ -18,6 +17,9 @@ WIRECELL_FACTORY(AddGroupNoise, WireCell::Gen::AddGroupNoise,
 
 using namespace std;
 using namespace WireCell;
+using WireCell::Aux::DftTools::inv_c2r;
+using WireCell::Aux::SimpleTrace;
+using WireCell::Aux::SimpleFrame;
 
 Gen::AddGroupNoise::AddGroupNoise(const std::string &spectra_file,
                                   const std::string &map_file,
@@ -118,7 +120,7 @@ bool Gen::AddGroupNoise::operator()(const input_pointer &inframe,
     int groupID = m_ch2grp[chid];
 
     WireCell::Waveform::compseq_t noise_freq = m_grp2noise[groupID];
-    auto wave = Aux::inv_c2r(m_dft, noise_freq);
+    auto wave = inv_c2r(m_dft, noise_freq);
     wave.resize(m_nsamples, 0);
 
     Waveform::increase(wave, intrace->charge());

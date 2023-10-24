@@ -19,11 +19,11 @@ local fcl_params = {
 local params = params_maker(fcl_params) {
   lar: super.lar {
     // Longitudinal diffusion constant
-    DL: std.extVar('DL') * wc.cm2 / wc.s,
+    DL: std.extVar('DL') * wc.cm2 / wc.ns,
     // Transverse diffusion constant
-    DT: std.extVar('DT') * wc.cm2 / wc.s,
+    DT: std.extVar('DT') * wc.cm2 / wc.ns,
     // Electron lifetime
-    lifetime: std.extVar('lifetime') * wc.ms,
+    lifetime: std.extVar('lifetime') * wc.us,
     // Electron drift speed, assumes a certain applied E-field
     drift_speed: std.extVar('driftSpeed') * wc.mm / wc.us,
   },
@@ -86,15 +86,21 @@ local wcls_output = {
   // "raw data".
   nf_digits: wcls.output.digits(name='nfdigits', tags=['raw']),
 
-  // The output of signal processing.  Note, there are two signal
-  // sets each created with its own filter.  The "gauss" one is best
-  // for charge reconstruction, the "wiener" is best for S/N
-  // separation.  Both are used in downstream WC code.
-  sp_signals: wcls.output.signals(name='spsignals', tags=['gauss', 'wiener']),
+  // this wcls.output.signals one only use one APA?
+  // sp_signals: wcls.output.signals(name='spsignals', tags=['gauss', 'wiener']),
+  sp_signals: g.pnode({
+  type: 'wclsFrameSaver',
+  name: 'spsignals',
+  data: {
+    anode: wc.tn(mega_anode),
+    digitize: false,  // true means save as RawDigit, else recob::Wire
+    frame_tags: ['gauss', 'wiener','dnnsp'],
+    frame_scale: [0.005, 0.005, 0.005],
+    chanmaskmaps: [],
+    nticks: params.daq.nticks,
+  },
+  }, nin=1, nout=1, uses=[mega_anode]),
 
-  // save "threshold" from normal decon for each channel noise
-  // used in imaging
-  sp_thresholds: wcls.output.thresholds(name='spthresholds', tags=['threshold']),
 };
 
 //local deposio = io.numpy.depos(output);
@@ -173,9 +179,19 @@ local multipass = [
              'multipass%d' % n)
   for n in anode_iota
 ];
-local outtags = ['orig%d' % n for n in anode_iota];
-local bi_manifold = f.fanpipe('DepoSetFanout', multipass, 'FrameFanin', 'sn_mag_nf', outtags);
-// local bi_manifold = f.fanpipe('DepoFanout', multipass, 'FrameFanin', 'sn_mag_nf', outtags);
+local outtags = [];
+local tag_rules = {
+    frame: {
+        '.*': 'framefanin',
+    },
+    trace: {['gauss%d' % anode.data.ident]: ['gauss%d' % anode.data.ident] for anode in tools.anodes}
+        + {['wiener%d' % anode.data.ident]: ['wiener%d' % anode.data.ident] for anode in tools.anodes}
+        + {['threshold%d' % anode.data.ident]: ['threshold%d' % anode.data.ident] for anode in tools.anodes}
+        + {['dnnsp%d' % anode.data.ident]: ['dnnsp%d' % anode.data.ident] for anode in tools.anodes},
+};
+local bi_manifold = f.multifanpipe('DepoSetFanout', multipass, 'FrameFanin', [1,2], [2,6], [1,2], [2,6], 'sn_mag_nf', outtags, tag_rules);
+// local bi_manifold = f.fanpipe('DepoSetFanout', multipass, 'FrameFanin', 'sn_mag_nf', outtags, tag_rules);
+// local bi_manifold = f.fanpipe('DepoFanout', multipass, 'FrameFanin', 'sn_mag_nf', outtags, tag_rules);
 
 local retagger = g.pnode({
   type: 'Retagger',

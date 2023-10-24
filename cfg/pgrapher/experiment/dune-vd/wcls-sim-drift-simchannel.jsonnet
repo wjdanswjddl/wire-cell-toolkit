@@ -98,10 +98,6 @@ local wcls_output = {
   // for charge reconstruction, the "wiener" is best for S/N
   // separation.  Both are used in downstream WC code.
   sp_signals: wcls.output.signals(name='spsignals', tags=['gauss', 'wiener']),
-
-  // save "threshold" from normal decon for each channel noise
-  // used in imaging
-  sp_thresholds: wcls.output.thresholds(name='spthresholds', tags=['threshold']),
 };
 
 //local deposio = io.numpy.depos(output);
@@ -183,7 +179,7 @@ local multipass = [
 ];
 
 // assert (fcl_params.ncrm == 36 || fcl_params.ncrm == 112) : "only ncrm == 36 or 112 are configured";
-local f = import 'pgrapher/experiment/dune-vd/funcs.jsonnet';
+local f = import 'pgrapher/common/funcs.jsonnet';
 local outtags = ['orig%d' % n for n in anode_iota];
 // local bi_manifold = f.multifanpipe('DepoSetFanout', multipass, 'FrameFanin', 6, 'sn_mag', outtags);
 local bi_manifold =

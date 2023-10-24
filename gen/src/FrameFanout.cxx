@@ -3,13 +3,14 @@
 #include "WireCellUtil/NamedFactory.h"
 #include "WireCellUtil/Exceptions.h"
 #include "WireCellAux/FrameTools.h"
-#include "WireCellIface/SimpleFrame.h"
+#include "WireCellAux/SimpleFrame.h"
 
 WIRECELL_FACTORY(FrameFanout, WireCell::Gen::FrameFanout,
                  WireCell::INamed,
                  WireCell::IFrameFanout, WireCell::IConfigurable)
 
 using namespace WireCell;
+using WireCell::Aux::SimpleFrame;
 
 Gen::FrameFanout::FrameFanout(size_t multiplicity)
     : Aux::Logger("FrameFanout", "glue")

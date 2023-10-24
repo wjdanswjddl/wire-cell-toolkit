@@ -1,0 +1,7 @@
+#+title: WCT Test Scripts
+
+This area holds some scripts to automate some things related to WCT
+testing.
+
+- [[file:celltree-excerpt]] :: Excerpt one event from a celltree ROOT file to produce a WCT file.
+

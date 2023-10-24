@@ -7,9 +7,28 @@ local f = import 'pgrapher/common/funcs.jsonnet';
 local wc = import 'wirecell.jsonnet';
 
 local io = import 'pgrapher/common/fileio.jsonnet';
-local tools_maker = import 'pgrapher/common/tools.jsonnet';
+local tools_maker = import 'pgrapher/experiment/icarus/icarus_tools.jsonnet';
 // local params = import 'pgrapher/experiment/icarus/simparams.jsonnet';
 local base = import 'pgrapher/experiment/icarus/simparams.jsonnet';
+
+// load the electronics response parameters
+local er_params = [
+  {
+    gain: std.extVar('gain0')*wc.mV/wc.fC,
+    shaping: std.extVar('shaping0')*wc.us,
+  },
+
+  {
+    gain: std.extVar('gain1')*wc.mV/wc.fC,
+    shaping: std.extVar('shaping1')*wc.us,
+  },
+
+  {
+    gain: std.extVar('gain2')*wc.mV/wc.fC,
+    shaping: std.extVar('shaping2')*wc.us,
+  },
+];
+
 local params = base {
   lar: super.lar {
     // Longitudinal diffusion constant
@@ -21,6 +40,28 @@ local params = base {
     // Electron drift speed, assumes a certain applied E-field
     // drift_speed: std.extVar('driftSpeed') * wc.mm / wc.us,
   },
+  files: super.files {
+    fields: [ std.extVar('files_fields'), ],
+  },
+
+  rc_resp: if std.extVar('file_rcresp') != "" then
+  {
+    // "icarus_fnal_rc_tail.json"
+    filename: std.extVar('file_rcresp'),
+    postgain: 1.0,
+    start: 0.0,
+    tick: 0.4*wc.us,
+    nticks: 4255,
+    type: "JsonElecResponse",
+    rc_layers: 1
+  }
+  else super.rc_resp,
+
+  elec: std.mapWithIndex(function (n, eparam)
+    super.elec[n] + {
+      gain: eparam.gain,
+      shaping: eparam.shaping,
+    }, er_params),
 };
 
 local tools = tools_maker(params);
@@ -41,9 +82,24 @@ local output = 'wct-sim-ideal-sig.npz';
 
 local wcls_maker = import 'pgrapher/ui/wcls/nodes.jsonnet';
 local wcls = wcls_maker(params, tools);
+//local wcls_input = {
+//  // depos: wcls.input.depos(name="", art_tag="ionization"),
+//  depos: wcls.input.depos(name='electron', art_tag='ionization'),  // default art_tag="blopper"
+//};
+
+//Haiwang DepoSetSource Implementation:
 local wcls_input = {
-  // depos: wcls.input.depos(name="", art_tag="ionization"),
-  depos: wcls.input.depos(name='electron', art_tag='ionization'),  // default art_tag="blopper"
+	depos: wcls.input.depos(name="", art_tag="IonAndScint"),
+	deposet: g.pnode({
+        	type: 'wclsSimDepoSetSource',
+        	name: "electron",
+        	data: {
+            	model: "",
+            	scale: -1, //scale is -1 to correct a sign error in the SimDepoSource converter.
+            	art_tag: "ionization", //name of upstream art producer of depos "label:instance:processName"
+            	assn_art_tag: "",
+        	},
+    	}, nin=0, nout=1),
 };
 
 // Collect all the wc/ls output converters for use below.  Note the
@@ -106,13 +162,41 @@ local wcls_output = {
   // separation.  Both are used in downstream WC code.
   sp_signals: wcls.output.signals(name='spsignals', tags=['gauss', 'wiener']),
 
-  // save "threshold" from normal decon for each channel noise
-  // used in imaging
-  sp_thresholds: wcls.output.thresholds(name='spthresholds', tags=['threshold']),
 };
 
 //local deposio = io.numpy.depos(output);
-local drifter = sim.drifter;
+//local drifter = sim.drifter;
+local localeLiftime = [std.extVar('lifetime') * wc.us,std.extVar('lifetime') * wc.us,std.extVar('lifetime') * wc.us,std.extVar('lifetime') * wc.us,std.extVar('lifetime') * wc.us,std.extVar('lifetime') * wc.us,std.extVar('lifetime') * wc.us,std.extVar('lifetime') * wc.us];
+local drifters = [{
+        local xregions = wc.unique_list(std.flattenArrays([v.faces for v in params.det.volumes])),
+
+        type: "Drifter",
+	name: "drifter%d" %n,
+        data: params.lar {
+            rng: wc.tn(tools.random),
+            xregions: xregions,
+            time_offset: params.sim.depo_toffset,
+
+            drift_speed: params.lar.drift_speed,
+            fluctuate: params.sim.fluctuate,
+
+            DL: params.lar.DL,
+            DT: params.lar.DT,
+            lifetime: localeLiftime[n],
+
+        },
+    } 
+	for n in std.range(0,7)];
+
+local setdrifter = [g.pnode({
+            type: 'DepoSetDrifter',
+	    name: 'setdrifter%d' %n,
+            data: {
+                drifter: wc.tn(drifters[n])
+            }
+        }, nin=1, nout=1,
+        uses=[drifters[n]])
+	for n in std.range(0,7)];
 local bagger = sim.make_bagger();
 
 // signal plus noise pipelines
@@ -138,12 +222,12 @@ local sp = sp_maker(params, tools);
 local sp_pipes = [sp.make_sigproc(a) for a in tools.anodes];
 
 local rng = tools.random;
-local wcls_simchannel_sink = g.pnode({
-  type: 'wclsSimChannelSink',
-  name: 'postdrift',
+local wcls_simchannel_sink = [ g.pnode({
+  type: 'wclsDepoSetSimChannelSink',
+  name: 'postdrift%d' %n,
   data: {
-    artlabel: 'simpleSC',  // where to save in art::Event
-    anodes_tn: [wc.tn(anode) for anode in tools.anodes],
+    artlabel: 'simpleSC%d' %n,  // where to save in art::Event
+    anode: wc.tn(tools.anodes[n]),//[wc.tn(anode) for anode in tools.anodes],
     rng: wc.tn(rng),
     tick: params.daq.tick,
     start_time: -0.34 * wc.ms, // TriggerOffsetTPC from detectorclocks_icarus.fcl
@@ -153,54 +237,53 @@ local wcls_simchannel_sink = g.pnode({
     u_to_rp: 100 * wc.mm,
     v_to_rp: 100 * wc.mm,
     y_to_rp: 100 * wc.mm,
-    u_time_offset: 0.0 * wc.us,
-    v_time_offset: 0.0 * wc.us,
-    y_time_offset: 0.0 * wc.us,
-    g4_ref_time: -1150 * wc.us, // G4RefTime from detectorclocks_icarus.fcl
+
+    // GP: The shaping time of the electronics response (1.3us) shifts the peak
+    //     of the field response time. Eyeballing simulation times, it does this
+    //     by a bit less than the 1.3us (1us).
+    //
+    //     N.B. for future: there is likely an additional offset on the two induction
+    //     planes due to where the deconvolution precisely defines where the "peak"
+    //     of the pulse is. One may want to refine these parameters to account for that.
+    //     This perturbation shouldn't be more than a tick or two.
+    u_time_offset: std.extVar('time_offset_u') * wc.us,
+    v_time_offset: std.extVar('time_offset_v') * wc.us,
+    y_time_offset: std.extVar('time_offset_y') * wc.us,
+
+    g4_ref_time: -1500 * wc.us, // G4RefTime from detectorclocks_icarus.fcl
     use_energy: true,
   },
-}, nin=1, nout=1, uses=tools.anodes);
+}, nin=1, nout=1, uses=tools.anodes)
+for n in std.range(0,7)];
 
-local make_noise_model = function(anode,n, csdb=null) {
-    type: "EmpiricalNoiseModel",
-    name: "empericalnoise-" + anode.name,
-    data: {
-        anode: wc.tn(anode),
-        dft: wc.tn(tools.dft),
-        chanstat: if std.type(csdb) == "null" then "" else wc.tn(csdb),
-        spectra_file: params.files.noise[n],
-        nsamples: params.daq.nticks,
-        period: params.daq.tick,
-        wire_length_scale: 1.0*wc.cm, // optimization binning
-    },
-    uses: [anode, tools.dft] + if std.type(csdb) == "null" then [] else [csdb],
-};
+local nicks = ["incoTPCEE","incoTPCEW","incoTPCWE","incoTPCWW", "coheTPCEE","coheTPCEW","coheTPCWE","coheTPCWW"];
+local scale_int = std.extVar('int_noise_scale');
+local scale_coh = std.extVar('coh_noise_scale');
+local models = [
+    {
+        type: "GroupNoiseModel",
+        name: nicks[n],
+        data: {
+            // This can also be given as a JSON/Jsonnet file
+            spectra: params.files.noisegroups[n],
+            groups: params.files.wiregroups,
+            scale: if n<4 then scale_int else scale_coh,
+            nsamples: params.daq.nticks,
+            tick: params.daq.tick,
+        }
+    } for n in std.range(0,7)];
 
-local noise_model = [make_noise_model(mega_anode,n) for n in std.range(0,3)];
-local add_noise = function(model, n) g.pnode({
-    type: "AddNoise",
+local add_noise = function(model, n,t) g.pnode({
+    type: t,
     name: "addnoise%d-" %n + model.name,
     data: {
         rng: wc.tn(tools.random),
-        dfg: wc.tn(tools.dft),
+        dft: wc.tn(tools.dft),
         model: wc.tn(model),
-  nsamples: params.daq.nticks,
-        replacement_percentage: 0.02, // random optimization
+        nsamples: params.daq.nticks,
     }}, nin=1, nout=1, uses=[tools.random, tools.dft, model]);
-local noises = [add_noise(noise_model[n], n) for n in std.range(0,3)];
-
-local add_coherent_noise = function(n) g.pnode({
-      type: "AddGroupNoise",
-      name: "addgroupnoise%d" %n,
-      data: {
-          spectra_file: params.files.noisegroups[n],
-	  map_file: params.files.wiregroups,
-          rng: wc.tn(tools.random),
-          dft: wc.tn(tools.dft),
-          nsamples: params.daq.nticks,
-	  spec_scale: 1.1,
-      }}, nin=1, nout=1, uses=[tools.random, tools.dft]);
-local coherent_noises = [add_coherent_noise(n) for n in std.range(0,3)];
+local noises = [add_noise(models[n], n,"IncoherentAddNoise") for n in std.range(0,3)];
+local coh_noises = [add_noise(models[n],n,"CoherentAddNoise") for n in std.range(4,7)];
 
 // local digitizer = sim.digitizer(mega_anode, name="digitizer", tag="orig");
 local digitizers = [
@@ -237,10 +320,24 @@ local frame_summers = [
         },
     }, nin=2, nout=1) for n in std.range(0, 3)];
 
-local actpipes = [g.pipeline([noises[n], coherent_noises[n], digitizers[n], /*retaggers[n],*/ wcls_output.sim_digits[n]], name="noise-digitizer%d" %n) for n in std.range(0,3)];
+local deposetfilter = [ g.pnode({
+            type: 'DepoSetFilter',
+   	    name: 'deposetfilter%d' %n,
+            data: {
+                anode: wc.tn(tools.anodes[n])
+            }
+        }, nin=1, nout=1,
+        uses=tools.anodes)
+	for n in std.range(0,7)];
+
+local actpipes = [g.pipeline([noises[n], coh_noises[n], digitizers[n], /*retaggers[n],*/ wcls_output.sim_digits[n]], name="noise-digitizer%d" %n) for n in std.range(0,3)];
 local util = import 'pgrapher/experiment/icarus/funcs.jsonnet';
 local outtags = ['orig%d' % n for n in std.range(0, 3)];
 local pipe_reducer = util.fansummer('DepoSetFanout', analog_pipes, frame_summers, actpipes, 'FrameFanin', 'fansummer', outtags);
+
+local driftpipes = [g.pipeline([deposetfilter[n],setdrifter[n], wcls_simchannel_sink[n]], name="depo-set-drifter%d" %n) for n in std.range(0,7)];
+
+local pipe_drift = util.fandrifter('DepoSetFanout',driftpipes,analog_pipes, frame_summers, actpipes, 'FrameFanin', 'fandrifter', outtags);
 
 // local retagger = g.pnode({
 //   type: 'Retagger',
@@ -263,8 +360,12 @@ local pipe_reducer = util.fansummer('DepoSetFanout', analog_pipes, frame_summers
 local sink = sim.frame_sink;
 
 // local graph = g.pipeline([wcls_input.depos, drifter,  wcls_simchannel_sink, bagger, pipe_reducer, retagger, wcls_output.sim_digits, sink]);
-local graph = g.pipeline([wcls_input.depos, drifter,  wcls_simchannel_sink, bagger, pipe_reducer, sink]);
+//local graph = g.pipeline([wcls_input.depos, drifter,  wcls_simchannel_sink, bagger, pipe_reducer, sink]);
 
+
+
+local graph = g.pipeline([wcls_input.deposet,pipe_drift, sink]);
+//local graph = g.pipeline([depos,pipe_drift, sink]);
 local app = {
   type: 'Pgrapher',
   data: {

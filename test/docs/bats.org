@@ -1,0 +1,629 @@
+#+title: WCT BATS Tests
+#+include: ../../docs/include-topic.org
+
+* Overview
+
+This document describes how Wire-Cell Toolkit uses the [[https://bats-core.readthedocs.io][Bash Automated Testing System]] (BATS) for "integration" type testing.
+
+The document begins with "quick start" instructions for using BATS in the context of WCT source.  Next it gives a very brief and general introduction to BATS.  Then a section describes how WCT, specifically, uses BATS.  A final section provides tips and tricks for developers to get the most out of BATS for WCT tests.
+
+* Quick start
+
+To directly use the version of BATS that is provided by the ~wire-cell-toolkit~ the user must set the following environment variables:
+
+#+begin_example
+  $ PATH=/path/to/my/wire-cell-toolkit/test/bats/bin:$PATH
+  $ export BATS_LIB_PATH=/path/to/my/wire-cell-toolkit/test
+#+end_example
+
+#+begin_note
+The WCT build system will automatically locate the provided BATS.  Users require the above settings only if they will run the ~bats~ command directly on their shell command line.
+#+end_note
+
+BATS tests are run by the ~bats~ command.  For example:
+
+#+begin_example
+  $ bats --help
+  Bats 1.9.0
+  Usage: bats [OPTIONS] <tests>
+  ...
+  
+  $ bats test/test/test_bats.bats
+  test_bats.bats
+   ✓ divine context
+   ✓ test wct bats
+   ✓ dump wcb env
+   ✓ dump shell env
+   ✓ dump bats env
+   ✓ saveout
+  
+  6 tests, 0 failures
+#+end_example
+
+* Brief introduction to BATS
+
+BATS tests are organized as one or more *test cases* in one or more *test files*.  A selection of test cases and files may be executed as a *test run*.  A BATS file is essentially a Bash shell script with a number of "weird looking" functions that provide the test cases.  A test case function looks like the following:
+
+#+begin_example
+@test "description of test" {
+  # ... shell code body of test
+}  
+#+end_example
+
+With very little additional effort compared to writing a "normal" Bash scripts, BATS tests provides benefits such as:
+
+- standard forms to run a suite of test cases and test files and select individual tests.
+- management of stdout/stderr logging.
+- simple ways to run commands and check for success.
+- test timing measurements.
+
+#+begin_note
+The [[https://bats-core.readthedocs.io/en/stable/tutorial.html][official BATS tutorial]] is very good and the reader may consider browsing it.  However, please note that WCT's use of BATS makes some limiting decisions in order to simplify writing tests and to apply some uniformity across the suite of WCT tests.  In particular, please ignore BATS facets such as logging, temporary directories and parallel execution as WCT provides alternatives.  The remainder of this document will cover BATS basics as well WCT-specific usage.
+#+end_note
+
+** BATS basics
+
+As introduced above, a BATS test is very much like a normal Bash function but with an unusual signature.  The ~bats~ command runs tests and interprets any command exiting with an error code as indicating the test itself has failed.
+
+Perhaps the simplest, most useless test is:
+
+#+include: bats-as.bats src bash
+
+#+begin_example
+  $ bats bats-as.bats  
+  bats-as.bats
+   ✓ always succeeds
+  
+  1 test, 0 failures
+#+end_example
+
+Despite the ~echo~ in the command, we do not find its message printed to the terminal.  This is because ~bats~ *captures test output* by default.  We can tell ~bats~ to show us output from successful tests:
+
+#+begin_example
+$ bats --show-output-of-passing-tests bats-as.bats
+bats-as.bats
+ ✓ always succeeds
+   this never fails
+
+1 test, 0 failures
+#+end_example
+
+#+begin_note
+We will later show the logging facility that WCT adds to BATS to allows more control over how output is generated and sent to the terminal.
+#+end_note
+
+
+Now, let us look at tests that may fail.  Perhaps the simplest such test is one that always fails:
+
+#+include: bats-af.bats src bash
+
+#+begin_example
+$ bats bats-af.bats 
+✗ always fails
+   (in test file af.bats, line 3)
+     `false' failed
+   this always fails
+
+1 test, 1 failure
+#+end_example
+
+Here we see ~bats~ printing to the terminal the output of the ~echo~ command.  When a test fails, all such output that was emitted prior to the failed command will be shown.
+
+** The ~run~ command
+
+Running a command with the ~run~ command allows the test case code to explicitly interpret failure.  For example:
+
+#+include: bats-run.bats src bash
+
+#+begin_example
+$ bats test/docs/bats-run.bats
+bats-run.bats
+ ✗ always fails
+   (in test file test/docs/bats-run.bats, line 6)
+     `[[ $status -eq 0 ]]' failed
+   this still always fails
+   we ran the failing job and it produced: "" which happens to be empty
+
+1 test, 1 failure
+#+end_example
+
+The variables ~$output~ and ~$status~ are set by the ~run~ command.  The ~$output~ variable holds the text of any output produced by the command given to ~run~ and ~$status~ returns the return/exit status code of the command.  The Unix standard convention is that a status of 0 means success and any other value is an error.
+
+#+begin_note
+We will see below additional functions similar to ~run~ that WCT provides.
+#+end_note
+
+** Special start up and tear down functions
+
+In addition to the special ~@test "" {}~ function forms, BATS supports two optional functions that if defined are called once per file.  The first is called prior to any ~@test~ and the second called after all ~@test~.
+
+#+begin_example
+function setup_file () {
+  # startup code
+}
+function teardown_file () {
+  # shutdown code
+}
+#+end_example
+
+#+begin_note
+While WCT places no convention on the use of these functions, we will see how ~setup_file~ may be used to provide a pattern helpful to developers that exploits /idempotency/.
+#+end_note
+
+** Filtering which tests to run
+
+Typically, a test file will provide more than one test case function.  Often it is useful to run only a subset of test cases.  This may be done by giving ~bats~ a subset of all possible BATS files and to select tests cases via a regular expression *filter*.  Using the example from the quick start:
+
+#+begin_example
+$ bats -f dump test/test/test_bats.bats
+test_bats.bats
+ ✓ dump wcb env
+ ✓ dump shell env
+ ✓ dump bats env
+
+3 tests, 0 failures
+#+end_example
+
+Only the subset of test cases that match the regular expression ~"dump"~ are run.
+
+#+begin_note
+Name your tests with this filtering in mind!
+#+end_note
+
+
+* BATS in WCT
+
+WCT provides a library of Bash functions to help use BATS to test WCT code which is introduced next.  For BATS tests to integrate into the larger WCT testing system that is implemented as part of the Waf-based build system, a number of conventions must be followed.  These are described generally elsewhere and here we give specifics.
+
+** WCT/BATS library
+
+WCT provides a powerful set of Bash functions in a BATS library.  To use this library a BATS file must begin with the line:
+
+#+begin_example
+  bats_load_library "wct-bats.sh"
+#+end_example
+
+This library is located via the ~BATS_LIB_PATH~ and the functions it provides are described later in this document.
+
+Nominally, the library is only meant to be loaded in BATS test files.  However, it also may be executed directly in order to access the reference documentation of the functions it provides.  To list the available functions and their calling synopsis:
+
+#+begin_example
+  $ ./test/wct-bats.sh
+  ...
+  relative_path <path>
+  ...
+#+end_example
+
+And to get reference documentation for one or more particular functions, give their names:
+
+#+begin_example
+  $ ./test/wct-bats.sh relative_path
+  relative_path <path>
+  
+  Resolve a file path relative to the path of the BATS test file.
+#+end_example
+
+** Naming the BATS test file
+
+WCT BATS files follow the general guidelines for writing WCT tests.
+See section on [[file:framework.org][Framework]] and [[file:writing.org][Writing tests]] for that information.
+BATS test files will typically in the "atomic" test group and take the prefix ~test~.
+However, BATS tests are ideal for producing tests in the "history" and "report" groups.
+A BATS test file should be found with a unique pattern like:
+#+begin_example
+<pkg>/test/<group><sep><name>.bats
+#+end_example
+
+If the test specifically relates to an issue on GitHub (and ideally there is a test for every issue) then this is an excellent naming pattern:
+
+#+begin_example
+<pkg>/test/test_issueNNNN.bats
+#+end_example
+
+BATS tests should be placed in a ~<pkg>~ which best provides the run-time dependencies.  For example, if PyTorch is required they should be placed in the ~<pytorch>~ sub package and not the ~<util>~ package.
+
+** Logging
+
+Introduced above, BATS will "eat" any output produced by commands run in tests and only display it to the terminal if the test fails.  The ~wct-bats.sh~ library provides functions and methods to provide the user more control in two ways.  First, it provides logging functions and levels.  Second, it allows controlling where this logging is sunk.
+
+The log levels are the usual, in order of low to high:
+
+- debug :: possibly verbose informaiton for debugging tests themselves
+
+- info :: default, for indicating normal events.
+
+- warn :: for aberrant events but that do not impede nor negate further running.
+
+- error :: for events which may invalidate test results but testing may continue.
+
+- fatal :: events for which the testing can not continue.
+
+For each level there is an identically named command that acts like ~echo~ but emits at the given log level.  In addition the ~die <mgs>~ command may be used to emit at *fatal* level and then exit with an error.
+
+Two user shell environment variables may be set to influence this logging.  These variables should *never* be set in any BATS test.
+
+- ~WCT_BATS_LOG_LEVEL~ :: controls the minimum level for which log messages are generated.  Defaults to *info*.
+
+- ~WCT_BATS_LOG_SINK~ :: controls where log messages are sent.  Default is ~capture~ which allows the messages to be captured by BATS.  A value of ~terminal~ will avoid the capture and the messages will go to the user's terminal.  Any other value is interpreted as the name of a file to which messages are appended.
+
+Here are some examples to illustrate different usages.  The test that is run looks like this:
+
+#+begin_example
+@test "logging" {
+    debug "debug"
+    info "info"
+    warn "warn"
+    error "error"
+    fatal "fatal"
+}
+#+end_example
+
+Here is a simple script that runs this test with various variable settings:
+
+#+include: bats-logging.sh src bash
+
+And, here is it in action:
+
+#+begin_example
++ bats -f logging test/test/test_wct_bats.bats
+test_wct_bats.bats
+ ✓ logging
+
+1 test, 0 failures
+
++ WCT_BATS_LOG_SINK=terminal
++ bats -f logging test/test/test_wct_bats.bats
+test_wct_bats.bats
+ ✓ logging
+2023-06-13 15:09:37.639299650 [ I ] info
+2023-06-13 15:09:37.649325130 [ W ] warn
+2023-06-13 15:09:37.659211353 [ E ] error
+2023-06-13 15:09:37.669331926 [ F ] fatal
+
+1 test, 0 failures
+
++ WCT_BATS_LOG_SINK=terminal
++ WCT_BATS_LOG_LEVEL=error
++ bats -f logging test/test/test_wct_bats.bats
+test_wct_bats.bats
+ ✓ logging
+2023-06-13 15:09:37.839742315 [ E ] error
+2023-06-13 15:09:37.849854155 [ F ] fatal
+
+1 test, 0 failures
+
++ WCT_BATS_LOG_SINK=junk.log
++ bats -f logging test/test/test_wct_bats.bats
+test_wct_bats.bats
+ ✓ logging
+
+1 test, 0 failures
+
++ cat junk.log
+2023-06-13 15:09:38.002741561 [ I ] info
+2023-06-13 15:09:38.012410669 [ W ] warn
+2023-06-13 15:09:38.022147954 [ E ] error
+2023-06-13 15:09:38.031847349 [ F ] fatal
+#+end_example
+
+
+** Creating temporary files
+
+It is very common for tests to need a directory in which to place files produced during the test.  BATS tests in WCT *must never* create their own temporary directories and instead *should always* use the WCT function ~cd_tmp~, described below.  This function leverages the set of *context-dependent temporary working directories* that are managed by BATS:
+
+- test :: one for each ~@test~ function.
+
+- file :: one for each ~.bats~ test file.
+
+- run :: one for each execution of the ~bats~ command.
+
+Typically, a single test case should only consider its *test* context directory and in particular should never access the *test* context directory of a sibling test case.  When a ~setup_file~ function is used, it should utilize the *file* context directory and in this case the test cases in the same file may also access this *file* context directory.
+It is unusual to ever use a *run* context directory.
+
+The ~wct-bats.sh~ library provides the function ~cd_tmp~ to help simplify accessing these temporary context directories.  This function is "context aware" in that it knows if it is called from ~setup_file~ or a ~@test~ test case function.  By default it will ~cd~ to the appropriate context but the context may also be given explicitly:
+
+#+begin_example
+  cd_tmp      (1)
+  cd_tmp file (2)
+#+end_example
+Where:
+1. The shell will change to the temporary directory for the current context.   In ~setup_file()~ this is the *file* context in an ~@test~ function it is the *test* context for that test case.
+2. Explicitly change to the *file* context.  This is typical to use in a ~@test~ function to utilize files produced by a ~setup_file~ function defined in the same test file.
+
+By default ~bats~ will delete all temporary directories after completion of the test run, be it successful or otherwise.  In practice and especially when tests fail it may be useful to examine the contents of the temporary directories.  We may tell ~bats~ to not purge these directories with:
+
+#+begin_example
+  $ bats --no-tempdir-cleanup path/to/test_foo.bats
+#+end_example
+The path to the temporary directory will be printed to the terminal and it becomes the user's responsibility to remove it.
+
+WCT adds an alternative temporary context directory scheme which combines all contexts into a single directory that is named by the user setting an environment variable:
+#+begin_example
+  $ WCT_BATS_TMPDIR=$HOME/my-wct-tmp-dir bats [...]
+#+end_example
+
+#+begin_note
+Only define this variable in your shell and never in a test file.  It is up to the user to remove it so it may survive multiple test runs.  This can be desirable when developing or debugging a specific test but likely leads to problems if this setting is maintained during a larger test run over many BATS test files.
+
+In the tips and tricks below, we will use ~WCT_BATS_TMPDIR~ to implement /idempotent/ tests.
+#+end_note
+
+** Finding source files
+
+The ~wct-bats.sh~ library provides a few ways to locate files in the source directory.
+
+First, a common test pattern is that a BATS file runs ~wire-cell~ from the ~setup_file~ using a Jsonnet configuration file that is named similarly to the BATS test file itself or at least located as a sibling of the BATS test file.  For example a BATS test file ~<pkg>/tests/test_mytest.bats~ may use a configuration file ~<pkg>/tests/test_mytest.jsonnet~:
+
+#+begin_example
+bats_load_library "wct-bats.sh"
+
+setup_file () {
+    local cfg=$(relative_path test_mytest.jsonnet)
+    ...
+}
+#+end_example
+
+In other cases, a test may want access to source files in a particular WCT sub-package.  This can be accomplished with code like:
+
+#+begin_example
+@test "some test" {
+    local aux=$(srcdir aux)
+    local schema=$aux/docs/cluster-graph-schema.jsonnet
+    ...
+}
+#+end_example
+
+Most generally, the ~topdir~ and ~blddir~ functions emit the full path to the top of the source tree and the build area, respectively.
+
+
+** Creating and finding persistent files
+
+Some BATS tests may use or create files that are desirable to persist beyond the temporary context.  WCT provides a /test data repository/ (see [[file:datarepo.org][Data repository]]) to collect these files.  The ~wct-bats.org~ library provides some functions to help work with such files.
+
+For a test that produces *historical files*, they may be saved to the "history" category of the repo with:
+#+begin_example
+  # bats test_tags=history
+  @test "make history" {
+    # ...
+    saveout -c history my-file-for-history.npz
+  }
+#+end_example
+#+begin_note
+Only and always place the ~history~ tag on tests that save history files.  History can then be quickly refreshed by running ~bats --filter-tags history */test/test*.bats~ and this command can be run in a number of software build environments to refresh past history after some new historical tests are added.
+#+end_note
+
+
+The path to an input file may be resolved in a test with the ~input_file~ command:
+
+#+begin_example
+local myinput=$(input_file relative/path/data.ext)
+#+end_example
+
+A file from a version of a category is resolved:
+
+#+begin_example
+  # from current version of history category
+  local myfile=$(category_path relative/path/data.ext)
+  # from specific version of plots category
+  local plot20=$(category_path -c plots -v 0.20.0 relative/path/data.png)
+#+end_example
+
+All released versions of a the ~history~ category directory and all versions of the ~plots~ category:
+
+#+begin_example
+local myhistpaths_released=( category_version_paths )
+local myhistpaths_plus_dirty=( category_version_paths -c plots --dirty )
+#+end_example
+
+Likewise, but just the version strings
+
+#+begin_example
+local myhistvers_released=( category_versions )
+#+end_example
+
+
+** Using programs from WC toolkit and python
+
+The ~wct-bats.sh~ library provides way to run the few programs build from WCT.  These are Bash functions of the same name as the program: ~wire-cell~, ~wcsonnet~ and ~wcwires~.  They wrap up some standard checks and logging and execute the program as found by Waf in the build directory.  It is considered an error if the executable programs are not available.
+
+Tests may also execute main CLI programs provided by the ~wire-cell-python~ package.  The ~wire-cell-toolkit~ does not strictly depend on ~wire-cell-python~ and so if these programs are not located the current test will be skipped.  A test may call the program ~wirecell-<pkg>~ with a line like:
+
+#+begin_example
+  wcpy <pkg> <command> [options]
+#+end_example
+
+This command line may be given to commands that run commands like ~run~, ~run_idempotently~ and ~check~.
+
+
+
+** Using ~run~ vs ~check~
+
+As already introduced, BATS provides a ~run~ command which runs its given command line and sets ~$output~ and ~$status~.  However, ~run~ does nothing else.  The ~wct-bats.sh~ library provides a ~check~ which calls ~run~ with these additional features:
+
+- logs the command line
+- logs the ~$output~
+- asserts ~$status~ is zero.
+
+Generally, when your test needs to run a program, use ~check~ if these extra are applicable as it allows your test to be more rigorous and brief.  Otherwise, using ~run~ or directly execute the command.  Some commands that ~wct-bats.sh~ wraps, such as ~wire-cell~ will run ~check~ internally.
+
+* Tips and tricks
+
+In addition to writing tests, BATS may be used as a form of a *command line program framework* which makes it easy to write a variety of command line programs.  These give the developer easy power to write *software development drivers* for developing new code and debugging existing code.  As a "free" side effect, these command line programs then automatically serve as tests.  Using only the information above, a developer may utilize BATS tests in this way.  However, the ~wct-bats.sh~ support library provides a number of patterns that makes it even more powerful.
+
+** Idempotent running
+
+The ~wct-bats.sh~ BATS library provides a helper function to run a particular test command in an *idempotent* manner.  This means that the command need *not* be run if its declared output files exist and are older than its declared input files that also must exist.  This can greatly speed up re-running a previously run test while still re-running steps where some input has changed.
+
+The command ~run_idempotently~ enacts this pattern.  It is called like:
+
+#+begin_example
+run_idempotently [sources] [targets] -- <command line>
+#+end_example
+
+Where one or more sources are specified with ~-s|--source <filename>~ options and one or more targets with ~-t|--target <filename>~ options.  The ~<command line>~ will only be executed if one or more of these are true:
+- The sources or the targets are omitted.
+- Any target files are missing.
+- Any target file is older than any source file.
+
+When all of these conditions are not met, the ~run_idempotently~ will return without running the ~<command line>~.
+
+Otherwise, the ~<command line>~ is run and the ~$status~ code is checked before returning.
+
+Nominally, ~run_idempotently~ will always run the command as the ~bats~ command will run the tests in a fresh temporary context.  Thus to allow idempotent running the user must set ~WCT_BATS_TMPDIR~.  As that directory may start empty, the first test run will always run the ~<command line>~ while subsequent runs may exhibit idempotency. 
+
+This pattern works well with the use of a ~setup_file~ and with the ~bats -f <filter>~ option.  A long running command may be run idempotently from ~setup_file~ withh a number of ~@test~ cases checking some aspect.  The developer may then narrow investigation to one or a few test cases.  Each run will then be fast.
+
+#+begin_warning
+The *source* and *target* files provided to calls of ~run_idempotently~ are effectively edges in a directed task graph.  They must be define to match the actual files consumed or produced by the ~<command line>~.  Particular care is needed to define unique file names when there will be multiple calls in the same temporary directory context.  Additional attention is required due to file timestamps.  For example, if a *source* or *target* file is produced from unpacking an archive (eg ~tar~) its timestamp may not be as naively expected. 
+#+end_warning
+
+
+* Other
+
+This section holds some verbiage that either needs deletion or integration to the document above.
+** My first BATS test
+
+#+begin_example
+  bats_load_library wct-bats.sh
+
+  @test "check wire-cell version" {
+      wct --version
+
+      # Will fail one day when WCT v1 is released!
+      [[ -n $(echo $output | grep '^0' ) ]] 
+  }
+
+  @test "check wcsonnet help" {
+      local wcs=$(wcb_env_value WCSONNET)
+      run $wcs --help
+      echo $output    # shown only on error
+      [[ $status -eq 0 ]]
+  }
+#+end_example
+
+The command ~wct~ is actually a function from ~wct-bats.sh~ that runs ~wire-cell~ and instruments some default checking.
+The ~wcsonnet~ is not so wrapped but is available as a ~wcb~ variable.  The ~run~ command is a BATS helper to fill ~$output~ and ~$status~, which we check.
+
+** Running BATS tests
+
+A BATS test should run from anywhere:
+
+#+begin_example
+bats test/test/test_my_first_bats.bats
+#+end_example
+As in this example, all ~@test~ functions in a BATS file will be executed sequentially.  A subset of tests with names that match a filter can be selected for running.  Using above example:
+
+#+begin_example
+bats -f "wire-cell" test/test/test_my_first_bats.bats
+#+end_example
+
+The* Creating a BATS test
+
+Here we give some detailed guidance on making a BATS test. 
+
+** First steps
+
+Edit the ~.bats~ file, add the ~@test~ function:
+
+#+begin_example
+  #!/usr/bin/env bats
+  
+  load ../../test/wct-bats.sh
+  
+  # bats test_tags=tag1,tag2
+  @test "assure the frob correctly kerplunks" {
+      echo "nothing yet"
+  }
+#+end_example
+Pick a test description that describes a positive test outcome.
+Check that the test works:
+
+#+begin_example
+  $ bats <pkg>/test/test_issueNNNN.bats
+#+end_example
+
+So far, it can't fail.  Below we progressively add more tests constraints.  It is recomended to build up tests in this way as you hunt a bug or develop a new feature.  That is, don't fix the bug or make the feature first.  Rather, write the tests and fix the bug / make the feature so that the initially failing tests then succeed.
+
+** Basic elements of a test
+
+Typically an ~@test~ will consist of one or more stanzas with the following four lines:
+
+#+begin_example
+  run some_command             # (1)
+  echo "$output"               # (2)
+  [[ "$status" -eq 0 ]]        # (3)
+                               # (4)
+  [[ -n "$(echo "$output" | grep 'required thing') ]]
+  [[ -z "$(echo "$output" | grep 'verboten thing') ]]
+#+end_example
+We explain each:
+1. Use Bats ~run~ to run some command under test.
+2. The ~run~ will stuff command output to ~$output~ which we echo.  We will only see this output on the terminal if the overall test fails.  (see logging below).
+3. Assert that the command exited with a success status code (~0~).
+4. Perform some checks on the stdout in ~$output~ and/or on any files produced by ~some_command~.
+
+** Using ~setup_file~
+
+Another method to run tests in an idempotent manner is to place common, perhaps long running, tasks in the ~setup_file~ function,  run the entire test with ~WCT_BATS_TMPDIR~ set and then re-run specific tests with ~bats -f <filter>~.  When a specific test is exercising some issue, this lets the developer focus on just that issue and reuse prior results.  Consider the example:
+
+#+begin_example
+  function setup_file () {
+    cd_tmp file
+    run my_slow_command -o output1.txt 
+    [[ "$status" -eq 0 ]]
+  }
+
+  @test "Some test for number one" {
+    cd_tmp file
+    run test_some_test1 output1.txt
+  }
+
+  @test "Some test for number two" {
+    cd_tmp file
+    run test_some_test2 output1.txt
+  }
+#+end_example
+
+Then the developer may do something like:
+#+begin_example
+  $ WCT_BATS_TMPDIR=/tmp/my-test bats my-test.bats
+  $ WCT_BATS_TMPDIR=/tmp/my-test bats -f one my-test.bats  
+#+end_example
+
+To force a full re-run simply remove the ~/tmp/my-test~ and perhaps run after unseting ~WCT_BATS_TMPDIR~.
+
+** Test tags
+
+As shown in the [[First steps]] one can assert [[https://bats-core.readthedocs.io/en/stable/writing-tests.html#tagging-tests][test tags]] above a ~@test~.  One can also have file-level tags.
+
+#+begin_example
+# bats file_tags=issue:202
+
+# bats test_tags=topic:noise
+@test "test noise spectra for issue 202" {
+  ...
+}
+# bats test_tags=history
+@test "make history" {
+  ...
+  saveout -c history somefile.npz
+}
+
+#+end_example
+
+Tag name conventions are defined here:
+
+- ~implicit~ :: The test only performs implicit tests ("it ran and didn't crash") and side effects (report, history).
+- ~report~ :: The test produces a "report" of files saved to output.
+- ~history~ :: The test produces results relevant to multiple released versions (see [[file:history.org][Historical tests]]).  *Only place this tag on tests that produce history files*
+- ~issue:<number>~ :: The test is relevant to GitHub issue of the given number.
+- ~pkg:<name>~ :: The test is part of package named ~<name>~ (~gen~, ~util~, etc)
+- ~topic:<name>~ :: The test relates to topic named ~<name>~ (~wires~, ~response~, etc)
+- ~time:N~ :: The test requires on order $10^N$ seconds to run, limited to $N \in [1, 2, 3]$.
+By default, all tests are run.  The user may explicitly include or exclude tests.  For example, to run tests tagged as being related to ~wires~ and that take a few minutes or less to run and explicitly those in the ~util/~ sub package: 
+
+#+begin_example
+bats --filter-tags 'topic:wires,!time:3' util/test/test*.bats
+#+end_example
+See also the ~wcb --test-duration=<seconds>~ options described in section [[file:framework.org][Framework]].
+

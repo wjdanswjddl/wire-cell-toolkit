@@ -1,5 +1,5 @@
 #include "WireCellGen/GaussianDiffusion.h"
-#include "WireCellIface/SimpleDepo.h"
+#include "WireCellAux/SimpleDepo.h"
 #include "WireCellUtil/ExecMon.h"
 #include "WireCellUtil/Testing.h"
 #include "WireCellUtil/Point.h"
@@ -87,7 +87,7 @@ void test_gd(IRandom::pointer fluctuate)
     /// Make a single deposition
     const double qdepo = -1000.0;
     const Point pdepo(10 * units::cm, 0.0, p_center);
-    auto depo = std::make_shared<SimpleDepo>(t_center, pdepo, qdepo);
+    auto depo = std::make_shared<Aux::SimpleDepo>(t_center, pdepo, qdepo);
 
     /// Note it is up to caller to assure that depo and tdesc/pdesc
     /// are consistent!  See BinnedDiffussion for one class that does

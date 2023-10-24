@@ -1,0 +1,50 @@
+#!/bin/bash
+
+# Leave this script in place in the test data repo.
+
+
+
+usage () {
+    cat <<EOF
+$BASH_SOURCE [-e event] [-c cfg.jsonnet] [-o path/to/output.tar.bz2] celltree.root 
+
+Extract single event from celltree ROOT file to WCT file.
+
+By default, produces the file
+
+  build/tests/input/frames/celltreeOVERLAY-event6501.tar.bz2 
+
+And uses the configuration file
+
+  root/test/test-celltree-to-framefile.jsonnet
+
+This file should be run in-place in wire-cell-toolkit's test/scripts/
+directory.
+
+EOF
+    exit 1
+}
+
+topdir="$(dirname $(dirname $(dirname $(realpath $BASH_SOURCE))))"
+event="6501"
+cfg="$topdir/root/test/test-celltree-to-framefile.jsonnet"
+output="$topdir/build/tests/input/frames/celltreeOVERLAY-event${event}.tar.bz2"
+input=""
+while [[ $# -gt 0 ]] ; do
+    case $1 in
+        -e|--event) event="$2"; shift 2;;
+        -c|--config) cfg="$2"; shift 2;;
+        -o|--output) output="$2"; shift 2;;
+        -*) usage;;
+        *) input="$1"; shift;;
+    esac
+done               
+
+if [ -z "$input" ] ; then
+    usage
+fi
+
+set -x
+wire-cell -l stderr -L debug -A eventid="$event" -A infile="$input" -A outfile="$output" "$cfg"
+
+

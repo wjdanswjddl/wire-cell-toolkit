@@ -6,8 +6,8 @@
 #include "WireCellUtil/Exceptions.h"
 #include "WireCellUtil/NamedFactory.h"
 
-#include "WireCellIface/SimpleDepo.h"
-#include "WireCellIface/SimpleDepoSet.h"
+#include "WireCellAux/SimpleDepo.h"
+#include "WireCellAux/SimpleDepoSet.h"
 
 #include "WireCellAux/DepoTools.h"
 
@@ -48,8 +48,8 @@ void Sio::DepoFileSource::configure(const WireCell::Configuration& cfg)
 
     m_in.clear();
     input_filters(m_in, m_inname);
-    if (m_in.size() < 2) {     // must have at least get tar filter + file source.
-        THROW(ValueError() << errmsg{"DepoFielSource: unsupported inname: " + m_inname});
+    if (m_in.empty()) {
+        THROW(ValueError() << errmsg{"DepoFileSource: unsupported inname: " + m_inname});
     }
 
     log->debug("reading {} with scale={}", m_inname, m_scale);
@@ -85,7 +85,7 @@ filemd_t read_pig(std::istream& si, pigenc::File& pig)
     return parse_filename(fname);
 }
 
-// Read one file set from tar stream and save to fraem if tag matches
+// Read one file set from tar stream and save to frame if tag matches
 IDepoSet::pointer Sio::DepoFileSource::next()
 {
     // Full eager load of next two files
@@ -151,9 +151,18 @@ IDepoSet::pointer Sio::DepoFileSource::next()
         return nullptr;
     }
 
+    if (darr.rows() != iarr.rows() and darr.cols() == iarr.cols()) {
+        array_xxfrw dtmp = darr.transpose();
+        darr = dtmp;
+        array_xxirw itmp = iarr.transpose();
+        iarr = itmp;
+        log->warn("call={}, array transpose detected, correcting to: data=({},{}) info=({},{})",
+                  m_count, darr.rows(), darr.cols(), iarr.rows(), iarr.cols());
+    }
+
     if (darr.rows() != iarr.rows()) {
-        log->error("call={}, array row mismatch data={} info={}",
-                   m_count, darr.rows(), iarr.rows());
+        log->error("call={}, array row mismatch. transposed? data=({},{}) info=({},{})",
+                   m_count, darr.rows(), darr.cols(), iarr.rows(), iarr.cols());
         return nullptr;
     }
     const size_t ndepos = darr.rows();
@@ -172,10 +181,10 @@ IDepoSet::pointer Sio::DepoFileSource::next()
         return nullptr;
     }
         
-    std::vector<SimpleDepo*> sdepos;
+    std::vector<Aux::SimpleDepo*> sdepos;
     for (size_t ind=0; ind < ndepos; ++ind) {
 
-        auto sdepo = new SimpleDepo(
+        auto sdepo = new Aux::SimpleDepo(
             darr(ind, 0),        // t
             Point(darr(ind, 2),  // x
                   darr(ind, 3),  // y
@@ -217,7 +226,7 @@ IDepoSet::pointer Sio::DepoFileSource::next()
     log->debug("call={} loaded {} depos from ident {} stream {}",
                m_count, depos.size(), ident, m_inname);
 
-    return std::make_shared<SimpleDepoSet>(ident, depos);
+    return std::make_shared<Aux::SimpleDepoSet>(ident, depos);
 }
 
 bool Sio::DepoFileSource::operator()(IDepoSet::pointer& ds)

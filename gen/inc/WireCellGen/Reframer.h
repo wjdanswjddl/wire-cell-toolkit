@@ -53,6 +53,9 @@ namespace WireCell {
             virtual bool operator()(const input_pointer& inframe, output_pointer& outframe);
 
            private:
+            /// ASSUMPTION: input traces and summary are in the same order
+            std::pair<ITrace::vector, IFrame::trace_summary_t> process_one(const ITrace::vector& itraces, const IFrame::trace_summary_t& isummary);
+            ITrace::vector process_one(const ITrace::vector& itraces); /// no summary version
             IAnodePlane::pointer m_anode;
 
             // Consider traces with these tags.  No tags mean all traces.

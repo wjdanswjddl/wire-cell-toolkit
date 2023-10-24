@@ -1,8 +1,9 @@
 #include "WireCellGen/Reframer.h"
 #include "WireCellUtil/Units.h"
 
-#include "WireCellIface/SimpleFrame.h"
-#include "WireCellIface/SimpleTrace.h"
+#include "WireCellAux/SimpleFrame.h"
+#include "WireCellAux/SimpleTrace.h"
+#include "WireCellAux/FrameTools.h"
 
 #include "WireCellUtil/NamedFactory.h"
 
@@ -15,6 +16,8 @@ WIRECELL_FACTORY(Reframer, WireCell::Gen::Reframer,
 
 using namespace std;
 using namespace WireCell;
+using WireCell::Aux::SimpleTrace;
+using WireCell::Aux::SimpleFrame;
 
 Gen::Reframer::Reframer()
     : Aux::Logger("Reframer", "gen")
@@ -62,51 +65,29 @@ void Gen::Reframer::configure(const WireCell::Configuration& cfg)
     m_nticks = get(cfg, "nticks", m_nticks);
 }
 
-bool Gen::Reframer::operator()(const input_pointer& inframe, output_pointer& outframe)
-{
-    if (!inframe) {
-        outframe = nullptr;
-        log->debug("EOS at call={}", m_count);
-        ++m_count;
-        return true;
+std::pair<ITrace::vector, IFrame::trace_summary_t> Gen::Reframer::process_one(const ITrace::vector& itraces, const IFrame::trace_summary_t& isummary) {
+    if(isummary.size() !=0 && itraces.size() != isummary.size()) {
+        log->error("itraces.size() != isummary.size()");
+        THROW(RuntimeError() << errmsg{"itraces.size() != isummary.size()"});
     }
-
     // Storage for samples indexed by channel ident.
     std::map<int, std::vector<float> > waves;
+    // chid -> threshold
+    std::map<int, double > thresholds;
 
     // initialize a "rectangular" 2D array of samples
     for (auto chid : m_anode->channels()) {
         waves[chid].resize(m_nticks, m_fill);
-    }
-
-    auto all_traces = inframe->traces();
-
-    std::stringstream report;
-    report << "call=" << m_count << " frame=" << inframe->ident() << " ";
-
-    // Get traces to consider
-    std::vector<ITrace::pointer> traces;
-    if (m_input_tags.empty()) {  // all traces
-        report << "all traces in: " << all_traces->size() << " ";
-        traces.insert(traces.begin(), all_traces->begin(), all_traces->end());
-    }
-    else {
-        // get tagged traces, but don't double count
-        std::unordered_set<int> trace_indices;
-        report << "in tags: ";
-        for (auto tag : m_input_tags) {
-            auto indices = inframe->tagged_traces(tag);
-            trace_indices.insert(indices.begin(), indices.end());
-            report << "\"" << tag << "\":" << indices.size() << " ";
-        }
-        for (int ind : trace_indices) {
-            traces.push_back(all_traces->at(ind));
-        }
+        thresholds[chid] = 0;
     }
 
     // Lay down input traces over output waves
-    for (auto trace : traces) {
+    for(size_t idx=0; idx< itraces.size(); ++idx) {
+        auto trace = itraces[idx];
         const int chid = trace->channel();
+        if (isummary.size() !=0) {
+            thresholds[chid] = isummary[idx];
+        }
 
         const int tbin_in = trace->tbin();
         auto in_it = trace->charge().begin();
@@ -132,13 +113,56 @@ bool Gen::Reframer::operator()(const input_pointer& inframe, output_pointer& out
         }
     }
 
-    // Transfer waves into traces.
-    ITrace::vector out_traces;
+    // Transfer waves into traces ordered by chid
+    ITrace::vector otraces;
     for (auto& it : waves) {
         const int chid = it.first;
         auto& wave = it.second;
         auto out_trace = make_shared<SimpleTrace>(chid, 0, wave);
-        out_traces.push_back(out_trace);
+        otraces.push_back(out_trace);
+    }
+
+    // output summary should be same length too, default at 0
+    IFrame::trace_summary_t osummary;
+    std::transform(thresholds.begin(), thresholds.end(), std::back_inserter(osummary), [&](const auto& pair) { return pair.second; });
+
+    return {otraces, osummary};
+}
+
+ITrace::vector Gen::Reframer::process_one(const ITrace::vector& itraces) {
+    auto [traces, summary] = process_one(itraces, {});
+    return traces;
+}
+
+bool Gen::Reframer::operator()(const input_pointer& inframe, output_pointer& outframe)
+{
+    if (!inframe) {
+        outframe = nullptr;
+        log->debug("EOS at call={}", m_count);
+        ++m_count;
+        return true;
+    }
+
+    // Get traces to consider
+    ITrace::vector out_traces;
+    std::unordered_map< std::string, IFrame::trace_list_t> tag_indicies;
+    std::unordered_map< std::string, IFrame::trace_summary_t> tag_summary;
+
+    if (m_input_tags.empty()) {
+        out_traces = process_one(*(inframe->traces()));
+    }
+    else {
+        for (const auto tag : m_input_tags) {
+            const auto& isummary = inframe->trace_summary(tag);
+            ITrace::vector in_traces = Aux::tagged_traces(inframe, tag);
+            auto [out_one, threshold] = process_one(in_traces, isummary);
+            tag_summary[tag] = threshold;
+            size_t nbeg = out_traces.size();
+            out_traces.insert(out_traces.end(), out_one.begin(), out_one.end());
+            auto& indicies = tag_indicies[tag];
+            indicies.resize(out_one.size());
+            std::iota(indicies.begin(), indicies.end(), nbeg);
+        }
     }
 
     auto sframe = make_shared<SimpleFrame>(inframe->ident(), inframe->time() + m_toffset + m_tbin * inframe->tick(),
@@ -147,10 +171,14 @@ bool Gen::Reframer::operator()(const input_pointer& inframe, output_pointer& out
         sframe->tag_frame(m_frame_tag);
     }
 
+    for (const auto tag : m_input_tags) {
+        sframe->tag_traces(tag, tag_indicies.at(tag), tag_summary[tag]);
+    }
+
     outframe = sframe;
 
-    report << "out tag: \"" << m_frame_tag << "\"";
-    log->debug(report.str());
+    log->debug("input : {}", Aux::taginfo(inframe));
+    log->debug("output: {}", Aux::taginfo(outframe));
 
     ++m_count;
     return true;

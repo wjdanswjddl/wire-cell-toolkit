@@ -1,8 +1,8 @@
 #include "WireCellImg/CMMModifier.h"
-#include "WireCellIface/SimpleFrame.h"
-#include "WireCellIface/SimpleTrace.h"
-#include "WireCellIface/IWaveformMap.h"
+#include "WireCellAux/SimpleFrame.h"
 #include "WireCellAux/FrameTools.h"
+
+#include "WireCellIface/IWaveformMap.h"
 
 #include "WireCellUtil/Units.h"
 #include "WireCellUtil/NamedFactory.h"
@@ -139,16 +139,20 @@ void CMMModifier::configure(const WireCell::Configuration& cfg)
 
 bool CMMModifier::operator()(const input_pointer& in, output_pointer& out)
 {
+    ++ m_count;
+
     out = nullptr;
     if (!in) {
-        log->debug("see EOS");
+        log->debug("see EOS at call={}", m_count-1);
         return true;  // eos
     }
+
+    log->debug("call={} input frame: {}", m_count-1, Aux::taginfo(in));
 
     // copy a CMM from input frame
     auto cmm = in->masks();
     if (cmm.find(m_cm_tag)==cmm.end()) {
-        THROW(RuntimeError()<< errmsg{"no ChannelMask with name "+m_cm_tag});
+        log->warn("no ChannelMask with name \""+m_cm_tag+"\", will create one");
     }
     auto& cm = cmm[m_cm_tag];
     log->debug("input: {} size: {}", m_cm_tag, cm.size());
@@ -298,7 +302,7 @@ bool CMMModifier::operator()(const input_pointer& in, output_pointer& out)
     ITrace::vector out_traces(*in->traces());
 
     // Basic frame stays the same.
-    auto sfout = new SimpleFrame(in->ident(), in->time(), out_traces, in->tick(), cmm);
+    auto sfout = new Aux::SimpleFrame(in->ident(), in->time(), out_traces, in->tick(), cmm);
 
     // passing through other parts of the original frame
     for (auto ftag : in->frame_tags()) {
@@ -313,6 +317,7 @@ bool CMMModifier::operator()(const input_pointer& in, output_pointer& out)
 
     out = IFrame::pointer(sfout);
 
+    log->debug("call={} output frame: {}", m_count-1, Aux::taginfo(out));
     log->debug("output: {} size: {}", m_cm_tag, out->masks()[m_cm_tag].size());
 
     return true;

@@ -1,11 +1,9 @@
-# This should not depend on any other WireCell package (except wire-cell-ress)!
-bld.smplpkg('WireCellUtil',
-            use='SPDLOG BOOST FFTW EIGEN DYNAMO JSONCPP JSONNET ZLIB WireCellRess')
-#            test_use='DYNAMO JSONCPP JSONNET BOOST')
-
-# special case to install "vendored" headers
-
 util_inc_dir = bld.path.find_dir('inc')
 bld.install_files('${PREFIX}/include',
                   util_inc_dir.ant_glob('custard/**/*.hpp'),
                   cwd = util_inc_dir, relative_trick=True)
+
+# util is the base WC library and must not "use" other WC libraries.
+bld.smplpkg('WireCellUtil',
+            use='SPDLOG BOOST FFTW EIGEN DYNAMO JSONCPP JSONNET ZLIB')
+

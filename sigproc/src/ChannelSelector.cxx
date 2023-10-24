@@ -1,5 +1,5 @@
 #include "WireCellSigProc/ChannelSelector.h"
-#include "WireCellIface/SimpleFrame.h"
+#include "WireCellAux/SimpleFrame.h"
 #include "WireCellAux/FrameTools.h"
 
 #include "WireCellUtil/NamedFactory.h"
@@ -78,18 +78,18 @@ bool ChannelSelector::operator()(const input_pointer& in, output_pointer& out)
 
     std::vector<ITrace::vector> tracesvin;
 
-    size_t ntraces = 0;
+    // size_t ntraces = 0;
     size_t ntags = m_tags.size();
     if (!ntags) {
         tracesvin.push_back(Aux::untagged_traces(in));
-        ntraces += tracesvin[0].size();
+        // ntraces += tracesvin[0].size();
     }
     else {
         tracesvin.resize(ntags);
         for (size_t ind = 0; ind < ntags; ++ind) {
             std::string tag = m_tags[ind];
             tracesvin[ind] = Aux::tagged_traces(in, tag);
-            ntraces += tracesvin[ind].size();
+            // ntraces += tracesvin[ind].size();
         }
     }
     
@@ -111,7 +111,7 @@ bool ChannelSelector::operator()(const input_pointer& in, output_pointer& out)
         tagged_trace_indices.push_back(tl);
     }
 
-    auto sf = new SimpleFrame(in->ident(), in->time(), out_traces, in->tick());
+    auto sf = new Aux::SimpleFrame(in->ident(), in->time(), out_traces, in->tick());
     if (ntags) {
         for (size_t ind = 0; ind < ntags; ++ind) {
             std::string tag = m_tags[ind];

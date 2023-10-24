@@ -1,0 +1,114 @@
+#+title: Wire-Cell Noise Model
+#+include: ../../docs/include-topic.org
+
+* Overview
+
+WCT provides a "sampled spectrum noise model" which is parametererized by two types of information:
+
+- A set of "mean noise spectra".
+
+- An associative mapping between channel and spectrum.
+
+The WCT implementation is structured into two layers.
+
+1. A "model" component provides a mean noise spectrum given a key (channel or group).
+
+2. An "adder" component generates a noise waveform and associates it to one or more channels.
+
+* Noise generation
+
+The kernel of the noise generation returns a fluctuated noise waveform given a real-valued mean amplitude spectrum. 
+The sampling of the distribution characterized by the mean spectrum has two steps. 
+
+1. Each frequency bin of the mean spectrum is *fluctuated* to produce a complex amplitude sample.
+
+2. An inverse discrete Fourier transform is applied to the spectrum of samples to produce the noise waveform.
+
+The *fluctuation* of each frequency bin is produced by calculating from the *mean* $\mu$ the *mode* $\sigma = \sqrt{\frac{2}{\pi}}\mu$ and then drawing a complex number with both real and imaginary parts each and independently distributed according to the Gaussian distribution $\mathcal{N}(0, \sigma)$.  Equivalently, the complex amplitude can be drawn from the Rayleigh distribution $\mathcal{R}(\sigma)$ and the complex phase from the uniform distribution $\mathcal{U}(0,2\pi)$.  The resulting complex spectrum must be made Hermitian-symmetric with the zero-frequency bin and the Nyquist bin (if number of samples is even) real valued.  
+
+* Noise adders
+
+There are two types of noise adders:
+
+- ~IncoherentAddNoise~ :: adds an independent noise waveform to each channel.  The ~AddNoise~ type is an alias for this type.
+- ~CoherentAddNoise~ :: adds an independent noise waveform to each in a group of channels.
+
+* Noise spectrum models
+
+There are two types of noise spectrum models:
+
+** ~EmpiricalNoiseModel~
+
+The ~EmpiricalNoiseModel~ spectrum model is intended to be used with the ~IncoherentAddNoise~ noise adder.
+This model associates an given mean spectrum, with an optional post-hoc transformation to all channels in a given set.  It accepts the following configuration parameters.  Note, *all values are in WCT system of units*.
+
+- ~spectra_file~ :: directly an array of spectral objects or the name of a file (JSON or Jsonnet format) that evaluates to such an array.  See below for description of a spectral object.
+- ~nsamples~ :: the number of waveform samples to generate
+- ~period~ :: the sampling time period of the generated waveform  (eg ~0.5*wc.us~).
+- ~wire_length_scale~ :: the scale at which wire lengths are binned in (eg ~1*wc.cm~)
+
+Each spectral object in the array provided directly by or pointed to by the ~spectra_file~ option has the following attributes.  They provide meta data about a sub-sampling of a sampled mean spectrum.
+
+- ~plane~ :: the ~WirePlaneId::index()~ of the anode plane for which the spectrum models.
+- ~gain~ :: the preamplifier gain in units of voltage per charge (eg ~14*wc.mV/wc.fC~).
+- ~shaping~ :: the preamplifier shaping time (eg ~2*wc.us~)
+- ~wirelen~ :: the length of the wire for which the spectrum models
+- ~const~ :: the constant, white-noise component of the overall noise spectrum that is independent of frequency, units of voltage.
+- ~nsamples~ :: the number of samples of the spectrum
+- ~period~ :: the sampling period of the spectrum
+- ~freqs~ :: the frequencies at which the sampled spectrum was sub-sampled in units of 1/time (eg, ~{i/(N*0.5*wc.us)}~)
+- ~amps~ :: the sub-sampled mean spectrum at these frequencies in units of voltage.
+
+Notes
+
+- The order of this array *must* have increasing ~wirelen~ for each given plane.  But, see [[https://github.com/WireCell/wire-cell-toolkit/issues/228][issue 228]].
+
+- The sizes of ~freqs~ and ~amps~ are equal and generally much less than ~nsamples~.  This sub-sampling allows for the fact that the spectral amplitude is itself very smooth and/or may have been "hand digitized" from plots.  
+
+The following post-hoc transformations are applied to each spectral object:
+
+- Two nearest neighbor sub-sampled spectra (both ~const~ and non-constant ~amps~ vs ~freqs~ parts) are interpolated to match a given channel's wire length.
+- This sub-sampled spectra is inflated through a time-interpolation to match the sampling of ~nsamples~ and ~period~ configuration parameters given to the model (not to be confused with the parameters of the same name in each spectra object).
+- If a ~ChanStat~ object is provided and a given channel has wrong gain and shaping time then this response is corrected based on the ~gain~ and ~shaping~ parameters of the spectral object.  Note, this currently hard-wires the cold electronics response.  See [[https://github.com/WireCell/wire-cell-toolkit/issues/229][issue 229]].
+
+
+** ~GroupNoiseModel~
+
+This spectral model associates a channel to a group and a group to a spectrum for the purposes of applying a generated noise waveform coherently across all channels in the group.  A time interpolation from given sub-sampled spectra to full sampled is performed and a multiplicative scaling may be applied to the amplitude.  The configuration parameters that the model accepts are:
+
+- ~scale~ :: a scale factor multipliplied to the spectral amplitude.
+- ~nsamples~ :: the number of waveform samples to generate.
+- ~tick~ :: the sampling time period of the generated waveform  (eg ~0.5*wc.us~).
+- ~groups~ :: directly an array of channel group objects or the name of a file (JSON or Jsonnet format) that evaluates to such an array.  See below for group object structure.
+- ~spectra~ :: directly an array of spectral objects or the name of a file (JSON or Jsonnet format) that evaluates to such an array.  See below for spectral object structure.
+
+The *group object* has the following attributes:
+
+- ~group~ :: an integer identifying the group (~groupID~ is also an accepted attribute name)
+- ~channels~ :: an array of channel ident numbers that are in the group
+
+The *spectral object* has the following attributes:
+
+- ~group~ :: an integer identifying a channel group (~groupID~ is also an accepted attributes name)
+- ~nsamples~ :: the number of samples of the spectrum
+- ~period~ :: the sampling period of the spectrum
+- ~freqs~ :: the frequencies at which the sampled spectrum was sub-sampled in units of 1/time (eg, ~{i/(N*0.5*wc.us)}~)
+- ~amps~ :: the sub-sampled mean spectrum at these frequencies in units of voltage.
+
+Note, the last four have the same meaning as for the ~EmpiricalNoiseModel~.
+
+* Comment on mode vs mean
+
+Here we focus on the use of *mode* $\sigma$ (instead of *mean* $\mu$) as the parameter of the Rayleigh, or equivalently the double-Gaussian, distribution and how confusing the two can potentially pose practical pitfalls.  Care is needed in that we naturally form a measure of a noise spectrum with the following procedure:
+
+1) collect $N$ noise waveforms of common noise characteristics (eg, same channels, with selection to suppress signals)
+2) apply the Fourier transform to each waveform to get a complex spectrum
+3) calculate the amplitude (absolute value) of this spectrum
+4) accumulate these to form a spectral sum and divide by $N$ to form a spectral mean
+
+This spectral mean must be reduced to the spectral mode by multiplying by $\sqrt{\frac{2}{\pi}}$.  The fluctuated waveforms can then also be sent through the collection process and the spectral mean can be reconstructed (within statistics).  One may then compare the mean Parseval energy of the waveforms, the mean Parseval energy of their spectra and the Parseval energy of their mean spectrum.  While the first two will be (must be) identical, the third differs.  It is approximately $\sqrt{\frac{2}{\pi}}$ smaller.  The mean spectral energy is not the energy of the mean spectrum.
+
+
+
+
+

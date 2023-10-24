@@ -1,0 +1,20 @@
+* Test implementation languages
+
+The framework supports writing tests in a few languages as each is
+most comfortable for tests of a certain type.  There are no hard and
+fast rules but the following guidelines may be considered:
+
+- C++ is essentially required for small scope "unit" tests.
+- BATS for "integration" type tests that involves composition of command line programs.
+- Jsonnet is convenient for testing Jsonnet functions and structures without the need to develop specific command programs (though doing so is an option).
+
+#+begin_note
+It is also possible to write WCT tests in Python and plain shell.  However, these are not well supported nor currently recommended.  However,  developers are encouraged to consider adding functionality that is useful for tests into the various command Python modules and Click line interfaces in ~wire-cell-python~.  These may then be easily used from a BATS test.
+#+end_note
+
+The remainder of this document gives details of WCT testing framework support specific to the recommended languages.
+
+#+include: cpp.org :minlevel 1
+#+include: bats.org :minlevel 1
+#+include: jsonnet.org :minlevel 1
+

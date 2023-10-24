@@ -1,0 +1,12 @@
+#+title: WCT Test Zoo
+
+This document describes a subset of the tests.
+
+* test-pdsp-simsn
+
+This [[file:../test/test-pdsp-simsn-nfsp.bats][test file]] runs PDSP simulation and signal processing, produces some standard output plots, and assuring no significant changes.  It was adapted from https://www.phy.bnl.gov/~yuhw/wct-ci/gen/
+
+* test-wct-uboone-img
+
+This [[file:../../img/test/test-wct-uboone-img.bats][test file]] runs imaging on pre-prepared MicroBooNE signal processed data.  It was adapted from https://github.com/HaiwangYu/wcp-porting-img.
+

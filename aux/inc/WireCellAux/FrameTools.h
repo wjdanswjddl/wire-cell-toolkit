@@ -5,6 +5,7 @@
 #define WIRECELL_FRAMETOOLS
 
 #include "WireCellIface/IFrame.h"
+#include "WireCellIface/ITensorSet.h"
 #include "WireCellUtil/Array.h"
 #include "WireCellUtil/Logging.h"
 
@@ -37,16 +38,11 @@ namespace WireCell {
         /// Return a one-to-one vector of channels from a vector of
         /// traces.
         ///
-        /// Note, you probably want to get a sorted/unique version of
-        /// this vector for later use.  Do so something like:
-        ///
-        ///   auto ch = channels(traces);
-        ///   std::sort(ch.begin(), ch.end());
-        ///   auto end = std::unique(ch.begin(), ch.end());
-        ///   ch.resize(std::distance(ch.begin(), end));
+        /// If unique is true, the result contains unique and sorted
+        /// channel IDs.
         ///
         typedef std::vector<int> channel_list;
-        channel_list channels(const ITrace::vector& traces);
+        channel_list channels(const ITrace::vector& traces, bool uniq=false);
 
         /// Return the tbin range of the traces.  The first value is
         /// minimum of all tbins and the second is maximum of all
@@ -65,8 +61,16 @@ namespace WireCell {
         /// refered to in the channel list or which are outside the
         /// array are ignored and not all channels need to have
         /// associated traces.
-        void fill(Array::array_xxf& array, const ITrace::vector& traces, channel_list::iterator ch_begin,
+        void fill(Array::array_xxf& array, const ITrace::vector& traces,
+                  channel_list::iterator ch_begin,
                   channel_list::iterator ch_end, int tbin = 0);
+
+        /// Full feature fill.  Fill array with change from traces as
+        /// above Return ordered, unique list of channel, each channel
+        /// corresponding to one row.  Columns will span the
+        /// tbin_range().
+        channel_list fill(Array::array_xxf& array,
+                          const ITrace::vector& traces);
 
         /// Compare the time span of a frame to a time.
         ///
@@ -117,3 +121,9 @@ namespace WireCell {
 }  // namespace WireCell
 
 #endif
+
+
+
+
+
+

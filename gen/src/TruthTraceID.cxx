@@ -3,8 +3,8 @@
 
 #include "WireCellAux/DftTools.h"
 
-#include "WireCellIface/SimpleTrace.h"
-#include "WireCellIface/SimpleFrame.h"
+#include "WireCellAux/SimpleTrace.h"
+#include "WireCellAux/SimpleFrame.h"
 
 #include "WireCellUtil/Units.h"
 #include "WireCellUtil/Point.h"
@@ -16,6 +16,9 @@ WIRECELL_FACTORY(TruthTraceID, WireCell::Gen::TruthTraceID, WireCell::IDuctor, W
 
 using namespace std;
 using namespace WireCell;
+using WireCell::Aux::DftTools::inv_c2r;
+using WireCell::Aux::SimpleTrace;
+using WireCell::Aux::SimpleFrame;
 
 Gen::TruthTraceID::TruthTraceID()
   : m_anode_tn("AnodePlane")
@@ -200,7 +203,7 @@ void Gen::TruthTraceID::process(output_queue& frames)
                     }
                     bindiff.erase(0, min_impact);
 
-                    Waveform::realseq_t wave = Aux::inv_c2r(m_dft, total_spectrum);
+                    Waveform::realseq_t wave = inv_c2r(m_dft, total_spectrum);
                     auto mm = Waveform::edge(wave);
                     if (mm.first == (int) wave.size()) {
                         continue;

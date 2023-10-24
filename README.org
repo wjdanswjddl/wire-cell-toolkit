@@ -1,38 +1,70 @@
 #+TITLE: Wire-Cell Toolkit 
+#+SETUPFILE: docs/setup-readme.org
 
-Welcome to the Wire-Cell Toolkit source repository.
 
-See http://wirecell.bnl.gov/ for documentation including user manual and news "blog".
+Welcome to the Wire-Cell Toolkit (WCT) source repository at https://github.com/wirecell/wire-cell-toolkit.
 
-[[https://travis-ci.org/WireCell/wire-cell-toolkit][https://api.travis-ci.org/WireCell/wire-cell-toolkit.svg?branch=master]]
+* Overview
+
+The WCT is a multi-faceted, high performance software project developed for liquid argon time projection chamber (LArTPC) simulation and data processing.  Some features of WCT include:
+
+- Layered tool design culminating in a reference command-line interface program.
+- A multi-threaded execution model constructed following the data flow programming paradigm.
+- Plugin, factory and configuration subsystems.
+- Components providing simulation, signal processing and physics reconstruction algorithms.
+- Suite of abstract interface classes.
+- Low level utility algorithms, data structures and streaming data I/O formats.
+
+Additional ~README~ information is available in the WCT sub packages:
+
+- [[file:apps/README.org][apps]]
+- [[file:aux/README.org][aux]]
+- [[file:cfg/README.org][cfg]]
+- [[file:cuda/README.org][cuda]]
+- [[file:docs/README.org][docs]]
+- [[file:gen/README.org][gen]]
+- [[file:iface/README.org][iface]]
+- [[file:img/README.org][img]]
+- [[file:pgraph/README.org][pgraph]]
+- [[file:pytorch/README.org][pytorch]]
+- [[file:root/README.org][root]]
+- [[file:sigproc/README.org][sigproc]]
+- [[file:sio/README.org][sio]]
+- [[file:tbb/README.org][tbb]]
+- [[file:test/README.org][test]]
+- [[file:util/README.org][util]]
+- [[file:waft/README.org][waft]]
+- [[file:zio/README.org][zio]]
+
+See http://wirecell.bnl.gov/ for the home of Wire-Cell Toolkit documentation and news "blog".
 
 
 * Installation
 
-Wire-Cell Toolkit provides simple and automatic installation which
-gives you, the installer, some options.  
+Wire-Cell Toolkit provides simple and automated installation while allowing you to adapt it so you may provide the required dependencies in a variety of ways.
 
 ** External software dependencies
 
-The WCT dependency tree:
+The WCT dependencies are curated and minimized with some required and some optional.  Below shows the intra- and inter-package dependency tree:
 
 [[file:wct-deps.png]]
 
-Anything that the ~WireCellUtil~ package depends on is required.  The
-rest are optional.  Missing optional dependencies will cause the
-dependent WCT package to not be built.
+Black arrows are library dependencies, blue are for applications and gray are for testing programs.    They represent compile/link time dependencies.
+
+The dependencies for the ~WireCellUtil~ package are required.  The rest are optional.  Missing optional dependencies, or ones specifically turned off, will cause the dependent WCT package to not be built.
 
 Some external dependencies have explicit minimum required versions:
 
 - TBB (oneAPI) 2021.1.1
 - Boost 1.75.0
+- Eigen 3.4.0
 
-You may provide the necessary external software dependencies in a
-manner of your own choosing and some options include:
+You may provide the necessary external software dependencies in a manner of your own choosing and some options include:
 
+- Packages provided by your OS or built "by hand".
 - [[https://github.com/WireCell/wire-cell-spack][Spack-based install]] automatically builds all (non-OS) externals and WCT itself
 - Some WCT releases are built at FNAL as a UPS product named =wirecell=.
-- Exploit the above with a [[https://github.com/WireCell/wire-cell-singularity][Singularity container and CVMFS]] (currently recommended)
+- Exploit the above with a [[https://github.com/WireCell/wire-cell-singularity][Singularity container and CVMFS]].
 
 ** Developer Source
 
@@ -44,9 +76,7 @@ Developers check out =master= branch via SSH.
 
 ** User Source
 
-Users typically should build a release branch, either the tip or a
-tagged release on that branch.  Tagged releases are shown on the [[https://github.com/WireCell/wire-cell-toolkit/releases][this
-GitHub release page]].  
+Users typically should build a release branch, either the tip or a tagged release on that branch.  Tagged releases are shown on the [[https://github.com/WireCell/wire-cell-toolkit/releases][this GitHub release page]].
 
 Users may also anonymously clone in the usual way:
 
@@ -62,16 +92,13 @@ On well-behaved systems, configuring the source may be as simple as:
   $ ./wcb configure --prefix=/path/to/install
 #+END_EXAMPLE
 
-Software dependencies which can not automatically be located in system
-areas or via ~pkg-config~ can be manually specified.  For a list of
-options run:
+Software dependencies which can not automatically be located in system areas or via ~pkg-config~ can be manually specified.  For a list of options run:
 
 #+BEGIN_EXAMPLE
   $ ./wcb --help
 #+END_EXAMPLE
 
-Here is an example where some packages are found automatically and
-some need help and others are explicitly turned off:
+Here is an example where some packages are found automatically and some need help and others are explicitly turned off:
 
 #+begin_example
   $ ./wcb configure \
@@ -89,69 +116,42 @@ some need help and others are explicitly turned off:
 
 ** Building
 
-It is suggested to first build the code before running tests.
+The libraries and programs may be built with:
 
 #+BEGIN_EXAMPLE
-  $ ./wcb -p --notests
+  $ ./wcb
 #+END_EXAMPLE
 
 ** Installing
 
-To install the built toolkit and its configuration support files while
-still avoiding the tests do:
+To install:
 
 #+BEGIN_EXAMPLE
-  $ ./wcb -p --notests install
+  $ ./wcb install
 #+END_EXAMPLE
 
-Optionally, the *reference* configuration and data files for one or more
-supported experiments may be installed by giving naming them with the
-~--install-config~ option.  A name matches a sub-directory under
-[[file:cfg/pgrapher/experiment/][cfg/pgrapher/experiment/]] or the special ~all~ name will install all.
+Optionally, the *reference* configuration and data files for one or more supported experiments may be installed by giving naming them with the ~--install-config~ option.  A name matches a sub-directory under [[file:cfg/pgrapher/experiment/][cfg/pgrapher/experiment/]] or the special ~all~ name will install all.
 
 #+begin_example
-  $ ./wcb -p --notests --install-config=<name> install
+  $ ./wcb --install-config=<name> install
 #+end_example
 
 ** Testing
 
-Running the tests can take a while but should be run on new
-installations and after any significant development.  The developers
-try not to leave broken tests so any test failure should be treated as
-important.  However, some tests require proper environment to run
-successfully.  In particular, tests need to find Wire-Cell
-configuration and the shared libraries of the external software
-dependencies need to be located.  Below shows an example:
+Running the tests can take a while but are off by default.  They may be run with:
+#+begin_example
+  $ ./wcb --tests
+#+end_example
 
-#+BEGIN_EXAMPLE
-  $ export WIRECELL_PATH=$HOME/dev/wct/wire-cell-data:$HOME/dev/wct/wire-cell-toolkit/cfg
-  $ export LD_LIBRARY_PATH=$HOME/dev/wct/install/lib:$HOME/opt/jsonnet/lib
-  $ ./wcb -p --alltests
-  ...
-  execution summary 
-    tests that pass 83/83
-      ... 
-    tests that fail 0/83 
-  'build' finished successfully (15.192s)
-#+END_EXAMPLE
+See [[file:tests/README.org]] for more details on testing.
 
 * Release management
 
-To make releases, the above details are baked into two test scripts
-[[https://github.com/WireCell/waf-tools/blob/master/make-release.sh][make-release.sh]] and [[https://github.com/WireCell/waf-tools/blob/master/test-release.sh][test-release.sh]].  See comments at the top of each
-for how to run them.  These scripts can be used by others but are
-meant for developers to make official releases.
+WCT uses an ~X.Y.Z~ version string.  While ~X=0~, a ~0.Y.0~ version indicates a new release that may extend or break API or ABI compared to ~Y-1~.  A ~Z>0~ indicates a bug fix to ~Z-1~ which should otherwise retain the API and ABI.  Bug fixes will be made on a branch rooted on ~0.X.0~ called ~0.X.x~.
+
+To make releases, the above details are baked into two test scripts [[https://github.com/WireCell/waf-tools/blob/master/make-release.sh][make-release.sh]] and [[https://github.com/WireCell/waf-tools/blob/master/test-release.sh][test-release.sh]].  See comments at the top of each for how to run them.  These scripts can be used by others but are meant for developers to make official releases.
 
 * Meta
 
-A new =wcb= build script is made from [[https://github.com/waf-project/waf][waf source]] via:
-
-#+BEGIN_EXAMPLE
-  $ cd waf-tools
-  $ ./refresh-wcb -o /path/to/wire-cell-toolkit/wcb
-  $ cd /path/to/wire-cell-toolkit/
-  $ git commit -am "update wcb" && git push
-#+END_EXAMPLE
-
-
+Prior to 0.25.0, ~wcb~ was a custom version of [[https://waf.io][Waf]] and is now simply a copy of ~waf~.  The customized tools are held in the [[file:waft/]] directory.
 

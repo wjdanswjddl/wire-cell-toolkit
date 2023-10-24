@@ -1,0 +1,21 @@
+#!/bin/bash
+wd=$1 ; shift
+
+scrdir="$(realpath "$(dirname "${BASH_SOURCE[0]}")")"
+topdir="$(realpath "${scrdir}"/../..)"
+
+cd "$wd" || exit 1
+eval "$(direnv export bash 2>/dev/null)"
+
+# Must re-assert this as it may be set by .envrc
+export BATS_LIB_PATH="$topdir/test"
+if [ ! -f "$BATS_LIB_PATH/wct-bats.sh" ] ; then
+    echo "no BATS_LIB_PATH/wct-bats.sh" 1>&2
+    exit 1
+fi
+PATH="$topdir/test/bats/bin:$PATH"
+
+echo "DIRENV: $wd" 1>&2
+echo "RUNNING: $*" 1>&2
+
+"$@"

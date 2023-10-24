@@ -1,8 +1,8 @@
 #include "WireCellImg/ChargeErrorFrameEstimator.h"
-#include "WireCellIface/SimpleFrame.h"
-#include "WireCellIface/SimpleTrace.h"
 #include "WireCellIface/IWaveformMap.h"
 #include "WireCellAux/FrameTools.h"
+#include "WireCellAux/SimpleFrame.h"
+#include "WireCellAux/SimpleTrace.h"
 
 #include "WireCellUtil/Units.h"
 #include "WireCellUtil/NamedFactory.h"
@@ -14,6 +14,10 @@ WIRECELL_FACTORY(ChargeErrorFrameEstimator, WireCell::Img::ChargeErrorFrameEstim
 
 using namespace WireCell;
 using namespace WireCell::Img;
+
+using WireCell::Aux::SimpleTrace;
+using WireCell::Aux::SimpleFrame;
+
 // One place for the defaults
 static Binning default_bins(1001, 0, (1+1000)*0.5*units::us);
 
@@ -108,11 +112,6 @@ void ChargeErrorFrameEstimator::configure(const WireCell::Configuration& cfg)
 	  log->error("Rebin {} does not match with Error Data period length {} with tick length {}", m_rebin, wf->waveform_period(), tick);
 	// warn, inform, debug
     }
-
-
-    
-
-
 }
 
 ITrace::vector ChargeErrorFrameEstimator::error_traces(const ITrace::vector& intraces) const {
@@ -185,10 +184,9 @@ bool ChargeErrorFrameEstimator::operator()(const input_pointer& in, output_point
         return true;  // eos
     }
 
-    log->debug("input: {}", Aux::taginfo(in));
-
     // calculate error traces
-    ITrace::vector err_traces = error_traces(Aux::tagged_traces(in, m_intag));
+    ITrace::vector in_traces = Aux::tagged_traces(in, m_intag);
+    ITrace::vector err_traces = error_traces(in_traces);
 
     // make a copy of all input trace pointers
     ITrace::vector out_traces(*in->traces());
@@ -214,11 +212,17 @@ bool ChargeErrorFrameEstimator::operator()(const input_pointer& in, output_point
     for (auto inttag : in->trace_tags()) {
         const auto& traces = in->tagged_traces(inttag);
         const auto& summary = in->trace_summary(inttag);
+        if (traces.empty()) {
+            log->warn("no traces for requested tag \"{}\"", inttag);
+            continue;
+        }
         sfout->tag_traces(inttag, traces, summary);
     };
 
     out = IFrame::pointer(sfout);
-    log->debug("out: {}", Aux::taginfo(out));
+
+    log->debug("input : {}", Aux::taginfo(in));
+    log->debug("output: {}", Aux::taginfo(out));
 
     return true;
 }

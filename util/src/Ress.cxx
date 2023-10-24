@@ -12,13 +12,14 @@ Ress::vector_t Ress::solve(Ress::matrix_t matrix, Ress::vector_t measured, const
 
     if (params.model == Ress::lasso) {
         WireCell::LassoModel model(params.lambda, params.max_iter, params.tolerance, params.non_negative);
-        if (initial.size()) {
-            model.Setbeta(initial);
-        }
+        if (params.set_init) {
+	  model.Setbeta(initial);
+	}
+        // FIXME: SetData overwrites SetLambdaWeight
+        model.SetData(matrix, measured);
         if (weights.size()) {
             model.SetLambdaWeight(weights);
         }
-        model.SetData(matrix, measured);
         model.Fit();
         return model.Getbeta();
     }
@@ -26,13 +27,13 @@ Ress::vector_t Ress::solve(Ress::matrix_t matrix, Ress::vector_t measured, const
     if (params.model == Ress::elnet) {
         WireCell::ElasticNetModel model(params.lambda, params.alpha, params.max_iter, params.tolerance,
                                         params.non_negative);
-        if (initial.size()) {
-            model.Setbeta(initial);
-        }
-        if (weights.size()) {
-            model.SetLambdaWeight(weights);
+	if (params.set_init) {
+	  model.Setbeta(initial);
         }
         model.SetData(matrix, measured);
+	if (weights.size()) {
+            model.SetLambdaWeight(weights);
+        }
         model.Fit();
         return model.Getbeta();
     }

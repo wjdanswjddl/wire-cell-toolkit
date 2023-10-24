@@ -1,6 +1,6 @@
 #include "WireCellAux/FrameTools.h"
-#include "WireCellIface/SimpleFrame.h"
-#include "WireCellIface/SimpleTrace.h"
+#include "WireCellAux/SimpleFrame.h"
+#include "WireCellAux/SimpleTrace.h"
 
 #include <iterator>
 #include <algorithm>
@@ -12,6 +12,8 @@
 #include <sstream>
 
 using namespace WireCell;
+using WireCell::Aux::SimpleTrace;
+using WireCell::Aux::SimpleFrame;
 
 std::string Aux::name(const WireCell::IFrame::pointer& frame)
 {
@@ -107,11 +109,12 @@ ITrace::vector Aux::untagged_traces(IFrame::pointer frame)
     auto traces = frame->traces();
     size_t ntraces = traces->size();
 
-    std::unordered_set<size_t> tagged;
+    std::vector<size_t> tagged;
     for (auto tag : frame->trace_tags()) {
         const auto& taglist = frame->tagged_traces(tag);
-        tagged.insert(taglist.begin(), taglist.end());
+        tagged.insert(tagged.end(), taglist.begin(), taglist.end());
     }
+    std::sort(tagged.begin(), tagged.end());
     std::vector<size_t> all(ntraces), untagged;
     std::iota(all.begin(), all.end(), 0);
     std::set_difference(all.begin(), all.end(), tagged.begin(), tagged.end(),
@@ -145,13 +148,19 @@ ITrace::vector Aux::tagged_traces(IFrame::pointer frame, IFrame::tag_t tag)
     return *all_traces;  // must make copy of shared pointers
 }
 
-Aux::channel_list Aux::channels(const ITrace::vector& traces)
+Aux::channel_list Aux::channels(const ITrace::vector& traces, bool uniq)
 {
     const auto nchans = traces.size();
     Aux::channel_list ret(nchans, 0);
     for (size_t ind = 0; ind != nchans; ++ind) {
         ret[ind] = traces[ind]->channel();
     }
+    if (uniq) {
+        std::sort(ret.begin(), ret.end());
+        auto end = std::unique(ret.begin(), ret.end());
+        ret.resize(std::distance(ret.begin(), end));
+    }
+
     return ret;
 }
 
@@ -213,22 +222,48 @@ void Aux::fill(Array::array_xxf& array, const ITrace::vector& traces, channel_li
     }
 }
 
+Aux::channel_list Aux::fill(Array::array_xxf& array,
+                            const ITrace::vector& traces)
+{
+    auto ch = Aux::channels(traces, true);
+    auto tbinmm = Aux::tbin_range(traces);
+    const size_t ncols = tbinmm.second - tbinmm.first;
+    const size_t nrows = std::distance(ch.begin(), ch.end());
+    Array::array_xxf arr = Array::array_xxf::Zero(nrows, ncols);
+    Aux::fill(arr, traces, ch.begin(), ch.end(), tbinmm.first);
+    return ch;
+}
+
 
 std::string Aux::taginfo(const WireCell::IFrame::pointer& frame)
 {
+    if (! frame) {
+        return "(null frame pointer)";
+    }
+
     std::stringstream info;
-    info << "frame " << frame->ident() << " with "
-         << frame->traces()->size() << " traces tagged:[ ";
+    info << "frame: ident=" << frame->ident()
+         << " time=" << frame->time() << " tick=" << frame->tick()
+         << " with "
+         << frame->traces()->size() << " traces.  frame tags:[ ";
     for (const auto& tag : frame->frame_tags()) {
-        info << tag << " ";
+        info << "\"" << tag << "\" ";
     }
 
     auto ttags = frame->trace_tags();
-    info << "] " << ttags.size() << " traces:[ ";
+    info << "] " << ttags.size() << " tagged trace sets:[ ";
     
     for (const auto& tag : ttags) {
         const auto& taglist = frame->tagged_traces(tag);
-        info << tag << ":" << taglist.size() << " ";
+        info << "\"" << tag << "\":" << taglist.size() << " ";
+        const auto& summary = frame->trace_summary(tag);
+        info << "[" << summary.size() << "] ";
+    }
+    info << "]";
+
+    info << " cmm:[ ";
+    for (const auto& [name,cm] : frame->masks()) {
+        info << name << ":" << cm.size() << " ";
     }
     info << "]";
     return info.str();
@@ -381,3 +416,4 @@ IFrame::pointer Aux::sum(std::vector<IFrame::pointer> frames, int ident)
 
     return std::make_shared<SimpleFrame>(ident, start_time, out_traces, tick);
 }
+

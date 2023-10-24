@@ -1,8 +1,8 @@
 #include "WireCellGen/Digitizer.h"
 
 #include "WireCellIface/IWireSelectors.h"
-#include "WireCellIface/SimpleFrame.h"
-#include "WireCellIface/SimpleTrace.h"
+#include "WireCellAux/SimpleFrame.h"
+#include "WireCellAux/SimpleTrace.h"
 
 #include "WireCellAux/FrameTools.h"
 
@@ -16,18 +16,11 @@ WIRECELL_FACTORY(Digitizer, WireCell::Gen::Digitizer,
 
 using namespace std;
 using namespace WireCell;
+using WireCell::Aux::SimpleTrace;
+using WireCell::Aux::SimpleFrame;
 
-Gen::Digitizer::Digitizer(const std::string& anode,
-                          int resolution, double gain,
-                          std::vector<double> fullscale,
-                          std::vector<double> baselines)
+Gen::Digitizer::Digitizer()
   : Aux::Logger("Digitizer", "gen")
-  , m_anode_tn(anode)
-  , m_resolution(resolution)
-  , m_gain(gain)
-  , m_fullscale(fullscale)
-  , m_baselines(baselines)
-  , m_frame_tag("")
 {
 }
 
@@ -36,7 +29,7 @@ Gen::Digitizer::~Digitizer() {}
 WireCell::Configuration Gen::Digitizer::default_configuration() const
 {
     Configuration cfg;
-    put(cfg, "anode", m_anode_tn);
+    put(cfg, "anode", "AnodePlane");
 
     put(cfg, "resolution", m_resolution);
     put(cfg, "gain", m_gain);
@@ -51,6 +44,7 @@ WireCell::Configuration Gen::Digitizer::default_configuration() const
         bl[ind] = m_baselines[ind];
     }
     cfg["baselines"] = bl;
+    cfg["round"] = m_round;
 
     cfg["frame_tag"] = m_frame_tag;
     return cfg;
@@ -58,13 +52,14 @@ WireCell::Configuration Gen::Digitizer::default_configuration() const
 
 void Gen::Digitizer::configure(const Configuration& cfg)
 {
-    m_anode_tn = get<string>(cfg, "anode", m_anode_tn);
-    m_anode = Factory::find_tn<IAnodePlane>(m_anode_tn);
+    auto anode_tn = get<string>(cfg, "anode", "AnodePlane");
+    m_anode = Factory::find_tn<IAnodePlane>(anode_tn);
 
     m_resolution = get(cfg, "resolution", m_resolution);
     m_gain = get(cfg, "gain", m_gain);
     m_fullscale = get(cfg, "fullscale", m_fullscale);
     m_baselines = get(cfg, "baselines", m_baselines);
+    m_round = get(cfg, "round", m_round);
     m_frame_tag = get(cfg, "frame_tag", m_frame_tag);
 
     std::stringstream ss;
@@ -74,7 +69,8 @@ void Gen::Digitizer::configure(const Configuration& cfg)
        << "gain=" << m_gain << ", "
        << "fullscale=[" << m_fullscale[0] / units::mV << "," << m_fullscale[1] / units::mV << "] mV, "
        << "baselines=[" << m_baselines[0] / units::mV << "," << m_baselines[1] / units::mV << ","
-       << m_baselines[2] / units::mV << "] mV";
+       << m_baselines[2] / units::mV << "] mV "
+       << "round=" << m_round;
     log->debug(ss.str());
 }
 
@@ -89,7 +85,11 @@ double Gen::Digitizer::digitize(double voltage)
         return adcmaxval;
     }
     const double relvoltage = (voltage - m_fullscale[0]) / (m_fullscale[1] - m_fullscale[0]);
-    return relvoltage * adcmaxval;
+    const double fp_adc = relvoltage * adcmaxval;
+    if (m_round) {
+        return round(fp_adc);
+    }
+    return floor(fp_adc);
 }
 
 bool Gen::Digitizer::operator()(const input_pointer& vframe, output_pointer& adcframe)
@@ -127,6 +127,8 @@ bool Gen::Digitizer::operator()(const input_pointer& vframe, output_pointer& adc
 
     ITrace::vector adctraces(nrows);
 
+    double totadc = 0;
+
     for (size_t irow = 0; irow < nrows; ++irow) {
         int ch = channels[irow];
         WirePlaneId wpid = m_anode->resolve(ch);
@@ -141,6 +143,7 @@ bool Gen::Digitizer::operator()(const input_pointer& vframe, output_pointer& adc
             double voltage = m_gain * arr(irow, icol) + baseline;
             const float adcf = digitize(voltage);
             adcwave[icol] = adcf;
+            totadc += adcf;
         }
         adctraces[irow] = make_shared<SimpleTrace>(ch, tbinmm.first, adcwave);
     }
@@ -150,9 +153,13 @@ bool Gen::Digitizer::operator()(const input_pointer& vframe, output_pointer& adc
     }
     adcframe = sframe;
 
-    log->debug("call={} traces={} frame={} outtag=\"{}\"",
+    log->debug("call={} traces={} frame={} totadc={} outtag=\"{}\"",
                m_count,
-               adctraces.size(), vframe->ident(), m_frame_tag);
+               adctraces.size(), vframe->ident(), totadc, m_frame_tag);
+
+    log->debug("input : {}", Aux::taginfo(vframe));
+    log->debug("output: {}", Aux::taginfo(adcframe));
+
     ++m_count;
     return true;
 }

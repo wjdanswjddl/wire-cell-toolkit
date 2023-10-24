@@ -1,0 +1,164 @@
+<blob 5 strips, 2 corners>
+	strips (5):
+		<strip L0 pind:[0,1]>
+		<strip L1 pind:[0,1]>
+		<strip L2 pind:[336,336]>
+		<strip L3 pind:[1005,1005]>
+		<strip L4 pind:[669,669]>
+	corners (2):
+		<corner [{L2,G336},{L4,G669}]>
+		<corner [{L3,G1005},{L4,G669}]>
+<blob 5 strips, 2 corners>
+	strips (5):
+		<strip L0 pind:[0,1]>
+		<strip L1 pind:[0,1]>
+		<strip L2 pind:[340,340]>
+		<strip L3 pind:[1001,1001]>
+		<strip L4 pind:[669,669]>
+	corners (2):
+		<corner [{L2,G340},{L4,G669}]>
+		<corner [{L3,G1001},{L4,G669}]>
+<blob 5 strips, 5 corners>
+	strips (5):
+		<strip L0 pind:[0,1]>
+		<strip L1 pind:[0,1]>
+		<strip L2 pind:[338,340]>
+		<strip L3 pind:[1002,1003]>
+		<strip L4 pind:[669,671]>
+	corners (5):
+		<corner [{L2,G338},{L3,G1003}]>
+		<corner [{L2,G340},{L3,G1002}]>
+		<corner [{L2,G340},{L3,G1003}]>
+		<corner [{L2,G338},{L4,G669}]>
+		<corner [{L3,G1002},{L4,G669}]>
+<blob 5 strips, 5 corners>
+	strips (5):
+		<strip L0 pind:[0,1]>
+		<strip L1 pind:[0,1]>
+		<strip L2 pind:[338,340]>
+		<strip L3 pind:[1004,1005]>
+		<strip L4 pind:[670,672]>
+	corners (5):
+		<corner [{L2,G338},{L3,G1004}]>
+		<corner [{L2,G338},{L3,G1005}]>
+		<corner [{L2,G340},{L3,G1004}]>
+		<corner [{L3,G1004},{L4,G672}]>
+		<corner [{L3,G1005},{L4,G672}]>
+<blob 5 strips, 6 corners>
+	strips (5):
+		<strip L0 pind:[0,1]>
+		<strip L1 pind:[0,1]>
+		<strip L2 pind:[341,343]>
+		<strip L3 pind:[1000,1001]>
+		<strip L4 pind:[669,672]>
+	corners (6):
+		<corner [{L2,G341},{L3,G1000}]>
+		<corner [{L2,G341},{L3,G1001}]>
+		<corner [{L2,G343},{L3,G1000}]>
+		<corner [{L2,G343},{L3,G1001}]>
+		<corner [{L2,G343},{L4,G672}]>
+		<corner [{L3,G1001},{L4,G672}]>
+<blob 5 strips, 3 corners>
+	strips (5):
+		<strip L0 pind:[0,1]>
+		<strip L1 pind:[0,1]>
+		<strip L2 pind:[341,342]>
+		<strip L3 pind:[1002,1003]>
+		<strip L4 pind:[671,672]>
+	corners (3):
+		<corner [{L2,G341},{L3,G1002}]>
+		<corner [{L2,G341},{L4,G672}]>
+		<corner [{L3,G1002},{L4,G672}]>
+<blob 5 strips, 5 corners>
+	strips (5):
+		<strip L0 pind:[0,1]>
+		<strip L1 pind:[0,1]>
+		<strip L2 pind:[352,353]>
+		<strip L3 pind:[988,990]>
+		<strip L4 pind:[669,671]>
+	corners (5):
+		<corner [{L2,G352},{L3,G990}]>
+		<corner [{L2,G353},{L3,G988}]>
+		<corner [{L2,G353},{L3,G990}]>
+		<corner [{L2,G352},{L4,G669}]>
+		<corner [{L3,G988},{L4,G669}]>
+<blob 5 strips, 2 corners>
+	strips (5):
+		<strip L0 pind:[0,1]>
+		<strip L1 pind:[0,1]>
+		<strip L2 pind:[353,353]>
+		<strip L3 pind:[1001,1001]>
+		<strip L4 pind:[682,682]>
+	corners (2):
+		<corner [{L2,G353},{L4,G682}]>
+		<corner [{L3,G1001},{L4,G682}]>
+<blob 5 strips, 4 corners>
+	strips (5):
+		<strip L0 pind:[0,1]>
+		<strip L1 pind:[0,1]>
+		<strip L2 pind:[352,353]>
+		<strip L3 pind:[1002,1003]>
+		<strip L4 pind:[682,684]>
+	corners (4):
+		<corner [{L2,G352},{L3,G1002}]>
+		<corner [{L2,G352},{L3,G1003}]>
+		<corner [{L2,G353},{L3,G1002}]>
+		<corner [{L2,G353},{L3,G1003}]>
+<blob 5 strips, 6 corners>
+	strips (5):
+		<strip L0 pind:[0,1]>
+		<strip L1 pind:[0,1]>
+		<strip L2 pind:[352,353]>
+		<strip L3 pind:[1004,1005]>
+		<strip L4 pind:[684,686]>
+	corners (6):
+		<corner [{L2,G352},{L3,G1004}]>
+		<corner [{L2,G352},{L3,G1005}]>
+		<corner [{L2,G353},{L3,G1004}]>
+		<corner [{L2,G353},{L3,G1005}]>
+		<corner [{L2,G353},{L4,G686}]>
+		<corner [{L3,G1005},{L4,G686}]>
+<blob 5 strips, 7 corners>
+	strips (5):
+		<strip L0 pind:[0,1]>
+		<strip L1 pind:[0,1]>
+		<strip L2 pind:[364,368]>
+		<strip L3 pind:[988,990]>
+		<strip L4 pind:[682,686]>
+	corners (7):
+		<corner [{L2,G364},{L3,G990}]>
+		<corner [{L2,G368},{L3,G988}]>
+		<corner [{L2,G368},{L3,G990}]>
+		<corner [{L2,G364},{L4,G682}]>
+		<corner [{L2,G368},{L4,G686}]>
+		<corner [{L3,G988},{L4,G682}]>
+		<corner [{L3,G990},{L4,G686}]>
+<blob 5 strips, 7 corners>
+	strips (5):
+		<strip L0 pind:[0,1]>
+		<strip L1 pind:[0,1]>
+		<strip L2 pind:[681,685]>
+		<strip L3 pind:[1141,1145]>
+		<strip L4 pind:[1153,1158]>
+	corners (7):
+		<corner [{L2,G681},{L3,G1145}]>
+		<corner [{L2,G685},{L3,G1141}]>
+		<corner [{L2,G685},{L3,G1145}]>
+		<corner [{L2,G681},{L4,G1153}]>
+		<corner [{L2,G685},{L4,G1158}]>
+		<corner [{L3,G1141},{L4,G1153}]>
+		<corner [{L3,G1145},{L4,G1158}]>
+<blob 5 strips, 6 corners>
+	strips (5):
+		<strip L0 pind:[0,1]>
+		<strip L1 pind:[0,1]>
+		<strip L2 pind:[1790,1796]>
+		<strip L3 pind:[2125,2129]>
+		<strip L4 pind:[3246,3251]>
+	corners (6):
+		<corner [{L2,G1790},{L3,G2129}]>
+		<corner [{L2,G1796},{L3,G2125}]>
+		<corner [{L2,G1790},{L4,G3246}]>
+		<corner [{L2,G1796},{L4,G3251}]>
+		<corner [{L3,G2125},{L4,G3246}]>
+		<corner [{L3,G2129},{L4,G3251}]>

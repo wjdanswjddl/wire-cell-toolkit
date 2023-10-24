@@ -1,10 +1,11 @@
 #include "WireCellGen/Retagger.h"
 #include "WireCellUtil/NamedFactory.h"
-#include "WireCellIface/SimpleFrame.h"
+#include "WireCellAux/SimpleFrame.h"
 
 WIRECELL_FACTORY(Retagger, WireCell::Gen::Retagger, WireCell::IFrameFilter, WireCell::IConfigurable)
 
 using namespace WireCell;
+using WireCell::Aux::SimpleFrame;
 
 Gen::Retagger::Retagger() {}
 
@@ -14,12 +15,18 @@ void Gen::Retagger::configure(const WireCell::Configuration& cfg)
 {
     // frame/trace/merge tagging.
     m_trctx.configure(cfg["tag_rules"]);
+    
+    auto jmm = cfg["maskmap"];
+    for (auto name : jmm.getMemberNames()) {
+        m_maskmap[name] = jmm[name].asString();
+    }
 }
 
 WireCell::Configuration Gen::Retagger::default_configuration() const
 {
     Configuration cfg;
     cfg["tag_rules"] = Json::arrayValue;
+    cfg["maskmap"]["bad"] = "bad";
     return cfg;
 }
 
@@ -30,8 +37,12 @@ bool Gen::Retagger::operator()(const input_pointer& inframe, output_pointer& out
         return true;  // eos
     }
 
+    Waveform::ChannelMaskMap input_cmm = inframe->masks();
+    Waveform::ChannelMaskMap output_cmm;
+    Waveform::merge(output_cmm, input_cmm, m_maskmap);
+
     // Basic frame data is just shunted across.
-    auto sfout = new SimpleFrame(inframe->ident(), inframe->time(), *inframe->traces(), inframe->tick());
+    auto sfout = new SimpleFrame(inframe->ident(), inframe->time(), *inframe->traces(), inframe->tick(), output_cmm);
 
     //
     // frame

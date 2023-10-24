@@ -2,7 +2,7 @@
 #include "WireCellUtil/String.h"
 #include "WireCellUtil/Array.h"
 #include "WireCellUtil/NumpyHelper.h"
-#include "WireCellIface/SimpleDepo.h"
+#include "WireCellAux/SimpleDepo.h"
 
 
 using namespace WireCell;
@@ -46,7 +46,7 @@ bool Sio::NumpyDepoTools::load(const std::string& fname, int count,
 
     size_t npositive = 0;
 
-    std::vector<SimpleDepo*> sdepos;
+    std::vector<Aux::SimpleDepo*> sdepos;
     for (size_t ind=0; ind < ndepos; ++ind) {
 
         {
@@ -56,7 +56,7 @@ bool Sio::NumpyDepoTools::load(const std::string& fname, int count,
             }
         }
 
-        auto sdepo = new SimpleDepo(
+        auto sdepo = new Aux::SimpleDepo(
             data(ind, 0),        // t
             Point(data(ind, 2),  // x
                   data(ind, 3),  // y

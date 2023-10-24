@@ -3,6 +3,7 @@
 #include "WireCellUtil/Waveform.h"
 #include "WireCellUtil/Testing.h"
 #include "WireCellUtil/Logging.h"
+#include "WireCellUtil/RayHelpers.h"
 
 #include <math.h>
 
@@ -25,9 +26,6 @@ const double gaussian = 3;
 const double border = 10;
 const double width = 100;
 const double height = 100;
-
-// local helper codes
-#include "raygrid.h"
 
 #include "raygrid_dump.h"
 
@@ -53,64 +51,71 @@ static std::vector<Point> make_points(std::default_random_engine& generator, dou
 
 typedef std::vector<Activity::value_t> measure_t;
 
-static std::vector<measure_t> make_measures(Coordinates& coords, const std::vector<Point>& points)
-{
-    int nlayers = coords.nlayers();
-    std::vector<measure_t> measures(nlayers);
-    const auto& pitches = coords.pitch_dirs();
-    const auto& centers = coords.centers();
-    const auto& pitch_mags = coords.pitch_mags();
+// moved to RayHelpers
+// static std::vector<measure_t> make_measures(Coordinates& coords, const std::vector<Point>& points)
+// {
+//     int nlayers = coords.nlayers();
+//     std::vector<measure_t> measures(nlayers);
+//     const auto& pitches = coords.pitch_dirs();
+//     const auto& centers = coords.centers();
+//     const auto& pitch_mags = coords.pitch_mags();
 
-    for (size_t ipt = 0; ipt < points.size(); ++ipt) {
-        const auto& p = points[ipt];
-        for (int ilayer = 0; ilayer < nlayers; ++ilayer) {
-            const auto& pit = pitches[ilayer];
-            const auto& cen = centers[ilayer];
-            const auto rel = p - cen;
-            const int pit_ind = pit.dot(rel) / pitch_mags[ilayer];
-            if (pit_ind < 0) {
-                warn("Negative pitch indices not allowed, got {} from ilayer {} ipt {} for point {}", pit_ind, ilayer,
-                     ipt, p);
-                continue;
-            }
-            if (ilayer <= 1) {
-                if (pit_ind >= 1 or pit_ind < 0) {
-                    debug("mm: pit_ind={} with ipt={}", pit_ind, ipt);
-                    if (pit_ind == 1) {
-                        debug("\tpit={} cen={} rel={}", pit, cen, rel);
-                    }
-                    continue;
-                }
-            }
-            measure_t& m = measures[ilayer];
-            if ((int) m.size() <= pit_ind) {
-                debug("resize for ipt {} ilayer {} from {} to {}", ipt, ilayer, m.size(), pit_ind + 1);
-                m.resize(pit_ind + 1, 0.0);
-                debug("done");
-            }
+//     for (size_t ipt = 0; ipt < points.size(); ++ipt) {
+//         const auto& p = points[ipt];
+//         for (int ilayer = 0; ilayer < nlayers; ++ilayer) {
+//             const auto& pit = pitches[ilayer];
+//             const auto& cen = centers[ilayer];
+//             const auto rel = p - cen;
+//             const int pit_ind = pit.dot(rel) / pitch_mags[ilayer];
+//             if (pit_ind < 0) {
+//                 warn("Negative pitch indices not allowed, got {} from ilayer {} ipt {} for point {}", pit_ind, ilayer,
+//                      ipt, p);
+//                 continue;
+//             }
+//             if (ilayer <= 1) {
+//                 if (pit_ind >= 1 or pit_ind < 0) {
+//                     debug("mm: pit_ind={} with ipt={}", pit_ind, ipt);
+//                     if (pit_ind == 1) {
+//                         debug("\tpit={} cen={} rel={}", pit, cen, rel);
+//                     }
+//                     continue;
+//                 }
+//             }
+//             measure_t& m = measures[ilayer];
+//             if ((int) m.size() <= pit_ind) {
+//                 debug("resize for ipt {} ilayer {} from {} to {}", ipt, ilayer, m.size(), pit_ind + 1);
+//                 m.resize(pit_ind + 1, 0.0);
+//                 debug("done");
+//             }
 
-            debug("adding to pit_ind {} ilayer {} ipt {}", pit_ind, ilayer, ipt);
-            m[pit_ind] += 1.0;
-            debug("valud: {}", m[pit_ind]);
-        }
-    }
+//             debug("adding to pit_ind {} ilayer {} ipt {}", pit_ind, ilayer, ipt);
+//             m[pit_ind] += 1.0;
+//             debug("valud: {}", m[pit_ind]);
+//         }
+//     }
 
-    return measures;
-}
+//     return measures;
+// }
 
-static activities_t make_activities(Coordinates& coords, std::vector<measure_t>& measures)
-{
-    int nlayers = coords.nlayers();
-    activities_t activities;
-    for (int ilayer = 0; ilayer < nlayers; ++ilayer) {
-        auto& m = measures[ilayer];
-        info("Make activity for layer: {}: {}", ilayer, m.size());
-        Activity activity(ilayer, {m.begin(), m.end()});
-        Assert(!activity.empty());
-        activities.push_back(activity);
-    }
-    return activities;
-}
+// static activities_t make_activities(Coordinates& coords, std::vector<measure_t>& measures)
+// {
+//     int nlayers = coords.nlayers();
+//     activities_t activities;
+//     for (int ilayer = 0; ilayer < nlayers; ++ilayer) {
+//         auto& m = measures[ilayer];
+//         info("Make activity for layer: {}: {}", ilayer, m.size());
+//         std::stringstream ss;
+//         for (const auto& v : m) {
+//             ss << v << " ";
+//         }
+//         info("\t{}", ss.str());
+
+//         Activity activity(ilayer, {m.begin(), m.end()});
+//         Assert(!activity.empty());
+//         activities.push_back(activity);
+//     }
+//     return activities;
+// }
 
 struct Chirp {
     const blobs_t& one;
@@ -227,6 +232,11 @@ static void test_blobs(const blobs_t& blobs)
 {
     for (const auto& blob : blobs) {
         const auto& strips = blob.strips();
+        std::cerr << "blob: " << blob << "\n";
+        for (size_t ind=0; ind<5; ++ind) {
+            std::cerr << "\tbb["<<ind<<"]: " << strips[ind].bounds << "\n";
+        }
+
         Assert(strips[0].bounds.first == 0);
         Assert(strips[0].bounds.second == 1);
         Assert(strips[1].bounds.first == 0);
@@ -234,13 +244,26 @@ static void test_blobs(const blobs_t& blobs)
     }
 }
 
+
 int main(int argc, char* argv[])
 {
-    auto raypairs = make_raypairs(width, height, pitch_magnitude);
+    auto raypairs = symmetric_raypairs(width, height, pitch_magnitude);
 
     Coordinates coords(raypairs);
+    Assert(coords.nlayers() == 5);
 
-    Tiling tiling(coords);
+    {
+        Coordinates empty;
+    }
+    {
+        Coordinates copy;
+        copy = coords;
+    }
+    {
+        Coordinates copy(coords);
+    }
+
+    Tiling tiling(coords, 1e-6);
 
     std::default_random_engine generator;
     std::vector<Point> pts1 = make_points(generator, 10.0);

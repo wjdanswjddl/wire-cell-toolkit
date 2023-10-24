@@ -7,6 +7,8 @@
 
 #include "WireCellSigProc/Diagnostics.h"
 
+#include "WireCellAux/Logger.h"
+
 #include "WireCellIface/IChannelFilter.h"
 #include "WireCellIface/IConfigurable.h"
 #include "WireCellIface/IChannelNoiseDatabase.h"
@@ -64,7 +66,8 @@ namespace WireCell {
                 int m_stky_max_len;
             };
 
-            class OneChannelNoise : public WireCell::IChannelFilter, public WireCell::IConfigurable {
+            class OneChannelNoise : public Aux::Logger,
+                                    public WireCell::IChannelFilter, public WireCell::IConfigurable {
                public:
                 OneChannelNoise(const std::string& anode_tn = "AnodePlane",
                                 const std::string& noisedb = "OmniChannelNoiseDB");

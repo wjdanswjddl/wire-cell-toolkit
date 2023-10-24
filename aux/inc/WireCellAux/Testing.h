@@ -11,7 +11,7 @@
  */
 
 #include "WireCellAux/DftTools.h"
-#include "WireCellAux/RandTools.h"
+#include "WireCellIface/IRandom.h"
 
 #include "WireCellIface/IConfigurable.h"
 #include "WireCellIface/IAnodePlane.h"
@@ -50,7 +50,7 @@ namespace WireCell::Aux::Testing {
     IAnodePlane::vector anodes(const std::string detector);
 
     // Initialize WCT logging with argv[0].
-    void loginit(const char* argv0);
+    // void loginit(const char* argv0);
 
 }
 

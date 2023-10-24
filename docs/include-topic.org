@@ -1,0 +1,3 @@
+#+SETUPFILE: ../../docs/setup-topic.org
+#+html: <center><a href="../README.html">(top)</a> <a href="README.html">(pkg)</a></center>
+

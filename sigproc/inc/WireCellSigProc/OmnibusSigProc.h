@@ -22,27 +22,7 @@ namespace WireCell {
         class OmnibusSigProc : public Aux::Logger,
                                public WireCell::IFrameFilter, public WireCell::IConfigurable {
            public:
-            OmnibusSigProc(
-                const std::string& anode_tn = "AnodePlane", const std::string& per_chan_resp_tn = "PerChannelResponse",
-                const std::string& field_response = "FieldResponse", double fine_time_offset = 0.0 * units::microsecond,
-                double coarse_time_offset = -8.0 * units::microsecond, const std::string& elecresponse_tn = "ColdElec",
-                double gain = 14.0 * units::mV / units::fC, double shaping_time = 2.2 * units::microsecond,
-                double inter_gain = 1.2, double ADC_mV = 4096 / (2000. * units::mV), float th_factor_ind = 3,
-                float th_factor_col = 5, int pad = 5, float asy = 0.1, int rebin = 6, double l_factor = 3.5,
-                double l_max_th = 10000, double l_factor1 = 0.7, int l_short_length = 3, int l_jump_one_bin = 0,
-                double r_th_factor = 3.0, double r_fake_signal_low_th = 500, double r_fake_signal_high_th = 1000,
-                double r_fake_signal_low_th_ind_factor = 1.0, double r_fake_signal_high_th_ind_factor = 1.0,
-                int r_pad = 5, int r_break_roi_loop = 2, double r_th_peak = 3.0, double r_sep_peak = 6.0,
-                double r_low_peak_sep_threshold_pre = 1200, int r_max_npeaks = 200, double r_sigma = 2.0,
-                double r_th_percent = 0.1, std::vector<int> process_planes = {0, 1, 2}, int charge_ch_offset = 10000,
-                const std::string& wiener_tag = "wiener", const std::string& wiener_threshold_tag = "threshold",
-                const std::string& decon_charge_tag = "decon_charge", const std::string& gauss_tag = "gauss",
-                bool use_roi_debug_mode = false, bool use_roi_refinement = true, const std::string& tight_lf_tag = "tight_lf",
-                const std::string& loose_lf_tag = "loose_lf", const std::string& cleanup_roi_tag = "cleanup_roi",
-                const std::string& break_roi_loop1_tag = "break_roi_1st",
-                const std::string& break_roi_loop2_tag = "break_roi_2nd",
-                const std::string& shrink_roi_tag = "shrink_roi", const std::string& extend_roi_tag = "extend_roi",
-                const std::string& mp3_roi_tag = "mp3_roi", const std::string& mp2_roi_tag = "mp2_roi");
+            OmnibusSigProc( );
             virtual ~OmnibusSigProc();
 
             virtual bool operator()(const input_pointer& in, output_pointer& out);
@@ -94,7 +74,7 @@ namespace WireCell {
             void init_overall_response(IFrame::pointer frame);
 
             void restore_baseline(WireCell::Array::array_xxf& arr);
-
+	    void rebase_waveform(WireCell::Array::array_xxf& arr, const int& nbins);
             // This little struct is used to map between WCT channel idents
             // and internal OmnibusSigProc wire/channel numbers.  See
             // m_channel_map and m_channel_range below.
@@ -117,64 +97,68 @@ namespace WireCell {
             bool masked_neighbors(const std::string& cmname, OspChan& ochan, int nnn);
 
             // Anode plane for geometry
-            std::string m_anode_tn;
+            std::string m_anode_tn{"AnodePlane"};
             IAnodePlane::pointer m_anode;
-            std::string m_per_chan_resp;
-            std::string m_field_response;
+            std::string m_per_chan_resp{"PerChannelResponse"};
+            std::string m_field_response{"FieldResponse"};
 
-            // Overall time offset
-            double m_fine_time_offset;    // must be positive, between 0-0.5 us, shift the response function to earlier
-                                          // time --> shift the deconvoluted signal to a later time
-            double m_coarse_time_offset;  // additional coarse time shift ...
+            // Overall time offset.  must be positive, between 0-0.5
+            // us, shift the response function to earlier time -->
+            // shift the deconvoluted signal to a later time
+            double m_fine_time_offset{0.0 * units::microsecond};
+            // additional coarse time shift ...
+            double m_coarse_time_offset{-8.0 * units::microsecond};
             double m_intrinsic_time_offset;
             int m_wire_shift[3];
 
             // bins
-            double m_period;
-            int m_nticks;
-            int m_fft_flag;
+            double m_period{0};
+            int m_nticks{0};
+            int m_fft_flag{0};
             int m_fft_nwires[3], m_pad_nwires[3];
             int m_fft_nticks, m_pad_nticks;
 
             // gain, shaping time, other applification factors
-            std::string m_elecresponse_tn;
+            std::string m_elecresponse_tn{"ColdElec"};
             std::shared_ptr<IWaveform> m_elecresponse;
-            double m_gain, m_shaping_time;
-            double m_inter_gain, m_ADC_mV;
+            double m_gain{14.0 * units::mV / units::fC};
+            double m_shaping_time{2.2 * units::microsecond};
+            double m_inter_gain{1.2};
+            double m_ADC_mV{4096 / (2000. * units::mV)};
 
             // some parameters for ROI creating
-            float m_th_factor_ind;
-            float m_th_factor_col;
-            int m_pad;
-            float m_asy;
-            int m_rebin;
-            double m_l_factor;
-            double m_l_max_th;
-            double m_l_factor1;
-            int m_l_short_length;
-            int m_l_jump_one_bin;
+            float m_th_factor_ind{3};
+            float m_th_factor_col{5};
+            int m_pad{5};
+            float m_asy{0.1};
+            int m_rebin{6};
+            double m_l_factor{3.5};
+            double m_l_max_th{10000};
+            double m_l_factor1{0.7};
+            int m_l_short_length{3};
+            int m_l_jump_one_bin{0};
 
             // ROI_refinement
-            double m_r_th_factor;
-            double m_r_fake_signal_low_th;
-            double m_r_fake_signal_high_th;
-            double m_r_fake_signal_low_th_ind_factor;
-            double m_r_fake_signal_high_th_ind_factor;
-            int m_r_pad;
-            int m_r_break_roi_loop;
-            double m_r_th_peak;
-            double m_r_sep_peak;
-            double m_r_low_peak_sep_threshold_pre;
-            int m_r_max_npeaks;
-            double m_r_sigma;
-            double m_r_th_percent;
+            double m_r_th_factor{3.0};
+            double m_r_fake_signal_low_th{500};
+            double m_r_fake_signal_high_th{1000};
+            double m_r_fake_signal_low_th_ind_factor{1.0};
+            double m_r_fake_signal_high_th_ind_factor{1.0};
+            int m_r_pad{5};
+            int m_r_break_roi_loop{2};
+            double m_r_th_peak{3.0};
+            double m_r_sep_peak{6.0};
+            double m_r_low_peak_sep_threshold_pre{1200};
+            int m_r_max_npeaks{200};
+            double m_r_sigma{2.0};
+            double m_r_th_percent{0.1};
 
             // specify the planes to process
-            std::vector<int> m_process_planes;
+            std::vector<int> m_process_planes{0,1,2};
 
             // fixme: this is apparently not used:
             // channel offset
-            int m_charge_ch_offset;
+            int m_charge_ch_offset{10000};
 
             // CAUTION: this class was originally written for microboone
             // which is degenerate in how wires and channels may be
@@ -200,10 +184,11 @@ namespace WireCell {
             std::vector<OspChan> m_channel_range[3];
 
             // This is the input channel mask map but converted to OSP
-            // channel number indices.  See above.  This is NOT a direct
-            // copy from the IFrame.  It's reindexed by osp channel, not WCT
-            // channel ident!
-            Waveform::ChannelMaskMap m_cmm;
+            // channel number indices (IChannel::index or Wire Attachment Number).
+            // See above.  This is NOT a direct copy from the IFrame.
+            // It's reindexed by osp channel, not WCT channel ident!
+            // DO NOT output this!
+            Waveform::ChannelMaskMap m_wanmm;
 
             // Per-plane temporary working arrays.  Each column is one tick,
             // each row is indexec by an "OSP wire" number
@@ -214,32 +199,39 @@ namespace WireCell {
             std::vector<Waveform::realseq_t> overall_resp[3];
 
             // tag name for traces
-            std::string m_wiener_tag;
-            std::string m_wiener_threshold_tag;
-            std::string m_decon_charge_tag;
-            std::string m_gauss_tag;
-            std::string m_frame_tag;
+            std::string m_wiener_tag{"wiener"};
+//            std::string m_wiener_threshold_tag;
+            std::string m_decon_charge_tag{"decon_charge"};
+            std::string m_gauss_tag{"gauss"};
+            std::string m_frame_tag{"sigproc"};
 
-            bool m_use_roi_debug_mode;
-            bool m_use_roi_refinement;
-            std::string m_tight_lf_tag;
-            std::string m_loose_lf_tag;
-            std::string m_cleanup_roi_tag;
-            std::string m_break_roi_loop1_tag;
-            std::string m_break_roi_loop2_tag;
-            std::string m_shrink_roi_tag;
-            std::string m_extend_roi_tag;
+            bool m_use_roi_debug_mode{false};
+            bool m_use_roi_refinement{true};
+            std::string m_tight_lf_tag{"tight_lf"};
+            std::string m_loose_lf_tag{"loose_lf"};
+            std::string m_cleanup_roi_tag{"cleanup_roi"};
+            std::string m_break_roi_loop1_tag{"break_roi_1st"};
+            std::string m_break_roi_loop2_tag{"break_roi_2nd"};
+            std::string m_shrink_roi_tag{"shrink_roi"};
+            std::string m_extend_roi_tag{"extend_roi"};
 
-            bool m_use_multi_plane_protection;
-            std::string m_mp3_roi_tag;
-            std::string m_mp2_roi_tag;
+            bool m_use_multi_plane_protection{false};
+            std::string m_mp3_roi_tag{"mp3_roi"};
+            std::string m_mp2_roi_tag{"mp2_roi"};
+            double m_mp_th1{1000.};
+            double m_mp_th2{500.};
+            int m_mp_tick_resolution{4};
 
-            bool m_isWrapped;
+	    //Rebase waveforms for each channel of spesific wire-plane. 
+	    std::vector<int> m_rebase_planes{}; 
+            int m_rebase_nbins=200;
+
+            bool m_isWrapped{false};
 
             // If true, safe output as a sparse frame.  Traces will only
             // cover segments of waveforms which have non-zero signal
             // samples.
-            bool m_sparse;
+            bool m_sparse{false};
 
             size_t m_count{0};
             int m_verbose{0};

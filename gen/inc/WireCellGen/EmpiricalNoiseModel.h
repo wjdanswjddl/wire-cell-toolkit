@@ -30,7 +30,7 @@ namespace WireCell {
 
         class EmpiricalNoiseModel : public Aux::Logger,
                                     public IChannelSpectrum, public IConfigurable {
-           public:
+          public:
             EmpiricalNoiseModel(const std::string& spectra_file = "",
                                 const int nsamples = 10000,  // assuming 10k samples
                                 const double period = 0.5 * units::us, const double wire_length_scale = 1.0 * units::cm,
@@ -42,8 +42,10 @@ namespace WireCell {
 
             virtual ~EmpiricalNoiseModel();
 
+          public: // interface
+
             /// IChannelSpectrum
-            virtual const amplitude_t& operator()(int chid) const;
+            virtual const amplitude_t& channel_spectrum(int chid) const;
 
             // get constant term
             virtual const std::vector<float>& freq() const;
@@ -56,7 +58,7 @@ namespace WireCell {
             virtual void configure(const WireCell::Configuration& config);
             virtual WireCell::Configuration default_configuration() const;
 
-            // Local methods
+          public: // Local methods, exposed to enable testing
 
             // fixme: this should be factored out into wire-cell-util.
             struct NoiseSpectrum {
@@ -78,9 +80,12 @@ namespace WireCell {
             // generate the default electronics response function at 1 mV/fC gain
             void gen_elec_resp_default();
 
-            // Return a new amplitude which is the interpolation
-            // between those given in the spectra file.
-            amplitude_t interpolate(int plane, double wire_length) const;
+            // Return new amplitude spectrum and constant term that
+            // has been interpolated by wire_length between those
+            // given in the spectra file.
+            using spectrum_data_t = std::pair<double, amplitude_t>;
+            spectrum_data_t interpolate_wire_length(int plane, double wire_length) const;
+            const spectrum_data_t& get_spectrum_data(int iplane, int ilen) const;
 
             int get_nsamples() { return m_nsamples; };
 
@@ -92,7 +97,11 @@ namespace WireCell {
             std::string m_spectra_file;
             int m_nsamples;
             int m_fft_length;
-            double m_period, m_wlres;
+            double m_period;
+            double m_wlres{1.0 * units::cm}; // wire length scale -> ~10 - 800 cm
+            double m_gres{0.1 * units::mV / units::fC}; // gain resolution, 0.1 mV/fC, 4.7, 7.8, 14, 25 -> 47 - 250
+            double m_sres{0.1 * units::microsecond}; // shaping resolution, 0.5, 1, 2, 3. x1.1 when cold -> 10 - 30
+
             // double m_tres, m_gres, m_fres;
             std::string m_anode_tn, m_chanstat_tn;
 
@@ -101,16 +110,18 @@ namespace WireCell {
             // cache amplitudes to the nearest integral distance.
             mutable std::unordered_map<int, int> m_chid_to_intlen;
 
-            typedef std::unordered_map<int, amplitude_t> len_amp_cache_t;
-            mutable std::vector<len_amp_cache_t> m_amp_cache;
+            typedef std::unordered_map<int, spectrum_data_t> len_amp_cache_t;
+            mutable std::vector<len_amp_cache_t> m_len_amp_cache;
 
+            // two layered caching to avoid per-channel cache
+            // chid -> pack-key
+            mutable std::unordered_map<int, unsigned int> m_channel_packkey_cache;
+            using channel_amp_cache_t = std::unordered_map<unsigned int, amplitude_t>;
+            mutable channel_amp_cache_t m_channel_amp_cache;
+            
             // need to convert the electronics response in here ...
             Waveform::realseq_t m_elec_resp_freq;
             mutable std::unordered_map<int, Waveform::realseq_t> m_elec_resp_cache;
-            // sigh, this totally violates the API!  It returns the
-            // same vector every call.  It should return a unique
-            // vector.
-            mutable amplitude_t comb_amp;
 
         };
 

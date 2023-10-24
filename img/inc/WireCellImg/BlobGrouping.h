@@ -1,10 +1,14 @@
-/** BlobGrouping takes in a channel-level cluster and produces another with channels merged ('m' nodes)
+/** BlobGrouping takes in a channel-level cluster and produces another
+ * with channels merged into measure ('m' nodes)
  *
- * The input cluster must have (b,w), (c,w) and (s,b) edges and may have (b,b) edges.
+ * The input cluster must have (b-w), (c-w) and (b-s) edges and may have (b-b) edges.
  *
- * The output cluster will have (m, b) and (s,b) edges and if the input has (b,b) edges, they are preserved.
+ * The output cluster will add (b-m) and (c-m) edges.
  *
- * Grouping is done in the "coarse grained" strategy.
+ * The created m-node IMeasures will have sequential ident() unique to
+ * the context of the cluster.
+ *
+ * Grouping is done in the "coarse grained" strategy.  (see raygrid.pdf).
  *
  * See manual for more info.
  */
@@ -15,25 +19,22 @@
 #include "WireCellIface/IConfigurable.h"
 #include "WireCellAux/Logger.h"
 
-namespace WireCell {
+namespace WireCell::Img {
 
-    namespace Img {
+    class BlobGrouping : public Aux::Logger, public IClusterFilter, public IConfigurable {
+      public:
+        BlobGrouping();
+        virtual ~BlobGrouping();
 
-        class BlobGrouping : public Aux::Logger, public IClusterFilter, public IConfigurable {
-           public:
-            BlobGrouping();
-            virtual ~BlobGrouping();
+        virtual void configure(const WireCell::Configuration& cfg);
+        virtual WireCell::Configuration default_configuration() const;
 
-            virtual void configure(const WireCell::Configuration& cfg);
-            virtual WireCell::Configuration default_configuration() const;
+        virtual bool operator()(const input_pointer& in, output_pointer& out);
 
-            virtual bool operator()(const input_pointer& in, output_pointer& out);
+      private:
+        int m_count{0};
+    };
 
-           private:
-        };
-
-    }  // namespace Img
-
-}  // namespace WireCell
+}  // namespace WireCell::Img
 
 #endif /* WIRECELL_BLOBGROUPING_H */

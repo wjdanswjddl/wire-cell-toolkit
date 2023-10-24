@@ -1,14 +1,7 @@
-This file just contains some notes.  For Wire Cell Toolkit documentation see:
+#+title: Generating Field Response Data File.
+#+include: ../../docs/include-topic.org
 
-https://wirecell.github.io/
-
-More information about using Wire Cell Toolkit's Python interface is at
-
-https://wirecell.github.io/manual.html#pkg-python
-
-* Generating Field Response Data File.
-
-** Garfield 2D input
+* Garfield 2D input
 
 Get the output of Garfield 2D which should be a collection of files like:
 
@@ -72,7 +65,7 @@ Contents of the file should be like:
    +     0.99900002E+02  -0.58160981E-16 )
 #+END_EXAMPLE
 
-** WCT JSON
+* WCT JSON
 
 Wire Cell Toolkit works with JSON data.  Python code in =wire-cell-python= package is provided to convert Garfield 2D files into properly structure JSON.
 

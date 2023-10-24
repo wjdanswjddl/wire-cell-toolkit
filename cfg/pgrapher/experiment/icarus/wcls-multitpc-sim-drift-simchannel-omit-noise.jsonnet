@@ -7,7 +7,7 @@ local f = import 'pgrapher/common/funcs.jsonnet';
 local wc = import 'wirecell.jsonnet';
 
 local io = import 'pgrapher/common/fileio.jsonnet';
-local tools_maker = import 'pgrapher/common/tools.jsonnet';
+local tools_maker = import 'pgrapher/experiment/icarus/tools.jsonnet';
 // local params = import 'pgrapher/experiment/icarus/simparams.jsonnet';
 local base = import 'pgrapher/experiment/icarus/simparams.jsonnet';
 local params = base {
@@ -105,9 +105,6 @@ local wcls_output = {
   // separation.  Both are used in downstream WC code.
   sp_signals: wcls.output.signals(name='spsignals', tags=['gauss', 'wiener']),
 
-  // save "threshold" from normal decon for each channel noise
-  // used in imaging
-  sp_thresholds: wcls.output.thresholds(name='spthresholds', tags=['threshold']),
 };
 
 //local deposio = io.numpy.depos(output);
@@ -124,7 +121,7 @@ local chndb = [{
   type: 'OmniChannelNoiseDB',
   name: 'ocndbperfect%d' % n,
   data: perfect(params, tools.anodes[n], tools.field, n){dft:wc.tn(tools.dft)},
-  uses: [tools.anodes[n], tools.field, tools.dft],
+  uses: [tools.anodes[n], tools.field, tools.dft],  // pnode extension
 } for n in anode_iota];
 
 
@@ -152,10 +149,20 @@ local wcls_simchannel_sink = g.pnode({
     u_to_rp: 100 * wc.mm,
     v_to_rp: 100 * wc.mm,
     y_to_rp: 100 * wc.mm,
-    u_time_offset: 0.0 * wc.us,
-    v_time_offset: 0.0 * wc.us,
-    y_time_offset: 0.0 * wc.us,
-    g4_ref_time: -1150 * wc.us, // G4RefTime from detectorclocks_icarus.fcl
+
+    // GP: The shaping time of the electronics response (1.3us) shifts the peak
+    //     of the field response time. Eyeballing simulation times, it does this
+    //     by a bit less than the 1.3us.
+    //
+    //     N.B. for future: there is likely an additional offset on the two induction
+    //     planes due to where the deconvolution precisely defines where the "peak"
+    //     of the pulse is. One may want to refine these parameters to account for that.
+    //     This perturbation shouldn't be more than a tick or two.
+    u_time_offset: 1.0 * wc.us,
+    v_time_offset: 1.0 * wc.us,
+    y_time_offset: 1.0 * wc.us,
+
+    g4_ref_time: -1500 * wc.us, // G4RefTime from detectorclocks_icarus.fcl
     use_energy: true,
   },
 }, nin=1, nout=1, uses=tools.anodes);

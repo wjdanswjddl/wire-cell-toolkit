@@ -32,6 +32,17 @@ namespace WireCell {
         /// Return the ident number of this face.
         virtual int ident() const = 0;
 
+        /// Note, return the "iface" or per-anode index.
+        /// FIXME: remove the following comment sometime
+        /// Original design: is to be 0/1.  Face 0 is toward the positive,
+        /// global X-axis.  IOW, electrons drift toward face 0 in the
+        /// negative-X direction.
+        virtual int which() const = 0;
+
+        /// Return the anode plane ident number in which this face
+        /// resides.
+        virtual int anode() const = 0;
+
         /// Return the number of wire planes in the given side
         virtual int nplanes() const = 0;
 

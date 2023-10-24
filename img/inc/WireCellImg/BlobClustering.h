@@ -1,7 +1,7 @@
 /** Cluster blobs.
 
     This takes a stream of IBlobSets and mints a new ICluster on EOS
-    when the frame ident changes.
+    or when the frame ident changes.
 
     An output ICluster will have the same ident number as the frame
     from which the input blobsets originated.
@@ -59,7 +59,11 @@ namespace WireCell {
             // a value of 1.0 means that if the next slice does not
             // abut the current slice end time then it would indicate
             // a "gap"
-            double m_spans{1.0};
+            // double m_spans{1.0};
+
+            // uboone: time tolerance = 1, 2 with wire tolerance 2, 1
+            // simple: time tolerance = 1 with wire tolerance = 0
+            std::string m_policy{"uboone"};
 
             // Collect blob sets
             IBlobSet::vector m_cache;
@@ -72,6 +76,11 @@ namespace WireCell {
 
             // Return true if newbs is from a new frame
             bool new_frame(const input_pointer& newbs) const;
+
+            // Return the ident from the frame of the first cached blob or 0 if empty.
+            int cur_ident() const;
+
+            int m_count{0};
 
         };
     }  // namespace Img

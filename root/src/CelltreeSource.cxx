@@ -1,6 +1,7 @@
 #include "WireCellRoot/CelltreeSource.h"
-#include "WireCellIface/SimpleTrace.h"
-#include "WireCellIface/SimpleFrame.h"
+#include "WireCellAux/SimpleTrace.h"
+#include "WireCellAux/SimpleFrame.h"
+#include "WireCellAux/FrameTools.h"
 
 #include "WireCellUtil/NamedFactory.h"
 #include "WireCellUtil/String.h"
@@ -10,12 +11,15 @@
 #include "TClonesArray.h"
 #include "TH1F.h"
 
-WIRECELL_FACTORY(CelltreeSource, WireCell::Root::CelltreeSource, WireCell::IFrameSource, WireCell::IConfigurable)
+WIRECELL_FACTORY(CelltreeSource, WireCell::Root::CelltreeSource,
+                 WireCell::INamed,
+                 WireCell::IFrameSource, WireCell::IConfigurable)
 
 using namespace WireCell;
 
 Root::CelltreeSource::CelltreeSource()
-  : m_calls(0)
+    : Aux::Logger("CelltreeSource", "root")
+    , m_calls(0)
 {
 }
 
@@ -48,7 +52,7 @@ WireCell::Configuration Root::CelltreeSource::default_configuration() const
     // branch name, raw: orig, calibGaussian: gauss, calibWiener, wiener
     cfg["out_trace_tags"][0] = "orig";
 
-    // only wiener has threshold for now, channelThreshold
+    // FIXME: is "channelThreshold" for both wiener and gauss?
     cfg["in_branch_thresholds"][0] = "";
 
     cfg["time_scale"] = 4;
@@ -93,15 +97,19 @@ bool Root::CelltreeSource::read_traces(ITrace::vector& all_traces,
     int nchannels = channelid->size();
 
     int channel_number = 0;
-    std::cout << "CelltreeSource: loading " << frametag << " " << nchannels << " channels \n";
-    std::cout << "CelltreeSource: channel_threshold->GetSize(): " << channel_threshold->size() << "\n";
-    std::cout << "CelltreeSource: esignal->GetSize(): " << esignal->GetSize() << "\n";
+    
+
+    log->debug("loading frame \"{}\", nchannels={}, thresholds={}, ticks={}",
+               frametag, nchannels, channel_threshold->size(), esignal->GetSize());
+    // std::cout << "CelltreeSource: loading " << frametag << " " << nchannels << " channels \n";
+    // std::cout << "CelltreeSource: channel_threshold->GetSize(): " << channel_threshold->size() << "\n";
+    // std::cout << "CelltreeSource: esignal->GetSize(): " << esignal->GetSize() << "\n";
     if (nchannels != esignal->GetSize() || (trace_has_threshold && nchannels != (int) channel_threshold->size())) {
         THROW(RuntimeError() << errmsg{"nchannels != channel_threshold->size() || nchannels != esignal->GetSize()"});
     }
 
     // fill waveform ...
-    TH1* signal;
+    TH1* signal=nullptr;
 
     for (int ind = 0; ind < nchannels; ++ind) {
         signal = dynamic_cast<TH1*>(esignal->At(ind));
@@ -109,7 +117,9 @@ bool Root::CelltreeSource::read_traces(ITrace::vector& all_traces,
         channel_number = channelid->at(ind);
 
         if(ind==0) {
-            std::cout << "yuhw: " << br_name << " channel_number: " << channel_number << " signal->Integral(): " << signal->Integral() << std::endl;
+            log->debug("branch {} channel number: {}, signal integral: {}",
+                       br_name, channel_number, signal->Integral());
+            // std::cout << "yuhw: " << br_name << " channel_number: " << channel_number << " signal->Integral(): " << signal->Integral() << std::endl;
         }
 
         ITrace::ChargeSequence charges;
@@ -119,12 +129,12 @@ bool Root::CelltreeSource::read_traces(ITrace::vector& all_traces,
                 charges.push_back(signal->GetBinContent(itickbin + 1)/time_scale);
             }
         }
-
         const size_t index = all_traces.size();
         tagged_traces[frametag].push_back(index);
-        // std::cout<<"CelltreeSource: charges.size() "<<charges.size()<<"\n";
-        all_traces.push_back(std::make_shared<SimpleTrace>(channel_number, 0, charges));
-        if(trace_has_threshold) tagged_threshold[frametag].push_back(channel_threshold->at(ind));
+        all_traces.push_back(std::make_shared<Aux::SimpleTrace>(channel_number, 0, charges));
+        if(trace_has_threshold) {
+            // std::cout << String::format("channel_number %d threshold %f\n",channel_number, channel_threshold->at(ind)/time_scale);
+            tagged_threshold[frametag].push_back(channel_threshold->at(ind)/time_scale);}
     }
 
     tfile->Close();
@@ -176,13 +186,13 @@ bool Root::CelltreeSource::operator()(IFrame::pointer& out)
 {
     out = nullptr;
     ++m_calls;
-    std::cout << "CelltreeSource: called " << m_calls << " times\n";
+
     if (m_calls > 2) {
-        std::cout << "CelltreeSource: past EOS\n";
+        log->debug("past EOS at call={}", m_calls-1);
         return false;
     }
     if (m_calls > 1) {
-        std::cout << "CelltreeSource: EOS\n";
+        log->debug("EOS at call={}", m_calls-1);
         return true;  // this is to send out EOS
     }
 
@@ -222,10 +232,13 @@ bool Root::CelltreeSource::operator()(IFrame::pointer& out)
     int time_scale = m_cfg["time_scale"].asInt();
 
     // some output using eventNo, runNo, subRunNO, ...
-    std::cout << "CelltreeSource: frame_number " << frame_number << ", frame_ident " << frame_ident << ", siz " << siz << "\n";
-    std::cout << "CelltreeSource: runNo " << run_no << ", subrunNo " << subrun_no << ", eventNo " << event_no << "\n";
-    std::cout << "CelltreeSource: time_scale " << time_scale << "\n";
-    std::cout << "CelltreeSource: ent " << ent << "\n";
+    log->debug("frame number:{} ident:{} size:{} runNo:{}, subrunNo:{}, eventNo:{}, time_scale:{}, ent:{}",
+               frame_number, frame_ident, siz, run_no, subrun_no, event_no, time_scale, ent);
+
+    // std::cout << "CelltreeSource: frame_number " << frame_number << ", frame_ident " << frame_ident << ", siz " << siz << "\n";
+    // std::cout << "CelltreeSource: runNo " << run_no << ", subrunNo " << subrun_no << ", eventNo " << event_no << "\n";
+    // std::cout << "CelltreeSource: time_scale " << time_scale << "\n";
+    // std::cout << "CelltreeSource: ent " << ent << "\n";
     tfile->Close();
 
     ITrace::vector all_traces;
@@ -245,15 +258,14 @@ bool Root::CelltreeSource::operator()(IFrame::pointer& out)
     
     WireCell::Waveform::ChannelMaskMap cmm;
     read_cmm(cmm, url, ent);
-    std::cout << "CelltreeSource: cmm[\"bad\"].size() " << cmm["bad"].size() << "\n";
 
-    auto sframe = new SimpleFrame(frame_ident, frame_time, all_traces, 0.5 * units::microsecond, cmm);
+    auto sframe = new Aux::SimpleFrame(frame_ident, frame_time, all_traces, 0.5 * units::microsecond, cmm);
     for (auto const& it : tagged_traces) {
         sframe->tag_traces(it.first, it.second, tagged_threshold[it.first]);
-        std::cout << "CelltreeSource: tag " << it.second.size() << " traces as: \"" << it.first << "\"\n";
     }
 
     out = IFrame::pointer(sframe);
+    log->debug("output: {}", Aux::taginfo(out));
 
     return true;
 }

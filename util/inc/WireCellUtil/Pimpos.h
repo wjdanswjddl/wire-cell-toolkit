@@ -80,7 +80,7 @@ namespace WireCell {
         /// Return given 3-point origin for plane pitch.
         const Point& origin() const { return m_origin; }
 
-        /// Return an axis of the plan.  0=normal to plane (aka
+        /// Return an axis of the plane.  0=normal to plane (aka
         /// anti-drift), 1=wire direction, 2=pitch direction.
         const Vector& axis(int i) const { return m_axis[i]; }
 
@@ -110,7 +110,8 @@ namespace WireCell {
         /// wire closest to the given pitch.  The second is the
         /// *relative* index of the impact closest impact position
         /// (index=0 means the impact position coincident with the
-        /// wire).
+        /// wire).  The index may mark a wire that is not in the
+        /// physical set of wires, eg outside of [0,nwires-1].
         std::pair<int, int> closest(double pitch) const;
 
         /// Return the impact position index coincident with the wire index.

@@ -30,6 +30,10 @@ namespace WireCell {
         ///
         /// Or, one can use subsequent methods for more fine-grained
         /// setup and execution.
+        ///
+        /// Return code rc:
+        /// rc = 1 : if --help or --version,
+        /// rc = 0 : if normal running should commence
         int cmdline(int argc, char* argv[]);
 
         /// Individual setup methods called by cmdline() or called
@@ -98,7 +102,7 @@ namespace WireCell {
         ConfigManager m_cfgmgr;
         std::vector<std::string> m_plugins, m_apps, m_cfgfiles, m_load_path;
         Persist::externalvars_t m_extvars, m_extcode, m_tlavars, m_tlacode;
-        Log::logptr_t l;
+        Log::logptr_t log;
 
         // Limit number of threads.  0 means set no limit.  This is
         // only relevant if we are built with TBB support

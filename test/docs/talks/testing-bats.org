@@ -1,0 +1,655 @@
+#+title: Wire-Cell Toolkit Testing System - BATS
+#+setupfile: ../../../docs/setup-beamer.org
+
+* Topics
+
+- What is and why BATS.
+- Intro to BATS
+- WCT + BATS
+
+* BATS = Bash Automated Testing System
+
+#+begin_quote
+\LARGE
+Bats is a testing framework for Bash.[fn:tagline]
+#+end_quote
+
+\vfill
+
+But, really, any command line programs can be used to form a BATS
+tests.
+- It helps organize and run chunks of shell code for testing software.
+- It best targets the "integration" level of software testing.
+
+[fn:tagline] https://github.com/bats-core/bats-core
+
+* Why use BATS in WCT
+
+** Main reasons
+
+- WCT lacked any "integration level" tests beyond ad-hoc scripts.
+- Most/all WCT developers know how to write Bash shell scripts.
+- BATS is a popular Bash based testing framework among only a few others.
+
+** Bonus
+
+- BATS fits in well with WCT build system and build-time test runner.
+- BATS has conceptual similarities to WCT's C++ level testing framework (~doctest~).
+- BATS tests provide features to assist software development as well as testing.
+
+* BATS quickstart
+
+The WCT build will automatically find and use BATS and no special setup is required.
+
+\vfill
+
+However, user/developer needs the following to *directly* run ~bats~:
+
+#+begin_example
+$ PATH=/path/to/wire-cell-toolkit/test/bats/bin:$PATH  # 1
+$ export BATS_LIB_PATH=/path/to/wire-cell-toolkit/test # 2
+$ bats --help
+#+end_example  
+
+Why?
+1. The version of BATS that may come with your OS is probably too old.
+2. WCT provides a BATS library which is located by the ~BATS_LIB_PATH~.
+  
+* BATS structure
+
+A testing framework provides structure.
+
+\vfill
+
+BATS structure is simple:
+
+- A *test case* is (essentially) a single Bash function.
+- A *test file* holds one or more \textbf{test cases}.
+- A *test run* executes a set of \textbf{test cases} from a set of \textbf{test files}.
+
+* Anatomy of a BATS test case
+
+#+begin_example
+@test "some description string" {
+    # Lines of Bash shell scripting....
+}
+#+end_example
+
+- The ~@test~ is special BATS syntax (not Bash) to mark a test case.
+- BATS will convert the description string into a Bash function name (we don't care).
+- The description string can be used to filter which tests to run (we do care).
+- The body consists of lines of Bash shell scripting to run various commands.
+- BATS interprets any non-zero *status code* from any command as a test failure.
+
+* Anatomy of a BATS test file
+
+A file holding *one or more* BATS ~@test~ functions, perhaps some *optional special functions*.
+
+**                                                                :B_columns:
+:PROPERTIES:
+:BEAMER_env: columns
+:END:
+
+***                                                                   :BMCOL:
+:PROPERTIES:
+:BEAMER_col: 0.5
+:END:
+
+#+begin_example
+#!/usr/bin/env bats
+setup_file () {
+  # ...
+}
+
+@test "some test" {
+  # ...
+}
+
+teardown_file () {
+  # ...
+}
+#+end_example
+
+***                                                                   :BMCOL:
+:PROPERTIES:
+:BEAMER_col: 0.5
+:END:
+
+
+Optional/special functions:
+- ~setup_file~ :: run before any ~@test~'s
+- ~teardown_file~ :: run after all ~@test~'s
+
+* Example BATS run
+
+#+begin_example
+$ bats test/test/test_bats.bats
+test_bats.bats
+ + divine context
+ + test wct bats
+ + dump wcb env
+ + dump shell env
+ + dump bats env
+ + saveout
+
+6 tests, 0 failures
+#+end_example
+
+\scriptsize (Actual output is more pretty with colors/unicode showing success/failure.)
+
+* Simple BATS test that always succeeds 
+
+**                                                                 :B_column:
+:PROPERTIES:
+:BEAMER_env: column
+:END:
+
+***                                                                   :BMCOL:
+:PROPERTIES:
+:BEAMER_col: 0.5
+:END:
+
+In file ~bats-as.bats~:
+#+begin_example
+@test "always succeeds" {
+    echo "this never fails"
+    true
+}
+#+end_example
+Run:
+#+begin_example
+$ bats bats-as.bats  
+bats-as.bats
+ + always succeeds
+
+1 test, 0 failures
+#+end_example
+
+***                                                                   :BMCOL:
+:PROPERTIES:
+:BEAMER_col: 0.5
+:END:
+
+Note, the ~echo~ is not displayed on the terminal.
+
+One may see all output with:
+
+#+begin_center
+
+\scriptsize
+~bats --show-output-of-passing-tests ...~ 
+
+#+end_center
+
+\normalsize But, more on WCT/BATS logging later.
+
+* Simple BATS test that always fails
+
+**                                                                :B_columns:
+:PROPERTIES:
+:BEAMER_env: columns
+:END:
+
+***                                                                   :BMCOL:
+:PROPERTIES:
+:BEAMER_col: 0.5
+:END:
+
+In file ~bats-af.bats~:
+#+begin_example
+@test "always fails" {
+    echo "this always fails"
+    false
+}
+#+end_example
+Run:
+#+begin_example
+$ bats bats-af.bats 
+x always fails
+   (in test file af.bats, line 3)
+     `false' failed
+   this always fails
+
+1 test, 1 failure
+#+end_example
+
+***                                                                   :BMCOL:
+:PROPERTIES:
+:BEAMER_col: 0.5
+:END:
+
+Here we see the ~echo~ message is printed.
+- All prior output will be shown when an error occurs.
+- The terminal will show \textcolor{red}{angry red} for the error messages and \textcolor{ForestGreen}{friendly green} for tests that pass!
+
+* Skipping a test from inside the test code
+
+Sometimes a test should be skipped, eg if some optional prerequisite
+is missing.
+
+#+begin_example
+@test "do something with emacs" {
+  if [ -z "$(which emacs)" ] ; then
+      skip "No good will come from a system that lacks Emacs!"
+  fi
+  emacs [...]
+}
+#+end_example
+
+* Filtering which tests run
+
+Run a subset of all tests with a description matching a ~"pattern"~:
+
+#+begin_example
+bats -f "pattern" [...]
+#+end_example
+
+**                                                                :B_columns:
+:PROPERTIES:
+:BEAMER_env: columns
+:BEAMER_opt: [T]
+:END:
+
+*** \scriptsize ~$ bats test/test/test_bats.bats~               :B_block:BMCOL:
+:PROPERTIES:
+:BEAMER_col: 0.45
+:BEAMER_env: block
+:END:
+
+#+begin_example
+test_bats.bats
+ + divine context
+ + test wct bats
+ + dump wcb env
+ + dump shell env
+ + dump bats env
+ + saveout
+
+6 tests, 0 failures
+#+end_example
+
+*** \scriptsize ~$ bats -f dump test/test/test_bats.bats~     :B_block:BMCOL:
+:PROPERTIES:
+:BEAMER_col: 0.5
+:BEAMER_env: block
+:END:
+
+#+begin_example
+test_bats.bats
+ + dump wcb env
+ + dump shell env
+ + dump bats env
+
+3 tests, 0 failures
+#+end_example
+
+
+* BATS in WCT
+
+- BATS test files provide interpreted WCT "test programs".
+  - They are run automatically during normal build-time testing (~./wcb --tests~)
+- WCT provides a copy of a recent release of BATS code distribution.
+- WCT provides a BATS support library ~wct-bats.sh~.
+- BATS tests best implement *history* and *report* type tests in addition to usual *atomic* tests.
+- BATS supports running tests in parallel but we reject this feature as ~wcb~ provides parallelism and it lets us depend on test case order.
+
+* Naming a BATS test file
+
+A BATS test file is named according to usual WCT "test program" rules:
+
+#+begin_center
+~<pkg>/test/<group><sep><name>.bats~
+#+end_center
+
+- ~<pkg>~ : a WCT sub-package providing dependencies relevant to the test.
+- ~<group>~ : test or atomic, history, report.
+- ~<sep>~ : optional separator like "~-~" or "~_~".
+- ~<name>~ : some brief, unique and descriptive name.
+
+* WCT BATS library - loading
+
+
+#+begin_example
+#!/usr/bin/env bats
+
+bats_load_library wct-bats.sh
+
+# ...
+#+end_example
+
+The use of this library is optional but it provides something to make almost every test simpler.
+
+* WCT BATS library - documentation 
+
+The ~wct-bats.sh~ library can be executed to get documentation.
+
+List all functions:
+
+#+begin_example
+$ ./test/wct-bats.sh
+...
+relative_path <path>
+...
+#+end_example
+
+Get details for one or more functions:
+
+#+begin_example
+$ ./test/wct-bats.sh relative_path
+relative_path <path>
+
+Resolve a file path relative to the path of the BATS test file.
+#+end_example
+
+* A real, if simple, example
+
+#+begin_example
+@test "wire-cell help command" {
+  run wire-cell --help                                   # 1
+  echo $output                                           # 2
+  [[ "$status" -eq 0 ]]                                  # 3
+
+  [[ -n "$(echo $output | grep 'Wire-Cell Toolkit')" ]]  # 4
+}
+#+end_example
+
+1. The ~run~ command is a BATS helper, sets ~$status~ and ~$output~ from command result.
+2. Reminder ~echo~ will only print to screen if any subsequent commands fail.
+3. Assure zero ~$status~ code (ie, success).
+4. Assure some expected string is found in ~$output~.
+
+* WCT/BATS version, even simpler example
+
+#+begin_example
+bats_load_library wct-bats.sh
+
+@test "run something" {
+  wire-cell --help                                      # 1,2,3
+
+  [[ -n "$(echo $output | grep 'Wire-Cell Toolkit')" ]] # 4
+}
+#+end_example
+
+The ~wire-cell~ command is actually a wrapper for the ~wire-cell~ program.
+- Adds default logging and checking of return status code.
+
+* WCT/BATS logging
+
+** Tests can log to the usual levels
+Levels: *debug, info, warn, error, fatal*.
+- A function of the same name replaces ~echo~ to send to a given level.
+  - ~warn "something bad happened"~
+- A special ~die~ function logs to *fatal* and then exits with error code.
+
+** User environment variables
+~WCT_BATS_LOG_LEVEL~ controls the minimum level for which log messages are generated.
+- Defaults to *info*.
+~WCT_BATS_LOG_SINK~ controls where log messages are sent.
+- *capture* (default) allows for normal BATS capturing, output only if error.
+- *terminal* disables capturing, messages go direct to user terminal.
+- Anything else: name of file to which messages are concatenated.
+
+* BATS temporary directory contexts
+
+BATS provides a temporary directory matching the BATS organization: *test*, *file*, and *run*.
+
+WCT provides ~cd_tmp~ to automatically change to the context directory.
+
+**                                                                :B_columns:
+:PROPERTIES:
+:BEAMER_env: columns
+:BEAMER_opt: T
+:END:
+
+*** In *file* context                                           :B_block:BMCOL:
+:PROPERTIES:
+:BEAMER_col: 0.49
+:BEAMER_env: block
+:END:
+
+#+begin_example
+setup_file () {
+  cd_tmp  # "file" context
+}
+#+end_example
+
+*** In *test* context                                           :B_block:BMCOL:
+:PROPERTIES:
+:BEAMER_col: 0.49
+:BEAMER_env: block
+:END:
+
+#+begin_example
+@test "some test" {
+  cd_tmp      # "test" context
+  cd_tmp file # "file" context
+}
+#+end_example
+
+
+** Guidelines
+
+*Always* use ~cd_tmp~ if test produces temporary files.
+- *Never* make your own, ad-hoc temporary directories.
+Okay for ~@test~ to enter the *file* context but not vice versa nor is a cross-test ~cd_tmp~ possible.
+
+* Persisting BATS temporary directories
+
+By default, BATS will automatically create and then remove the temporary directories.
+
+\vfill
+
+But we may tell ~bats~ not retain them:
+
+#+begin_example
+  $ bats --no-tempdir-cleanup [...]
+#+end_example
+
+Temp directory name will be printed and retained and it is user's responsibility to remove.
+
+* WCT temporary directory 
+
+A simpler, alternative to BATS temporary directories is provided by WCT/BATS support:
+
+#+begin_example
+  $ WCT_BATS_TMPDIR=$(pwd)/tmp bats [...]
+#+end_example
+
+This *collapses* all *test*, *file* and *run* contexts to a *single directory*.
+- Very useful for developing and debugging.
+  - Required for expert feature: *idempotent running*.
+- Directory is not automatically deleted, user must clean up.
+- Never define this inside a test.
+- Take care when rerunning same or different tests reusing same dir.
+  - Problems when multiple tests make temporary files with same names.
+
+* Finding WCT source files relative to BAT test file
+
+Common pattern: some BATS test:
+
+#+begin_center
+~<pkg>/test/test-mytest.bats~
+#+end_center
+
+Wants to access some *sibling file* in the source:
+
+#+begin_center
+~<pkg>/test/test-mytest.jsonnet~.
+#+end_center
+
+Use ~relative_path~ function:
+
+#+begin_example
+bats_load_library "wct-bats.sh"
+
+setup_file () {
+    local cfg=$(relative_path test-mytest.jsonnet)
+    wire-cell $cfg
+}
+#+end_example
+
+* Other ways to find WCT source files
+
+** Get sub-package source sub-directory with ~srcdir~ function
+
+#+begin_example
+@test "some test" {
+    local aux=$(srcdir aux)
+    local schema=$aux/docs/cluster-graph-schema.jsonnet
+    ...
+}
+#+end_example
+
+** Functions to get other major directories
+
+- ~topdir~ :: emit the top of the WCT source tree.
+- ~blddir~ :: emit the Waf build directory.
+
+* Creating and finding persistent files
+
+Files may live *beyond and between* test runs in the WCT *test data repository*.
+
+** Input files are specially provided prior to any test running
+
+#+begin_example
+infile=$(input_file depos/muon.npz)
+#+end_example
+
+** Historical files are saved and accessed by software version
+
+\scriptsize
+#+begin_example
+saveout -c history my-file-for-history.npz                         # 1
+frames=$(historical_files --last test-addnoise/frames-adc.tar.gz)  # 2
+#+end_example
+
+\normalsize
+1. Save file to history of current software version.
+2. Access history file from last software version.
+
+* Tests data repository primer
+
+** Basics
+
+- Files installed to ~build/tests/~ automatically during ~wcb --tests~.
+- Expert script exists to generate files for old releases.
+  - ~wcb packrepo~ makes tar files, then uploaded to my WWW area.
+
+** Caveats
+
+- Add files only "gently", not meant as a "dumping ground".
+- The test data repository feature is still a work-in-progress.
+  - We can be more accepting of files as it matures.
+
+For now, just know it exists.    
+
+* Using programs from WC toolkit and python
+
+** Programs built by WCT
+~wct-bats.sh~ provides wrapers: ~wire-cell~, ~wcsonnet~ and ~wcwires~ or access check/test programs:
+#+begin_example
+usepkg util
+check_act2viz --help
+#+end_example
+
+** Main CLI from ~wire-cell-python~
+#+begin_example
+wcpy <pkg> <command> [options]
+#+end_example
+This runs ~wirecell-<pkg> <command> [options]~ or will ~skip~ the test if ~wire-cell-python~ is not installed.
+
+
+* Tips and tricks for developers
+
+BATS test files make excellent command line drivers of new development.
+- Temporary context management keeps working directory free of cruft.
+- Run ~wire-cell~ in a ~setup_file~ function then add ~@test~ for current feature being added.
+- Write tests *idempotently* to speed up re-running same tests during development.
+- Exploit fixed order of tests to form chains.
+- Use BATS timing to check speed of code.
+- Use BATS tags to select tests to run.
+
+* Idempotent running
+
+\footnotesize
+#+begin_example
+$ rm -rf tmp
+$ WCT_BATS_TMPDIR=$(pwd)/tmp bats img/test/test-wct-uboone-img.bats  # 1
+$ WCT_BATS_TMPDIR=$(pwd)/tmp bats img/test/test-wct-uboone-img.bats  # 2
+#+end_example
+
+\normalsize
+
+1. Fully runs all tests, takes about one minute.
+2. Skips *idempotent tests*, takes about two seconds.
+
+* Order of tests
+
+BATS supports parallel test running but WCT forbids it.
+- Waf runs full test in parallel, BATS-parallel would lead to CPU overload.
+- May count on ~@test~ functions to run in order in file.
+- This can be used to expose stages as individual tests to get fine-grained reporting from BATS.
+
+* Timing of tests
+
+#+begin_example
+$ bats -T test/test/test_bats.bats
+ + divine context [7]
+ + test wct bats [68]
+ + dump wcb env [230]
+ + dump shell env [34]
+ + dump bats env [32]
+ + saveout [467]
+#+end_example
+
+Prints time in ~[milliseconds]~ after each test.
+
+* Using BATS tags
+
+BATS supports placing "tags" on tests in comments and WCT uses them:
+
+
+#+begin_example
+  # bats test_tags=history
+  @test "make history" {
+    # ...
+    saveout -c history my-file-for-history.npz
+  }
+
+  $ bats --filter-tags history [...]
+#+end_example
+
+* BATS tags reserved by WCT
+
+- ~history~ :: the test produces official "history" files for the data repo.
+- ~report~ :: the test produces a "report" of files saved to output.
+- ~implicit~ :: the test only performs weak, implicit tests ("it ran and didn't crash").
+- ~issue:<number>~ :: The test is relevant to GitHub issue of the given number.
+- ~pkg:<name>~ :: The test is part of package named ~<name>~ (~gen~, ~util~, etc)
+- ~topic:<name>~ :: The test relates to topic named ~<name>~ (~wires~, ~response~, etc)
+
+** So far, only *history* tag is used for anything.
+- Will definitely use *report* to narrow execution to build reports.
+- Others may be useful, but can be ignored for now.
+
+
+* Further documentation of WCT testing system
+
+The WCT/BATS documentation
+- \tiny https://github.com/WireCell/wire-cell-toolkit/blob/master/test/docs/bats.org
+More recent working branch:
+- \tiny https://github.com/WireCell/wire-cell-toolkit/blob/apply-pointcloud/test/docs/bats.org
+BATS documentation and GitHub
+- \tiny https://bats-core.readthedocs.io https://github.com/bats-core/bats-core
+Many BATS tests
+#+begin_example
+$ ls */test/*.bats | wc -l
+22
+#+end_example
+
+* 
+
+\Huge
+
+\[ \mathcal{FIN} \]
+

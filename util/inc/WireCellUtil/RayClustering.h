@@ -27,7 +27,10 @@ namespace WireCell {
 
         // Return blobs in projection which overlap with blob along
         // ray lines of given layer and all lower layers.
-        blobvec_t overlap(const blobref_t& blob, const blobproj_t& proj, layer_index_t layer);
+        blobvec_t overlap(const blobref_t& blob, const blobproj_t& proj, layer_index_t layer, grid_index_t tolerance, const bool verbose);
+        inline blobvec_t overlap(const blobref_t& blob, const blobproj_t& proj, layer_index_t layer) {
+            return overlap(blob, proj, layer, 0, false);
+        };
 
         // Return true if a's strips are all inside b's strips or vice versa.
         bool surrounding(const blobref_t& a, const blobref_t& b);
@@ -39,10 +42,15 @@ namespace WireCell {
 
         typedef std::function<void(blobref_t& a, blobref_t& b)> associator_t;
 
+        // overlap function signature
+        using overlap_t = std::function<blobvec_t(const blobref_t&, const blobproj_t&, layer_index_t)>;
+
         // Associate blobs from set one with blobs from set two which
         // mutually overlap.  The associator function will be called
         // with every pair of two overlapping blobs.
-        void associate(const blobs_t& one, const blobs_t& two, associator_t func);
+        void associate(
+            const blobs_t& one, const blobs_t& two, associator_t func,
+            overlap_t ol = static_cast<blobvec_t (*)(const blobref_t&, const blobproj_t&, layer_index_t)>(&overlap));
 
     }  // namespace RayGrid
 }  // namespace WireCell

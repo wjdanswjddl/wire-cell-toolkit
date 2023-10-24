@@ -77,20 +77,22 @@ base {
 
     adc: super.adc {
         // fix baseline at 2048 (induction), 400 (collection)
-        baselines: [1650.0*wc.millivolt, 1650.0*wc.millivolt, 322.3*wc.millivolt],
-
+       baselines: [1650.0*wc.millivolt, 1650.0*wc.millivolt, 322.3*wc.millivolt],
         // From ICARUS paper: https://iopscience.iop.org/article/10.1088/1748-0221/13/12/P12007/pdf
         //check (values taken from the FE calibration shown in pg. 7 of the paper)
-        fullscale: [0*wc.volt, 3.3*wc.volt],
+        fullscale: [0.8*wc.millivolt, 3.3*wc.volt],
     },
 
-    elec: super.elec {
+    elec: [super.elec {
         type: "WarmElecResponse",
-        gain: 17.8075*wc.mV/wc.fC, // 0.027 fC/(ADC*us)
+        // Old values:
+        //   ICARUS nominal: 17.8075*wc.mV/wc.fC // 0.027 fC/(ADC*us)
+        //   Match data ADC values (docdb 25161): 14.9654*wc.mV/wc.fC, // 0.0321 fC/(ADC*us)
+        gain: 14.9654*wc.mV/wc.fC, // 0.0321 fC/(ADC*us)
         shaping: 1.3*wc.us,
         postgain: 1.0,
         start: 0,
-    },
+    }, for _ in [0, 1, 2]],
 
 
     sim: super.sim {
@@ -127,10 +129,10 @@ base {
 
         fields: ["garfield-icarus-fnal-rev1.json.bz2"],
 
-       noise: ["icarus_noise_model_int_TPCEE.json.bz2","icarus_noise_model_int_TPCEW.json.bz2","icarus_noise_model_int_TPCWE.json.bz2","icarus_noise_model_int_TPCWW.json.bz2"],
-       // coherent_noise: ["icarus_noise_model_coh_TPCEE.json.bz2","icarus_noise_model_coh_TPCEW.json.bz2","icarus_noise_model_coh_TPCWE.json.bz2","icarus_noise_model_coh_TPCWW.json.bz2"],
+       // noise: ["icarus_noise_model_int_TPCEE.json.bz2","icarus_noise_model_int_TPCEW.json.bz2","icarus_noise_model_int_TPCWE.json.bz2","icarus_noise_model_int_TPCWW.json.bz2"],
+       // coherent_noise: ["icarus_noise_model_coh_TPCEE.json.bz2","icarus_noise_model_coh_TPCEW.json.bz2","icarus_noise_model_coh_TPCWE.json.bz2","icarus_noise_model_coh_TPCWW.json.bz2"],	
 	wiregroups: "icarus_group_to_channel_map.json.bz2",
-	noisegroups: ["icarus_noise_model_coh_by_board_TPCEE.json.bz2","icarus_noise_model_coh_by_board_TPCEW.json.bz2","icarus_noise_model_coh_by_board_TPCWE.json.bz2","icarus_noise_model_coh_by_board_TPCWW.json.bz2"],
+	noisegroups: ["icarus_noise_model_int_by_board_TPCEE.json.bz2","icarus_noise_model_int_by_board_TPCEW.json.bz2","icarus_noise_model_int_by_board_TPCWE.json.bz2","icarus_noise_model_int_by_board_TPCWW.json.bz2","icarus_noise_model_coh_by_board_TPCEE.json.bz2","icarus_noise_model_coh_by_board_TPCEW.json.bz2","icarus_noise_model_coh_by_board_TPCWE.json.bz2","icarus_noise_model_coh_by_board_TPCWW.json.bz2"],
         chresp: null,
     },
 

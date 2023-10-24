@@ -21,8 +21,6 @@
 #include <vector>
 #include <iostream>
 
-#include "config.h"
-
 #if HAVE_FFTWTHREADS_LIB
 #include <fftw3.h>
 #endif
@@ -38,7 +36,6 @@ using namespace boost::algorithm;
 using namespace boost::property_tree;
 
 Main::Main()
-  : l(Log::logger("main"))
 {
 #if HAVE_FFTWTHREADS_LIB
     fftwf_init_threads();
@@ -51,8 +48,8 @@ Main::~Main() { finalize(); }
 int Main::cmdline(int argc, char* argv[])
 {
     // clang-format off
-    po::options_description desc("Options");
-    desc.add_options()("help,h", "wire-cell [options] [arguments]")
+    po::options_description desc("Command line interface to the Wire-Cell Toolkit\n\nUsage:\n\twire-cell [options] [configuration ...]\n\nOptions");
+    desc.add_options()("help,h", "produce help message")
 
         ("logsink,l", po::value<vector<string> >(),
          "set log sink as <filename> or 'stdout' or 'stderr', "
@@ -97,12 +94,23 @@ int Main::cmdline(int argc, char* argv[])
         ;
     // clang-format on
 
+    po::positional_options_description pos;
+    pos.add("config", -1);
+
     po::variables_map opts;
-    po::store(po::parse_command_line(argc, argv, desc), opts);
+    // po::store(po::parse_command_line(argc, argv, desc), opts);
+    po::store(po::command_line_parser(argc, argv).
+              options(desc).positional(pos).run(), opts);
     po::notify(opts);
 
-    if (opts.count("help")) {
+
+    if (argc == 1 or opts.count("help")) {
         std::cout << desc << "\n";
+        return 1;
+    }
+
+    if (opts.count("version")) {
+        std::cout << version() << std::endl;
         return 1;
     }
 
@@ -192,14 +200,6 @@ int Main::cmdline(int argc, char* argv[])
     }
 #endif
 
-    if (opts.count("version")) {
-        std::cout << version() << std::endl;
-    }
-
-    // Maybe make this cmdline configurable.  For now, set all
-    // backends the same.
-    Log::set_pattern("[%H:%M:%S.%03e] %L [%^%=8n%$] %v");
-
     return 0;
 }
 
@@ -224,7 +224,11 @@ void Main::add_logsink(const std::string& log, const std::string& level)
     }
     Log::add_file(log, level);
 }
-void Main::set_loglevel(const std::string& log, const std::string& level) { Log::set_level(level, log); }
+void Main::set_loglevel(const std::string& log, const std::string& level)
+{
+    // std::cerr << "Set log \""<<log<<"\" to level \"" << level << "\"\n";
+    Log::set_level(level, log);
+}
 void Main::add_config(const std::string& filename) { m_cfgfiles.push_back(filename); }
 
 void Main::add_var(const std::string& name, const std::string& value) { m_extvars[name] = value; }
@@ -240,14 +244,23 @@ void Main::add_path(const std::string& dirname) { m_load_path.push_back(dirname)
 void Main::initialize()
 {
     // Here we got thought the boot-up sequence steps.
+    // std::cerr << "initialize wire-cell\n";
+
+    // Maybe make this cmdline configurable.  For now, set all
+    // backends the same.
+    Log::set_pattern("[%H:%M:%S.%03e] %L [%^%=8n%$] %v");
+    log = Log::logger("main");
+    log->set_pattern("[%H:%M:%S.%03e] %L [  main  ] %v");
+    set_loglevel("", "debug");
+    // log->debug("logging to \"main\"");
 
     // Load configuration files
     for (auto filename : m_cfgfiles) {
-        l->info("loading config file {} ...", filename);
+        log->debug("loading config file {}", filename);
         Persist::Parser p(m_load_path, m_extvars, m_extcode, m_tlavars, m_tlacode);
         Json::Value one = p.load(filename);  // throws
+        //log->debug(one.toStyledString());
         m_cfgmgr.extend(one);
-        l->info("...done");
     }
 
     // Find if we have our own special configuration entry
@@ -255,13 +268,17 @@ void Main::initialize()
     Configuration main_cfg = m_cfgmgr.pop(ind);
     if (!main_cfg.isNull()) {
         for (auto plugin : get<vector<string> >(main_cfg, "data.plugins")) {
-            l->info("config requests plugin: \"{}\"", plugin);
+            log->debug("config requests plugin: \"{}\"", plugin);
             m_plugins.push_back(plugin);
         }
         for (auto app : get<vector<string> >(main_cfg, "data.apps")) {
-            l->info("config requests app: \"{}\"", app);
+            log->debug("config requests app: \"{}\"", app);
             m_apps.push_back(app);
         }
+    }
+    if (m_apps.empty()) {
+        log->critical("no apps given");
+        THROW(ValueError() << errmsg{"no apps given"});
     }
 
     // Load any plugin shared libraries requested by user.
@@ -269,9 +286,9 @@ void Main::initialize()
     for (auto plugin : m_plugins) {
         string pname, lname;
         std::tie(pname, lname) = String::parse_pair(plugin);
-        l->info("adding plugin: \"{}\"", plugin);
+        log->debug("adding plugin: \"{}\"", plugin);
         if (lname.size()) {
-            l->info("\t from library \"{}\"", lname);
+            log->debug("\t from library \"{}\"", lname);
         }
         pm.add(pname, lname);
     }
@@ -284,16 +301,16 @@ void Main::initialize()
             continue;  // allow and ignore any totally empty configurations
         }
         if (c["type"].isNull()) {
-            l->critical("all configuration must have a type attribute, got: {}", c);
+            log->critical("all configuration must have a type attribute, got: {}", c);
             THROW(ValueError() << errmsg{"got configuration sequence element lacking a type"});
         }
         string type = get<string>(c, "type");
         string name = get<string>(c, "name");
-        l->info("constructing component: \"{}\":\"{}\"", type, name);
+        log->debug("constructing component: \"{}\":\"{}\"", type, name);
         auto iface = Factory::lookup<Interface>(type, name);  // throws
     }
     for (auto c : m_apps) {
-        l->info("constructing app: \"{}\"", c);
+        log->debug("constructing app: \"{}\"", c);
         Factory::lookup_tn<IApplication>(c);
     }
 
@@ -319,7 +336,7 @@ void Main::initialize()
         }
         string type = get<string>(c, "type");
         string name = get<string>(c, "name");
-        l->info("configuring component: \"{}\":\"{}\"", type, name);
+        log->debug("configuring component: \"{}\":\"{}\"", type, name);
         auto cfgobj = Factory::find_maybe<IConfigurable>(type, name);  // doesn't throw.
         if (!cfgobj) {
             continue;
@@ -343,7 +360,8 @@ void Main::operator()()
         auto a = Factory::find<IApplication>(type, name);  // throws
         app_objs.push_back(a);
     }
-    l->debug("executing {} apps, thread limit {}:",
+
+    log->debug("executing {} apps, thread limit {}:",
              m_apps.size(), m_threads);
 
 #if HAVE_TBB_LIB
@@ -353,15 +371,15 @@ void Main::operator()()
             tbb::global_control::max_allowed_parallelism,
             m_threads);
     }
-    l->debug("executing {} apps, thread limit {}:",
+    log->debug("executing {} apps, thread limit {}:",
              m_apps.size(), m_threads);
 #else
-    l->debug("executing {} apps:", m_apps.size());
+    log->debug("executing {} apps:", m_apps.size());
 #endif
 
     for (size_t ind = 0; ind < m_apps.size(); ++ind) {
         auto aobj = app_objs[ind];
-        l->debug("executing app: \"{}\"", m_apps[ind]);
+        log->debug("executing app: \"{}\"", m_apps[ind]);
         aobj->execute();  // throws
     }
 
@@ -379,7 +397,7 @@ void Main::finalize()
         if (!doomed) {
             continue;
         }
-        l->info("finalizing component: \"{}\":\"{}\"", type, name);
+        log->debug("finalizing component: \"{}\":\"{}\"", type, name);
 
         doomed->finalize();
     }

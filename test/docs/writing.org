@@ -1,0 +1,70 @@
+#+title: Writing WCT tests
+#+include: ../../docs/include-topic.org
+
+This section provides general information on how to write WCT tests.
+See the list of
+[[file:~/wrk/wct/imaging/toolkit/test/README.org::#languages][supported
+programming languages]] for tests.  for starting points to details on
+writing tests in different support programming languages.
+
+* Scope of a test
+
+When considering to develop a test, consider what should be tested and then ask yourself:
+
+- Can the initial scope be partitioned into smaller scopes, each with their own tests.
+- What *code* must a test depend on?  Can it be reduced?
+- What *data* must a test depend on?  Can it be reduced, removed or hard-coded?
+  
+* Location of test source
+
+The source file for a test should be placed under one of the
+directories:
+
+#+begin_example
+<pkg>/test/
+#+end_example
+
+In deciding the ~<pkg>~ to house the test, particular care is needed to respect the WCT library dependency graph.  This graph should be produced by the build.  That graph at the time this document was rendered is shown below.
+
+[[https://github.com/WireCell/wire-cell-toolkit/raw/master/wct-deps.png]]
+
+It is allowed for the dependency tree for test programs to be different than the library dependency graph.  However, tests should avoid adding a dependency on an external package that is not shared by that package's library.  On the other hand, tests may add dependencies on other WCT sub packages that the sub package library does not require.
+
+For example, if a test of code in ~WireCellGen~ requires ROOT, that test should go into ~WireCellRoot~ (under ~root/test/*~ and not ~gen/test/*~).
+
+* Name the test
+
+As described in [[file:framework.org][the testing framework topic]] a test must have a source file name that matches the pattern:
+
+#+begin_example
+<pkg>/test/<prefix><sep><name>.<ext>
+#+end_example
+
+Most tests are "atomic" so may start with that string or simply ~test~.
+The separators between ~<prefix>~ and ~<name>~ are optional.
+The test source file name:
+
+- should be unique among all tests
+- should briefly summarizes the scope of the test
+- should be in lower case with optional underscore or dash separators
+Uniqueness is not an absolute requirement but these caveats apply:
+- Multiple tests with same file name and extension are not allowed (only one will end up being run).
+- Developers of tests with the same file names but differing extensions take responsibility that the different versions are compatible.
+
+If a test specifically addresses a GitHub issue one option is to name
+the file to include the issue number.  For example:
+
+#+begin_example
+test_issue200.bats
+#+end_example
+Likewise, if a test addresses things in a PR, it should contain the PR
+number.  For example:
+#+begin_example
+test-pr195.bats
+#+end_example
+
+If a test is a BATS or shell script and uses auxiliary files such as
+providing configuration, they should be included as a sibling to the
+test file.  Take caution not to name them starting with a ~<preifx>~
+label unless they themselves are meant to be run directly.  
+

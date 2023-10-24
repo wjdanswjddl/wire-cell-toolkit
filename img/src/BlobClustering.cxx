@@ -1,7 +1,12 @@
 #include "WireCellImg/BlobClustering.h"
+#include "WireCellImg/GeomClusteringUtil.h"
+
+#include "WireCellAux/SimpleCluster.h"
+
 #include "WireCellUtil/RayClustering.h"
-#include "WireCellIface/SimpleCluster.h"
 #include "WireCellUtil/NamedFactory.h"
+#include "WireCellUtil/Exceptions.h"
+#include "WireCellUtil/String.h"
 
 #include "WireCellUtil/IndexedGraph.h"
 
@@ -21,7 +26,12 @@ Img::BlobClustering::~BlobClustering() {}
 
 void Img::BlobClustering::configure(const WireCell::Configuration& cfg)
 {
-    m_spans = get(cfg, "spans", m_spans);
+    // m_spans = get(cfg, "spans", m_spans);
+    m_policy = get(cfg, "policy", m_policy);
+    std::unordered_set<std::string> known_policies = {"simple", "uboone", "uboone_local"};
+    if (known_policies.find(m_policy) == known_policies.end()) {
+        THROW(ValueError() << errmsg{String::format("policy \"%s\" not implemented!", m_policy)});
+    }
 }
 
 WireCell::Configuration Img::BlobClustering::default_configuration() const
@@ -30,7 +40,8 @@ WireCell::Configuration Img::BlobClustering::default_configuration() const
 
     // maxgap = spans*span of current slice.  If next slice starts
     // later than this relative to current slice then a gap exists.
-    cfg["spans"] = m_spans;
+    // cfg["spans"] = m_spans;
+    cfg["policy"] = m_policy;
 
     return cfg;
 }
@@ -57,6 +68,7 @@ void add_slice(cluster_indexed_graph_t& grind,
 }
 
 // add blobs to the graph
+// s-b, b-w, w-c
 static 
 void add_blobs(cluster_indexed_graph_t& grind,
                const IBlob::vector& iblobs)
@@ -87,58 +99,6 @@ void add_blobs(cluster_indexed_graph_t& grind,
     }
 }
 
-
-// return the time between two blob sets relative to the slice span of
-// the first.
-static
-double rel_time_diff(const IBlobSet::pointer& one,
-                     const IBlobSet::pointer& two)
-{
-    const auto here = one->slice();
-
-    return (two->slice()->start() - here->start())/here->span();
-}
-
-
-static
-IBlobSet::vector::iterator
-intern_one(cluster_indexed_graph_t& grind,
-           IBlobSet::vector::iterator beg,
-           IBlobSet::vector::iterator end,
-           double spans)
-{
-    add_blobs(grind, (*beg)->blobs());
-
-    auto next = beg+1;
-
-    if (next == end) {
-        return end;
-    }
-
-    if (rel_time_diff(*beg, *next) > spans) {
-        return next;
-    }
-
-    // handle each face separately faces
-    IBlob::vector iblobs1 = (*next)->blobs();
-    IBlob::vector iblobs2 = (*beg)->blobs();
-
-    RayGrid::blobs_t blobs1 = (*next)->shapes();
-    RayGrid::blobs_t blobs2 = (*beg)->shapes();
-
-    const auto beg1 = blobs1.begin();
-    const auto beg2 = blobs2.begin();
-
-    auto assoc = [&](RayGrid::blobref_t& a, RayGrid::blobref_t& b) {
-        int an = a - beg1;
-        int bn = b - beg2;
-        grind.edge(iblobs1[an], iblobs2[bn]);
-    };
-    RayGrid::associate(blobs1, blobs2, assoc);
-
-    return next;
-}
-
 void Img::BlobClustering::flush(output_queue& clusters)
 {
     // 1) sort cache
@@ -152,11 +112,15 @@ void Img::BlobClustering::flush(output_queue& clusters)
     auto bsit = m_cache.begin();
     auto bend = m_cache.end();
     while (bsit != bend) {
-        bsit = intern_one(grind, bsit, bend, m_spans);
+        // s-b, b-w, w-c
+        add_blobs(grind, (*bsit)->blobs());
+        // b-b
+        Img::geom_clustering(grind, bsit, bend, m_policy);
+        ++bsit;
     }
 
     // 3) pack and clear
-    clusters.push_back(std::make_shared<SimpleCluster>(grind.graph()));
+    clusters.push_back(std::make_shared<Aux::SimpleCluster>(grind.graph(), cur_ident()));
     m_cache.clear();
 }
 
@@ -165,6 +129,12 @@ void Img::BlobClustering::flush(output_queue& clusters)
 static int frame_ident(const IBlobSet::pointer& bs)
 {
     return bs->slice()->frame()->ident();
+}
+
+int Img::BlobClustering::cur_ident() const
+{
+    if (m_cache.empty()) return false;
+    return frame_ident(m_cache.front());
 }
 
 // Determine if we have a BlobSet from a fresh frame
@@ -186,16 +156,18 @@ bool Img::BlobClustering::operator()(const input_pointer& blobset,
     
     if (!blobset) {  // eos
         flush(clusters);
-        log->debug("flush {} clusters + EOS on EOS",
-                 clusters.size());
+        log->debug("flush {} clusters + EOS on EOS at call={}",
+                   clusters.size(), m_count);
         for (const auto& cl : clusters) {
             const auto& gr = cl->graph();
             
-            log->debug("cluster {}: nvertices={} nedges={}",
+            log->debug("call={} cluster={} nvertices={} nedges={}",
+                       m_count,
                        cl->ident(), boost::num_vertices(gr),
                        boost::num_edges(gr));
         }
         clusters.push_back(nullptr);  // forward eos
+        ++m_count;
         return true;
     }
 
@@ -204,6 +176,6 @@ bool Img::BlobClustering::operator()(const input_pointer& blobset,
     }
 
     m_cache.push_back(blobset);
-
+    ++m_count;
     return true;
 }

@@ -1,0 +1,8 @@
+bld.smplpkg('WireCellDocs')
+
+if 'org2html' in bld.env.DOCS:
+    styles = bld.path.ant_glob('styles/**')
+    bld.install_files(bld.env.DOCS_INSTALL_PATH,
+                      styles,
+                      cwd=bld.path,
+                      relative_trick=True)

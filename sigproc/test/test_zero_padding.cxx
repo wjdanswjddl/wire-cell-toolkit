@@ -25,7 +25,7 @@ int main()
     std::vector<float> a = {1, 2, 3, 2, 1};
     // can be sampled to 10 ticks: 1 , 1.35279 , 2 , 2.69443 , 3 , 2.69443 , 2 , 1.35279 , 1 , 0.905573
 
-    auto tran = Aux::fwd_r2c(idft, a);
+    auto tran = Aux::DftTools::fwd_r2c(idft, a);
 
     std::cout << " tran = " << std::endl;
     std::cout << tran.size() << std::endl;
@@ -56,7 +56,7 @@ int main()
     std::cout << std::endl;
 
     // inverse FFT
-    auto b = Aux::inv_c2r(idft, tran);
+    auto b = Aux::DftTools::inv_c2r(idft, tran);
     float scale = tran.size() / inSmps;
     //
     std::cout << " b = " << std::endl;
