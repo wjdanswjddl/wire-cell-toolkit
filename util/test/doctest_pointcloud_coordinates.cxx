@@ -1,7 +1,7 @@
 #include "WireCellUtil/PointCloudCoordinates.h"
 #include "WireCellUtil/PointCloudDataset.h"
 #include "WireCellUtil/Logging.h"
-// #define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
+#include "WireCellUtil/Type.h"
 #include "WireCellUtil/doctest.h"
 
 #include <boost/iterator/iterator_adaptor.hpp>
@@ -15,8 +15,10 @@ using namespace WireCell::PointCloud;
 
 TEST_CASE("point cloud coordinate iterator")
 {
-    using cid = coordinate_iterator<double>;
-    cid c1;
+    using point_type = coordinate_point<double>;
+    using cid = coordinate_iterator<point_type>;
+    Dataset::selection_t empty;
+    cid c1(&empty, 0);
     cid c2 = c1;
     cid c3(c2);
     cid c4(std::move(c3));
@@ -35,10 +37,10 @@ TEST_CASE("point cloud coordinate range")
     auto sel = ds.selection({"x","y","z"});
 
     using point_type = coordinate_point<double>;
-    using range_type = coordinate_range<point_type>;
+    using coords_type = coordinate_range<point_type>;
 
     {
-        point_type cp(&sel);
+        point_type cp(&sel, 0);
         CHECK(cp[0] == 1.0);
         CHECK(cp[1] == 2.0);
         CHECK(cp[2] == 1.0);
@@ -50,18 +52,21 @@ TEST_CASE("point cloud coordinate range")
         CHECK(cp[0] == 1.0);
         CHECK(cp[1] == 1.0);
         CHECK(cp[2] == 4.0);
-        point_type cp2(&sel);
+        point_type cp2(&sel, 0);
         ++cp2.index();
         CHECK(cp == cp2);
     }
 
     {
-        range_type ccr(sel);
+        coords_type ccr(sel);
+        debug("coordinate_iterator is type {}", type(ccr.begin()));
+        debug("coordinate_iterator value is type {}", type(*ccr.begin()));
+
         for (const auto& cp : ccr) {
             CHECK(cp.size() == sel.size());
         }
 
-        boost::sub_range<range_type> sr(ccr);
+        boost::sub_range<coords_type> sr(ccr);
         for (const auto& cp : sr) {
             CHECK(cp.size() == sel.size());
         }
@@ -83,9 +88,9 @@ TEST_CASE("point cloud coordinates")
     debug("doctest_pointcloud_iterator: make iterators");
     // both a container-like and an iterator
     using point_type = coordinate_point<double>;
-    using range_type = coordinate_range<point_type>;
+    using coords_type = coordinate_range<point_type>;
 
-    range_type coords(sel);
+    coords_type coords(sel);
     CHECK(coords.size() == 3); 
 
     auto beg = coords.begin();
@@ -98,7 +103,7 @@ TEST_CASE("point cloud coordinates")
     CHECK(std::distance(end,end) == 0);
 
     debug("doctest_pointcloud_iterator: copy iterator");
-    range_type coords2 = coords;
+    coords_type coords2 = coords;
 
     CHECK(coords2.size() == 3); 
 

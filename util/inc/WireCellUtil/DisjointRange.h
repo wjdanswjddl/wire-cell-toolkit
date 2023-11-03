@@ -1,6 +1,9 @@
 #ifndef WIRECELLUTIL_DISJOINTRANGE
 #define WIRECELLUTIL_DISJOINTRANGE
 
+// #include "WireCellUtil/Logging.h" // debugging
+#include "WireCellUtil/Type.h"
+
 #include <boost/iterator/iterator_adaptor.hpp>
 #include <boost/range.hpp>
 #include <map>
@@ -118,11 +121,13 @@ namespace WireCell {
         }
 
         const value_type& operator[](size_t ind) const {
-            last += ind - last.index();
+            const size_t rel = ind - last.index();
+            last = last + rel;
             return *last;
         }
         value_type& operator[](size_t ind) {
-            last += ind - last.index();
+            const size_t rel = ind - last.index();
+            last = last + rel;
             return *last;
         }
         const value_type& at(size_t ind) const {
@@ -260,6 +265,8 @@ namespace WireCell {
 
             // first, local distance from minor_ to current range begin
             difference_type ldist = major_->first - index_; // negative
+            // spdlog::debug("hi: n={} ldist={} first={} index={} toend={}",
+            //               n, ldist, major_->first, index_, std::distance(major_, major_end));
 
             // We are too high, back up.
             while (n < ldist) {
@@ -269,12 +276,16 @@ namespace WireCell {
                 minor_ = major_->second.begin();
                 n += old_index - index_;
                 ldist = 0;
+                // spdlog::debug("hi: n={} ldist={} first={} index={} toend={}",
+                //               n, ldist, major_->first, index_, std::distance(major_, major_end));
             }
 
             // ldist is either still negative or zero.  next find
             // distance from where we are to the end of the current
             // range.
             ldist = major_->second.size() + ldist;
+            // spdlog::debug("lo: n={} ldist={} first={} index={} toend={}",
+            //               n, ldist, major_->first, index_, std::distance(major_, major_end));
 
             // We are too low, go forward.
             while (n >= ldist) {
@@ -284,11 +295,15 @@ namespace WireCell {
                 minor_ = major_->second.begin();
                 ldist = major_->second.size();
                 n -= index_ - old_index;
+                // spdlog::debug("lo: n={} ldist={} first={} index={} toend={}",
+                //               n, ldist, major_->first, index_, std::distance(major_, major_end));
             }
 
             // just right
             index_ += n;
             minor_ += n;
+            // spdlog::debug("fi: n={} ldist={} first={} index={} toend={}",
+            //               n, ldist, major_->first, index_, std::distance(major_, major_end));
         }
     };
 }

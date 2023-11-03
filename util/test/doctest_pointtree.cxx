@@ -67,29 +67,37 @@ TEST_CASE("point tree no points")
 static
 Points::node_ptr make_simple_pctree()
 {
+    debug("make simple pctree root node");
     Points::node_ptr root = std::make_unique<Points::node_t>();
 
     // Insert a child with a set of named points clouds with one point
     // cloud from a track.
+    debug("node 1 inset");
     auto* n1 = root->insert(Points({ {"3d", make_janky_track()} }));
 
+    debug("node 1 get 3d");
     const Dataset& pc1 = n1->value.local_pcs().at("3d");
 
     // Ibid from a different track
+    debug("node 2 inset");
     auto* n2 = root->insert(Points({ {"3d", make_janky_track(
                         Ray(Point(-1, 2, 3), Point(1, -2, -3)))} }));
 
+    debug("node 2 get 3d");
     const Dataset& pc2 = n2->value.local_pcs().at("3d");
 
     REQUIRE(pc1 != pc2);
     REQUIRE_FALSE(pc1 == pc2);
 
+    debug("return simple pctree");
     return root;
 }
 
 TEST_CASE("point tree with points")
 {
+    debug("make simple tree");
     auto root = make_simple_pctree();
+    debug("got simple tree");
     CHECK(root.get());
 
     auto& rval = root->value;
@@ -98,31 +106,54 @@ TEST_CASE("point tree with points")
     CHECK(root.get() == rval.node());
     CHECK(rval.local_pcs().empty());
     
+    debug("check children");
     {
-        auto& cval = *(root->child_values().begin());
-        const auto& pcs = cval.local_pcs();
-        CHECK(pcs.size() > 0);
-        for (const auto& [key,val] : pcs) {
-            debug("child has pc named \"{}\" with {} points", key, val.size_major());
+        for (auto& cval : root->child_values()) {
+            const auto& pcs = cval.local_pcs();
+            CHECK(pcs.size() > 0);
+            for (const auto& [key,val] : pcs) {
+                debug("child has pc named \"{}\" with {} points", key, val.size_major());
+            }
+            const auto& pc3d = pcs.at("3d");
+            debug("got child PC named \"3d\" with {} points", pc3d.size_major());
+            CHECK(pc3d.size_major() > 0);
+            CHECK(pc3d.has("x"));
+            CHECK(pc3d.has("y"));
+            CHECK(pc3d.has("z"));
+            CHECK(pc3d.has("q"));
         }
-        const auto& pc3d = pcs.at("3d");
-        debug("got child PC named \"3d\" with {} points", pc3d.size_major());
-        CHECK(pc3d.size_major() > 0);
-        CHECK(pc3d.has("x"));
-        CHECK(pc3d.has("y"));
-        CHECK(pc3d.has("z"));
-        CHECK(pc3d.has("q"));
     }
 
     Scope scope{ "3d", {"x","y","z"}};
 
-    const auto& pc3d = rval.scoped_pc(scope);
+    debug("request scoped PC at scope = {}", scope);
+    auto& pc3d = rval.scoped_pc(scope);
+    debug("got scoped PC at scope = {} at {}", scope, (void*)&pc3d);
     CHECK(pc3d.size() == 2);
 
+    debug("request k-d tree at scope = {}", scope);
     auto& kd = rval.scoped_kd(scope);
-    // CHECK(&kd.pointclouds() == &pc3d);
+    debug("got scoped k-d tree at scope = {} at {}", scope, (void*)&kd);
 
     std::vector<double> origin = {0,0,0};
+    {
+        auto& pts = kd.points();
+        size_t npts = pts.size();
+        debug("kd has {} points", npts);
+        {
+            size_t count = 0;
+            for (auto& pt : pts) {
+                REQUIRE(count < npts);
+                ++count;
+                CHECK(pt.size() == 3);
+            }
+        }
+        for (size_t ind=0; ind<npts; ++ind) {
+            auto pt = pts.at(ind);
+            CHECK(pt.size() == 3);
+        }
+    }
+
     auto knn = kd.knn(6, origin);
     for (auto [it,dist] : knn) {
         auto& pt = *it;

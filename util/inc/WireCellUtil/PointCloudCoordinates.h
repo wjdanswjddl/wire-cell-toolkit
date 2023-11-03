@@ -1,7 +1,8 @@
 #ifndef WIRECELLUTIL_POINTCLOUDCOORDINATES
 #define WIRECELLUTIL_POINTCLOUDCOORDINATES
 
-#include "WireCellUtil/PointCloudArray.h"
+#include "WireCellUtil/PointCloudDataset.h"
+#include "WireCellUtil/Logging.h"
 
 #include <boost/iterator/iterator_adaptor.hpp>
 #include <memory>
@@ -10,7 +11,7 @@ namespace WireCell::PointCloud {
 
     /**
        A coordinate point is a vector-like slice across the arrays of
-       a coordinate selection at a given index.
+       a selection of a dataset at a given index along the major axis.
 
        coordinate_point cp(selection_of_four,42);
        x = cp[0];
@@ -18,43 +19,72 @@ namespace WireCell::PointCloud {
        z = cp[2];
        t = cp[3];
 
-       Note, the coordinate_point retains a pointer to the selection.
-       Caller must assure the lifetime of the selection exceeds that
-       of the coordinate_point.
+       This is primarily intended to provide a "value type" to the
+       coordinate_iterator though it may also be used directly.
+
+       Note, a pointer to the selection is retained.  The caller must
+       assure the lifetime of the selection exceeds that of the
+       coordinate_point.
 
     */
-    template<typename ElementType, typename SelectionType=selection_t>
+    template<typename ElementType>
     class coordinate_point {
       public:
         using value_type = ElementType;
 
-        coordinate_point()
-            : selection_(nullptr), index_(0) {}
+        using selection_t = Dataset::selection_t;
 
-        explicit coordinate_point(SelectionType& sel, size_t ind=0)
-            : selection_(&sel), index_(ind) {}
+        coordinate_point(selection_t* selptr=nullptr, size_t ind=0)
+            : selptr(selptr), index_(ind) {}
 
-        explicit coordinate_point(SelectionType* sel, size_t ind=0)
-            : selection_(sel), index_(ind) {}
+        coordinate_point(selection_t& sel, size_t ind=0)
+            : selptr(&sel), index_(ind) {}
 
-        size_t size() const {
-            return selection_->size();
+        coordinate_point(const coordinate_point& o)
+            : selptr(o.selptr), index_(o.index_) {}
+
+        coordinate_point& operator=(const coordinate_point& o)
+        {
+            selptr = o.selptr;
+            index_ = o.index_;
+            return *this;
         }
 
+        // number of dimensions of the point.
+        size_t size() const {
+            if (selptr) {
+                return selptr->size();
+            }
+            return 0;
+        }
+
+        // no bounds checking
         value_type operator[](size_t dim) const {
-            // selections hold ref to const arrays 
-            const Array& arr = (*selection_)[dim];
-            return arr.element<ElementType>(index_);
+            auto arr = (*selptr)[dim];
+            return arr->element<ElementType>(index_);
         }
 
         void assure_valid(size_t dim) const {
-            if (dim >= size()) {
-                throw std::out_of_range("coordinate dimension out of range");
+            if (!selptr) {
+                throw std::out_of_range("coordinate point has no selection");
             }
-            if (index_ >= selection_->at(0).get().size_major()) {
-                throw std::out_of_range("coordinate index out of range");
+            const size_t ndims = selptr->size();
+            if (!ndims) {
+                throw std::out_of_range("coordinate point has empty selection");
+            }   
+            if (dim >= ndims) {
+                throw std::out_of_range("coordinate point dimension out of range");
+            }
+            if (index_ >= (*selptr)[0]->size_major()) {
+                throw std::out_of_range("coordinate point index out of range");
             }
         }
+
+        // size_t npoints() const
+        // {
+        //     if (!selptr || selptr->empty() || (*selptr)[0].empty()) return 0;
+        //     return (*selptr)[0]->size_major();
+        // }
 
         value_type at(size_t dim) const {
             assure_valid(dim);
@@ -65,26 +95,26 @@ namespace WireCell::PointCloud {
         size_t index() const { return index_; }
 
         bool operator==(const coordinate_point& other) const {
-            return selection_ == other.selection_ && index_ == other.index_;
+            return index_ == other.index_ && selptr == other.selptr;
         }
 
       private:
-        SelectionType* selection_;
+        selection_t* selptr;
         size_t index_;
     };
 
 
     /**
-       Iterator over a coordinate range.
+       An iterator over a coordinate range.
      */
-    template<typename PointType, typename SelectionType=selection_t>
+    template<typename PointType>
     class coordinate_iterator
-        : public boost::iterator_facade<coordinate_iterator <PointType, SelectionType>
+        : public boost::iterator_facade<coordinate_iterator <PointType>
                                         , PointType
                                         , boost::random_access_traversal_tag>
     {
       public:
-        using self_type = coordinate_iterator<PointType, SelectionType>;
+        using self_type = coordinate_iterator<PointType>;
         using base_type = boost::iterator_facade<self_type
                                                  , PointType
                                                  , boost::random_access_traversal_tag>;
@@ -93,19 +123,23 @@ namespace WireCell::PointCloud {
         using pointer = typename base_type::pointer;
         using reference = typename base_type::reference;
 
-        coordinate_iterator()
-            : point() {}
+        using selection_t = typename PointType::selection_t;
 
-        coordinate_iterator(const coordinate_iterator&) = default;
-        coordinate_iterator(coordinate_iterator&&) = default;
-        coordinate_iterator& operator=(const coordinate_iterator&) = default;
-        coordinate_iterator& operator=(coordinate_iterator&&) = default;
+        coordinate_iterator(selection_t* sel=nullptr, size_t ind=0)
+            : point(sel, ind)
+        {
+        }
 
-        coordinate_iterator(SelectionType& sel, size_t ind)
-            : point(&sel,ind) {}
+        coordinate_iterator(const coordinate_iterator& o)
+            : point(o.point)
+        {            
+        }
 
-        coordinate_iterator(SelectionType* sel, size_t ind)
-            : point(sel,ind) {}
+        coordinate_iterator& operator=(const coordinate_iterator& o)
+        {
+            point = o.point;
+            return *this;
+        }
 
       private:
         mutable value_type point;
@@ -124,7 +158,8 @@ namespace WireCell::PointCloud {
             --point.index();
         }
         void advance (difference_type n) {
-            point.index() += n;
+            size_t index = point.index();
+            point.index() = index + n;
         }
 
         difference_type
@@ -143,49 +178,51 @@ namespace WireCell::PointCloud {
     /**
        A transpose of a point cloud selection.
 
-       coordinate_range<double> cr(selection);
-       for (const coordinate_point& cp : cr) {
-           assert(cp.size() == selection.size());
-           auto dim0 = cp[0];
-           for (auto x : c) {
-               //...
-           }
-       }
-
      */
-    template<typename PointType, typename SelectionType=selection_t>
+    template<typename PointType>
     class coordinate_range {
       public:
-        using iterator = coordinate_iterator<PointType, SelectionType>;
-        using const_iterator = coordinate_iterator<PointType const, SelectionType const>;
+        using iterator = coordinate_iterator<PointType>;
+        using const_iterator = coordinate_iterator<PointType const>;
 
-        coordinate_range() : selection_(nullptr) {}
+        using selection_t = typename PointType::selection_t;
 
-        explicit coordinate_range(SelectionType& sel)
-            : selection_(&sel) {}
+        coordinate_range() = delete;
+        ~coordinate_range() {
+        }
 
+        // The selection to transpose must remain in place.
+        //
+        explicit coordinate_range(selection_t& sel)
+            : selptr(&sel)
+        {
+        }
+        explicit coordinate_range(selection_t* selptr)
+            : selptr(selptr)
+        {
+        }
+
+        /// Number of coordinate points.
         size_t size() const {
-            if (!selection_) return 0;
-            if (selection_->empty()) return 0;
-            const Array& arr = selection_->at(0);
-            return arr.size_major();
+            if (!selptr || selptr->empty()) return 0;
+            return (*selptr)[0]->size_major();
         }
 
         iterator begin()  { 
-            return iterator(selection_, 0);
+            return iterator(selptr, 0);
         }
         iterator end()  {
-            return iterator(selection_, size());
+            return iterator(selptr, size());
         }
         const_iterator begin() const { 
-            return const_iterator(selection_, 0);
+            return const_iterator(selptr, 0);
         }
         const_iterator end() const {
-            return const_iterator(selection_, size());
+            return const_iterator(selptr, size());
         }
 
       private:
-        SelectionType* selection_;
+        selection_t* selptr;
         
     };
 

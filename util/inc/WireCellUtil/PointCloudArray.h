@@ -87,19 +87,21 @@ namespace WireCell::PointCloud {
         }
 
         // Want defaults for all the rest.
-        Array() = default;
+        Array();
 
         // Copy constructor
         Array(const Array& rhs);
 
-        // Assignment 
+        // Move constructor
+        Array(Array&& rhs);
+
+        // Copy assignment 
         Array& operator=(const Array& rhs);
 
-        //  Move
-        Array(Array&&) = default;
-        Array& operator=(Array&&) = default;
+        // Move assignment 
+        Array& operator=(Array&& rhs);
 
-        ~Array() = default;
+        ~Array();
 
         /// Special constructor on initializer list
         template<typename ElementType>
@@ -329,23 +331,6 @@ namespace WireCell::PointCloud {
         }
 
     };                          // Array
-
-    /** A collection of indices of points in a point cloud */
-    using indices_t = std::vector<size_t>;
-
-    /** An array reference. */
-    using array_ref = std::reference_wrapper<Array>;
-    using const_array_ref = std::reference_wrapper<const Array>;
-
-    /** A list of names, such as used to form a selection. */
-    using name_list_t = std::vector<std::string>;
-
-    /** A selection of arrays.  Arrays are held by ref so that any
-        updates are available to the user of the selection.
-    */
-    using selection_t = std::vector<array_ref>;
-    using const_selection_t = std::vector<const_array_ref>;
-
 
 }
 

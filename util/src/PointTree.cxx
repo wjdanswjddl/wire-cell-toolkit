@@ -104,7 +104,7 @@ bool Tree::Points::on_insert(const Tree::Points::node_path_t& path)
 {
     auto* node = path.back();
 
-    for (auto& [scope,store] : m_scoped_pcs) {
+    for (auto& [scope,pcstore] : m_scoped_pcs) {
         if (! in_scope(scope, node, path.size())) {
             continue;
         }
@@ -112,15 +112,18 @@ bool Tree::Points::on_insert(const Tree::Points::node_path_t& path)
         if (it == node->value.m_lpcs.end()) {
             raise<WireCell::LogicError>("node in scope but no local PC of name " + scope.pcname);
         }
-        Dataset& ds = it->second;
-        store.push_back(std::ref(ds));
+        Dataset& pc = it->second;
 
+        // add to scoped PCs
+        pcstore.push_back(std::ref(pc));
+
+        // append to scopped k-d tree if exists
         auto kdit = m_scoped_kds.find(scope);
         if (kdit == m_scoped_kds.end()) {
             continue;
         }
 
-        kdit->second->append(ds);
+        kdit->second->append(pc);
     }
 
     return true;
@@ -146,7 +149,7 @@ void purge(Store& store, const Tree::Points::node_path_t& path)
 bool Tree::Points::on_remove(const Tree::Points::node_path_t& path)
 {
     purge(m_scoped_kds, path);
-    purge(m_scoped_pcs,  path);
+    purge(m_scoped_pcs, path);
 
     return true;                // continue ascent
 }
@@ -189,15 +192,15 @@ Tree::Points::scoped_pc(const Tree::Scope& scope)
     if (it != m_scoped_pcs.end()) {
         // Repeat this check as we may do initial construction with a
         // scope that has a different set of coordinate arrays.
-        scoped_pointcloud_t& store = it->second;
-        for (const Dataset& pc : store) {
+        scoped_pointcloud_t& pcstore = it->second;
+        for (Dataset& pc : pcstore) {
             assure_arrays(pc.keys(), scope);            
         }
-        return store;
+        return pcstore;
     }
 
     // construct, assure and cache.
-    scoped_pointcloud_t& store = m_scoped_pcs[dscope];
+    scoped_pointcloud_t& pcstore = m_scoped_pcs[dscope];
     for (auto& nv : m_node->depth(scope.depth)) {
         // local pc dataset
         auto it = nv.m_lpcs.find(scope.pcname);
@@ -206,10 +209,10 @@ Tree::Points::scoped_pc(const Tree::Scope& scope)
         }
 
         // Check for coordintate arrays on first construction. 
-        Dataset& ds = it->second;
-        assure_arrays(ds.keys(), scope);
-        store.push_back(std::ref(ds));
+        Dataset& pc = it->second;
+        assure_arrays(pc.keys(), scope);
+        pcstore.push_back(std::ref(pc));
     };
-    return store;
+    return pcstore;
 }
 

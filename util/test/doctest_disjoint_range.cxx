@@ -72,6 +72,9 @@ TEST_CASE("disjoint range basics")
         auto it0 = djc.begin();
         CHECK( 0 == *it0 );
     }
+
+    CHECK(dj[4] == 4);
+    CHECK(dj[2] == 2);
 }
 
 
@@ -201,6 +204,7 @@ TEST_CASE("disjoint range iterator perf") {
     const size_t onums =10000;
     const size_t inums =10000;
     const size_t nrands=100000;
+    // const size_t nrands=1000;
 
     std::random_device rnd_device;
     std::mt19937 rnd_engine {rnd_device()};  // Generates random integers

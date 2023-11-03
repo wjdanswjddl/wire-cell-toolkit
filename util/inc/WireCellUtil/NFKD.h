@@ -92,10 +92,8 @@ namespace WireCell::NFKD {
         using const_results_type = std::vector<const_result_item>;
 
         explicit Tree(size_t dimensionality)
-            : m_points{}
-            , m_index(dimensionality, *this)
+            : m_index(dimensionality, *this)
         {
-            // spdlog::debug("NFKD: constructor dimensionality {}", dimensionality);
         }
 
         // Create with one initial range
@@ -104,8 +102,6 @@ namespace WireCell::NFKD {
             : m_points(beg, end)
             , m_index(dimensionality, *this)
         {
-            // spdlog::debug("NFKD: constructor dimensionality {} range size {}",
-            //               dimensionality, m_size);
         }
 
         // Create with collection of ranges
@@ -113,6 +109,10 @@ namespace WireCell::NFKD {
         Tree(size_t dimensionality, Container& con)
             : m_points(con)
             , m_index(dimensionality, *this)
+        {
+        }
+
+        ~Tree()
         {
         }
 
@@ -125,24 +125,19 @@ namespace WireCell::NFKD {
             return m_point_calls;
         }
         
-        // Append a range of points.
+        // Append a range of points - can only be called if IndexTraits = IndexDynamic.
         template<typename RangeIterator>
         void append(RangeIterator beg, RangeIterator end)
         {
             const size_t oldsize = m_points.size();
             const size_t adding = std::distance(beg, end);
             m_points.append(beg, end);
-            // spdlog::debug("NFKD::append: oldsize={} adding={}", oldsize, adding);
             this->addn<index_type>(oldsize, adding);
         }
         template<typename Range>
         void append(Range r)
         {
-            const size_t oldsize = m_points.size();
-            const size_t adding = r.size();
-            m_points.append(r.begin(), r.end());
-            // spdlog::debug("NFKD::append: oldsize={} adding={}", oldsize, adding);
-            this->addn<index_type>(oldsize, adding);
+            append(r.begin(), r.end());
         }
 
         template<typename VectorLike>
@@ -215,7 +210,7 @@ namespace WireCell::NFKD {
 
         // nanoflann dataset adaptor API.
         inline size_t kdtree_get_point_count() const {
-            // spdlog::debug("NFKD: size={}", size());
+            // spdlog::debug("NFKD: {} kdtree_get_point_count size={}", (void*)this, m_points.size());
             return m_points.size();
         }
         template <class BBOX>
@@ -223,10 +218,11 @@ namespace WireCell::NFKD {
 
         // unwantedly, nanoflan deals in indices
         inline element_type kdtree_get_pt(size_t idx, size_t dim) const {
+            // spdlog::debug("NFKD: {} getting pt({}/{},{})", (void*)this, idx,m_points.size(),dim);
             const auto& pt = m_points.at(idx);
             const element_type val = pt.at(dim);
             ++m_point_calls;
-            // spdlog::debug("NFKD: get pt({},{})={}", idx,dim,val);
+            // spdlog::debug("NFKD: get pt({}/{},{})={}", idx,m_points.size(),dim,val);
             return val;
         }
 
@@ -248,7 +244,7 @@ namespace WireCell::NFKD {
         template <class T, std::enable_if_t<has_addpoints<T>::value>* = nullptr>
         void addn(size_t beg, size_t n) {
             if (n) {
-                // spdlog::debug("NFKD: addn({},{})", beg, n);
+                // spdlog::debug("NFKD: {} addn({},+{})", (void*)this, beg, n);
                 this->m_index.addPoints(beg, beg+n-1);
             }
         }
