@@ -62,10 +62,11 @@ function(params, tools) {
             replacement_percentage: 0.02, // random optimization
         }}, nin=1, nout=1, uses=[tools.random, tools.dft, model]),
 
-    // multi model
-    // local noises = [add_noise(make_noise_model(anode), anode.name) for anode in tools.anodes],
-    // single model
-    local noises = [add_noise(make_noise_model(mega_anode), anode.name) for anode in tools.anodes],
+    // TODO: make this an option?
+    local use_shared_model = true,
+    local noises = if use_shared_model == true
+    then [add_noise(make_noise_model(mega_anode), anode.name) for anode in tools.anodes]
+    else [add_noise(make_noise_model(anode), anode.name) for anode in tools.anodes],
 
     local digitizers = [
         sim.digitizer(anode, name="digitizer%d"%anode.data.ident, tag="orig%d"%anode.data.ident)
