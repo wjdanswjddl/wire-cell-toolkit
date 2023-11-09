@@ -114,6 +114,28 @@ namespace WireCell {
 
         size_t size() const { return size_; }
 
+        // Return the index to the major range holding the iterator
+        size_t major_index(iterator it) const {
+            const_major_iterator beg = accums.begin();
+            const_major_iterator mit = it.major();
+            //return std::distance(accums.begin(), it.major());
+            return std::distance(beg, mit);
+        }
+        size_t major_index(const_iterator it) const {
+            const_major_iterator beg = accums.begin();
+            const_major_iterator mit = it.major();
+            //return std::distance(accums.begin(), it.major());
+            return std::distance(beg, mit);
+        }
+
+        // Return the minor range index to the iterator
+        size_t minor_index(iterator it) const {
+            return std::distance(it.major()->second.begin(), it.minor());
+        }
+        size_t minor_index(const_iterator it) const {
+            return std::distance(it.major()->second.begin(), it.minor());
+        }
+
         void clear() {
             accums.clear();
             size_ = 0;

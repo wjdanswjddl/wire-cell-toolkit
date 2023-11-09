@@ -135,6 +135,12 @@ namespace WireCell::PointCloud {
         {            
         }
 
+        template<typename OtherIter>
+        coordinate_iterator(OtherIter o)
+            : point(*o)
+        {
+        }
+
         coordinate_iterator& operator=(const coordinate_iterator& o)
         {
             point = o.point;
