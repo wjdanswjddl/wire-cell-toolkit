@@ -334,6 +334,7 @@ Gen::EmpiricalNoiseModel::channel_spectrum(int chid) const
         }
     }
 
+    std::lock_guard<std::mutex> lock(m_mutex_cache);
     // get truncated wire length for cache
     int ilen = 0;
     auto chlen = m_chid_to_intlen.find(chid);
