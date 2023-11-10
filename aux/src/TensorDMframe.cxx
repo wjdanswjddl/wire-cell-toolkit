@@ -5,14 +5,52 @@
 #include "WireCellAux/SimpleTrace.h"
 #include "WireCellAux/SimpleTensor.h"
 #include "WireCellUtil/Type.h"
+// #include "WireCellUtil/Logging.h" // debug
 #include "WireCellUtil/PointCloudDataset.h"
 #include <boost/filesystem.hpp>
+
+#include <sstream>
 
 using namespace WireCell;
 namespace PC = WireCell::PointCloud;
 using namespace WireCell::Aux;
 using namespace WireCell::Aux::TensorDM;
 using namespace boost::filesystem;
+
+// template<typename T>
+// void dump_array(const PC::Dataset& ds, const std::string& name, const std::string& prefix = "\t\t")
+// {
+//     if (! ds.has(name)) {
+//         spdlog::debug("tensordm frame: {} no array \"{}\"", prefix, name);
+//         return;
+//     }
+
+//     auto arr = ds.get(name);
+//     assert(arr->is_type<T>());
+
+//     std::stringstream ss;
+//     ss << "doctest_tensordm_frame: array: " << prefix << "\n";
+//     ss << "\tarray \"" << name << "\" size major: " << arr->size_major() << " dtype: " << arr->dtype() << "\n";
+//     ss << "\tmetadata: " << arr->metadata() << "\n";
+//     auto vec = arr->elements<T>();
+//     ss << vec.size() << " " << name;
+//     for (auto one : vec) ss << " " << one;
+//     spdlog::debug(ss.str());
+
+// }
+
+// static void dump_dataset(const PC::Dataset& ds, const std::string& ctx)
+// {
+//     std::stringstream ss;
+//     ss << "dataset: " << ctx << " " << ds.size() << "x" << ds.size_major() << "\n";
+//     ss << "\tmetadata: " << ds.metadata() << "\n";
+//     for (const auto& key : ds.keys()) {
+//         auto arr = ds.get(key);
+//         ss <<"\t" << key << ": (" << arr->dtype() << ") [" << arr->size_major()<<"] " << arr->bytes().size() << " bytes, metadata: " << arr->metadata() << "\n";
+//     }
+//     spdlog::debug(ss.str());
+// }
+
 
 Configuration
 WireCell::Aux::TensorDM::as_config(const Waveform::ChannelMasks& cms)
@@ -133,6 +171,7 @@ WireCell::Aux::TensorDM::as_tensors(IFrame::pointer frame,
             PC::Dataset ds;
             ds.metadata()["tag"] = tag;
             ds.add("chid", PC::Array(Aux::channels(tts)));
+            // assert(ds.get("chid")->elements<int>().size() == tts.size());
             std::vector<size_t> indices(tts.size());
             std::iota(indices.begin(), indices.end(), ntraces);
             ds.add("index", PC::Array(indices));
@@ -176,6 +215,7 @@ WireCell::Aux::TensorDM::as_tensors(IFrame::pointer frame,
         {   // datapath/tracedata/_ for single chids spanning all
             PC::Dataset ds;         // no tag
             ds.add("chid", PC::Array(Aux::channels(traces)));
+            // assert(ds.get("chid")->elements<int>().size() == traces.size());
             auto tracedata_path = (td_dpath / "_").string();
             auto tds = as_tensors(ds, tracedata_path);
             td_tens.insert(td_tens.end(), tds.begin(), tds.end());
@@ -319,19 +359,26 @@ IFrame::pointer WireCell::Aux::TensorDM::as_frame(const ITensor::vector& tens,
     if (fmd["tracedata"].isArray()) {
         for (auto jtdpath : fmd["tracedata"]) {
             if (jtdpath.isNull() or ! jtdpath.isString()) {
-                THROW(ValueError() << errmsg{"malformed tracedata datapath in frame tensor"});
+                raise<ValueError>("malformed tracedata datapath in frame tensor");
             }
             auto tdpath = jtdpath.asString();
-            PC::Dataset td = as_dataset(tens, tdpath, true);
-
+            const bool share = false; // was true
+            PC::Dataset td = as_dataset(tens, tdpath, share);
+            // dump_dataset(td, tdpath);
             auto tdmd = td.metadata();
     
             auto tag = get<std::string>(tdmd, "tag", "");
             if (tag.empty()) {      // whole
-                auto chid = td.get("chid").elements<int>();
+                auto achid = td.get("chid");
+                // assert(achid);
+                // assert(achid->size_major() == straces.size());
+                // assert(achid->is_type<int>());
+                auto chid = achid->elements<int>();
                 const size_t num = chid.size();
+                // assert(num == straces.size());
                 if (num != straces.size()) {
-                    THROW(ValueError() << errmsg{"tagless tracedata chid array size mismatch"});
+                    raise<ValueError>("tagless tracedata chid array size=%d mismatch with traces=%d",
+                                      num, straces.size());
                 }
                 for (size_t ind=0; ind<num; ++ind) {
                     straces[ind]->m_chid = chid[ind];
@@ -341,18 +388,18 @@ IFrame::pointer WireCell::Aux::TensorDM::as_frame(const ITensor::vector& tens,
 
             // tagged traces, perhaps with summaries
             if (! td.has("index")) {
-                THROW(ValueError() << errmsg{"tagged tracedata has no index"});
+                raise<ValueError>("tagged tracedata has no index for tag %s", tag);
             }
-            auto index = td.get("index").elements<size_t>();
+            auto index = td.get("index")->elements<size_t>();
             if (td.has("summary")) {
-                auto summary = td.get("summary").elements<double>();
+                auto summary = td.get("summary")->elements<double>();
                 sf->tag_traces(tag, index, summary);
             }
             else {
                 sf->tag_traces(tag, index);
             }
             if (td.has("chid")) {
-                auto chid = td.get("chid").elements<int>();
+                auto chid = td.get("chid")->elements<int>();
                 const size_t num = chid.size();
                 if (num != index.size()) {
                     THROW(ValueError() << errmsg{"tagged tracedata chid array size mismatch"});

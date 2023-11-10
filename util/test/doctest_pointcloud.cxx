@@ -5,10 +5,50 @@
 
 #include <vector>
 #include <iostream>
+#include <memory>
 
 using namespace WireCell;
 using namespace WireCell::PointCloud;
 using spdlog::debug;
+
+Dataset make_one()
+{
+    Dataset ds;
+    std::vector<int> v = {0, 1, 2};
+    Array arr(v);
+    REQUIRE(arr.is_type<int>());
+    ds.add("arr",arr);
+    return ds;
+}
+
+TEST_CASE("point cloud ownership")
+{
+    Dataset ds({
+            {"x", Array({1.0, 1.0, 1.0})},
+            {"y", Array({2.0, 1.0, 3.0})},
+            {"z", Array({1.0, 4.0, 1.0})},
+            {"one", Array({1  ,2  ,3  })},
+            {"two", Array({1.1,2.2,3.3})}});
+    Dataset::selection_t sel = ds.selection({"x","y","z"});
+
+    Dataset ds2(std::move(ds));
+    REQUIRE(ds.size() == 0);
+    REQUIRE(ds2.size() == 5);
+    REQUIRE(ds2.get("x")->size_major() == 3);
+
+
+    Dataset::selection_t sel2 = ds2.selection({"x","y","z"});    
+
+    CHECK(sel[0] == sel2[0]);
+
+    {
+        Dataset ds3 = make_one();
+        REQUIRE(ds3.has("arr"));
+        auto arr = ds3.get("arr")->elements<int>();
+        REQUIRE(arr.size() == 3);
+    }
+}
+
 
 template<typename ElementType>
 void assure_equal(const Array& a, const std::vector<ElementType>& v)
@@ -35,10 +75,10 @@ PointCloud::Array make_array(const ElementType* data, const Array::shape_t& shap
     return arr;
 }
 template<typename ElementType>
-PointCloud::Dataset::store_t make_arrays(const ElementType* data, const Array::shape_t& shape, bool share)
+auto make_arrays(const ElementType* data, const Array::shape_t& shape, bool share)
 {
+    std::map<std::string, PointCloud::Array> ret;
     PointCloud::Array arr(data, shape, share);
-    PointCloud::Dataset::store_t ret;
     ret["a"] = arr;
     return ret;
 }
@@ -273,14 +313,13 @@ TEST_CASE("point cloud array 2d")
 
 TEST_CASE("point cloud dataset")
 {
-    Dataset::store_t s = {
+    Dataset d({
         {"one", Array({1  ,2  ,3  })},
         {"two", Array({1.1,2.2,3.3})},
-    };
-    Dataset d(s);
+    });
     CHECK(d.size_major() == 3);
     CHECK(d.keys().size() == 2);
-    CHECK(d.store().size() == 2);
+    CHECK(d.size() == 2);
 
     {
         auto d2 = d;
@@ -307,9 +346,9 @@ TEST_CASE("point cloud dataset")
     {
         auto sel = d.selection({"one", "two"});
         CHECK(sel.size() == 2);
-        const Array& arr = sel[0];
-        CHECK(arr.size_major() == 3);
-        CHECK(sel[1].get().size_major() == 3);
+        const auto arr = sel[0];
+        CHECK(arr->size_major() == 3);
+        CHECK(sel[1]->size_major() == 3);
     }
 
     {
@@ -332,11 +371,10 @@ TEST_CASE("point cloud dataset")
     CHECK(d.size_major() == 3);
 
     {
-        Dataset::store_t s = {
+        Dataset d({
             {"one", Array({1  ,2  ,3  })},
             {"two", Array({1.1,2.2,3.3})},
-        };
-        Dataset d(s);
+        });
         CHECK(d.size_major() == 3);
         CHECK(d.keys().size() == 2);
 
@@ -373,16 +411,16 @@ TEST_CASE("point cloud dataset")
             auto tail2 = d.zeros_like(7);
             CHECK(tail2.size_major() == 7);
 
-            auto& arr2 = tail2.get("one");
-            auto one2 = arr2.indexed<int, 1>();
+            auto arr2 = tail2.get("one");
+            auto one2 = arr2->indexed<int, 1>();
             one2[0] = 42;
-            CHECK(arr2.element<int>(0) == 42);
+            CHECK(arr2->element<int>(0) == 42);
 
             d.append(tail2);
             CHECK(d.size_major() == 12);
-            auto& arr22 = d.get("one");
-            CHECK(arr22.size_major() == 12);
-            CHECK(arr22.element<int>(5) == 42);
+            auto arr22 = d.get("one");
+            CHECK(arr22->size_major() == 12);
+            CHECK(arr22->element<int>(5) == 42);
         }
     }        
 
