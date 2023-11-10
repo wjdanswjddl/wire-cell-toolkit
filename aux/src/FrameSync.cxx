@@ -9,8 +9,15 @@ WIRECELL_FACTORY(FrameSync,
 
 using namespace WireCell;
 
-Aux::FrameSync::FrameSync() { }
+Aux::FrameSync::FrameSync(const size_t multiplicity) : m_multiplicity(multiplicity) { }
 Aux::FrameSync::~FrameSync() { }
+
+std::vector<std::string> Aux::FrameSync::input_types()
+{
+    const std::string tname = std::string(typeid(input_type).name());
+    std::vector<std::string> ret(m_multiplicity, tname);
+    return ret;
+}
 
 bool Aux::FrameSync::operator()(input_queues& iqs, output_queues& oqs)
 {

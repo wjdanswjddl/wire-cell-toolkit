@@ -28,12 +28,15 @@ namespace WireCell::Aux {
         bool m_flushing{false};
       public:
 
-        FrameSync();
+        FrameSync(const size_t multiplicity = 2);
         virtual ~FrameSync();
+        virtual std::vector<std::string> input_types();
 
         // hydra
         virtual bool operator()(input_queues& iqs, output_queues& oqs);
-        
+
+      private:
+        size_t m_multiplicity;
     };
 }
 
