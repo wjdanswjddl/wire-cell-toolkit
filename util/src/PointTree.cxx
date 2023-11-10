@@ -88,7 +88,7 @@ bool in_scope(const Tree::Scope& scope, const Tree::Points::node_t* node, size_t
 
     // The node-local PC must have all the coords.  coords may be
     // empty such as when the tested scope is a key in cached point
-    // clouds (m_djds).
+    // clouds (m_scoped_pcs).
     const auto& ds = pcit->second;
     for (const auto& name : scope.coords) {
         if (!ds.has(name)) {
@@ -104,19 +104,26 @@ bool Tree::Points::on_insert(const Tree::Points::node_path_t& path)
 {
     auto* node = path.back();
 
-    for (auto& [scope,djds] : m_djds) {
+    for (auto& [scope,pcstore] : m_scoped_pcs) {
         if (! in_scope(scope, node, path.size())) {
             continue;
         }
-        
-        Dataset& ds = node->value.m_lpcs[scope.pcname];
-        djds.append(ds);
+        auto it = node->value.m_lpcs.find(scope.pcname);
+        if (it == node->value.m_lpcs.end()) {
+            raise<WireCell::LogicError>("node in scope but no local PC of name " + scope.pcname);
+        }
+        Dataset& pc = it->second;
 
-        auto kdit = m_nfkds.find(scope);
-        if (kdit == m_nfkds.end()) {
+        // add to scoped PCs
+        pcstore.push_back(std::ref(pc));
+
+        // append to scopped k-d tree if exists
+        auto kdit = m_scoped_kds.find(scope);
+        if (kdit == m_scoped_kds.end()) {
             continue;
         }
-        kdit->second->append(ds);
+
+        kdit->second->append(pc);
     }
 
     return true;
@@ -141,17 +148,17 @@ void purge(Store& store, const Tree::Points::node_path_t& path)
 
 bool Tree::Points::on_remove(const Tree::Points::node_path_t& path)
 {
-    purge(m_nfkds, path);
-    purge(m_djds,  path);
+    purge(m_scoped_kds, path);
+    purge(m_scoped_pcs, path);
 
     return true;                // continue ascent
 }
-    
-static void assure_arrays(const Dataset& ds,
-                          const Tree::Scope& scope)                          
+
+static void assure_arrays(const std::vector<std::string>& have, // ds keys
+                          const Tree::Scope& scope)
 {
     // check that it has the coordinate arrays
-    std::vector<std::string> have = ds.keys(), want(scope.coords), both, missing;
+    std::vector<std::string> want(scope.coords), both, missing;
     std::sort(want.begin(), want.end());
     std::set_intersection(have.begin(), have.end(), want.begin(), want.end(),
                           std::back_inserter(both));
@@ -170,7 +177,9 @@ static void assure_arrays(const Dataset& ds,
                                           s, scope);    
 }
 
-const DisjointDataset& Tree::Points::scoped_pc(const Tree::Scope& scope) const
+
+WireCell::PointCloud::Tree::scoped_pointcloud_t&
+Tree::Points::scoped_pc(const Tree::Scope& scope)
 {
     // Since we cache full dataset we do not include coords in the
     // lookup key to encourage sharing.  But we will still assure it
@@ -179,19 +188,19 @@ const DisjointDataset& Tree::Points::scoped_pc(const Tree::Scope& scope) const
     dscope.coords.clear();
 
     // cache hit?
-    auto it = m_djds.find(dscope);
-    if (it != m_djds.end()) {
-        const DisjointDataset& djds = it->second;
+    auto it = m_scoped_pcs.find(dscope);
+    if (it != m_scoped_pcs.end()) {
         // Repeat this check as we may do initial construction with a
         // scope that has a different set of coordinate arrays.
-        for (const Dataset& ds : djds.values()) {
-            assure_arrays(ds, scope);
+        scoped_pointcloud_t& pcstore = it->second;
+        for (Dataset& pc : pcstore) {
+            assure_arrays(pc.keys(), scope);            
         }
-        return djds;
+        return pcstore;
     }
 
     // construct, assure and cache.
-    DisjointDataset& djds = m_djds[dscope];
+    scoped_pointcloud_t& pcstore = m_scoped_pcs[dscope];
     for (auto& nv : m_node->depth(scope.depth)) {
         // local pc dataset
         auto it = nv.m_lpcs.find(scope.pcname);
@@ -200,11 +209,10 @@ const DisjointDataset& Tree::Points::scoped_pc(const Tree::Scope& scope) const
         }
 
         // Check for coordintate arrays on first construction. 
-        Dataset& ds = it->second;
-        assure_arrays(ds, scope);
-
-        djds.append(ds);
+        Dataset& pc = it->second;
+        assure_arrays(pc.keys(), scope);
+        pcstore.push_back(std::ref(pc));
     };
-    return djds;
+    return pcstore;
 }
 

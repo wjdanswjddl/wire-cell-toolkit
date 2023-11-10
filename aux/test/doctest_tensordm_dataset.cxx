@@ -10,6 +10,7 @@
 
 #include <complex>
 #include <vector>
+#include <memory>
 #include <iostream>
 
 
@@ -173,23 +174,22 @@ TEST_CASE("tensordm dataset dataset roundtrip")
     Array orig_one({1  ,2  ,3  });
     Array orig_two({1.1,2.2,3.3});
 
-    Dataset::store_t s = {
-        {"one", orig_one},
-        {"two", orig_two},
-    };
+    Dataset d({
+            {"one", orig_one},
+            {"two", orig_two},
+        });
 
-    Dataset d(s);
     {
-        const auto& one = d.get("one");
-        CHECK(one.size_major() == 3);
-        CHECK(one.is_type<int>());
-        const auto& two = d.get("two");
-        CHECK(two.size_major() == 3);
-        CHECK(two.is_type<double>());
+        auto one = d.get("one");
+        CHECK(one->size_major() == 3);
+        CHECK(one->is_type<int>());
+        auto two = d.get("two");
+        CHECK(two->size_major() == 3);
+        CHECK(two->is_type<double>());
 
         for (size_t ind = 0; ind<3; ++ind) {
-            CHECK(one.element<int>(ind) == orig_one.element<int>(ind));
-            CHECK(two.element<double>(ind) == orig_two.element<double>(ind));
+            CHECK(one->element<int>(ind) == orig_one.element<int>(ind));
+            CHECK(two->element<double>(ind) == orig_two.element<double>(ind));
         }
     }
 
@@ -248,26 +248,26 @@ TEST_CASE("tensordm dataset dataset roundtrip")
     CHECK(std::find(keys.begin(), keys.end(), "two") != keys.end());
     
     auto sel = d2.selection({"one", "two"});
-    const Array& one = sel[0];
-    const Array& two = sel[1];
+    auto one = sel[0];
+    auto two = sel[1];
+    REQUIRE(one);
+    REQUIRE(two);
 
-    // const auto& one = d2.get("one");
-    CHECK(one.size_major() == 3);
-    CHECK(one.is_type<int>());
-    CHECK(one.dtype() == "i4");
-    auto one_bytes = one.bytes();
+    CHECK(one->size_major() == 3);
+    CHECK(one->is_type<int>());
+    CHECK(one->dtype() == "i4");
+    auto one_bytes = one->bytes();
     CHECK(one_bytes.size() == 3*sizeof(int));
     // CHECK(1 == ((int*)one_bytes.data())[0]);
 
-    // const auto& two = d2.get("two");
-    CHECK(two.size_major() == 3);
-    CHECK(two.is_type<double>());
+    CHECK(two->size_major() == 3);
+    CHECK(two->is_type<double>());
 
-    CHECK(one.metadata()["name"].isNull());
+    CHECK(one->metadata()["name"].isNull());
 
     for (size_t ind = 0; ind<3; ++ind) {
-        CHECK(one.element<int>(ind) == orig_one.element<int>(ind));
-        CHECK(two.element<double>(ind) == orig_two.element<double>(ind));
+        CHECK(one->element<int>(ind) == orig_one.element<int>(ind));
+        CHECK(two->element<double>(ind) == orig_two.element<double>(ind));
     }
 
     return;

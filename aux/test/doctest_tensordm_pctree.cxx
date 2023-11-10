@@ -22,13 +22,15 @@ Points::node_ptr make_simple_pctree()
     // cloud from a track.
     auto* n1 = root->insert(Points({ {"3d", make_janky_track()} }));
 
-    const Dataset& pc1 = n1->value.local_pcs().at("3d");
+    const auto& pc1 = n1->value.local_pcs().at("3d");
 
     // Ibid from a different track
-    auto* n2 = root->insert(Points({ {"3d", make_janky_track(
-                        Ray(Point(-1, 2, 3), Point(1, -2, -3)))} }));
+    auto* n2 = root->insert(Points({ {"3d",
+                    make_janky_track(
+                        Ray(Point(-1, 2, 3), Point(1, -2, -3)))}}));
 
-    const Dataset& pc2 = n2->value.local_pcs().at("3d");
+
+    const auto& pc2 = n2->value.local_pcs().at("3d");
 
     REQUIRE(pc1 != pc2);
     REQUIRE_FALSE(pc1 == pc2);

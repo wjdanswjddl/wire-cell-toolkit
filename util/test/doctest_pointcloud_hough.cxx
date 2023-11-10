@@ -26,10 +26,10 @@ TEST_CASE("point cloud hough janky track")
     const double pi = 3.141592653589793;
 
     Dataset ds = PointTesting::make_janky_track();
-    auto x = ds.get("x").elements<double>();
-    auto y = ds.get("y").elements<double>();
-    auto z = ds.get("z").elements<double>();
-    auto q = ds.get("q").elements<double>();
+    auto x = ds.get("x")->elements<double>();
+    auto y = ds.get("y")->elements<double>();
+    auto z = ds.get("z")->elements<double>();
+    auto q = ds.get("q")->elements<double>();
     const size_t nsteps = q.size();
 
     const size_t nnn = 10;
