@@ -12,7 +12,7 @@ local response_plane = std.extVar('response_plane')*wc.cm;
 //     ncrm: 320,
 //     wires: 'dunevd10kt_3view_30deg_v6_refactored.json.bz2',
 //     use_dnnroi: false,
-//     process_crm: 'test1',
+//     process_crm: 'all',
 // };
 local fcl_params = {
     response_plane: 18.92*wc.cm,
@@ -20,7 +20,7 @@ local fcl_params = {
     wires: 'dunevd10kt_3view_30deg_v5_refactored_1x8x6ref.json.bz2',
     ncrm: 24,
     use_dnnroi: false,
-    process_crm: 'test2',
+    process_crm: 'test1',
 };
 local params_maker =
 if fcl_params.ncrm ==320 then import 'pgrapher/experiment/dune-vd/params-10kt.jsonnet'
@@ -174,7 +174,7 @@ local parallel_pipes = [
                 //     tags=["gauss%d"%tools.anodes[n].data.ident],
                 //     digitize=false
                 // ),
-                // sinks.decon_pipe[n],
+                sinks.decon_pipe[n],
                 // sinks.debug_pipe[n], // use_roi_debug_mode=true in sp.jsonnet
                 // dnnroi(tools.anodes[n], ts, output_scale=1.2),
                 // sinks.dnnroi_pipe[n],
@@ -219,7 +219,7 @@ local graph = g.pipeline([depos, drifter, bagger, parallel_graph, sink], "main")
 // local graph = g.pipeline([depos, drifter, bagger, parallel_pipes[0]], "main");
 
 local app = {
-  type: 'Pgrapher', //Pgrapher, TbbFlow
+  type: 'TbbFlow', //Pgrapher, TbbFlow
   data: {
     edges: g.edges(graph),
   },
@@ -228,8 +228,8 @@ local app = {
 local cmdline = {
     type: "wire-cell",
     data: {
-        plugins: ["WireCellGen", "WireCellPgraph", "WireCellSio", "WireCellSigProc", "WireCellRoot", "WireCellTbb", "WireCellImg", "WireCellPytorch"],
-        apps: ["Pgrapher"]
+        plugins: ["WireCellGen", "WireCellPgraph", "WireCellSio", "WireCellSigProc", "WireCellRoot", "WireCellTbb", "WireCellImg", /*"WireCellPytorch"*/],
+        apps: ["TbbFlow"]
     }
 };
 
