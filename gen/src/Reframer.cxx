@@ -152,7 +152,7 @@ bool Gen::Reframer::operator()(const input_pointer& inframe, output_pointer& out
         out_traces = process_one(*(inframe->traces()));
     }
     else {
-        for (const auto tag : m_input_tags) {
+        for (const auto& tag : m_input_tags) {
             const auto& isummary = inframe->trace_summary(tag);
             ITrace::vector in_traces = Aux::tagged_traces(inframe, tag);
             auto [out_one, threshold] = process_one(in_traces, isummary);
@@ -171,7 +171,7 @@ bool Gen::Reframer::operator()(const input_pointer& inframe, output_pointer& out
         sframe->tag_frame(m_frame_tag);
     }
 
-    for (const auto tag : m_input_tags) {
+    for (const auto& tag : m_input_tags) {
         sframe->tag_traces(tag, tag_indicies.at(tag), tag_summary[tag]);
     }
 

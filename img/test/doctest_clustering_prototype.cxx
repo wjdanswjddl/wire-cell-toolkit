@@ -20,7 +20,7 @@ static void print_dds(const DisjointDataset& dds) {
         const Dataset& ds = dds.values()[idx];
         std::stringstream ss;
         ss << "ds: " << idx << std::endl;
-        const size_t len = ds.size_major();
+        //const size_t len = ds.size_major();
         for (const auto& key : ds.keys()) {
             auto arr = ds.get(key).elements<double>();
             ss << key << ": ";
