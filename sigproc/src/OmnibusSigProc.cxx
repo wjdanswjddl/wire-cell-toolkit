@@ -145,7 +145,7 @@ void OmnibusSigProc::configure(const WireCell::Configuration& config)
     m_mp3_roi_tag = get(config, "mp3_roi_tag", m_mp3_roi_tag);
     m_mp2_roi_tag = get(config, "mp2_roi_tag", m_mp2_roi_tag);
     m_mp_th1 = get(config, "mp_th1", m_mp_th1);
-    m_mp_th2 = get(config, "mp_th1", m_mp_th2);
+    m_mp_th2 = get(config, "mp_th2", m_mp_th2);
     m_mp_tick_resolution = get(config, "mp_tick_resolution", m_mp_tick_resolution);
     
 
