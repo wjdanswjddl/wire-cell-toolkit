@@ -1,6 +1,8 @@
 #include "WireCellUtil/KDTree.h"
 #include "WireCellUtil/Testing.h"
 #include "WireCellUtil/TimeKeeper.h"
+#include "WireCellUtil/Logging.h"
+#include "WireCellUtil/doctest.h"
 
 #include <vector>
 #include <string>
@@ -10,28 +12,28 @@
 using namespace WireCell::PointCloud;
 using namespace WireCell::KDTree;
 using WireCell::TimeKeeper;
+using namespace spdlog;
 
-void test_static()
+TEST_CASE("kdtree static")
 {
-    Dataset::store_t s = {
+    Dataset d({
         {"one", Array({1.0,1.0,3.0})},
         {"two", Array({1.1,2.2,3.3})},
-    };
-    Dataset d(s);
+    });
 
-    auto one = s["one"].elements<double>();
-    auto two = s["two"].elements<double>();
+    auto one = d.get("one")->elements<double>();
+    auto two = d.get("two")->elements<double>();
 
     auto kdq = query<double>(d, {"one", "two"});
     {
         auto a = kdq->knn(2, {2.0, 2.0});
         const size_t nfound = a.index.size();
-        std::cerr << nfound << " found of 2 nearest neighbors\n";
-        Assert(nfound == 2);
+        debug("{} found of 2 nearest neighbors", nfound);
+        REQUIRE(nfound == 2);
         for (size_t ifound=0; ifound<nfound; ++ifound) {
             size_t ind = a.index[ifound];
             double dist = a.distance[ifound];
-            std::cerr << ifound << ": [" <<ind<< "] p=("<<one[ind]<<","<<two[ind]<<") d=" << dist << "\n";
+            debug("{}: [{}] p=({},{}) d={}", ifound, ind, one[ind], two[ind], dist);
         }
     }
     {
@@ -42,12 +44,12 @@ void test_static()
 
         auto a = kdq->radius(metric_radius, {0.0, 0.0});
         const size_t nfound = a.index.size();
-        std::cerr << nfound << " found in radius\n";
-        Assert(nfound == 3);
+        debug("{} found in radius", nfound);
+        REQUIRE(nfound == 3);
         for (size_t ifound=0; ifound<nfound; ++ifound) {
             size_t ind = a.index[ifound];
             double dist = a.distance[ifound];
-            std::cerr << ifound << ": [" <<ind<< "] p=("<<one[ind]<<","<<two[ind]<<") d=" << dist << "\n";
+            debug("{}: [{}] p=({},{}) d={}", ifound, ind, one[ind], two[ind], dist);
         }
     }
     {
@@ -58,44 +60,43 @@ void test_static()
 
         auto a = kdq->radius(metric_radius, {0.0, 0.0});
         const size_t nfound = a.index.size();
-        std::cerr << nfound << " found in radius\n";
-        Assert(nfound == 1);
+        debug("{} found in radius", nfound);
+        REQUIRE(nfound == 1);
         for (size_t ifound=0; ifound<nfound; ++ifound) {
             size_t ind = a.index[ifound];
             double dist = a.distance[ifound];
-            std::cerr << ifound << ": [" <<ind<< "] p=("<<one[ind]<<","<<two[ind]<<") d=" << dist << "\n";
-            Assert(ind == 0);
+            debug("{}: [{}] p=({},{}) d={}", ifound, ind, one[ind], two[ind], dist);
+            REQUIRE(ind == 0);
         }
     }
 }
 
-void test_dynamic()
+TEST_CASE("kdtree dynamic")
 {
-    Dataset::store_t s = {
+    Dataset d({
         {"one", Array({1.0,1.0,3.0})},
         {"two", Array({1.1,2.2,3.3})},
-    };
-    Dataset d(s);
+    });
 
     // This must have registered update callback.
     auto kdq = query<double>(d, {"one", "two"}, true);
-    Assert(kdq);
+    REQUIRE(kdq);
 
     auto arrs = d.selection({"one", "two"});
 
-    const Array& one = arrs[0];
-    const Array& two = arrs[1];
+    const Array& one = *arrs[0];
+    const Array& two = *arrs[1];
 
-    Assert(one.num_elements() == 3);
-    Assert(two.num_elements() == 3);
+    REQUIRE(one.num_elements() == 3);
+    REQUIRE(two.num_elements() == 3);
 
     Dataset tail({
             {"one", Array({1.1})},
             {"two", Array({1.0})}});
     d.append(tail);
 
-    Assert(one.num_elements() == 4);
-    Assert(two.num_elements() == 4);
+    REQUIRE(one.num_elements() == 4);
+    REQUIRE(two.num_elements() == 4);
 
     const double linear_radius = 1.49;
     const double metric_radius = linear_radius*linear_radius; 
@@ -105,40 +106,39 @@ void test_dynamic()
 
     auto a = kdq->radius(metric_radius, {0.0, 0.0});
     const size_t nfound = a.index.size();
-    std::cerr << nfound << " found in radius\n";
-    Assert(nfound == 2);
+    debug("{} found in radius", nfound);
+    REQUIRE(nfound == 2);
     for (size_t ifound=0; ifound<nfound; ++ifound) {
         size_t ind = a.index[ifound];
         double dist = a.distance[ifound];
-        std::cerr << ifound << ": [" <<ind<< "] p=("<<ones[ind]<<","<<twos[ind]<<") d=" << dist << "\n";
+        debug("{}: [{}] p=({},{}) d={}", ifound, ind, ones[ind], twos[ind], dist);
     }
 
 }
 
-void test_multi()
+TEST_CASE("kdtree multi")
 {
-    Dataset::store_t s = {
+    Dataset d({
         {"one", Array({1.0,1.0,3.0})},
         {"two", Array({1.1,2.2,3.3})},
-    };
-    Dataset d(s);
+    });
 
     MultiQuery mq(d);
 
     // This must have registered update callback.
-    name_list_t onetwo = {"one", "two"};
+    Dataset::name_list_t onetwo = {"one", "two"};
 
     const bool dynamic = true;
     auto kdq = mq.get<double>(onetwo, dynamic);
     assert(kdq);
-    Assert(kdq->dynamic() == dynamic);
-    Assert(kdq->metric() == Metric::l2simple);
+    REQUIRE(kdq->dynamic() == dynamic);
+    REQUIRE(kdq->metric() == Metric::l2simple);
 
     auto kdq2 = mq.get<double>(onetwo, dynamic);
-    Assert(kdq2 == kdq);
-    Assert(kdq2);
-    Assert(kdq2->dynamic() == dynamic);
-    Assert(kdq2->metric() == Metric::l2simple);
+    REQUIRE(kdq2 == kdq);
+    REQUIRE(kdq2);
+    REQUIRE(kdq2->dynamic() == dynamic);
+    REQUIRE(kdq2->metric() == Metric::l2simple);
 }
 
 #include <random>
@@ -153,6 +153,7 @@ void test_speed(size_t num, size_t nlu, size_t kay,
           << " kay=" << kay
           << " shared=" << shared
           << " dynamic=" << dynamic;
+    debug(label.str());
 
     TimeKeeper tk(label.str());
 
@@ -164,26 +165,56 @@ void test_speed(size_t num, size_t nlu, size_t kay,
 
     std::vector<double> v1(num, 0), v2(num, 0), v3(num, 0);
     for (size_t ind=0; ind<num; ++ind) {
-        v1[num] = dist(re);
-        v2[num] = dist(re);
-        v3[num] = dist(re);
+        v1[ind] = dist(re);
+        v2[ind] = dist(re);
+        v3[ind] = dist(re);
+    }
+
+    {
+        Array junk(v1.data(), {num}, shared);
+        auto aptr = &junk;
+        REQUIRE(aptr);
+        REQUIRE(aptr->size_major() == num);
+        auto dat = aptr->bytes();
+        REQUIRE(dat.size() == num * sizeof(double));
+        REQUIRE(dat.data());
     }
 
     tk("randoms made");
 
-    Dataset::store_t s = {
+    Dataset d({
         {"x", Array(v1.data(), {num}, shared)},
         {"y", Array(v2.data(), {num}, shared)},
         {"z", Array(v3.data(), {num}, shared)},
-    };
-    tk("arrays made");
-
-    Dataset d(s);
+    });
     tk("dataset made");
 
-    auto kdq = query<double>(d, {"x", "y", "z"}, dynamic);
+    Dataset::name_list_t names = {"x", "y", "z"};
+    for (const auto& key : names) {
+        auto aptr = d.get(key);
+        REQUIRE(aptr);
+        REQUIRE(aptr->size_major() == num);
+        auto dat = aptr->bytes();
+        REQUIRE(dat.size() == num * sizeof(double));
+        REQUIRE(dat.data());
+    }
+
+    auto sel = d.selection(names);
+    REQUIRE(! sel.empty());
+    for (auto aptr : sel) {
+        REQUIRE(aptr);
+        REQUIRE(aptr->size_major() == num);
+        auto dat = aptr->bytes();
+        REQUIRE(dat.size() == num * sizeof(double));
+        REQUIRE(dat.data());
+    }
+
+    debug("making k-d tree query");
+    auto kdq = query<double>(d, names, dynamic);
+    debug("made k-d tree query");
+
     tk("kdtree made");
-    
+
     for (size_t ind=0; ind<nlu; ++ind) {
         std::vector<double> qp = {dist(re), dist(re), dist(re)};
         auto res = kdq->knn(kay, qp);
@@ -191,17 +222,11 @@ void test_speed(size_t num, size_t nlu, size_t kay,
     }
     tk("queries made");
 
-    std::cerr << tk.summary() << "\n";
+    debug("summary:\n{}", tk.summary());
     
 }
 
-int main() {
-    test_static();
-    test_dynamic();
-    test_multi();
-    // test_speed(100);
-    // test_speed(1000);
-    // test_speed(10000);
-    test_speed(100000);
-    return 0;
-}
+TEST_CASE("kdtree speed 100000")
+{
+    test_speed(100000, 1000, 10, false);
+}    

@@ -1,9 +1,9 @@
 #include "WireCellUtil/KDTree.h"
+#include "WireCellUtil/Exceptions.h"
 
 using namespace WireCell::KDTree;
 
-using WireCell::PointCloud::selection_t;
-using WireCell::PointCloud::name_list_t;
+using WireCell::raise;
 using WireCell::PointCloud::Array;
 using WireCell::PointCloud::Dataset;
 
@@ -13,27 +13,46 @@ using WireCell::PointCloud::Dataset;
 */
 template<typename ElementType>
 struct DatasetSelectionAdaptor {
-    selection_t points;
-
+    Dataset::selection_t points;
+    
     using element_t = ElementType;
+
+    explicit DatasetSelectionAdaptor(const Dataset::selection_t& selection)
+        : points(selection)
+    {
+    }
 
     inline size_t kdtree_get_point_count() const
     {
-        if (points.empty()) {
-            return 0;
+        size_t num = 0;
+        if (points.size() > 0) {
+            num = points[0]->size_major();
         }
-        return points[0].get().size_major();
+        return num;
     }
 
     inline element_t kdtree_get_pt(size_t idx, size_t dim) const
     {
+        for (auto arr : points) {
+            assert(arr);
+            assert(arr->is_type<ElementType>());
+        }
         if (dim < points.size()) {
-            const Array& arr = points[dim];
-            if (idx < arr.size_major()) {
-                return arr.element<ElementType>(idx);
+            auto arr = points[dim];
+            if (!arr) {
+                raise<WireCell::IndexError>("my array at dim %d/%d went away on index %d", dim, points.size(), idx);
+            }
+            if (!arr->bytes().data()) {
+                raise<WireCell::IndexError>("my array data at dim %d/%d went away on index %d", dim, points.size(), idx);
+            }
+                
+            if (idx < arr->size_major()) {
+                element_t val = arr->element<ElementType>(idx);
+                return val;
             }
         }
-        THROW(WireCell::IndexError() << WireCell::errmsg{"index out of bounds"});
+        raise<WireCell::IndexError>("index %d dim %d out of bounds", idx, dim);
+        return 0;
     }
 
     template <class BBOX>
@@ -59,11 +78,14 @@ struct QueryStatic : public Query<typename IndexType::ElementType>
     QueryStatic() = delete;
     virtual ~QueryStatic() = default;
 
-    QueryStatic(const selection_t& selection, Metric mtype)
-        : m_dataset_adaptor{selection}
+    QueryStatic(const Dataset::selection_t& selection, Metric mtype)
+        : m_dataset_adaptor(selection)
         , m_index(selection.size(), m_dataset_adaptor)
         , m_metric(mtype)
     {
+        for (auto arr : selection) {
+            assert(arr);
+        }
     }
 
     virtual bool dynamic() const
@@ -121,9 +143,12 @@ struct QueryDynamic : public QueryStatic<IndexType>
     QueryDynamic() = delete;
     virtual ~QueryDynamic() = default;
 
-    QueryDynamic(const selection_t& selection, Metric mtype)
+    QueryDynamic(const Dataset::selection_t& selection, Metric mtype)
         : QueryStatic<IndexType>(selection, mtype)
     {
+        for (auto arr : selection) {
+            assert(arr);
+        }
     }
 
     virtual void update(size_t beg, size_t end)
@@ -140,21 +165,24 @@ struct QueryDynamic : public QueryStatic<IndexType>
 
 template<typename DistanceType>
 std::unique_ptr<Query<typename DistanceType::ElementType>>
-make_query_with_distance(Dataset& dataset,
-                         const name_list_t& names,
+make_query_with_distance(Dataset& ds,
+                         const Dataset::name_list_t& names,
                          bool dynamic, Metric mtype)
 {
     using element_t = typename DistanceType::ElementType;
     using dataset_adaptor_t = DatasetSelectionAdaptor<element_t>;
 
-    auto selection = dataset.selection(names);
+    Dataset::selection_t selection = ds.selection(names);
+    for (auto arr : selection) {
+        assert(arr);
+    }
 
     if (dynamic) {
         using index_t = nanoflann::KDTreeSingleIndexDynamicAdaptor<DistanceType, dataset_adaptor_t>;
         using query_t = QueryDynamic<index_t>;
         auto ret = std::make_unique<query_t>(selection, mtype);
         auto* raw = ret.get();
-        dataset.register_append([=](size_t beg, size_t end) {
+        ds.register_append([raw](size_t beg, size_t end) {
             raw->update(beg, end);
         });
         return std::move(ret);
@@ -167,7 +195,8 @@ make_query_with_distance(Dataset& dataset,
 
 template<typename ElementType>
 std::unique_ptr<Query<ElementType>>
-make_query(Dataset& dataset, const name_list_t& selection,
+make_query(Dataset& ds,
+           const Dataset::name_list_t& names,
            bool dynamic, Metric mtype)
 {
     using element_t = ElementType;
@@ -175,24 +204,18 @@ make_query(Dataset& dataset, const name_list_t& selection,
 
     if (mtype == Metric::l2simple) {
         using distance_t = nanoflann::L2_Simple_Adaptor<element_t, dataset_adaptor_t>;
-        return make_query_with_distance<distance_t>(dataset, selection, dynamic, mtype);
+        return make_query_with_distance<distance_t>(ds, names, dynamic, mtype);
     }
     if (mtype == Metric::l1) {
         using distance_t = nanoflann::L1_Adaptor<element_t, dataset_adaptor_t>;
-        return make_query_with_distance<distance_t>(dataset, selection, dynamic, mtype);
+        return make_query_with_distance<distance_t>(ds, names, dynamic, mtype);
     }
     if (mtype == Metric::l2) {
         using distance_t = nanoflann::L2_Adaptor<element_t, dataset_adaptor_t>;
-        return make_query_with_distance<distance_t>(dataset, selection, dynamic, mtype);
+        return make_query_with_distance<distance_t>(ds, names, dynamic, mtype);
     }
-    // if (mtype == Metric::so2) {
-    //     using distance_t = nanoflann::SO2_Adaptor<element_t, dataset_adaptor_t>;
-    //     return make_query_with_distance<distance_t>(dataset, selection, dynamic);
-    // }
-    // if (mtype == Metric::so3) {
-    //     using distance_t = nanoflann::SO3_Adaptor<element_t, dataset_adaptor_t>;
-    //     return make_query_with_distance<distance_t>(dataset, selection, dynamic);
-    // }
+    // Metric::so2 ...
+    // Metric::so3 ...
 
     return nullptr;
 }
@@ -200,28 +223,31 @@ make_query(Dataset& dataset, const name_list_t& selection,
 template<>
 std::unique_ptr<Query<int>>
 WireCell::KDTree::query<int>(
-    Dataset& dataset, const name_list_t& selection,
+    Dataset& ds,
+    const Dataset::name_list_t& names,
     bool dynamic, Metric mtype)
 {
-    return make_query<int>(dataset, selection, dynamic, mtype);
+    return make_query<int>(ds, names, dynamic, mtype);
 }
 
 
 template<>
 std::unique_ptr<Query<float>>
 WireCell::KDTree::query<float>(
-    Dataset& dataset, const name_list_t& selection,
+    Dataset& ds,
+    const Dataset::name_list_t& names,
     bool dynamic, Metric mtype)
 {
-    return make_query<float>(dataset, selection, dynamic, mtype);
+    return make_query<float>(ds, names, dynamic, mtype);
 }
 
 template<>
 std::unique_ptr<Query<double>>
 WireCell::KDTree::query<double>(
-    Dataset& dataset, const name_list_t& selection,
+    Dataset& ds,
+    const Dataset::name_list_t& names,
     bool dynamic, Metric mtype)
 {
-    return make_query<double>(dataset, selection, dynamic, mtype);
+    return make_query<double>(ds, names, dynamic, mtype);
 }
 

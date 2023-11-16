@@ -57,9 +57,10 @@ WireCell::Aux::TensorDM::as_tensors(const PointCloud::Dataset& dataset,
 
     boost::filesystem::path trpath = datapath + "/arrays";
 
-    for (const auto& [name, arr] : dataset.store()) {
+    for (const auto& name : dataset.keys()) {
+        auto arr = dataset.get(name);
         auto dpath = trpath / name;
-        ret.push_back(as_tensor(arr, dpath.string()));
+        ret.push_back(as_tensor(*arr, dpath.string()));
         md["arrays"][name] = dpath.string();
     }
 

@@ -24,6 +24,7 @@
 #include <string>
 #include <vector>
 #include <unordered_map>
+#include <mutex>
 
 namespace WireCell {
     namespace Gen {
@@ -90,6 +91,7 @@ namespace WireCell {
             int get_nsamples() { return m_nsamples; };
 
            private:
+            mutable std::mutex m_mutex_cache;
             IAnodePlane::pointer m_anode;
             IChannelStatus::pointer m_chanstat;
             IDFT::pointer m_dft;
