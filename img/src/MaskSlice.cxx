@@ -19,6 +19,35 @@ WIRECELL_FACTORY(MaskSlices, WireCell::Img::MaskSlices,
 using namespace std;
 using namespace WireCell;
 
+namespace WireCell {
+    class TracelessFrame : public IFrame {
+       public:
+        TracelessFrame(int ident, double time = 0, double tick = 0.5 * units::microsecond)
+          : m_ident(ident)
+          , m_time(time)
+          , m_tick(tick)
+        {
+        }
+        virtual ~TracelessFrame(){};
+        virtual const tag_list_t& frame_tags() const { return m_frame_tags; };
+        virtual const tag_list_t& trace_tags() const { return m_trace_tags; };
+        virtual const trace_list_t& tagged_traces(const tag_t& tag) const { return m_empty_trace_list; };
+        virtual const trace_summary_t& trace_summary(const tag_t& tag) const { return m_empty_trace_summary; };
+        virtual ITrace::shared_vector traces() const { return nullptr; };
+        virtual Waveform::ChannelMaskMap masks() const { return Waveform::ChannelMaskMap(); }
+        virtual int ident() const { return m_ident; }
+        virtual double time() const { return m_time; };
+        virtual double tick() const { return m_tick; };
+
+       private:
+        int m_ident;
+        double m_time, m_tick;
+        IFrame::tag_list_t m_frame_tags, m_trace_tags;
+        trace_list_t m_empty_trace_list;
+        trace_summary_t m_empty_trace_summary;
+    };
+}  // namespace WireCell
+
 Img::MaskSliceBase::MaskSliceBase()
     : Aux::Logger("MaskSlice", "img")
 {
@@ -195,6 +224,10 @@ void Img::MaskSliceBase::slice(const IFrame::pointer& in, slice_map_t& svcmap)
         return;
     }
 
+    // needed by ISlice
+    auto tlframe = new TracelessFrame(in->ident(), in->time(), in->tick());
+    auto tlframe_ptr = IFrame::pointer(tlframe);
+
     // min_max tbin from charge trace
     int min_tbin = m_min_tbin;
     int max_tbin = m_max_tbin;
@@ -219,7 +252,7 @@ void Img::MaskSliceBase::slice(const IFrame::pointer& in, slice_map_t& svcmap)
     for (size_t slicebin=min_slicebin; slicebin < max_slicebin; ++slicebin) {
         const double start = slicebin * m_tick_span * tick;
         const double span = m_tick_span * tick;
-        auto s = new Img::Data::Slice(in, slicebin, start, span);
+        auto s = new Img::Data::Slice(tlframe_ptr, slicebin, start, span);
         svcmap[slicebin] = s;
     }
 
@@ -302,7 +335,7 @@ void Img::MaskSliceBase::slice(const IFrame::pointer& in, slice_map_t& svcmap)
                 // Slice start time is absolute with frame time as origin
                 const double start = in->time() + slicebin * span;  
 #endif
-                s = new Img::Data::Slice(in, slicebin, start, span);
+                s = new Img::Data::Slice(tlframe_ptr, slicebin, start, span);
                 svcmap[slicebin] = s;
             }
             // TODO: how to handle error?
@@ -328,7 +361,7 @@ void Img::MaskSliceBase::slice(const IFrame::pointer& in, slice_map_t& svcmap)
                     // Slice start time is absolute with frame time as origin
                     const double start = in->time() + slicebin * span;  
 #endif
-                    s = new Img::Data::Slice(in, slicebin, start, span);
+                    s = new Img::Data::Slice(tlframe_ptr, slicebin, start, span);
                     svcmap[slicebin] = s;
                 }
                 s->assign(ich, {(float)m_dummy_charge, (float)m_dummy_error});
@@ -366,7 +399,7 @@ void Img::MaskSliceBase::slice(const IFrame::pointer& in, slice_map_t& svcmap)
                     // Slice start time is absolute with frame time as origin
                     const double start = in->time() + slicebin * span;  
 #endif
-                    s = new Img::Data::Slice(in, slicebin, start, span);
+                    s = new Img::Data::Slice(tlframe_ptr, slicebin, start, span);
                     svcmap[slicebin] = s;
                 }
                 s->assign(ich, {(float) m_masked_charge, (float) m_masked_error});
@@ -384,7 +417,7 @@ void Img::MaskSliceBase::slice(const IFrame::pointer& in, slice_map_t& svcmap)
         //         auto s = svcmap[slicebin];
         //         if (!s) {
         //             const double start = slicebin * span;  // thus relative to slice frame's time.
-        //             s = new Img::Data::Slice(in, slicebin, start, span);
+        //             s = new Img::Data::Slice(tlframe_ptr, slicebin, start, span);
         //             svcmap[slicebin] = s;
         //         }
         //         s->assign(ich, {(float)m_masked_charge, (float)m_masked_error});

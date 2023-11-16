@@ -83,6 +83,24 @@ local sp_maker = import 'pgrapher/experiment/dune-vd/sp.jsonnet';
 local sp = sp_maker(params, tools, { sparse: true, use_roi_debug_mode: false,} );
 local sp_pipes = [sp.make_sigproc(a) for a in tools.anodes];
 
+local reframers_sp = [
+    g.pnode({
+        type: 'Reframer',
+        name: 'reframer-sigproc-'+a.name,
+        data: {
+            anode: wc.tn(a),
+            tags: ["gauss%d"%a.data.ident, "wiener%d"%a.data.ident],
+            fill: 0.0,
+            tbin: 0,
+            toffset: 0,
+            nticks: fcl_params.nticks,
+        },
+    }, nin=1, nout=1) for a in tools.anodes];
+
+local img = import 'pgrapher/experiment/dune-vd/img.jsonnet';
+local img_maker = img();
+local img_pipes = [img_maker.per_anode(a) for a in tools.anodes];
+
 local magoutput = 'mag-sim-sp.root';
 local magnify = import 'pgrapher/experiment/dune-vd/magnify-sinks.jsonnet';
 local sinks = magnify(tools, magoutput);
@@ -120,6 +138,7 @@ local parallel_pipes = [
                 // ),
                 // sinks.orig_pipe[n],
                 sp_pipes[n],
+                reframers_sp[n],
                 // frame_tap(
                 //     name="gauss%d"%tools.anodes[n].data.ident,
                 //     outname="frame-gauss%d.tar.bz2"%tools.anodes[n].data.ident,
@@ -129,6 +148,7 @@ local parallel_pipes = [
                 // sinks.decon_pipe[n],
                 // sinks.debug_pipe[n], // use_roi_debug_mode=true in sp.jsonnet
                 // g.pnode({type: "DumpFrames", name: "dumpframes-%d"%tools.anodes[n].data.ident}, nin = 1, nout=0)
+                img_pipes[n],
           ], 
           'parallel_pipe_%d' % n) 
   for n in std.range(0, std.length(tools.anodes) - 1)];
@@ -147,8 +167,8 @@ local tag_rules = {
 // local parallel_graph = f.multifanpipe('DepoSetFanout', parallel_pipes, 'FrameFanin', [1,4], [4,1], [1,4], [4,1], 'sn_mag', outtags, tag_rules);
 local parallel_graph = 
 if fcl_params.process_crm == "test1"
-then f.multifanpipe('DepoSetFanout', parallel_pipes, 'FrameFanin', [1,4], [4,1], [1,4], [4,1], 'sn_mag', outtags, tag_rules)
-// then f.multifanout('DepoSetFanout', parallel_pipes, [1,4], [4,1], 'sn_mag', tag_rules)
+// then f.multifanpipe('DepoSetFanout', parallel_pipes, 'FrameFanin', [1,4], [4,1], [1,4], [4,1], 'sn_mag', outtags, tag_rules)
+then f.multifanout('DepoSetFanout', parallel_pipes, [1,4], [4,1], 'sn_mag', tag_rules)
 else if fcl_params.process_crm == "test2"
 then f.multifanpipe('DepoSetFanout', parallel_pipes, 'FrameFanin', [1,8], [8,1], [1,8], [8,1], 'sn_mag', outtags, tag_rules)
 else f.multifanpipe('DepoSetFanout', parallel_pipes, 'FrameFanin', [1,2,8,32], [2,4,4,10], [1,2,8,32], [2,4,4,10], 'sn_mag', outtags, tag_rules);
@@ -161,8 +181,8 @@ local sink = sim.frame_sink;
 
 
 // Final pipeline //////////////////////////////////////////////////////////////////////////////
-// local graph = g.pipeline([depo_source, setdrifter, parallel_graph], "main"); // no Fanin
-local graph = g.pipeline([depo_source, setdrifter, parallel_graph, sink], "main"); // ending with Fanin
+local graph = g.pipeline([depo_source, setdrifter, parallel_graph], "main"); // no Fanin
+// local graph = g.pipeline([depo_source, setdrifter, parallel_graph, sink], "main"); // ending with Fanin
 
 local app = {
   type: 'TbbFlow', //Pgrapher, TbbFlow
@@ -174,7 +194,7 @@ local app = {
 local cmdline = {
     type: "wire-cell",
     data: {
-        plugins: ["WireCellGen", "WireCellPgraph", "WireCellSio", "WireCellSigProc", "WireCellRoot", "WireCellTbb"/*, "WireCellCuda"*/],
+        plugins: ["WireCellGen", "WireCellPgraph", "WireCellSio", "WireCellSigProc", "WireCellImg", "WireCellRoot", "WireCellTbb"/*, "WireCellCuda"*/],
         apps: ["TbbFlow"]
     }
 };

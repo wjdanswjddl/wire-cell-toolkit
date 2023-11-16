@@ -184,10 +184,11 @@ namespace WireCell {
             std::vector<OspChan> m_channel_range[3];
 
             // This is the input channel mask map but converted to OSP
-            // channel number indices.  See above.  This is NOT a direct
-            // copy from the IFrame.  It's reindexed by osp channel, not WCT
-            // channel ident!
-            Waveform::ChannelMaskMap m_cmm;
+            // channel number indices (IChannel::index or Wire Attachment Number).
+            // See above.  This is NOT a direct copy from the IFrame.
+            // It's reindexed by osp channel, not WCT channel ident!
+            // DO NOT output this!
+            Waveform::ChannelMaskMap m_wanmm;
 
             // Per-plane temporary working arrays.  Each column is one tick,
             // each row is indexec by an "OSP wire" number
@@ -217,6 +218,9 @@ namespace WireCell {
             bool m_use_multi_plane_protection{false};
             std::string m_mp3_roi_tag{"mp3_roi"};
             std::string m_mp2_roi_tag{"mp2_roi"};
+            double m_mp_th1{1000.};
+            double m_mp_th2{500.};
+            int m_mp_tick_resolution{4};
 
 	    //Rebase waveforms for each channel of spesific wire-plane. 
 	    std::vector<int> m_rebase_planes{}; 

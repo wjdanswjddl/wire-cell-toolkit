@@ -45,7 +45,7 @@ zio::Message Zio::pack(const ITensorSet::pointer& itens)
 template <typename TYPE>
 void fill_tensor(ITensor::vector* itv, const std::vector<size_t>& shape, const zio::message_t& one, const zio::json& md)
 {
-    Aux::SimpleTensor<TYPE>* st = new Aux::SimpleTensor<TYPE>(shape);
+    Aux::SimpleTensor *st = new Aux::SimpleTensor(shape, (TYPE*)nullptr);
     auto& store = st->store();
     memcpy(store.data(), one.data(), one.size());
     if (!md.is_null()) {

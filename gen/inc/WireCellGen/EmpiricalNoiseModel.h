@@ -24,6 +24,7 @@
 #include <string>
 #include <vector>
 #include <unordered_map>
+#include <mutex>
 
 namespace WireCell {
     namespace Gen {
@@ -90,6 +91,7 @@ namespace WireCell {
             int get_nsamples() { return m_nsamples; };
 
            private:
+            mutable std::mutex m_mutex_cache;
             IAnodePlane::pointer m_anode;
             IChannelStatus::pointer m_chanstat;
             IDFT::pointer m_dft;
@@ -98,7 +100,9 @@ namespace WireCell {
             int m_nsamples;
             int m_fft_length;
             double m_period;
-            double m_wlres{1.0 * units::cm}; // wire length scale
+            double m_wlres{1.0 * units::cm}; // wire length scale -> ~10 - 800 cm
+            double m_gres{0.1 * units::mV / units::fC}; // gain resolution, 0.1 mV/fC, 4.7, 7.8, 14, 25 -> 47 - 250
+            double m_sres{0.1 * units::microsecond}; // shaping resolution, 0.5, 1, 2, 3. x1.1 when cold -> 10 - 30
 
             // double m_tres, m_gres, m_fres;
             std::string m_anode_tn, m_chanstat_tn;
@@ -111,7 +115,10 @@ namespace WireCell {
             typedef std::unordered_map<int, spectrum_data_t> len_amp_cache_t;
             mutable std::vector<len_amp_cache_t> m_len_amp_cache;
 
-            using channel_amp_cache_t = std::unordered_map<int, amplitude_t>;
+            // two layered caching to avoid per-channel cache
+            // chid -> pack-key
+            mutable std::unordered_map<int, unsigned int> m_channel_packkey_cache;
+            using channel_amp_cache_t = std::unordered_map<unsigned int, amplitude_t>;
             mutable channel_amp_cache_t m_channel_amp_cache;
             
             // need to convert the electronics response in here ...

@@ -7,7 +7,7 @@
 // Output is a Python numpy .npz file.
 
 local g = import 'pgraph.jsonnet';
-local f = import 'pgrapher/experiment/dune-vd/funcs.jsonnet';
+local f = import 'pgrapher/common/funcs.jsonnet';
 local wc = import 'wirecell.jsonnet';
 // Note: better switch to layers
 local dnnroi = import 'dnnroi.jsonnet';
@@ -241,7 +241,7 @@ local multipass = [
   for n in anode_iota
 ];
 
-local f = import 'pgrapher/experiment/dune-vd/funcs.jsonnet';
+local f = import 'pgrapher/common/funcs.jsonnet';
 // local outtags = ['gauss%d' % anode.data.ident for anode in tools.anodes];
 local outtags = [];
 local tag_rules = {
