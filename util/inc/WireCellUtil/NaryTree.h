@@ -53,9 +53,8 @@ namespace WireCell::NaryTree {
     template<typename Value> class child_value_iter;
     template<typename Value> class child_value_const_iter;
     
-    /** Iterator and range depth first, parent then children */
-    template<typename Value> class depth_iter;
-    template<typename Value> class depth_const_iter;
+    /** Depth first traverse, parent then children, as range */
+    template<typename Value> class depth_range;
 
     /** A tree node.
 
@@ -75,6 +74,10 @@ namespace WireCell::NaryTree {
         using nursery_type = std::list<owned_ptr>; 
         using sibling_iter = typename nursery_type::iterator;
         using sibling_const_iter = typename nursery_type::const_iterator;
+
+        // A depth first descent range
+        using range = depth_range<self_type>;
+        using const_range = depth_range<self_type const>;
 
         // Access the payload data value
         value_type value;
@@ -276,8 +279,9 @@ namespace WireCell::NaryTree {
         }
                 
         // Iterable range for depth first traversal, parent then children.
-        depth_iter<Value> depth(size_t level=0)  { return depth_iter<Value>(this, level); }
-        depth_const_iter<Value> depth(size_t level=0) const { return depth_const_iter<Value>(this, level); }
+        // Iterators yield a reference to the node.
+        range depth(size_t level=0) { return range(this, level); }
+        const_range depth(size_t level=0) const { return const_range(this, level); }
 
       private:
 
@@ -398,14 +402,21 @@ namespace WireCell::NaryTree {
     };    
 
 
-    // Iterator and range for depth-first descent.  First parent then children.
-    template<typename Value>
+    // Iterator for depth-first descent.  First parent then children.
+    // This becomes a const_iterator with a NodeType = SomeType const.
+    template<typename NodeType>
     class depth_iter : public boost::iterator_facade<
-        depth_iter<Value>
-        , Value
-        , boost::forward_traversal_tag>
+        depth_iter<NodeType>
+        , NodeType
+        , boost::forward_traversal_tag> // fixme: could make this bidirectional
     {
+
       public: 
+
+        using node_type = NodeType;
+        // Current node.  If nullptr, iterator is at "end".
+        node_type* node{nullptr};
+
         // How deep we may go.  0 is unlimited.  1 is only given node.
         // 2 is initiial node's children only.
         size_t depth{0};
@@ -414,28 +425,31 @@ namespace WireCell::NaryTree {
         // 0<=level<depth.
         size_t level{0};
 
-        using node_type = Node<Value>;
+        using self_type = depth_iter<NodeType>;
+        using base_type = boost::iterator_facade<self_type
+                                                 , NodeType
+                                                 , boost::forward_traversal_tag>;
+        using difference_type = typename base_type::difference_type;
+        using value_type = typename base_type::value_type;
+        // using value_type = typename NodeType::value_type;
+        using pointer = typename base_type::pointer;
+        using reference = typename base_type::reference;
 
-        // Current node.  If nullptr, iterator is at "end".
-        node_type* node{nullptr};
 
         // default is nodeless and indicates "end"
         depth_iter() : node(nullptr) {}
 
         explicit depth_iter(node_type* node) : node(node) { }
-        explicit depth_iter(node_type* node, size_t depth) : depth(depth), node(node) { }
+        explicit depth_iter(node_type* node, size_t depth) : node(node), depth(depth) { }
 
         template<typename OtherValue>
         depth_iter(depth_iter<OtherValue> const & other)
             : node(other.node), depth(other.depth), level(other.level) {}
 
-        // Range interface
-        depth_iter<Value> begin() { return *this; }
-        depth_iter<Value> end() { return depth_iter<Value>(); }
-
       private:
         friend class boost::iterator_core_access;
 
+        // Limited by level and depth:
         // If we have child, we go there.
         // If no child, we go to next sibling.
         // If no next sibling we go toward root taking first ancestor sibling found.
@@ -476,110 +490,36 @@ namespace WireCell::NaryTree {
             node = nullptr;     // end
         }
 
-        template <typename OtherValue> 
-        bool equal(depth_iter<OtherValue> const& other) const {
+        template <typename OtherNode> 
+        bool equal(depth_iter<OtherNode> const& other) const {
             return node == other.node;
         }
 
-        Value& dereference() const {
-            return node->value;
+        reference dereference() const {
+            // return node->value;
+            return *node;
         }
     };
 
-    // Iterator and range for descent.  First parent then children.
-    template<typename Value>
-    class depth_const_iter : public boost::iterator_facade<
-        depth_const_iter<Value>
-        , Value const
-        , boost::forward_traversal_tag>
-    {
-      public: 
 
-        // How deep we may go.  0 is unlimited.  1 is only given node.
-        // 2 is initiial node's children only.
-        size_t depth{0};
-        // THe level we are on.  0 means "on initial node level".  We
-        // never go negative.  Always: 0<=level.  If depth>0 then
-        // 0<=level<depth.
-        size_t level{0};
+    // A range spanning a depth first search.
+    template<typename NodeType>
+    class depth_range {
+      public:
+        using node_type = NodeType;
+        using iterator = depth_iter<NodeType>;
 
-        using node_type = Node<Value> const;
-
-        // Current node.  If nullptr, iterator is at "end".
-        node_type* node{nullptr};
-
-        // default is nodeless and indicates "end"
-        depth_const_iter() : node(nullptr) {}
-
-        explicit depth_const_iter(node_type* node) : node(node) { }
-        explicit depth_const_iter(node_type* node, size_t depth) : depth(depth), node(node) { }
-
-        template<typename OtherValue>
-        depth_const_iter(depth_iter<OtherValue> const & other)
-            : depth(other.depth), level(other.level), node(other.node) {}
-        template<typename OtherValue>
-        depth_const_iter(depth_const_iter<OtherValue> const & other)
-            : depth(other.depth), level(other.level), node(other.node) {}
-
+        depth_range() : root(nullptr), depth(0) {}
+        depth_range(node_type* root) : root(root), depth(0) {}
+        depth_range(node_type* root, size_t depth) : root(root), depth(depth) {}
+        
         // Range interface
-        depth_const_iter<Value> begin() { return *this; }
-        depth_const_iter<Value> end() { return depth_const_iter<Value>(); }
+        iterator begin() { return iterator(root, depth); }
+        iterator end() { return iterator(); }
 
       private:
-        friend class boost::iterator_core_access;
-
-        // If we have child, we go there.
-        // If no child, we go to next sibling.
-        // If no next sibling we go toward root taking first ancestor sibling found.
-        // If still nothing, we are at the end.
-        void increment()
-        {
-            if (!node) return; // already past the end, throw here?
-
-            // Down first
-
-            // If we have not yet hit floor
-            if (depth==0 or level+1 < depth) {
-                // and if we have child, go down
-                auto* first = node->first();
-                if (first) {
-                    node = first;
-                    ++level;
-                    return;
-                }
-            }
-
-            // Can not go down, seek for sibling
-            while (level) {     // but not above original node level
-
-                // first try sibling in current level
-                auto* sib = node->next();
-                if (sib) {
-                    node = sib;
-                    return;
-                }
-                if (node->parent) {
-                    node = node->parent;
-                    --level;
-                    continue;
-                }
-                break;
-            }
-            node = nullptr;     // end
-        }
-
-        template <typename OtherValue> 
-        bool equal(depth_iter<OtherValue> const& other) const {
-            return node == other.node;
-        }
-        template <typename OtherValue> 
-        bool equal(depth_const_iter<OtherValue> const& other) const {
-            return node == other.node;
-        }
-
-        const Value& dereference() const {
-            return node->value;
-        }
+        node_type* root{nullptr};
+        size_t depth{0};
     };
 
     // A base class for a Node Value type that helps dispatch actions

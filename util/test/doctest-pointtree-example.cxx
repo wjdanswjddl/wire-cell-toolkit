@@ -28,41 +28,41 @@ TEST_CASE("point tree example simple point cloud")
     // We must supply a C++ type in order to extract a value.
     CHECK( arr->element<double>(0) == 1.0 );
 
-    Dataset::selection_t sel = pc.selection({"x","y","z"});
+Dataset::selection_t sel = pc.selection({"x","y","z"});
 
-    // The selection must be the same size as the list of names.
-    CHECK( sel.size() == 3 );
+// The selection must be the same size as the list of names.
+CHECK( sel.size() == 3 );
 
-    // Get first array ("x") and the value at its index 0.
-    CHECK( sel[0]->element<double>(0) == 1.0 );
+// Get first array ("x") and the value at its index 0.
+CHECK( sel[0]->element<double>(0) == 1.0 );
 
-    using point_type = coordinate_point<double>;
-  
-    // Create a coordinate point on the selection and at a given point index.
-    point_type cpt(&sel, 0);
-  
-    // The index in the point cloud can be retrieved.
-    CHECK( cpt.index() == 0 );
-  
-    // The point looks like a vector of size 3.
-    CHECK( cpt.size() == 3);
-  
-    // And we can access the "column" at the current index by a dimension number.
-    CHECK( cpt[0] == 1.0 );           // x
-    CHECK( cpt[1] == 2.0 );           // y
-    CHECK( cpt[2] == 1.0 );           // z
+using point_type = coordinate_point<double>;
 
-    // If the coordinate point is not const, it can be set.
-    cpt.index() = 1;
-    CHECK( cpt.index() == 1 );
-  
-    // We may also access the dimensions of the point with bounds checking on
-    // both index and dimension.
-    CHECK( cpt.at(0) == 1.0 );        // x
-    CHECK( cpt.at(1) == 1.0 );        // y
-    CHECK( cpt.at(2) == 4.0 );        // z
+// Create a coordinate point on the selection and at a given point index.
+point_type cpt(&sel, 0);
 
-    using coords_type = coordinate_range<point_type>;
+// The index in the point cloud can be retrieved.
+CHECK( cpt.index() == 0 );
+
+// The point looks like a vector of size 3.
+CHECK( cpt.size() == 3);
+
+// And we can access the "column" at the current index by a dimension number.
+CHECK( cpt[0] == 1.0 );           // x
+CHECK( cpt[1] == 2.0 );           // y
+CHECK( cpt[2] == 1.0 );           // z
+
+// If the coordinate point is not const, it can be set.
+cpt.index() = 1;
+CHECK( cpt.index() == 1 );
+
+// We may also access the dimensions of the point with bounds checking on
+// both index and dimension.
+CHECK( cpt.at(0) == 1.0 );        // x
+CHECK( cpt.at(1) == 1.0 );        // y
+CHECK( cpt.at(2) == 4.0 );        // z
+
+using coords_type = coordinate_range<point_type>;
 
     // Make a coordinate range on the selection.
     coords_type cr(sel);

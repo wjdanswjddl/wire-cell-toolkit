@@ -201,10 +201,11 @@ Tree::Points::scoped_pc(const Tree::Scope& scope)
 
     // construct, assure and cache.
     scoped_pointcloud_t& pcstore = m_scoped_pcs[dscope];
-    for (auto& nv : m_node->depth(scope.depth)) {
+    for (auto& node : m_node->depth(scope.depth)) {
+        auto& value = node.value;
         // local pc dataset
-        auto it = nv.m_lpcs.find(scope.pcname);
-        if (it == nv.m_lpcs.end()) {
+        auto it = value.m_lpcs.find(scope.pcname);
+        if (it == value.m_lpcs.end()) {
             continue;           // it is okay if node lacks PC
         }
 

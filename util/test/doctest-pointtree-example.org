@@ -554,6 +554,91 @@ This example shows a k-nn query over a scope for the three points nearest the gi
 Inside the loop we can convert each iterator into a major and minor index via ~all_points~.  The major index counts the local point cloud in the scope while the minor index counts the point in that local point cloud.  In this example, the entire point cloud spans just three arrays, ~("x", "y", "z")~.  In more sophisticated usage, there may be additional arrays and through this major and minor index their elements that correspond to the k-d tree result can also be retrieved.
 
 
+* From k-d tree to n-ary tree :noexport:
+
+In the above section we showed how to navigate from a point in a k-d tree result to the local point cloud that provided the point by calculating a *major index* and iterating that same number of elements from the beginning of the ~disjoint_range~.  The same approach can be used to find the n-ary tree node that provided the local point cloud that provided a point.  In this patter we replace the ~disjoint_range~ iterator with a ~NaryTree::depth_iter~.  To show this we will repeat most of the above test case
+
+~doctest-pointtree-example.cxx~
+
+#+begin_src c++ :tangle no
+    static const Dataset& get_local_pc(const Points& pval, const std::string& pcname)
+    {
+        const auto& pcs = pval.local_pcs();
+        auto pcit = pcs.find(pcname);
+        if (pcit == pcs.end()) {
+            raise<KeyError>("no pc named " + pcname);
+        }
+        return pcit->second;
+    }
+    
+    TEST_CASE("point tree example scoped k-d tree to n-ary nodes")
+    {
+        auto root = make_simple_pctree();
+    
+        // Form a k-d tree query over a scoped point cloud.
+        Scope scope = { "3d", {"x","y","z"} };
+        const auto& skd = root->value.scoped_kd<double>(scope);
+    
+        // Some query point.
+        const std::vector<double> origin = {0,0,0};
+    
+        // Find three nearest neighbors.
+        auto knn = skd.knn(3, origin);
+        CHECK( knn.size() == 3 );
+    
+        const auto& spc = root->value.scoped_pc(scope);
+    
+        // Get the depth iterator/range.  See text.
+        auto dr = root->depth(scope.depth);
+    
+        // In one case we prefill an ordered vector of nodes
+        std::vector<Points::node_t*> scope_nodes;
+        for (auto& pval : dr) {
+            scope_nodes.push_back(pval.node());
+        }
+        // In the other case we will add the major index to dr.
+    
+        // Need the underlying disjoint range to translate from k-d iterators to
+        // indices.
+        const auto& all_points = skd.points();
+    
+        // Loop over results and refrence back to original scoped PC at both major
+        // and minor range level.
+        for (size_t pt_ind = 0; pt_ind<knn.size(); ++pt_ind) {
+            auto& [pit,dist] = knn[pt_ind];
+    
+            const size_t maj_ind = all_points.major_index(pit);
+            const size_t min_ind = all_points.minor_index(pit);
+            debug("knn point {} at distance {} from query is in local point cloud {} at index {}",
+                  pt_ind, dist, maj_ind, min_ind);
+            {
+                const Dataset& pc = spc[maj_ind];
+                for (const auto& name : scope.coords) {
+                    debug("\t{} = {}", name, pc.get(name)->element<double>(min_ind));
+                }
+            }
+            // Get node from our cache
+            {
+                const auto& pc = get_local_pc(scope_nodes.at(maj_ind)->value, scope.pcname);
+                for (const auto& name : scope.coords) {
+                    debug("\t{} = {}", name, pc.get(name)->element<double>(min_ind));
+                }
+            }
+            // Get node via adding to depth iterator
+            {
+                const auto& pc = get_local_pc(*(dr + maj_ind), scope.pcname);
+                for (const auto& name : scope.coords) {
+                    debug("\t{} = {}", name, pc.get(name)->element<double>(min_ind));
+                }
+            }
+        }
+    }
+#+end_src  
+
+Notes:
+- scope is more restrictive than ~depth()~.  Misalignment between ~major_index~ and depth iterator will occur if the ~scope.pcname~ limits which point clouds are in scope
+
+
 * File local variables                                     :noexport:
 
 # Local Variables:
