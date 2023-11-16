@@ -5,120 +5,94 @@
 
 namespace WireCell::PointCloud {
 
-    /** A set of arrays accessed by their name.  All arrays must be
-        kept to the same number of elements (points).
+    /** A set of arrays stored and accessed by their name.  All arrays
+        maintain equal number of elements (ie, same size_major()).
+
     */
     class Dataset {
       public:
 
         using metadata_t = Configuration;
 
-        /// A dataset is a glorified map from string to array.
-        using store_t = std::map<std::string, Array>;
-        using item_t = std::pair<std::string, Array>;
+        // Arrays may be shared with caller but caller can not modify
+        // them.
+        using array_ptr = std::shared_ptr<const Array>;
 
         // copy constructor
-        Dataset(const Dataset& other) = default;
+        Dataset(const Dataset& other);
         // move constructor
-        Dataset(Dataset&& other) = default;
+        Dataset(Dataset&& other);
 
-        Dataset& operator=(const Dataset& other) = default;
+        // copy assignment 
+        Dataset& operator=(const Dataset& other);
+        // move assignment
+        Dataset& operator=(Dataset&& other);
 
         // Default constructor
-        Dataset() = default;
+        Dataset();
 
-        // Construct a dataset using an existing store.
-        explicit Dataset(const store_t& store) {
-            for (const auto& [n,a] : store) {
-                add(n,a);
-            }
-        }
+        // Construct a dataset by copying from a set of named arrays.
+        explicit Dataset(const std::map<std::string, Array>& arrays);
+
+        ~Dataset();
 
         /// Return the common number of elements along the major axis
         /// of the arrays.  This returns the size of the first
         /// dimension or zero if the dataset is empty.
-        size_t size_major() const {
-            if (m_store.empty()) {
-                return 0;
-            }
-            return m_store.begin()->second.size_major();
-        }
-        
-        /** Add the array to the dataset.  Return true if its name is
-            new.  Throw if number of elments of array does not match
-            others in the dataset.  This will copy the array.
+        size_t size_major() const;        
+
+        /** Add a new named array to the dataset.
+
+            An exception is thrown if the name is already used or if
+            the size of the array does not match others in the dataset.
         */
-        bool add(const std::string& name, const Array& arr);
+        void add(const std::string& name, const Array& arr);
+        void add(const std::string& name, Array&& arr);
 
-        /** Add the array to the dataset.  Return true if its name is
-            new.  Throw if number of elments of array does not match
-            others in the dataset.  This will move the array.
+
+        /** A selection is an ordered subset of arrays in the dataset.
+
+            Order reflects that of the list of names.
+
+            If any requested name is not provided by this dataset then
+            an empty collection is returned.
         */
-        // bool add(const std::string& name, Array&& arr);
-
-        /// Access the underlying store
-        const store_t& store() const { return m_store; }
-
-        /** Return a vector of "references wrappers" around the arrays
-            matching the names.  If any name is not provided by this
-            then an empty collection is returned.  References may be
-            unusual to some so here are two usage examples:
-
-            sel = ds.selection({"one","two"});
-            const Array& one = sel[0];
-            size_t num_in_two = sel[1].get().num_elements();
-        */
+        using name_list_t = std::vector<std::string>;
+        using selection_t = std::vector<array_ptr>;
         selection_t selection(const name_list_t& names) const;
+        
+        /** Return named array or nullptr if not found.
 
-        /** Return named array or empty if not found */
-        const Array& get(const std::string& name) const {
-            auto it = m_store.find(name);
-            if (it == m_store.end()) {
-                static Array empty;
-                return empty;
-            }
-            return it->second;            
-        }
-        Array& get(const std::string& name) {
-            auto it = m_store.find(name);
-            if (it == m_store.end()) {
-                static Array empty;
-                return empty;
-            }
-            return it->second;            
-        }
+            Even in non-const case, the array pointer is merely lent.
 
+        */
+        array_ptr get(const std::string& name) const;
+
+        /** Return mutable array or nullptr if not found.
+
+            Caller is warned that changing entries directly through
+            this array will not trigger the auto update callbacks.
+         */
+        using mutable_array_ptr = std::shared_ptr<Array>;
+        mutable_array_ptr get(const std::string& name);
 
         // FIXME, add something that returns something that produces a
         // typed tuple of array elements given their common index.
 
         /// Return the sorted names of the arrays in this.
         using keys_t = std::vector<std::string>;
-        keys_t keys() const {
-            keys_t ret;
-            for (const auto& [k,v] : m_store) {
-                ret.push_back(k);
-            }
-            std::sort(ret.begin(), ret.end());
-            return ret;
-        }
-        bool has(const std::string& key) const {
-            for (const auto& [k,v] : m_store) {
-                if (k == key) return true;
-            }
-            return false;
-        }
+        keys_t keys() const;
+        bool has(const std::string& key) const;
 
-        /// Return a Dataset like this one but filled with zeros to
-        /// given number of elements along major axis.
+        /// Return a Dataset with same name and type of arrays as this
+        /// one but with arrays filled with zeros to the given number
+        /// of elements along major axis.
         Dataset zeros_like(size_t nmaj);
 
-        /// Append arrays in tail to this.
-        void append(const Dataset& tail) {
-            append(tail.store());
-        }
-        
-        /// Append arrays in map to this.
+        /// Append arrays in tail to this.  This causes array copies.
+        void append(const Dataset& tail);
+
+        /// Append as bare, named arrays.  
         void append(const std::map<std::string, Array>& tail);
 
         /** Append zeros to all existing arrays adding nmaj elements
@@ -145,9 +119,16 @@ namespace WireCell::PointCloud {
         bool operator==(Dataset const& other) const;
         bool operator!=(Dataset const& other) const;
 
+        bool empty() const { return m_store.empty(); }
+        size_t size() const { return m_store.size(); }
+
       private:
 
+
+        /// A dataset is a glorified map from string to array.  
+        using store_t = std::map<std::string, mutable_array_ptr>;
         store_t m_store;
+
         std::vector<append_callback_f> m_append_callbacks;
         
         // Metadata is a passive carry.
@@ -158,7 +139,6 @@ namespace WireCell::PointCloud {
     // A "null" filter which incurs a copy.
     inline Dataset copy(const Dataset& ds) { return ds; }
 
-    using DatasetRef = std::reference_wrapper<const Dataset>;
 
 }
 

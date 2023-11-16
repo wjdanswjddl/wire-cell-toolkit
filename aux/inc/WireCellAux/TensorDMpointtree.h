@@ -37,7 +37,7 @@ namespace WireCell::Aux::TensorDM {
         ret.push_back(nullptr);     // fill in below
         for (auto it = beg; it != end; ++it) {
             const std::string& name = it->first;
-            const PointCloud::Dataset& ds = it->second;
+            const auto& ds = it->second;
             auto dp = store + "/" + name;
             items[name] = dp;
             auto tens = as_tensors(ds, dp);
@@ -48,7 +48,7 @@ namespace WireCell::Aux::TensorDM {
         return ret;
     }
 
-    using named_pointclouds_t = WireCell::PointCloud::Tree::Points::named_pointclouds_t;
+    using named_pointclouds_t = WireCell::PointCloud::Tree::named_pointclouds_t;
 
     inline
     ITensor::vector as_tensors(const named_pointclouds_t& pcns,

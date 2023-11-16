@@ -21,6 +21,11 @@ namespace WireCell {
     {
         return demangle(typeid(t).name());
     }
+    template <class T>
+    std::string type()
+    {
+        return demangle(typeid(T).name());
+    }
 
 }  // namespace WireCell
 

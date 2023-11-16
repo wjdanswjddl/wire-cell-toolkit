@@ -133,34 +133,32 @@ namespace WireCell::KDTree {
     // appended to the dataset.
     template<typename ElementType>
     query_ptr_t<ElementType>
-    query(PointCloud::Dataset& dataset,
-          const PointCloud::name_list_t& names,
+    query(PointCloud::Dataset& ds,
+          const PointCloud::Dataset::name_list_t& names,
           bool dynamic = false,
           Metric mtype = Metric::l2simple);
     template<>
     query_ptr_t<int>
-    query<int>(PointCloud::Dataset& dataset,
-               const PointCloud::name_list_t& names,
+    query<int>(PointCloud::Dataset& ds,
+               const PointCloud::Dataset::name_list_t& names,
                bool dynamic, Metric mtype);
     template<>
     query_ptr_t<float>
-    query<float>(PointCloud::Dataset& dataset,
-                 const PointCloud::name_list_t& names,
+    query<float>(PointCloud::Dataset& ds,
+                 const PointCloud::Dataset::name_list_t& names,
                  bool dynamic, Metric mtype);
     template<>
     query_ptr_t<double>
-    query<double>(PointCloud::Dataset& dataset,
-                  const PointCloud::name_list_t& names,
+    query<double>(PointCloud::Dataset& ds,
+                  const PointCloud::Dataset::name_list_t& names,
                   bool dynamic, Metric mtype);
-
-    using DatasetRef = std::reference_wrapper<PointCloud::Dataset>;
 
     /** Cache multiple k-d tree queries on a given dataset the may
      * differ in their coordinate attributes, metric types and whether
      * the k-d tree should be static or dynamic.
      */
     class MultiQuery {
-        DatasetRef m_dataset;
+        PointCloud::Dataset* m_dataset;
         std::map<std::string, std::shared_ptr<QueryBase>> m_indices;
 
       public:
@@ -169,7 +167,7 @@ namespace WireCell::KDTree {
         using query_ptr_t = std::shared_ptr<Query<ElementType>>;
 
         MultiQuery(PointCloud::Dataset& dataset)
-            : m_dataset(dataset)
+            : m_dataset(&dataset)
         {}
 
         MultiQuery(const MultiQuery& rhs)
@@ -184,19 +182,19 @@ namespace WireCell::KDTree {
 
         const PointCloud::Dataset& dataset() const
         {
-            return m_dataset;
+            return *m_dataset;
         }
 
         PointCloud::Dataset& dataset()
         {
-            return m_dataset;
+            return *m_dataset;
         }
 
-        std::string make_key(const PointCloud::name_list_t& names,
+        std::string make_key(const PointCloud::Dataset::name_list_t& names,
                              bool dynamic, Metric mtype)
         {
-            PointCloud::name_list_t keys(names.begin(),
-                                         names.end());
+            PointCloud::Dataset::name_list_t keys(names.begin(),
+                                                  names.end());
             keys.push_back(std::to_string((int) dynamic));
             keys.push_back(std::to_string(static_cast<std::underlying_type_t<Metric>>(mtype)));
             return boost::algorithm::join(keys, ",");
@@ -205,13 +203,13 @@ namespace WireCell::KDTree {
         // Return a new or existing query matching parameters.
         template<typename ElementType>
         query_ptr_t<ElementType>
-        get(const PointCloud::name_list_t& names, bool dynamic=false, Metric mtype = Metric::l2simple)
+        get(const PointCloud::Dataset::name_list_t& names, bool dynamic=false, Metric mtype = Metric::l2simple)
         {
             auto key = make_key(names, dynamic, mtype);
             auto it = m_indices.find(key);
 
             if (it == m_indices.end()) { // create
-                auto unique = query<ElementType>(m_dataset, names,
+                auto unique = query<ElementType>(*m_dataset, names,
                                                  dynamic, mtype);
                 query_ptr_t<ElementType> ret = std::move(unique);
                 m_indices[key] = ret;
