@@ -1,3 +1,4 @@
 #+HTML_HEAD: <style>pre.src{border-radius:5px;background:#343131;color:white;} </style>
 #+HTML_HEAD: <style>pre.example{border-radius:5px;background:#454242;color:white;} </style>
 #+HTML_HEAD: <style>code{border-radius:5px;background:#454242;color:#0f0;} </style>
+#+latex_header: \usepackage[dvipsnames]{xcolor}

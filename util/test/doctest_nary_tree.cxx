@@ -1,6 +1,8 @@
 #include "WireCellUtil/NaryTree.h"
 #include "WireCellUtil/NaryTesting.h"
 
+#include "WireCellUtil/String.h"
+
 #include "WireCellUtil/doctest.h"
 
 #include "WireCellUtil/Logging.h"
@@ -12,15 +14,18 @@ using namespace WireCell::NaryTesting;
 using spdlog::debug;
 
 TEST_CASE("nary tree depth iter") {
-    depth_iter<int> a, b;
+    using node_type = Node<int>;
+
+    depth_iter<node_type> a, b;
+    depth_range<node_type> r;
 
     CHECK( !a.node );
 
     CHECK( a == b );
     
-    CHECK( a.begin() == a.end() );
+    CHECK( r.begin() == r.end() );
 
-    depth_const_iter<int> c(a);
+    depth_iter<node_type const> c(a);
     CHECK( a == c );
 }
 
@@ -121,35 +126,17 @@ TEST_CASE("nary tree simple tree tests") {
         CHECK( childs.front()->next()->value.name == "0.1" );
         CHECK( childs.back()->prev()->value.name == "0.1" );
 
+        // Iterate the depth firs search.
         {
             size_t nnodes = 0;
-            depth_iter<Introspective> depth(root.get());
             std::vector<Introspective> data;
-            for (auto it = depth.begin(); // could also use depth().begin()
-                 it != depth.end();
-                 ++it)
+            const size_t level = 0;   // 0=unlimited, the default
+            for (const auto& node : root->depth(level)) 
             {
-                const Introspective& d = it.node->value;
-                debug("depth {} {}", nnodes, d);
+                auto& val = node.value;
+                debug("depth {} {}", nnodes, val);
                 ++nnodes;
-                data.push_back(d);
-            }
-            CHECK( nnodes == 4 );
-
-            CHECK( data[0].name == "0" );
-            CHECK( data[1].name == "0.0" );
-            CHECK( data[2].name == "0.1" );
-            CHECK( data[3].name == "0.2" );
-        }
-        {   // same as above but range based loop
-            size_t nnodes = 0;
-            depth_iter<Introspective> depth(root.get());
-            std::vector<Introspective> data;
-            for (const auto& d : root->depth()) 
-            {
-                debug("depth {} {}", nnodes, d);                
-                ++nnodes;
-                data.push_back(d);
+                data.push_back(val);
             }
             CHECK( nnodes == 4 );
 
@@ -164,10 +151,10 @@ TEST_CASE("nary tree simple tree tests") {
             const auto* rc = root.get();
             size_t nnodes = 0;
             std::vector<Introspective> data;
-            for (const auto& d : rc->depth()) 
+            for (const auto& node : rc->depth()) 
             {
                 ++nnodes;
-                data.push_back(d);
+                data.push_back(node.value);
             }
             CHECK( nnodes == 4 );
         }    
@@ -308,15 +295,48 @@ TEST_CASE("nary tree flatten")
     root.insert(make_simple_tree("r.0"));
     root.insert(make_simple_tree("r.1"));
     debug("descend root node \"{}\"", rval.name);
-    for (auto& value : rval.node->depth()) {
+    for (auto& node : rval.node->depth()) {
+        auto& value = node.value;
         debug("\tpath to parents from node \"{}\":", value.name);
-        auto* node = value.node;
-        REQUIRE(node);
         std::string path="", slash="";
-        for (auto n : node->sibling_path()) {
+        for (auto n : node.sibling_path()) {
             path += slash + std::to_string(n);
             slash = "/";
         }
-        debug("\t\tpath: {}  \t (\"{}\")", path, node->value.name);
+        debug("\t\tpath: {}  \t (\"{}\")", path, value.name);
     }
+}
+
+static size_t count_delim(const std::string& s, const std::string& d = ".")
+{
+    if (s.empty()) return 0;
+    return WireCell::String::split(s, d).size();
+}
+
+TEST_CASE("nary tree depth limits")
+{
+    // const std::list<size_t> layer_sizes = {2,4,8};
+    auto root = make_layered_tree({2,4,8});
+
+    const std::vector<size_t> want = {1,
+        nodes_in_uniform_tree({2}),
+        nodes_in_uniform_tree({2,4}),
+        nodes_in_uniform_tree({2,4,8})};
+
+    const size_t nwants = want.size();
+    const size_t max_wants = want.back();
+
+    for (size_t ind=0; ind<nwants; ++ind) {
+        const size_t level = ind+1;
+        size_t count = 0;
+        for (const auto& node : root->depth(level)) {
+            debug("[{}/{}] #{}/{}/{} {}", ind, nwants, count, want[ind], max_wants, node.value.name);
+            ++count;
+            size_t nlev = count_delim(node.value.name);
+            // make sure never descend beyond level
+            CHECK(nlev <= level); 
+        }
+        CHECK(count == want[ind]);
+    }
+
 }
