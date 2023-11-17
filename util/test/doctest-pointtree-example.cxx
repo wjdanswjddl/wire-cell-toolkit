@@ -223,15 +223,52 @@ TEST_CASE("point tree example scoped point cloud")
     // depth number of 0.
     Scope scope{ "3d", {"x","y","z"} };
 
-    // The corresponding scoped point cloud. 
-    auto spc = root->value.scoped_pc(scope);
+    // The corresponding scoped view. 
+    auto const & sv = root->value.scoped_view(scope);
 
-    // A scoped point cloud is a vector of references to point clouds
-    for (size_t ind=0; ind<spc.size(); ++ind) {
-        Dataset& pc = spc[ind];
-        debug("pc {} with {} arrays and {} points",
-              ind, pc.size(), pc.size_major());
+    CHECK(sv.npoints() > 0);
+}
+
+TEST_CASE("point tree example scoped nodes")
+{
+    auto root = make_simple_pctree();
+
+    // Specify point cloud name and the arrays to select.  We take the default
+    // depth number of 0.
+    Scope scope{ "3d", {"x","y","z"} };
+
+    // The corresponding scoped view. 
+    auto const & sv = root->value.scoped_view(scope);
+
+    // Vector of pointers to n-ary tree nodes
+    auto const& snodes = sv.nodes();
+    CHECK(snodes.size() > 0);
+    for (const auto& node : snodes) {
+        const auto& lpcs = node->value.local_pcs();
+        REQUIRE(node);
+        CHECK(lpcs.find("3d") != lpcs.end());
     }
+}
+
+TEST_CASE("point tree example scoped nodes")
+  {
+      auto root = make_simple_pctree();
+
+      // Specify point cloud name and the arrays to select.  We take the default
+      // depth number of 0.
+      Scope scope{ "3d", {"x","y","z"} };
+
+      // The corresponding scoped view, its nodes and point clouds
+      auto const & sv = root->value.scoped_view(scope);
+      auto const& snodes = sv.nodes();
+      auto const& spcs = sv.pcs();
+      CHECK(spcs.size() == snodes.size());
+
+      // A scoped point cloud is a vector of references to point clouds
+      for (const Dataset& pc : spcs) {
+          debug("pc {} arrays and {} points",
+                pc.size(), pc.size_major());
+      }
 }
 
 #include "WireCellUtil/DisjointRange.h"
@@ -239,7 +276,7 @@ TEST_CASE("point tree example scoped point cloud disjoint")
 {
     // As above.
     auto root = make_simple_pctree();
-    auto spc = root->value.scoped_pc(Scope{ "3d", {"x","y","z"} });
+    auto spc = root->value.scoped_view(Scope{ "3d", {"x","y","z"} }).pcs();
 
     size_t npoints = 0;
     for (const Dataset& pc : spc) {
@@ -301,7 +338,8 @@ TEST_CASE("point tree example scoped k-d tree")
 
     // Form a k-d tree query over a scoped point cloud.
     Scope scope = { "3d", {"x","y","z"} };
-    const auto& skd = root->value.scoped_kd<double>(scope);
+    const auto& sv = root->value.scoped_view(scope);
+    const auto& skd = sv.kd();
 
     // Some query point.
     const std::vector<double> origin = {0,0,0};
@@ -311,24 +349,64 @@ TEST_CASE("point tree example scoped k-d tree")
     CHECK( knn.size() == 3 );
 
     // Get the underlying scoped PC.
-    const auto& spc = root->value.scoped_pc(scope);
-
-    // Need the underlying disjoint range to translate from k-d iterators to
-    // indices.
-    const auto& all_points = skd.points();
+    const auto& spc = sv.pcs();
 
     // Loop over results and refrence back to original scoped PC at both major
     // and minor range level.
     for (size_t pt_ind = 0; pt_ind<knn.size(); ++pt_ind) {
         auto& [pit,dist] = knn[pt_ind];
 
-        const size_t maj_ind = all_points.major_index(pit);
-        const size_t min_ind = all_points.minor_index(pit);
+        const size_t maj_ind = skd.major_index(pit);
+        const size_t min_ind = skd.minor_index(pit);
         debug("knn point {} at distance {} from query is in local point cloud {} at index {}",
               pt_ind, dist, maj_ind, min_ind);
         const Dataset& pc = spc[maj_ind];
         for (const auto& name : scope.coords) {
             debug("\t{} = {}", name, pc.get(name)->element<double>(min_ind));
         }
+    }
+}
+
+// a little helper
+static const Dataset& get_local_pc(const Points& pval, const std::string& pcname)
+{
+    const auto& pcs = pval.local_pcs();
+    auto pcit = pcs.find(pcname);
+    if (pcit == pcs.end()) {
+        raise<KeyError>("no pc named " + pcname);
+    }
+    return pcit->second;
+}
+
+TEST_CASE("point tree example scoped k-d tree to n-ary nodes")
+{
+    auto root = make_simple_pctree();
+
+    // Form a k-d tree query over a scoped point cloud.
+    Scope scope = { "3d", {"x","y","z"} };
+
+
+    // Get the scoped view parts
+    const auto& sv = root->value.scoped_view(scope);
+    const auto& skd = sv.kd();
+    const auto& snodes = sv.nodes();
+
+    // Some query point.
+    const std::vector<double> origin = {0,0,0};
+
+    // Find three nearest neighbors.
+    auto knn = skd.knn(3, origin);
+    CHECK( knn.size() == 3 );
+
+    // Loop over results and refrence back to original scoped PC at both major
+    // and minor range level.
+    for (size_t pt_ind = 0; pt_ind<knn.size(); ++pt_ind) {
+        auto& [pit,dist] = knn[pt_ind];
+
+        const size_t maj_ind = skd.major_index(pit);
+
+        const auto* node = snodes[maj_ind];
+        debug("knn point {} at distance {} from query at node {} with {} children",
+              pt_ind, dist, maj_ind, node->children().size());
     }
 }
