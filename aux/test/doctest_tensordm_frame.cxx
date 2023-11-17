@@ -33,14 +33,14 @@ void dump_array(const PC::Dataset& ds, const std::string& name, const std::strin
     //     return;
     // }
 
-    const PC::Array& arr = ds.get(name);
-    REQUIRE(arr.is_type<T>());
+    auto arr = ds.get(name);
+    REQUIRE(arr->is_type<T>());
 
     std::stringstream ss;
     ss << "doctest_tensordm_frame: array: " << prefix << "\n";
-    ss << "\tarray \"" << name << "\" size major: " << arr.size_major() << " dtype: " << arr.dtype() << "\n";
-    ss << "\tmetadata: " << arr.metadata() << "\n";
-    auto vec = arr.elements<T>();
+    ss << "\tarray \"" << name << "\" size major: " << arr->size_major() << " dtype: " << arr->dtype() << "\n";
+    ss << "\tmetadata: " << arr->metadata() << "\n";
+    auto vec = arr->elements<T>();
     ss << vec.size() << " " << name;
     for (auto one : vec) ss << " " << one;
     debug(ss.str());
@@ -71,13 +71,14 @@ static void dump_tensor(ITensor::pointer iten, const std::string& prefix = "")
 void test_tensor(IFrame::pointer frame, FrameTensorMode mode, bool truncate,
                  const size_t ntraces, const size_t nchans, const std::string& frame_tag)
 {
-    // std::cerr << "test frame/tensor round trip with"
-    //           << " mode=" << (int)mode
-    //           << " truncate=" << truncate
-    //           << " ntraces=" << ntraces
-    //           << " nchans " << nchans
-    //           << " frame_tag=" << frame_tag
-    //           << "\n";
+    std::stringstream ss;
+    ss << "test frame/tensor round trip with"
+       << " mode=" << (int)mode
+       << " truncate=" << truncate
+       << " ntraces=" << ntraces
+       << " nchans " << nchans
+       << " frame_tag=" << frame_tag;
+    debug(ss.str());
 
     const std::string datapath = "frames/0";
 
@@ -101,9 +102,10 @@ void test_tensor(IFrame::pointer frame, FrameTensorMode mode, bool truncate,
     CHECK(store[datapath] == ften);
 
     CHECK(fmd["traces"].size() == ntraces);
-    // size_t count=0;
+    size_t count=0;
     for (auto jtrdp : fmd["traces"]) {
-        // std::cerr << "traces [" << count++ << "/" << ntraces << "]\n";
+        debug("traces [{} / {}]", count++, ntraces);
+
         auto iten = store[jtrdp.asString()];
         CHECK(iten);
 
@@ -113,9 +115,9 @@ void test_tensor(IFrame::pointer frame, FrameTensorMode mode, bool truncate,
         CHECK(md["datatype"].asString() == "trace");
     }
 
-    // count = 0;
+    count = 0;
     for (auto jtrdp : fmd["tracedata"]) {
-        // std::cerr << "tracedata [" << count++ << "/" << fmd["tracedata"].size() << "]\n";
+        debug("tracedata [{} / {}]", count++, fmd["tracedata"].size());
         auto iten = store[jtrdp.asString()];
         CHECK(iten);
 
@@ -131,16 +133,24 @@ void test_tensor(IFrame::pointer frame, FrameTensorMode mode, bool truncate,
         auto keys = ds.keys();
         if (tag.empty()) {
             // convention to save whole frame, must have chids
-            CHECK(ds.has("chid"));
-            // dump_array<int>(ds, "chid","\t");
+            REQUIRE(ds.has("chid"));
+            auto chid = ds.get("chid");
+            REQUIRE(chid);
+            REQUIRE(chid->size_major() > 0);
+            REQUIRE(chid->is_type<int>());
+            dump_array<int>(ds, "chid","\t");
         }
         else {
-            CHECK(ds.has("index"));
-            // dump_array<size_t>(ds, "index","\t");
-            // if (ds.has("chid")) {
-            //     // may have chids
-            //     dump_array<int>(ds, "chid","\t");
-            // }
+            REQUIRE(ds.has("index"));
+            auto arr = ds.get("index");
+            REQUIRE(arr);
+            REQUIRE(arr->size_major() > 0);
+            REQUIRE(arr->is_type<size_t>());
+            dump_array<size_t>(ds, "index","\t");
+            if (ds.has("chid")) {
+                // may have chids
+                dump_array<int>(ds, "chid","\t");
+            }
         }
     }
 
@@ -160,10 +170,13 @@ void test_tensor(IFrame::pointer frame, FrameTensorMode mode, bool truncate,
             auto t2 = ts2->at(ind);
             chids1.insert(t1->channel());
             chids2.insert(t2->channel());
-            // std::cerr << "trace: " << ind << "/" << ts1->size()
-            //           << " chan: " << t1->channel() << " =?= " << t2->channel()
-            //           << ", tbin: " << t1->tbin() << " =?= " << t2->tbin()
-            //           << "\n";
+
+            std::stringstream ss;
+            ss << "trace: " << ind << "/" << ts1->size()
+               << " chan: " << t1->channel() << " =?= " << t2->channel()
+               << ", tbin: " << t1->tbin() << " =?= " << t2->tbin();
+            debug(ss.str());
+
             if (mode == FrameTensorMode::sparse) {
                 // Only get exact representation round-trip in sparse mode
                 CHECK(t1->channel() == t2->channel());

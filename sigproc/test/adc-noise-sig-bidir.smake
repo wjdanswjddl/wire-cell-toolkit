@@ -1,0 +1,380 @@
+#!/usr/bin/env snakemake
+
+# Set this to a place with several GB available.  It will hold all
+# products.
+outdir = Path(os.path.expanduser("/srv/bviren/public_html/ls4gan/toysp"))
+
+# This extends adc-noise-sig.smake to do the "reprocessing" for the
+# LS4GAN "data release" paper that includes more statistics and
+# running SP on both a->b and b->a translations in addition to a and
+# b.  In all cases we run SP using a's detector response.
+
+# Render the full DAG:
+# snakemake -p -jall -s sigproc/test/adc-noise-sig-bidir.smake all --dag > adc-noise-sig.dot
+#
+# Or, for one generator:
+# snakemake -p -jall -s sigproc/test/adc-noise-sig-bidir.smake all_UVCGAN --dag > adc-noise-sig-UVCGAN.dot
+#
+# Drop "--dag" to run.  Replace "all" with a target file name for focused run.
+
+import os
+from pathlib import Path
+from adc_noise_sig_bidir import *
+from snakemake.remote.HTTP import RemoteProvider as HTTPRemoteProvider
+HTTP = HTTPRemoteProvider()
+
+# the WCT response file providing 2D model
+wcdata_url = "https://github.com/WireCell/wire-cell-data/raw/master"
+resp_file_remote = "dune-garfield-1d565.json.bz2"
+
+
+# We have 5 sources, first is simulation and then four translations
+generators = ["WCSim", "ACLGAN", "CycleGAN", "UGATIT", "UVCGAN"]
+simulation_generators = [generators[0]]
+simulation_wildcard = "|".join(simulation_generators)
+translation_generators = generators[1:]
+translation_wildcard = "|".join(translation_generators)
+
+# Each generator has two domains
+domains = ["a","b"]
+
+# We have 1000 samples, each with an event number
+begin = int(config.get("first", 0))
+end = begin + int(config.get("count", 10))
+samples_list_file = Path(workflow.basedir) / "adc-noise-sig-bidir-events.txt"
+all_samples = list(map(int, samples_list_file.open("r").readlines()))
+samples = all_samples[begin:end] # limit for testing
+print(f'{len(samples)} sample from {samples_list_file}')
+
+special_sample = int(config.get("event", -1))
+if special_sample > 0:
+    samples = [special_sample]
+    print(f'NOTE: RUNNING SPECIAL SAMPLES: {samples}')
+
+plot_exts = ["pdf","png"]
+
+# Input data is fully contained in a zip file from Yi.
+zip_name = 'samples_sigproc_v2_srs_1000'
+zip_file = f'{zip_name}.zip'
+zip_url = f'https://www.phy.bnl.gov/~bviren/tmp/ls4gan/data/{zip_file}'
+zip_dir = f'{outdir}/zip'      # zip file and its unpacking
+# print(f'{zip_url} -> {zip_dir}/{zip_file}')
+
+test_dir = Path(workflow.basedir).absolute()
+# print(f'read wire-cell config from {test_dir}')
+
+subdir = '{generator}/{domain}/{sample}'
+
+# things from ML and things from WC
+origins = ["samples", "signals"]
+
+# Directory for files in numpy format known to the ML networks (raw, rnd)
+sample_dir = f'{outdir}/data/samples/{subdir}'
+# Directory for files in numpy format known to Wire-Cell (sig, dig, etc)
+signal_dir = f'{outdir}/data/signals/{subdir}'
+# wildcard pattern to match a data file from an origin
+data_file = f'{outdir}/data/{{origin}}/{subdir}/{{tier}}.npz'
+# wildcard pattern to match a plot file from an origin.  Source is a plot type eg "orig"
+plot_file = f'{outdir}/plots/{{origin}}/{subdir}/{{tier}}-{{source}}.{{ext}}'
+
+# A coalescence of all files of a common generator/domain/tier into a single .npz.
+coal_file = f'{outdir}/data/coal/{{generator}}/{{domain}}/all/{{tier}}.npz'
+real_coal_file = f'{outdir}/data/coal/WCSim/{{domain}}/all/{{tier}}.npz'
+coala =  f'{outdir}/data/coal/{{generator}}/a/all/{{tier}}.npz'
+coalb =  f'{outdir}/data/coal/{{generator}}/b/all/{{tier}}.npz'
+
+# PIMP = Paired Image Metric (P) compared "real" (WCSim) vs "fake" (an ML net translation)
+pimp_file = f'{outdir}/data/pimp/{{generator}}/{{domain}}/all/{{tier}}.npz'
+
+dimp_file = f'{outdir}/data/dimp/{{generator}}/ab/all/{{tier}}.npz'
+
+# Yield a path for each type of file tier.  Not every one may be created.
+tier_file = {
+    # files from the ML networks
+    "raw": sample_dir + '/raw.npz',
+    # the "rounded" version we make here
+    "rnd": sample_dir + '/rnd.npz',
+
+    # scaling to voltage and converting to WC input
+    "vlt": signal_dir + '/vlt.npz',
+
+    # same as vlt but as read in
+    "src": signal_dir + '/src.npz',
+
+    # reframed to full size
+    'ref': signal_dir + '/ref.npz',
+
+    # signal plus noise, still at voltage level
+    'noi': signal_dir + '/noi.npz',
+
+    # output of the digitizer
+    "dig": signal_dir + '/dig.npz',
+
+    # output of signal processing
+    "sig": signal_dir + '/sig.npz',
+
+    # the log file for running wc to produce sig
+    "log": signal_dir + '/wct.log',
+}
+
+
+
+rule get_resp_b:
+    input:
+        HTTP.remote(f'{wcdata_url}/{resp_file_remote}', keep_local=True)
+    output:
+        f'{outdir}/resp-b.json.bz2'
+    run:
+        shell("cp {input} {output}")
+        
+rule gen_resp_a:
+    input:
+        rules.get_resp_b.output
+    output:
+        f'{outdir}/resp-a.json.bz2'
+    shell: '''
+    wirecell-sigproc frzero -n 0 -o {output} {input}
+    '''
+
+
+zip_simulation_file_pattern = f'{zip_dir}/{zip_name}/selected_input/real_{{domain}}/sample_{{sample}}.npz'
+zip_translation_file_pattern = f'{zip_dir}/{zip_name}/selected_translations_{{generator}}/fake_{{domain}}/sample_{{sample}}.npz'
+
+## Screw this download method!  Something about it keeps invalidating something.
+## Just unzip the damn thing manually.
+
+# rule get_input_files:
+#     input:
+#         HTTP.remote(zip_url, keep_local=True)
+#     output:
+#         expand(zip_simulation_file_pattern,
+#                generator=simulation_generators, domain=domains, sample=samples),
+#         expand(zip_translation_file_pattern,
+#                generator=translation_generators, domain=domains, sample=samples)
+#     shell: f'''
+#     infile="$(realpath {{input}})"
+#     mkdir -p {zip_dir}
+#     cd {zip_dir}
+#     unzip "$infile"
+#     find {zip_name} -print | xargs touch
+#     '''
+
+rule normalize_simulation_samples:
+    input:
+        zip_simulation_file_pattern
+    output:
+        tier_file["raw"]
+    wildcard_constraints:
+        generator = simulation_wildcard
+    run:
+        transform_array(input[0], output[0], lambda a: -a, 'f4')
+
+rule normalize_translation_samples:
+    input:
+        zip_translation_file_pattern
+    output:
+        tier_file["raw"]
+    wildcard_constraints:
+        generator = translation_wildcard
+    run:
+        transform_array(input[0], output[0], lambda a: -a, 'f4')
+
+rule normalize_samples_all:
+    input:
+        expand(tier_file['raw'],
+               generator=generators, domain=domains, sample=samples)
+
+def raw_rounder(raw):
+    raw = numpy.round(raw)
+    raw[raw==-0] = 0
+    return raw
+
+rule round_raw:
+    input:
+        tier_file["raw"]
+    output:
+        tier_file["rnd"]
+    run:
+        transform_array(input[0], output[0], raw_rounder, 'f4')
+
+
+# arbitrarily place patch at tbin=1000 ticks.
+tbin=1000
+rule raw_to_vlt:
+    input:
+        tier_file["raw"]
+    output:
+        tier_file["vlt"]
+    params:
+        vpa=voltageperadc,
+        tbin=tbin
+    shell: """
+    wirecell-util npz-to-wct -d f4 -n raw -o {output} \
+              -s {params.vpa} -t '0,0.5*us,{params.tbin}' {input}
+    """
+
+rule process_vlt:
+    input:
+        vlt = tier_file["vlt"],
+        res = f'{outdir}/resp-a.json.bz2',
+        cfg = f'{test_dir}/adc-noise-sig-bidir.jsonnet'
+    output:
+        sig = tier_file['sig'],
+        dig = tier_file['dig'],
+        log = tier_file['log']
+    shell: """
+    wire-cell -l {output.log} -L debug \
+              -A adcvoltfile={input.vlt} \
+              -A spfrfile={input.res} \
+              -A sig={output.sig} \
+              -A dig={output.dig} \
+              {input.cfg}
+    """
+
+rule tier_render:
+    input:
+        data_file
+    output:
+        plot_file
+    wildcard_constraints:
+        ext = "png|pdf"
+    params: render_params
+    shell: """
+    wirecell-util npz-to-img {params} -o {output} {input}
+    """
+
+rule tier_render_all:
+    input:
+        expand(rules.tier_render.output, 
+               generator=generators, domain=domains, sample=samples,
+               source=['orig'], ext=plot_exts,
+               origin=['samples'], tier=['raw','rnd']),
+        expand(rules.tier_render.output, 
+               generator=generators, domain=domains, sample=samples,
+               source=['orig'], ext=plot_exts,
+               origin=['signals'], tier=['vlt','sig','dig']),
+
+
+coal_tiers = ['dig','vlt','sig']
+
+# per generator/domain/tier rollup for signals
+rule coalesce:
+    input:
+        expand('{outdir}/data/signals/{{generator}}/{{domain}}/{sample}/{{tier}}.npz',
+               outdir=[outdir], sample=all_samples)
+    output:
+        coal_file
+    run:
+        coalesce(input, output[0])
+
+rule coalesce_all:
+    input:
+        expand(coal_file,
+               generator=generators, domain=domains, tier=coal_tiers)
+
+# # fake real diff plot
+# rule frdplot:
+#     input:
+#         images = rules.coalesce.output
+#     output:
+#         plot = f'{outdir}/{{source}}/{{domain}}/{{event}}/{{tier}}.{{ext}}'
+#     wildcard_constraints:
+#         source = "frdp"
+#     params:
+#         wc = lambda wc: wc
+#     run:
+#         plot_frdp(params.wc, input.images, output.plot)
+
+# # cross-domain diff plot
+# rule xddplot:
+#     input:
+#         a = f'{outdir}/{{source}}/a/{{event}}/{{tier}}.npz',
+#         b = f'{outdir}/{{source}}/b/{{event}}/{{tier}}.npz'
+#     output:
+#         plot = f'{outdir}/xddp/{{source}}/{{event}}/{{tier}}.{{ext}}'
+#     wildcard_constraints:
+#         source = "fake|real",
+#         ext = "png|pdf"
+#     params:
+#         wc = lambda wc: wc
+#     run:
+#         plot_xddp(params.wc, input.a, input.b, output.plot)
+
+
+pimp_tiers = coal_tiers
+
+
+# Paired image metric for comparing real/fake
+rule pimp:
+    input:
+        fake = coal_file,
+        real = real_coal_file,
+    output:
+        pimp_file
+    params:
+        wc = lambda wc: wc
+    run:
+        pimp(params.wc, input.real, input.fake, output[0])
+
+rule pimp_all:
+    input:
+        expand(pimp_file,
+               generator=translation_generators,
+               domain=['a','b'],
+               tier=pimp_tiers)
+
+rule pimplot:
+    input:
+        pimp_file
+    output:
+        f'{outdir}/plots/pimp/{{generator}}/{{domain}}/all/{{tier}}.{{ext}}'
+    params:
+        wc = lambda wc: wc
+    run:
+        plot_pimp(params.wc, input[0], output[0]);
+           
+rule pimplot_all:
+    input:
+        expand(rules.pimplot.output,
+               generator=translation_generators,
+               domain=['a','b'],
+               tier=pimp_tiers,
+               ext=plot_exts)
+
+
+dimp_tiers = coal_tiers
+
+# Dual image metric for comparing domains a and b for the same generator
+rule dimp:
+    input:
+        a = coala,
+        b = coalb
+    output:
+       dimp_file
+    run:
+        dimp(input.a, input.b, output[0])
+        
+rule dimp_all:
+    input:
+        expand(dimp_file,
+               generator=generators,
+               tier=dimp_tiers)
+
+rule dimplot:
+    input:
+        dimp_file
+    output:
+        f'{outdir}/plots/dimp/{{generator}}/ab/all/{{tier}}.{{ext}}'
+    params:
+        wc = lambda wc: wc
+    run:
+        plot_dimp(params.wc, input[0], output[0]);
+           
+rule dimplot_all:
+    input:
+        expand(rules.dimplot.output,
+               generator=generators,
+               tier=dimp_tiers,
+               ext=plot_exts)
+
+

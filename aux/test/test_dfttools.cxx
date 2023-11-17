@@ -54,7 +54,8 @@ void test_2d_impulse(IDFT::pointer dft, int nrows=16, int ncols=8)
     dump("c", c);
     assert_flat_value(c.data(), size);
 
-    FA r2 = inv(dft, c).real();
+    c = inv(dft, c);
+    FA r2 = c.real();
     dump("r2", r2);
     assert_impulse_at_index(r2.data(), size);
 }
@@ -79,7 +80,8 @@ void test_2d_eigen_transpose(IDFT::pointer dft)
     auto c = fwd(dft, rt.cast<complex_t>());
     dump("c", c);
 
-    auto r2 = inv(dft, c).real();
+    c = inv(dft, c);
+    auto r2 = c.real();
     dump("r2",r2);
 
     // transpose access
