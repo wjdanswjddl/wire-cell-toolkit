@@ -57,10 +57,11 @@ TEST_CASE("point tree no points")
     CHECK(lpcs.empty());
 
     Scope s;
-    auto pcr = p.scoped_pc(s);
+    auto const& sv = p.scoped_view(s);
+    auto const& pcr = sv.pcs();
     CHECK(pcr.size() == 0);
 
-    const auto& kd = p.scoped_kd<double>(s);
+    const auto& kd = sv.kd();
     CHECK(kd.points().size() == 0);
 }
 
@@ -127,12 +128,12 @@ TEST_CASE("point tree with points")
     Scope scope{ "3d", {"x","y","z"}};
 
     debug("request scoped PC at scope = {}", scope);
-    auto& pc3d = rval.scoped_pc(scope);
+    auto& pc3d = rval.scoped_view(scope).pcs();
     debug("got scoped PC at scope = {} at {}", scope, (void*)&pc3d);
     CHECK(pc3d.size() == 2);
 
     debug("request k-d tree at scope = {}", scope);
-    auto& kd = rval.scoped_kd(scope);
+    auto& kd = rval.scoped_view(scope).kd();
     debug("got scoped k-d tree at scope = {} at {}", scope, (void*)&kd);
 
     std::vector<double> origin = {0,0,0};
@@ -179,50 +180,53 @@ TEST_CASE("point tree remove node")
     Scope scope{ "3d", {"x","y","z"}};
     auto& rval = root->value;
 
-    // NOTE: it is the nodes that hold the Datasets so we get a collection of std::ref.
-
-    const auto& pc3d_orig = rval.scoped_pc(scope);
-    const Dataset& pc3d_one = pc3d_orig.at(0).get();
-    const Dataset& pc3d_two = pc3d_orig.at(1).get();
+    // Note, we are about to invalidate the scoped while keeping alive the nodes
+    // and since the nodes ultimately hold the dataset, these references should
+    // remain valid.  
+    const auto& pc3d_orig = rval.scoped_view(scope).pcs();
+    const Dataset& pc3d_one = pc3d_orig.at(0);
+    const Dataset& pc3d_two = pc3d_orig.at(1);
     
     SUBCASE("remove child one") {
         const size_t nleft = pc3d_two.size_major();
         auto it = root->children().begin();
-        // NOTE: receiving the dead node keeps its datasets alive.
+        // We get back as unique_ptr so node "dead" stays alive for the context.
         auto dead = root->remove(it);
         CHECK(dead);
         CHECK(root->children().size() == 1);
-        const auto& pc3d = rval.scoped_pc(scope);
+
+        const auto& pc3d = rval.scoped_view(scope).pcs();
         CHECK(pc3d.size() == 1);
         CHECK(pc3d[0].get() == pc3d_two);
 
-        const auto& kd = rval.scoped_kd(scope);
+        const auto& kd = rval.scoped_view(scope).kd();
         CHECK(kd.points().size() == nleft);
     }
     SUBCASE("remove child two") {
         const size_t nleft = pc3d_one.size_major();
         auto it = root->children().begin();
         ++it;
-        // NOTE: receiving the dead node keeps its datasets alive.
+        // We get back as unique_ptr so node "dead" stays alive for the context.
         auto dead = root->remove(it);
         CHECK(dead);
         CHECK(root->children().size() == 1);
-        const auto& pc3d = rval.scoped_pc(scope);
+
+        const auto& pc3d = rval.scoped_view(scope).pcs();
         CHECK(pc3d.size() == 1);
         CHECK(pc3d[0].get() == pc3d_one);
 
-        const auto& kd = rval.scoped_kd(scope);
+        const auto& kd = rval.scoped_view(scope).kd();
         CHECK(kd.points().size() == nleft);
     }
     SUBCASE("shared cached point cloud") {
         Scope sxy{ "3d", {"x","y"}};
         Scope syz{ "3d", {"y","z"}};
-        auto& pcxy = rval.scoped_pc(sxy);
-        auto& pcyz = rval.scoped_pc(syz);
+        auto& pcxy = rval.scoped_view(sxy).pcs();
+        auto& pcyz = rval.scoped_view(syz).pcs();
         CHECK(pcxy.size() == pcyz.size());
-
     }
 }
+
 TEST_CASE("point tree merge trees")
 {
     auto r1 = make_simple_pctree();
@@ -237,7 +241,7 @@ TEST_CASE("point tree merge trees")
 
     Scope scope{ "3d", {"x","y","z"}};
     auto& rval = root.value;
-    const auto& pc3d = rval.scoped_pc(scope);
+    const auto& pc3d = rval.scoped_view(scope).pcs();
     CHECK(pc3d.size() == 4);
 }
 
