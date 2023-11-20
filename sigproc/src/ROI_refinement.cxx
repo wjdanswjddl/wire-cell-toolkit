@@ -2565,6 +2565,25 @@ void ROI_refinement::refine_data_debug_mode(int plane, ROI_formation &roi_form, 
     }
 }
 
+namespace {
+    WireCell::Waveform::real_t feature_val(const std::vector<WireCell::Waveform::real_t> &vec, int start, int end)
+    {
+        LogDebug("feature_val: " << vec.size() << " " << start << " " << end);
+        WireCell::Waveform::real_t ret = -1e9;
+        if (vec.size() == 0) return ret;
+        if (start < 0) start = 0;
+        if (end < 0) end = 0;
+        if (start >= (int) vec.size()) start = vec.size() - 1;
+        if (end >= (int) vec.size()) end = vec.size() - 1;
+        size_t mid = (start + end) / 2;
+        if (vec[start] > ret) ret = vec[start];
+        if (vec[mid] > ret) ret = vec[mid];
+        if (vec[end] > ret) ret = vec[end];
+        LogDebug("feature_val: " << vec[start] << " " << vec[mid] << " " << vec[end] << " " << ret);
+        return ret;
+    }
+}  // namespace
+
 // mp3: 3 plane protection based on cleanup_roi_traces
 void ROI_refinement::MultiPlaneProtection(const int plane, const IAnodePlane::pointer anode,
                                           const std::map<int, int> &map_ch, ROI_formation &roi_form,
@@ -2599,15 +2618,14 @@ void ROI_refinement::MultiPlaneProtection(const int plane, const IAnodePlane::po
                     for (int tick = roi->get_start_bin() / tick_resolution; tick <= roi->get_end_bin() / tick_resolution;
                          ++tick) {
                         int content_id = tick * tick_resolution - roi->get_start_bin();
-                        if (content_id < 0) content_id = 0;
-                        if (content_id >= (int) roi->get_contents().size()) content_id = roi->get_contents().size() - 1;
+                        const auto feat_val = feature_val(roi->get_contents(), content_id, content_id+tick_resolution);
 
                         //  if (print_chids.find(chid)!=print_chids.end())
                         LogDebug(tick * tick_resolution << ", " << chid << " : {" << roi->get_chid() << ", "
                                                         << roi->get_start_bin() << ", " << roi->get_end_bin()
-                                                        << " } : " << roi->get_contents().at(content_id));
+                                                        << " } : " << feat_val);
 
-                        if (roi->get_contents().at(content_id) < mp_th2) continue;
+                        if (feat_val < mp_th2) continue;
 
                         if (map_tick_pitch_roi[iplane].find(tick) == map_tick_pitch_roi[iplane].end()) {
                             std::map<int, SignalROI *> mtmp;
@@ -2620,7 +2638,7 @@ void ROI_refinement::MultiPlaneProtection(const int plane, const IAnodePlane::po
 
                          LogDebug(iplane << ", " << tick*tick_resolution << ", " << pit_id);
 
-                        if (roi->get_contents().at(content_id) <
+                        if (feat_val <
                             //  mp_th1 * roi_form.get_rms_by_plane(iplane).at(roi->get_chid())
                             mp_th1)
                             continue;
@@ -2721,7 +2739,6 @@ void ROI_refinement::MultiPlaneProtection(const int plane, const IAnodePlane::po
 #endif
 }
 
-
 // mp2: 2 plane protection based on cleaup ROI
 void ROI_refinement::MultiPlaneROI(const int target_plane, const IAnodePlane::pointer anode,
                                    const std::map<int, int> &map_roichid_anodechid,  // ROI chid -> Anode chid
@@ -2774,15 +2791,9 @@ void ROI_refinement::MultiPlaneROI(const int target_plane, const IAnodePlane::po
                     for (int tick = roi->get_start_bin() / tick_resolution; tick <= roi->get_end_bin() / tick_resolution;
                          ++tick) {
                         int content_id = tick * tick_resolution - roi->get_start_bin();
-                        if (content_id < 0) content_id = 0;
-                        if (content_id >= (int) roi->get_contents().size()) content_id = roi->get_contents().size() - 1;
+                        const auto feat_val = feature_val(roi->get_contents(), content_id, content_id+tick_resolution);
 
-                        //  if (print_chids.find(chid)!=print_chids.end())
-                        LogDebug(tick * tick_resolution << ", " << chid << " : {" << roi->get_chid() << ", "
-                                                        << roi->get_start_bin()
-                                                        << " } : " << roi->get_contents().at(content_id));
-
-                        if (roi->get_contents().at(content_id) < mp_th2) continue;
+                        if (feat_val < mp_th2) continue;
 
                         if (map_tick_pitch_roi[iplane].find(tick) == map_tick_pitch_roi[iplane].end()) {
                             std::map<int, SignalROI *> mtmp;
@@ -2795,7 +2806,7 @@ void ROI_refinement::MultiPlaneROI(const int target_plane, const IAnodePlane::po
 
                         //  LogDebug(iplane << ", " << tick*tick_resolution << ", " << pit_id);
 
-                        if (roi->get_contents().at(content_id) <
+                        if (feat_val <
                             //  mp_th1 * roi_form.get_rms_by_plane(iplane).at(roi->get_chid())
                             mp_th1)
                             continue;
