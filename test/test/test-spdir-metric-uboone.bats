@@ -1,6 +1,9 @@
 #!/usr/bin/env bats
-
 # -*- shell-script -*-
+
+# Caution: this file is fully generated.
+# Any edits are subject to loss.
+# Instead, edit spdir-metric.tmpl.
 
 bats_load_library "wct-bats.sh"
 
@@ -30,25 +33,15 @@ function generate_depos ()
 {
     local num="$1" ; shift
     local fname="$(gen_fname depos $num)"
+    local pname="$(gen_fname params $num json)"
 
     # FIXME: this needs to be replaced with a new command that generates
     # canonical depos
     warn "Using depo-lines instead of real depo generator"
-    wcpy gen depo-lines -o "$fname" --seed $num
+    wcpy gen depo-lines --track-info $pname -o "$fname" --seed $num
 
     # avoid empty zip of 22 bytes
     file_larger_than "$fname" 23
-
-    # The eventual replacement for depo-lines should also produce a JSON file
-    # that collects all metadata describing the depos.  Here we fake it.
-    local jname="$(gen_fname params $num json)"
-    cat <<EOF > $jname
-{
-  "num": $num
-  "theta": $num,
-  "phi": $num
-}
-EOF
 }
 # FIXME
 
