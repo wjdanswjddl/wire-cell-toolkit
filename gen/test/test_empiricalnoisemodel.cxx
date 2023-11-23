@@ -71,7 +71,7 @@ int main(int argc, char* argv[])
         auto ienm = Factory::lookup<IConfigurable>("EmpiricalNoiseModel");
         auto cfg = ienm->default_configuration();
         cfg["spectra_file"] = spectra_file;
-        cfg["nsamples"] = nsamples;
+        cfg["nsamples"] = (unsigned int)nsamples;
         cfg["period"] = 0.5*units::us;
         cfg["wire_length_scale"] = units::cm,
         cfg["anode"] = "AnodePlane:0";
