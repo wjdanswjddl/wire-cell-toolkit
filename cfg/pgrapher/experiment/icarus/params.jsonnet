@@ -77,7 +77,8 @@ base {
 
     adc: super.adc {
         // fix baseline at 2048 (induction), 400 (collection)
-       baselines: [1650.0*wc.millivolt, 1650.0*wc.millivolt, 322.3*wc.millivolt],
+        baselines: [1650.0*wc.millivolt, 1650.0*wc.millivolt, 322.3*wc.millivolt],
+
         // From ICARUS paper: https://iopscience.iop.org/article/10.1088/1748-0221/13/12/P12007/pdf
         //check (values taken from the FE calibration shown in pg. 7 of the paper)
         fullscale: [0.8*wc.millivolt, 3.3*wc.volt],
@@ -127,7 +128,7 @@ base {
     files: {
         wires: "icarus-wires-dualanode-v5.json.bz2",
 
-        fields: ["garfield-icarus-fnal-rev1.json.bz2"],
+        fields: ["garfield-icarus-fnal-rev2.json.bz2"],
 
        // noise: ["icarus_noise_model_int_TPCEE.json.bz2","icarus_noise_model_int_TPCEW.json.bz2","icarus_noise_model_int_TPCWE.json.bz2","icarus_noise_model_int_TPCWW.json.bz2"],
        // coherent_noise: ["icarus_noise_model_coh_TPCEE.json.bz2","icarus_noise_model_coh_TPCEW.json.bz2","icarus_noise_model_coh_TPCWE.json.bz2","icarus_noise_model_coh_TPCWW.json.bz2"],	

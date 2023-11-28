@@ -8,7 +8,6 @@ local wc = import 'wirecell.jsonnet';
 
 local io = import 'pgrapher/common/fileio.jsonnet';
 local tools_maker = import 'pgrapher/experiment/icarus/icarus_tools.jsonnet';
-// local params = import 'pgrapher/experiment/icarus/simparams.jsonnet';
 local base = import 'pgrapher/experiment/icarus/simparams.jsonnet';
 
 // load the electronics response parameters
@@ -98,6 +97,7 @@ local wcls_input = {
             	scale: -1, //scale is -1 to correct a sign error in the SimDepoSource converter.
             	art_tag: "ionization", //name of upstream art producer of depos "label:instance:processName"
             	assn_art_tag: "",
+              id_is_track: false,    // Use this for "id-is-index" in the output
         	},
     	}, nin=0, nout=1),
 };
@@ -162,41 +162,20 @@ local wcls_output = {
   // separation.  Both are used in downstream WC code.
   sp_signals: wcls.output.signals(name='spsignals', tags=['gauss', 'wiener']),
 
+  // save "threshold" from normal decon for each channel noise
+  // used in imaging
+  sp_thresholds: wcls.output.thresholds(name='spthresholds', tags=['threshold']),
 };
 
 //local deposio = io.numpy.depos(output);
-//local drifter = sim.drifter;
-local localeLiftime = [std.extVar('lifetime') * wc.us,std.extVar('lifetime') * wc.us,std.extVar('lifetime') * wc.us,std.extVar('lifetime') * wc.us,std.extVar('lifetime') * wc.us,std.extVar('lifetime') * wc.us,std.extVar('lifetime') * wc.us,std.extVar('lifetime') * wc.us];
-local drifters = [{
-        local xregions = wc.unique_list(std.flattenArrays([v.faces for v in params.det.volumes])),
-
-        type: "Drifter",
-	name: "drifter%d" %n,
-        data: params.lar {
-            rng: wc.tn(tools.random),
-            xregions: xregions,
-            time_offset: params.sim.depo_toffset,
-
-            drift_speed: params.lar.drift_speed,
-            fluctuate: params.sim.fluctuate,
-
-            DL: params.lar.DL,
-            DT: params.lar.DT,
-            lifetime: localeLiftime[n],
-
-        },
-    } 
-	for n in std.range(0,7)];
-
-local setdrifter = [g.pnode({
+local drifter = sim.drifter;
+local setdrifter = g.pnode({
             type: 'DepoSetDrifter',
-	    name: 'setdrifter%d' %n,
             data: {
-                drifter: wc.tn(drifters[n])
+                drifter: "Drifter"
             }
         }, nin=1, nout=1,
-        uses=[drifters[n]])
-	for n in std.range(0,7)];
+        uses=[drifter]);
 local bagger = sim.make_bagger();
 
 // signal plus noise pipelines
@@ -222,39 +201,69 @@ local sp = sp_maker(params, tools);
 local sp_pipes = [sp.make_sigproc(a) for a in tools.anodes];
 
 local rng = tools.random;
-local wcls_simchannel_sink = [ g.pnode({
-  type: 'wclsDepoSetSimChannelSink',
-  name: 'postdrift%d' %n,
-  data: {
-    artlabel: 'simpleSC%d' %n,  // where to save in art::Event
-    anode: wc.tn(tools.anodes[n]),//[wc.tn(anode) for anode in tools.anodes],
-    rng: wc.tn(rng),
-    tick: params.daq.tick,
-    start_time: -0.34 * wc.ms, // TriggerOffsetTPC from detectorclocks_icarus.fcl
-    readout_time: params.daq.readout_time,
-    nsigma: 3.0,
-    drift_speed: params.lar.drift_speed,
-    u_to_rp: 100 * wc.mm,
-    v_to_rp: 100 * wc.mm,
-    y_to_rp: 100 * wc.mm,
+local wcls_simchannel_sink_old = 
+  g.pnode({
+    type: 'wclsDepoSetSimChannelSink',
+    name: 'postdriftold',
+    data: {
+      artlabel: 'simpleSCOld',  // where to save in art::Event
+      anodes_tn: [wc.tn(anode) for anode in tools.anodes],
+      rng: wc.tn(rng),
+      tick: params.daq.tick,
+      start_time: -0.34 * wc.ms, // TriggerOffsetTPC from detectorclocks_icarus.fcl
+      readout_time: params.daq.readout_time,
+      nsigma: 3.0,
+      drift_speed: params.lar.drift_speed,
+      u_to_rp: 100 * wc.mm,
+      v_to_rp: 100 * wc.mm,
+      y_to_rp: 100 * wc.mm,
 
-    // GP: The shaping time of the electronics response (1.3us) shifts the peak
-    //     of the field response time. Eyeballing simulation times, it does this
-    //     by a bit less than the 1.3us (1us).
-    //
-    //     N.B. for future: there is likely an additional offset on the two induction
-    //     planes due to where the deconvolution precisely defines where the "peak"
-    //     of the pulse is. One may want to refine these parameters to account for that.
-    //     This perturbation shouldn't be more than a tick or two.
-    u_time_offset: std.extVar('time_offset_u') * wc.us,
-    v_time_offset: std.extVar('time_offset_v') * wc.us,
-    y_time_offset: std.extVar('time_offset_y') * wc.us,
+      // GP: The shaping time of the electronics response (1.3us) shifts the peak
+      //     of the field response time. Eyeballing simulation times, it does this
+      //     by a bit less than the 1.3us (1us).
+      //
+      //     N.B. for future: there is likely an additional offset on the two induction
+      //     planes due to where the deconvolution precisely defines where the "peak"
+      //     of the pulse is. One may want to refine these parameters to account for that.
+      //     This perturbation shouldn't be more than a tick or two.
+      u_time_offset: std.extVar('time_offset_u') * wc.us,
+      v_time_offset: std.extVar('time_offset_v') * wc.us,
+      y_time_offset: std.extVar('time_offset_y') * wc.us,
 
-    g4_ref_time: -1500 * wc.us, // G4RefTime from detectorclocks_icarus.fcl
-    use_energy: true,
-  },
-}, nin=1, nout=1, uses=tools.anodes)
-for n in std.range(0,7)];
+      g4_ref_time: -1500 * wc.us, // G4RefTime from detectorclocks_icarus.fcl
+      use_energy: true,
+    },
+  },nin=1, nout=1, uses=tools.anodes);
+
+local wcls_simchannel_sink =
+  g.pnode({
+    type: 'wclsDepoFluxWriter',
+    name: 'postdrift',
+    data: {
+      anodes: [wc.tn(anode) for anode in tools.anodes],
+      field_response: wc.tn(tools.field),
+
+      // time binning
+      tick: params.daq.tick,
+      window_start: -340 * wc.us, // TriggerOffsetTPC from detectorclocks_icarus.fcl
+      window_duration: params.daq.readout_time,
+
+      nsigma: 3.0,
+
+      reference_time: -1500 * wc.us - self.window_start, // G4RefTime from detectorclocks_icarus.fcl less window start as per Brett Viren
+
+      smear_long: 0.0,
+      smear_tran: 0.0,
+
+      time_offsets: [std.extVar('time_offset_u') * wc.us, std.extVar('time_offset_v') * wc.us, std.extVar('time_offset_y') * wc.us],
+
+      // input from art::Event
+      sed_label: 'largeant:TPCActive',
+
+      // output to art::Event
+      simchan_label: 'simpleSC',
+    },
+  },   nin=1, nout=1, uses=tools.anodes+[tools.field]);
 
 local nicks = ["incoTPCEE","incoTPCEW","incoTPCWE","incoTPCWW", "coheTPCEE","coheTPCEW","coheTPCWE","coheTPCWW"];
 local scale_int = std.extVar('int_noise_scale');
@@ -320,24 +329,10 @@ local frame_summers = [
         },
     }, nin=2, nout=1) for n in std.range(0, 3)];
 
-local deposetfilter = [ g.pnode({
-            type: 'DepoSetFilter',
-   	    name: 'deposetfilter%d' %n,
-            data: {
-                anode: wc.tn(tools.anodes[n])
-            }
-        }, nin=1, nout=1,
-        uses=tools.anodes)
-	for n in std.range(0,7)];
-
 local actpipes = [g.pipeline([noises[n], coh_noises[n], digitizers[n], /*retaggers[n],*/ wcls_output.sim_digits[n]], name="noise-digitizer%d" %n) for n in std.range(0,3)];
 local util = import 'pgrapher/experiment/icarus/funcs.jsonnet';
 local outtags = ['orig%d' % n for n in std.range(0, 3)];
 local pipe_reducer = util.fansummer('DepoSetFanout', analog_pipes, frame_summers, actpipes, 'FrameFanin', 'fansummer', outtags);
-
-local driftpipes = [g.pipeline([deposetfilter[n],setdrifter[n], wcls_simchannel_sink[n]], name="depo-set-drifter%d" %n) for n in std.range(0,7)];
-
-local pipe_drift = util.fandrifter('DepoSetFanout',driftpipes,analog_pipes, frame_summers, actpipes, 'FrameFanin', 'fandrifter', outtags);
 
 // local retagger = g.pnode({
 //   type: 'Retagger',
@@ -359,13 +354,10 @@ local pipe_drift = util.fandrifter('DepoSetFanout',driftpipes,analog_pipes, fram
 //local frameio = io.numpy.frames(output);
 local sink = sim.frame_sink;
 
-// local graph = g.pipeline([wcls_input.depos, drifter,  wcls_simchannel_sink, bagger, pipe_reducer, retagger, wcls_output.sim_digits, sink]);
+// local graph = g.pipeline([wcls_input.depos, drifter,  wcls_simchannel_sink.simchannels, bagger, pipe_reducer, retagger, wcls_output.sim_digits, sink]);
 //local graph = g.pipeline([wcls_input.depos, drifter,  wcls_simchannel_sink, bagger, pipe_reducer, sink]);
+local graph = g.pipeline([wcls_input.deposet, setdrifter, wcls_simchannel_sink_old, wcls_simchannel_sink, pipe_reducer, sink]);
 
-
-
-local graph = g.pipeline([wcls_input.deposet,pipe_drift, sink]);
-//local graph = g.pipeline([depos,pipe_drift, sink]);
 local app = {
   type: 'Pgrapher',
   data: {
