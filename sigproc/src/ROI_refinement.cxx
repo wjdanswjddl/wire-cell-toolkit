@@ -2585,12 +2585,13 @@ namespace {
 }  // namespace
 
 // mp3: 3 plane protection based on cleanup_roi_traces
-void ROI_refinement::MultiPlaneProtection(const int plane, const IAnodePlane::pointer anode,
-                                          const std::map<int, int> &map_ch, ROI_formation &roi_form,
-                                          const double mp_th1, const double mp_th2, const int faceid, const int tick_resolution,
-                                          const int wire_resolution, const int nbounds_layers)
+void ROI_refinement::MP3ROI(const int plane, const IAnodePlane::pointer anode, const IAnodeFace::pointer face,
+                            const std::map<int, int>& map_ch, ROI_formation& roi_form,
+                            const double mp_th1, const double mp_th2,
+                            const int tick_resolution, const int wire_resolution,
+                            const int nbounds_layers)
 {
-    //log->info("ROI_refinement::MultiPlaneProtection:");
+    //log->info("ROI_refinement::MP3ROI:");
     LogDebug("mp_th1: " << mp_th1 << ", mp_th2: " << mp_th2);
     std::set<int> print_chids = {1441, 875};
 
@@ -2610,7 +2611,7 @@ void ROI_refinement::MultiPlaneProtection(const int plane, const IAnodePlane::po
                 auto ch = anode->channel(chid);
                 auto wires = ch->wires();
                 for (auto wire : wires) {
-                    if (faceid != wire->planeid().face()) continue;
+                    if (face->which() != wire->planeid().face()) continue;
                     auto pit_id = wire->index();
                     coord.grid = pit_id;
                     coord.layer = iplane + nbounds_layers;
@@ -2662,7 +2663,6 @@ void ROI_refinement::MultiPlaneProtection(const int plane, const IAnodePlane::po
                 << " map_tick_pitch_roi: " << map_tick_pitch_roi[iplane].size());
     }
 
-    auto face = anode->face(faceid);
     WireCell::RayGrid::layer_index_t layer = plane + nbounds_layers;
     for (auto tc1 : map_tick_coord[ref_planes[0]]) {
         for (auto tc2 : map_tick_coord[ref_planes[1]]) {
@@ -2740,12 +2740,13 @@ void ROI_refinement::MultiPlaneProtection(const int plane, const IAnodePlane::po
 }
 
 // mp2: 2 plane protection based on cleaup ROI
-void ROI_refinement::MultiPlaneROI(const int target_plane, const IAnodePlane::pointer anode,
-                                   const std::map<int, int> &map_roichid_anodechid,  // ROI chid -> Anode chid
-                                   ROI_formation &roi_form, const double mp_th1, const double mp_th2, const int faceid,
-                                   const int tick_resolution, const int wire_resolution, const int nbounds_layers)
+void ROI_refinement::MP2ROI(const int target_plane, const IAnodePlane::pointer anode, const IAnodeFace::pointer face,
+                            const std::map<int, int>& map_roichid_anodechid, ROI_formation& roi_form,
+                            const double mp_th1, const double mp_th2,
+                            const int tick_resolution, const int wire_resolution,
+                            const int nbounds_layers)
 {
-    //log->info("ROI_refinement::MultiPlaneROI:");
+    //log->info("ROI_refinement::MP2ROI:");
     LogDebug("mp_th1: " << mp_th1 << ", mp_th2: " << mp_th2);
     std::set<int> print_chids = {1441, 875};
 
@@ -2762,7 +2763,7 @@ void ROI_refinement::MultiPlaneROI(const int target_plane, const IAnodePlane::po
         auto ch = anode->channel(chident);
         auto wires = ch->wires();
         for (auto wire : wires) {
-            if (faceid != wire->planeid().face()) continue;
+            if (face->which() != wire->planeid().face()) continue;
             auto wireid = wire->index();
             map_wireid_roichid[iplane][wireid] = roichid;
         }
@@ -2784,7 +2785,7 @@ void ROI_refinement::MultiPlaneROI(const int target_plane, const IAnodePlane::po
                 auto ch = anode->channel(chid);
                 auto wires = ch->wires();
                 for (auto wire : wires) {
-                    if (faceid != wire->planeid().face()) continue;
+                    if (face->which() != wire->planeid().face()) continue;
                     auto pit_id = wire->index();
                     coord.grid = pit_id;
                     coord.layer = iplane + nbounds_layers;
@@ -2830,7 +2831,6 @@ void ROI_refinement::MultiPlaneROI(const int target_plane, const IAnodePlane::po
                 << " map_tick_pitch_roi: " << map_tick_pitch_roi[iplane].size());
     }
 
-    auto face = anode->face(faceid);
     WireCell::RayGrid::layer_index_t layer = target_plane + nbounds_layers;
     for (auto tc1 : map_tick_coord[ref_planes[0]]) {
         for (auto tc2 : map_tick_coord[ref_planes[1]]) {
