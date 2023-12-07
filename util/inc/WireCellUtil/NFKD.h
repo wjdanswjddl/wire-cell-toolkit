@@ -119,6 +119,19 @@ namespace WireCell::NFKD {
         points_t& points() { return m_points; }
         const points_t& points() const { return m_points; }
 
+        size_t major_index(iterator it) const {
+            return m_points.major_index(it);
+        }
+        size_t major_index(const_iterator it) const {
+            return m_points.major_index(it);
+        }
+        size_t minor_index(iterator it) const {
+            return m_points.minor_index(it);
+        }
+        size_t minor_index(const_iterator it) const {
+            return m_points.minor_index(it);
+        }
+
         // Return the number calls made so far to resolve a point
         // coordinate.  Mostly for debugging/perfing.
         size_t point_calls() const {

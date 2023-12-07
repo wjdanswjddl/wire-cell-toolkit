@@ -41,7 +41,6 @@ void SigProc::PerChannelResponse::configure(const WireCell::Configuration& cfg)
     }
 
     for (auto jchresp : jchannels) {
-        const int ch = jchresp[0].asInt();
         auto jresp = jchresp[1];
         const int nsamp = jresp.size();
         if (nsamp == 0) {
@@ -51,7 +50,16 @@ void SigProc::PerChannelResponse::configure(const WireCell::Configuration& cfg)
         for (int ind = 0; ind < nsamp; ++ind) {
             resp[ind] = jresp[ind].asFloat();
         }
-        m_cr[ch] = resp;
+
+        if (jchresp[0].isArray()) {
+          for (auto& ch: jchresp[0])
+            m_cr[ch.asInt()] = resp;
+        }
+        else {
+          const int ch = jchresp[0].asInt();
+          m_cr[ch] = resp;
+        }
+
         if (!m_bins.nbins()) {  // first time
             m_bins = Binning(nsamp, t0, t0 + nsamp * tick);
         }

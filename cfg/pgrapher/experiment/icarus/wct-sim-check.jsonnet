@@ -7,7 +7,7 @@ local f = import 'pgrapher/common/funcs.jsonnet';
 local wc = import 'wirecell.jsonnet';
 
 local io = import 'pgrapher/common/fileio.jsonnet';
-local tools_maker = import 'pgrapher/common/tools.jsonnet';
+local tools_maker = import 'pgrapher/experiment/icarus/icarus_tools.jsonnet';
 local params = import 'pgrapher/experiment/icarus/simparams.jsonnet';
 
 local tools = tools_maker(params);
@@ -49,7 +49,7 @@ local chndb = [{
   type: 'OmniChannelNoiseDB',
   name: 'ocndbperfect%d' % n,
   data: perfect(params, tools.anodes[n], tools.field, n){dft:wc.tn(tools.dft)},
-  uses: [tools.anodes[n], tools.field, tools.dft],
+  uses: [tools.anodes[n], tools.field, tools.dft],  // pnode extension
 } for n in anode_iota];
 
 local nf_maker = import 'pgrapher/experiment/icarus/nf.jsonnet';
