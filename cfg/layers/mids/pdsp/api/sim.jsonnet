@@ -138,4 +138,33 @@ function(services, params, options={}) {
             }
         }, nin=1, nout=1, uses=[anode]),
 
+    // Construct a "fast" sim+sp transformation of depos to signal frames
+    splat :: function(anode)
+        pg.pnode({
+            type: 'DuctorFramer',
+            name: idents(anode),
+            data: {
+                ductor: 'DepoSplat:' + idents(anode),
+                fanin: 'FrameFanin:' + idents(anode)
+            },
+        }, nin=1, nout=1, uses=[ {
+            type: 'FrameFanin',
+            name: idents(anode),
+            data: {
+                multiplicity: 0, // "dynamic"
+            }
+        }, {
+            type: 'DepoSplat',
+            name: idents(anode),
+            data: {
+                anode: wc.tn(anode),
+                nsigma: 3.0,
+                start_time: params.ductor.start_time,
+                readout_time: params.ductor.readout_time,
+                tick: params.ductor.binning.tick,
+                continuous: true, // see DepoSplat comments
+                fixed: false,
+                drift_speed: params.lar.drift_speed,
+            } }]),
+    
 }
