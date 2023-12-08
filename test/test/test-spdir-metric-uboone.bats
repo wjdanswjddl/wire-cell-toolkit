@@ -20,14 +20,17 @@ function gen_fname () {
 # FIXME
 # 
 # Eventually we will have N canonical directions.  Each direction is specified
-# by two angles.  We flatten that 2D space to select the directions in the
-# original MB SP-1 paper.  Each direction will be refered to by its bin number.
+# by two angles (theta_y, theta_xz).  We flatten that 2D space to select the
+# directions in the original MB SP-1 paper.  Each direction will be refered to
+# by its index in the sequence that matches the x axis bins.
 #
 # We currently lack a command to generate the depos for a given track direction
-# so for now fake it with "wirecell-gen depo-lines".  Instead of giving
-# meaningful angles to this command we give a pair of numbers to use for seeds
-# and the numbers are simply the direction bin number.
-directions=$(seq 10)
+# so for now fake it with "wirecell-gen depo-lines".  Instead of giving indices
+# into a sequence of meaningful angles simply pass the index as the random seed.
+#
+# Eventually we have about a dozen bins but for now, keep it short to speed
+# things up.
+directions=$(seq 3)
 
 function generate_depos ()
 {
@@ -54,18 +57,37 @@ function generate_depos ()
     done
 }
 
-@test "spdir metric uboone sim+nf+sp" {
+@test "spdir metric uboone sim+nf+sp one job graph viz" {
+    cd_tmp file
+    local cfg_file="$(relative_path spdir-metric.jsonnet)"
+    local num="${directions[0]}"
+    local depos="$(gen_fname depos "$num")"
+    # save out the intermediate drifted depos for input to metric 
+    local drifts="$(gen_fname drifts "$num")"
+    local frames="$(gen_fname frames "$num")"
+    local pdf="$(gen_fname graph "$num" pdf)"
+    local log="$(gen_fname wct "$num" log)"
+    wirecell-pgraph dotify \
+                    -A input="$depos" \
+                    -A output="{drift:\"$drifts\",sp:\"$frames\"}" \
+                    -A detector=$DETECTOR \
+                    "$cfg_file" "$pdf"
+}
+
+@test "spdir metric uboone sim+nf+sp run job" {
     cd_tmp file
     local cfg_file="$(relative_path spdir-metric.jsonnet)"
     for num in ${directions[*]}
     do
         depos="$(gen_fname depos "$num")"
+        # save out the intermediate drifted depos for input to metric 
+        drifts="$(gen_fname drifts "$num")"
         frames="$(gen_fname frames "$num")"
         log="$(gen_fname wct "$num" log)"
         wire-cell -c "$cfg_file" \
                   -l "$log" -L debug \
                   -A input="$depos" \
-                  -A output="$frames" \
+                  --tla-code output="{drift:\"$drifts\",sp:\"$frames\"}" \
                   -A detector=$DETECTOR
     done
 }
