@@ -8,6 +8,9 @@
 
 local wc = import "wirecell.jsonnet";
 
+local detectors = import "detectors.jsonnet";
+local mydet = detectors.pdsp;
+
 {
     // Define the LAr properties.  In principle, this is NOT subject
     // to variance though in principle it could be (eg, top/bottom of
@@ -54,7 +57,8 @@ local wc = import "wirecell.jsonnet";
 
         // The exhaustive list of the location of every single wire
         // (or strip) segment.
-        wires_file: "protodune-wires-larsoft-v4.json.bz2",
+        // wires_file: "protodune-wires-larsoft-v4.json.bz2",
+        wires_file: mydet.wires,
 
         // Comments on how to chose the "anode" plane location: The
         // "anode" cut off plane, here measured from APA centerline,
@@ -162,7 +166,8 @@ local wc = import "wirecell.jsonnet";
     // The ductor transforms drifted depos to currents
     ductor: {
 
-        field_file: "dune-garfield-1d565.json.bz2",
+        # field_file: "dune-garfield-1d565.json.bz2",
+        field_file: mydet.fields,
 
         // The distance from the anode centerline to where the field
         // response calculation begins drifting.  Take care that field
@@ -201,7 +206,9 @@ local wc = import "wirecell.jsonnet";
     // Simulating noise
     noise : {
         model: {
-            spectra_file: "protodune-noise-spectra-v1.json.bz2",
+            #spectra_file: "protodune-noise-spectra-v1.json.bz2",
+            spectra_file: mydet.noise,
+
             // These are frequency space binning which are not necessarily
             // same as some time binning - but here they are.
             period: $.binning.tick,     // 1/frequency
@@ -274,7 +281,8 @@ local wc = import "wirecell.jsonnet";
     // Imaging paramter pack
     img : {
         // For now we use MicroBooNE's
-        "charge_error_file": "microboone-charge-error.json.bz2",
+        #"charge_error_file": "microboone-charge-error.json.bz2",
+        "charge_error_file": mydet.qerr,
 
         // Number of ticks to collect into one time slice span
         span: 4,
