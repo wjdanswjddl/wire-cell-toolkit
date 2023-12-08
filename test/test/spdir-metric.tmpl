@@ -64,12 +64,13 @@ function generate_depos ()
     local depos="$(gen_fname depos "$num")"
     # save out the intermediate drifted depos for input to metric 
     local drifts="$(gen_fname drifts "$num")"
+    local splats="$(gen_fname splats "$num")"
     local frames="$(gen_fname frames "$num")"
     local pdf="$(gen_fname graph "$num" pdf)"
     local log="$(gen_fname wct "$num" log)"
     wirecell-pgraph dotify \
                     -A input="$depos" \
-                    -A output="{drift:\"$drifts\",sp:\"$frames\"}" \
+                    -A output="{drift:\"$drifts\",splat:\"$splats\",sp:\"$frames\"}" \
                     -A detector=$DETECTOR \
                     "$cfg_file" "$pdf"
 }
@@ -79,15 +80,16 @@ function generate_depos ()
     local cfg_file="$(relative_path spdir-metric.jsonnet)"
     for num in ${directions[*]}
     do
-        depos="$(gen_fname depos "$num")"
+        local depos="$(gen_fname depos "$num")"
         # save out the intermediate drifted depos for input to metric 
-        drifts="$(gen_fname drifts "$num")"
-        frames="$(gen_fname frames "$num")"
-        log="$(gen_fname wct "$num" log)"
+        local drifts="$(gen_fname drifts "$num")"
+        local splats="$(gen_fname splats "$num")"
+        local frames="$(gen_fname frames "$num")"
+        local log="$(gen_fname wct "$num" log)"
         wire-cell -c "$cfg_file" \
                   -l "$log" -L debug \
                   -A input="$depos" \
-                  --tla-code output="{drift:\"$drifts\",sp:\"$frames\"}" \
+                  --tla-code output="{drift:\"$drifts\",splat:\"$splats\",sp:\"$frames\"}" \
                   -A detector=$DETECTOR
     done
 }
