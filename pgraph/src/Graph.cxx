@@ -39,8 +39,9 @@ bool Graph::connect(Node* tail, Node* head, size_t tpind, size_t hpind)
     m_edges_forward[tail].push_back(head);
     m_edges_backward[head].push_back(tail);
 
-    SPDLOG_LOGGER_TRACE(l, "connect {}:({}:{}) -> {}({}:{})", tail->ident(), demangle(tport.signature()), tpind,
-                        head->ident(), demangle(hport.signature()), hpind);
+    // was at in TRACE macro, maybe deserves a bit more prominence 
+    l->debug("connect {}:({}:{}) -> {}({}:{})", tail->ident(), demangle(tport.signature()), tpind,
+             head->ident(), demangle(hport.signature()), hpind);
 
     return true;
 }
@@ -154,12 +155,17 @@ bool Graph::call_node(Node* node)
 
 bool Graph::connected()
 {
+    bool okay = true;
     for (auto n : m_nodes) {
-        if (!n->connected()) {
-            return false;
+        auto bad = n->disconnected_ports();
+        if (bad.empty()) continue;
+        okay = false;
+        l->warn("disconnected node: {}", n->ident());
+        for (const auto& p : bad) {
+            l->warn("\tport: {}", p.ident());
         }
     }
-    return true;
+    return okay;
 }
 
 void Graph::print_timers() const
