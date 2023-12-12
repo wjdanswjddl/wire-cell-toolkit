@@ -41,7 +41,7 @@ function generate_depos ()
     # FIXME: this needs to be replaced with a new command that generates
     # canonical depos
     warn "Using depo-lines instead of real depo generator"
-    wcpy gen depo-lines --track-info $pname -o "$fname" --seed $num
+    wcpy gen depo-lines -t 10 --track-info $pname -o "$fname" --seed $num
 
     # avoid empty zip of 22 bytes
     file_larger_than "$fname" 23
@@ -65,12 +65,12 @@ function generate_depos ()
     # save out the intermediate drifted depos for input to metric 
     local drifts="$(gen_fname drifts "$num")"
     local splats="$(gen_fname splats "$num")"
-    local frames="$(gen_fname frames "$num")"
+    local signals="$(gen_fname signals "$num")"
     local pdf="$(gen_fname graph "$num" pdf)"
     local log="$(gen_fname wct "$num" log)"
     wirecell-pgraph dotify \
                     -A input="$depos" \
-                    -A output="{drift:\"$drifts\",splat:\"$splats\",sp:\"$frames\"}" \
+                    -A output="{drift:\"$drifts\",splat:\"$splats\",sp:\"$signals\"}" \
                     -A detector=$DETECTOR \
                     "$cfg_file" "$pdf"
 }
@@ -84,12 +84,12 @@ function generate_depos ()
         # save out the intermediate drifted depos for input to metric 
         local drifts="$(gen_fname drifts "$num")"
         local splats="$(gen_fname splats "$num")"
-        local frames="$(gen_fname frames "$num")"
+        local signals="$(gen_fname signals "$num")"
         local log="$(gen_fname wct "$num" log)"
         wire-cell -c "$cfg_file" \
                   -l "$log" -L debug \
                   -A input="$depos" \
-                  --tla-code output="{drift:\"$drifts\",splat:\"$splats\",sp:\"$frames\"}" \
+                  --tla-code output="{drift:\"$drifts\",splat:\"$splats\",sp:\"$signals\"}" \
                   -A detector=$DETECTOR
     done
 }

@@ -25,12 +25,24 @@ using namespace WireCell;
 using namespace WireCell::Aux;
 using WireCell::Range::irange;
 
+
+Gen::DepoFluxSplat::DepoFluxSplat()
+    : Aux::Logger("DepoFluxSplat", "gen")
+{
+}
+
+
+Gen::DepoFluxSplat::~DepoFluxSplat()
+{
+}
+
+
 WireCell::Configuration Gen::DepoFluxSplat::default_configuration() const
 {
     Configuration cfg;
 
     // Accept array of strings or single string
-    cfg["anodes"] = Json::arrayValue;
+    cfg["anode"] = Json::arrayValue;
     cfg["field_response"] = Json::stringValue;
 
     // time binning
@@ -54,40 +66,31 @@ WireCell::Configuration Gen::DepoFluxSplat::default_configuration() const
 
 void Gen::DepoFluxSplat::configure(const WireCell::Configuration& cfg)
 {
-    // Response plane
+    // For response plane info
     auto frname = cfg["field_response"].asString();
     auto ifr = Factory::find_tn<IFieldResponse>(frname);
     const auto& fr = ifr->field_response();
     m_speed = fr.speed;
     m_origin = fr.origin;
 
-    // Anode planes.
-    Configuration janode_names = cfg["anodes"];
-    if (janode_names.isString()) {
-        janode_names = Json::arrayValue;
-        janode_names.append(cfg["anodes"]);
-    }
-    m_anodes.clear();
-    for (const auto& jname : janode_names) {
-        auto anode = Factory::find_tn<IAnodePlane>(jname.asString());
-        m_anodes.push_back(anode);
-    }
-    if (m_anodes.empty()) {
-        THROW(ValueError() << errmsg{"DepoFluxSplat: requires one or more anode planes"});
-    }
+    // Anode plane for down-selecting depos.
+    std::string anode_tn = cfg["anode"].asString();
+    m_anode = Factory::find_tn<IAnodePlane>(anode_tn);
 
-    // time-binning
+    // Acceptance window 
     const double wtick = get(cfg, "tick", 0.5 * units::us);
     const double wstart = cfg["window_start"].asDouble();
     const double wduration = cfg["window_duration"].asDouble();
     const int nwbins = wduration / wtick;
     m_tbins = Binning(nwbins, wstart, wstart + nwbins * wtick);
 
+    // Frame form.
     m_sparse = get(cfg, "sparse", m_sparse);
 
     // Gaussian cut-off.
     m_nsigma = get(cfg, "nsigma", m_nsigma);
 
+    // Additional smearing.
     m_smear_long = get(cfg, "smear_long", m_smear_long);
     m_smear_tran.clear();
     auto jst = cfg["smear_tran"];
@@ -122,11 +125,9 @@ void Gen::DepoFluxSplat::configure(const WireCell::Configuration& cfg)
 
 IAnodeFace::pointer Gen::DepoFluxSplat::find_face(const IDepo::pointer& depo)
 {
-    for (auto anode : m_anodes) {
-        for (auto face : anode->faces()) {
-            auto bb = face->sensitive();
-            if (bb.inside(depo->pos())) { return face; }
-        }
+    for (auto face : m_anode->faces()) {
+        auto bb = face->sensitive();
+        if (bb.inside(depo->pos())) { return face; }
     }
     return nullptr;
 }
@@ -155,6 +156,7 @@ struct Accumulator {
     // Accumulate one depo's patch
     virtual void add(int chid, int tbin, const std::vector<float>& charge) = 0;
     virtual IFrame::pointer frame(int ident, double time, double tick) = 0;
+    virtual size_t ntraces() const = 0;
 };
 
 
@@ -169,6 +171,7 @@ struct SparseAccumulator : public Accumulator {
     virtual IFrame::pointer frame(int ident, double time, double tick) {
         return std::make_shared<SimpleFrame>(ident, time, itraces, tick);
     }
+    virtual size_t ntraces() const { return itraces.size(); }
 };
 
 static intrange_t make_intrange(int beg, size_t siz)
@@ -214,6 +217,7 @@ struct DenseAccumulator : public Accumulator {
         }
         return std::make_shared<SimpleFrame>(ident, time, itraces, tick); 
     }        
+    virtual size_t ntraces() const { return traces.size(); }
 };
 
 
@@ -222,6 +226,7 @@ bool Gen::DepoFluxSplat::operator()(const input_pointer& in, output_pointer& out
 {
     out = nullptr;
     if (!in) {
+        log->debug("EOS at {}", m_count);
         ++m_count;
         return true;            // EOS
     }
@@ -234,11 +239,14 @@ bool Gen::DepoFluxSplat::operator()(const input_pointer& in, output_pointer& out
         accum = std::make_unique<DenseAccumulator>();
     }
 
+    size_t ndepos_seen=0;
     for (const auto& depo : *in->depos()) {
         if (!depo) continue;
 
         auto face = find_face(depo);
         if (!face) continue;
+
+        ++ndepos_seen;
 
         // Depo is at response plane.  Find its time at the collection
         // plane assuming it were to continue along a uniform field.
@@ -336,7 +344,9 @@ bool Gen::DepoFluxSplat::operator()(const input_pointer& in, output_pointer& out
         }     // plane
     }         // depos
 
-    out = accum->frame(m_count, m_tbins.min() - m_reftime, m_tbins.binsize());
+    out = accum->frame(in->ident(), m_tbins.min() - m_reftime, m_tbins.binsize());
+    log->debug("splat {} ndepos={}/{} ntraces={}", 
+               out->ident(), ndepos_seen, in->depos()->size(), accum->ntraces());
     ++m_count;
     return true;
 }

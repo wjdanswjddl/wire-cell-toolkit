@@ -138,14 +138,25 @@ function(services, params, options={}) {
             }
         }, nin=1, nout=1, uses=[anode]),
 
-    // Construct a "fast" sim+sp transformation of depos to signal frames
+    // The approximated sim+sigproc
     splat :: function(anode)
+        pg.pnode({
+            type: 'DepoFluxSplat',
+            name: idents(anode),
+            data: params.splat {
+                anode: wc.tn(anode),
+                field_response: wc.tn(fr),
+            },
+        }, nin=1, nout=1, uses=[anode, fr]),
+
+    // Construct old single-depo, not generic "splat"
+    singledeposplat :: function(anode)
         pg.pnode({
             type: 'DuctorFramer',
             name: idents(anode),
             data: {
                 ductor: 'DepoSplat:' + idents(anode),
-                fanin: 'FrameFanin:' + idents(anode)
+                fanin: 'FrameFanin:' + idents(anode),
             },
         }, nin=1, nout=1, uses=[ {
             type: 'FrameFanin',

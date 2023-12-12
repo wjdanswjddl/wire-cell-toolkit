@@ -1,10 +1,12 @@
 // This is the base for *pdsp* variant parameter objects. 
 
-// Do NOT place any "if" in this file!  If a new variant is needed,
-// make an empty, new file in this directory and either import/inherit
-// from this structure overiding only the new values.  Do not
-// copy-paste.  Refactor this file if needed to achieve breif
-// variants.
+// Do NOT change this file.
+
+// Do NOT place any "if" in this file!
+
+// If a new variant is needed, make an empty, new file in this directory and
+// either import/inherit from this structure overiding only the new values.  Do
+// not copy-paste.  Refactor this file if needed to achieve breif variants.
 
 local wc = import "wirecell.jsonnet";
 
@@ -201,6 +203,15 @@ local mydet = detectors.pdsp;
         },
         start_time : tzero - pre,
         readout_time : self.binning.nticks * self.binning.tick,
+    },
+
+    // A "splat" (DepoFluxSplat) is an approximation to the combination of
+    // ductor+sigproc
+    splat : {
+        tick: $.ductor.binning.tick,
+        window_start: $.ductor.start_time,
+        window_duration: $.ductor.readout_time,
+        reference_time: 0.0,
     },
 
     // Simulating noise

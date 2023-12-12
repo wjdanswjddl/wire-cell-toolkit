@@ -49,16 +49,15 @@ namespace WireCell::Gen {
         virtual bool operator()(const input_pointer& in, output_pointer& out);
 
         virtual void configure(const WireCell::Configuration& cfg);
-        virtual WireCell::Configuration default_configuration() const;
+        virtual Configuration default_configuration() const;
 
       private:
 
         /// Configuration:
         ///
-        /// anodes - a string or array of string naming IAnodePlane
-        /// instances.
+        /// anode - the type/name for the IAnodePlane.
         ///
-        std::vector<WireCell::IAnodePlane::pointer> m_anodes;
+        IAnodePlane::pointer m_anode;
 
         /// field_response - name of an IFieldResponse.
         double m_speed{0}, m_origin{0};
@@ -70,10 +69,12 @@ namespace WireCell::Gen {
         /// TIME.
         ///
         /// window_duration - the duration of the acceptance window.
-        WireCell::Binning m_tbins;
+        Binning m_tbins;
 
         /// sparse - bool, if true save a sparse IFrame, else dense.  Default is
-        /// false.
+        /// false.  Sparse frames can be very large an only useful for special
+        /// studies that require the many-to-many mapping between depos and
+        /// trace contributions.
         bool m_sparse{false};
 
         /// nsigma - number of sigma at which to truncate a depo Gaussian
@@ -104,8 +105,11 @@ namespace WireCell::Gen {
         double m_smear_long{0};
 
 
-        WireCell::IAnodeFace::pointer find_face(const WireCell::IDepo::pointer& depo);
+        // internal, return nullptr if depo is not in anode plane.  o.w. return
+        // anode face.
+        IAnodeFace::pointer find_face(const WireCell::IDepo::pointer& depo);
 
+        // Count executions for debug log.
         size_t m_count{0};
 
     };
