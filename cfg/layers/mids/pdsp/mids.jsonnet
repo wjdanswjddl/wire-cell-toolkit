@@ -6,6 +6,7 @@ local api = import "api.jsonnet";
 // Import all variant parameter packs to allow for dict like lookup.
 local variants = {
     nominal: import "variants/nominal.jsonnet",
+    simple: import "variants/simple.jsonnet",
 };
 
 function(services, variant="", options={})

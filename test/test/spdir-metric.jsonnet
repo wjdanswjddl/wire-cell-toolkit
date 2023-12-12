@@ -20,7 +20,7 @@ local wc = high.wc;
 local pg = high.pg;
 
 // Main pipeline elements.
-local builder(mid, anode, stages, outputs) = {
+local builder(mid, anode, stages, outputs, dense=true) = {
     local last_stage = stages[std.length(stages)-1],
     main : {
         drift: [
@@ -41,23 +41,33 @@ local builder(mid, anode, stages, outputs) = {
             mid.sigproc.sp(anode),
         ]
     },
-    sinks: {
-        drift: high.fio.depo_file_sink(outputs.drift),
-        splat: pg.pipeline([
-            mid.sim.splat(anode),        
-            high.fio.frame_file_sink(outputs.splat),
-        ], name='splat'+std.toString(anode.data.ident)),
-        sim: high.fio.frame_file_sink(outputs.sim),
-        nf: high.fio.frame_file_sink(outputs.nf),
-        sp: high.fio.frame_file_sink(outputs.sp),
-    },
+    pre_sink(stage) :: 
+        if stage == "splat"
+        then [mid.sim.splat(anode)]
+        else [],
+
+    reframer(stage) ::
+        if dense && ( stage == "splat" || stage == "sp" )
+        then [mid.sim.reframer(anode, name=outputs[stage])]
+        else [],
+
+    file_sink(stage) :: [
+        if stage == "drift"
+        then high.fio.depo_file_sink(outputs.drift)
+        else high.fio.frame_file_sink(outputs[stage])
+    ],
+
+    sink(stage) ::
+        pg.pipeline(self.pre_sink(stage) + self.reframer(stage) + self.file_sink(stage)),
 
     tap_or_sink(stage):
         if stage == last_stage then
-            self.sinks[stage]
+            self.sink(stage)
         else
-            high.fio.tap(if stage == "drift" || stage == "splat" then "DepoSetFanout" else "FrameFanout",
-                         self.sinks[stage]),
+            high.fio.tap(if stage == "drift" || stage == "splat"
+                         then "DepoSetFanout"
+                         else "FrameFanout",
+                         self.sink(stage), name=outputs[stage]),
         
     get_stage(stage):
         if std.objectHas(outputs, stage) then
@@ -83,8 +93,10 @@ local output_objectify(stages, output) =
 // - detector :: canonical name of supported detector (pdsp, uboone, etc)
 // - input :: name of file provding data to input to first task
 // - ouput :: name of file to receive output of last task or object mapping task to output file 
-// - task :: array or comma separated list of task names
-function (detector, input, output, tasks="drift,splat,sim,nf,sp", variant="nominal")
+// - tasks :: array or comma separated list of task names
+// - dense :: if false, save frames sparsely, else add reframers to make dense 
+// - variant :: the layers mids detector variant name 
+function (detector, input, output, tasks="drift,splat,sim,nf,sp", dense=true, variant="nominal")
     local mid = high.mid(detector, variant);
     local stages = wc.listify(tasks);
     local outfiles = output_objectify(stages, output); // stage->filename
@@ -92,7 +104,7 @@ function (detector, input, output, tasks="drift,splat,sim,nf,sp", variant="nomin
     local anodes = mid.anodes();
     local anode = anodes[0];
 
-    local b = builder(mid, anode, stages, outfiles);
+    local b = builder(mid, anode, stages, outfiles, dense);
 
     local head = [source(stages[0], input)];
     local guts = [b.get_stage(stage) for stage in stages];

@@ -339,6 +339,11 @@ bool Gen::DepoFluxSplat::operator()(const input_pointer& in, output_pointer& out
                 // truly cursed
                 Eigen::VectorXf::Map(&charge[0], ncharges) = patch.row(prel).segment(trel, charge.size());
 
+                // Differing conventions exist for the sign of the charge of
+                // "number of electrons" in the depo.  Force positive signal.
+                std::transform(charge.begin(), charge.end(), charge.begin(),
+                               static_cast<float (*)(float)>(&std::abs));
+                
                 accum->add(chid, t_range.first + m_tick_offsets[iplane], charge);
             } // wires
         }     // plane

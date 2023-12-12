@@ -66,10 +66,10 @@ function(services, params, options={}) {
         
 
     // API method sim.reframer
-    reframer :: function(anode)
+    reframer :: function(anode, name=null)
         pg.pnode({
             type: 'Reframer',
-            name: idents(anode),
+            name: if std.type(name) == "null" then idents(anode) else name,
             data: {
                 anode: wc.tn(anode),
                 tags: [],
@@ -139,17 +139,18 @@ function(services, params, options={}) {
         }, nin=1, nout=1, uses=[anode]),
 
     // The approximated sim+sigproc
-    splat :: function(anode)
+    splat :: function(anode, name=null)
         pg.pnode({
             type: 'DepoFluxSplat',
-            name: idents(anode),
+            name: if std.type(name) == "null" then idents(anode) else name,
             data: params.splat {
                 anode: wc.tn(anode),
                 field_response: wc.tn(fr),
             },
         }, nin=1, nout=1, uses=[anode, fr]),
 
-    // Construct old single-depo, not generic "splat"
+
+    // Construct obsolete single-depo, not generic "splat"
     singledeposplat :: function(anode)
         pg.pnode({
             type: 'DuctorFramer',
