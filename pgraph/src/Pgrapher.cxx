@@ -24,11 +24,26 @@ static std::pair<WireCell::INode::pointer, int> get_node(WireCell::Configuration
     // We should NOT be the one creating this component.
     auto nptr = WireCell::Factory::find_maybe_tn<INode>(node);
     if (!nptr) {
-        THROW(ValueError() << errmsg{"failed to get node"});
+        raise<ValueError>("failed to get node \"%s\"", node);
     }
 
     int port = get(jone, "port", 0);
     return std::make_pair(nptr, port);
+}
+
+static
+std::string port_to_string(WireCell::Configuration node)
+{
+    std::stringstream ss;
+    ss << node["node"].asString() << ":" << node["port"].asString();
+    return ss.str();
+}
+
+static
+std::string edge_to_string(WireCell::Configuration tail,
+                           WireCell::Configuration head)
+{
+    return port_to_string(tail) + " -> " + port_to_string(head);
 }
 
 void Pgrapher::configure(const WireCell::Configuration& cfg)
@@ -45,12 +60,12 @@ void Pgrapher::configure(const WireCell::Configuration& cfg)
         bool ok = m_graph.connect(fac(tail.first), fac(head.first), tail.second, head.second);
         if (!ok) {
             log->critical("failed to connect edge: {}", jedge);
-            THROW(ValueError() << errmsg{"failed to connect edge"});
+            raise<ValueError>("failed to connect edge %s", edge_to_string(jedge["tail"], jedge["head"]));
         }
     }
     if (!m_graph.connected()) {
         log->critical("graph not fully connected");
-        THROW(ValueError() << errmsg{"graph not fully connected"});
+        raise<ValueError>("graph not fully connected");
     }
 }
 
