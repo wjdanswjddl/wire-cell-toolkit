@@ -59,7 +59,14 @@ namespace WireCell::Gen {
         ///
         IAnodePlane::pointer m_anode;
 
-        /// field_response - name of an IFieldResponse.
+        /// field_response - name of an IFieldResponse from which drift_speed
+        /// (speed) and response_plane (origin) is taken.  These two parameters
+        /// may be explicitly overridden (see next).  If both are overridden
+        /// then field_response parameter may be left unspecified.
+
+        /// drift_speed, response_plane - give explicit drift speed and
+        /// response plane distance.  Default is unspecified and the values
+        /// provided by the field response are used.
         double m_speed{0}, m_origin{0};
 
         /// tick - the sample time over which to integrate depo flux

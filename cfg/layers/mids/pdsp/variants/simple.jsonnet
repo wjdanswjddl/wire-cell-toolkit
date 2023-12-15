@@ -1,13 +1,12 @@
-// This is the SIMPLE VARIANT for pdsp.
+// This is the file cfg/layers/mids/pdsp/variant/simple.jsonnet.
+// If this file is found at any other path, I will delete it without notice.
 
-// This variant is NOT MEANT TO BE CORRECT.  Do not try to make it so.
+// This files defines a simple VARIANT for pdsp which is NOT MEANT TO BE
+// CORRECT.  Do not "improve" it.  It is meant to provide simple parameters to
+// make debugging easier.
 
-// Do NOT change this file.
-
-// Do NOT place any "if" in this file!
-
-// If a new variant is needed, make a new variant Jsonnet file.  Add it to the
-// object in api.jsonnet.
+// If you require a new variant, read and follow the comments at the top of
+// "nominal.jsonnet".
 
 local wc = import "wirecell.jsonnet";
 
@@ -28,7 +27,10 @@ local mydet = detectors.pdsp;
         // Electron lifetime
         lifetime : 10.0*wc.ms,
         // Electron drift speed, assumes a certain applied E-field
-        drift_speed : 1.6*wc.mm/wc.us, // at 500 V/cm
+        // See https://github.com/WireCell/wire-cell-toolkit/issues/266
+        // We do not pick a "simple" value (1.6) in order that we match
+        // what is *likely* in the FR file. 
+        drift_speed : 1.565*wc.mm/wc.us, // at 500 V/cm
         // LAr density
         density: 1.389*wc.g/wc.centimeter3,
         // Decay rate per mass for natural Ar39.
@@ -190,13 +192,14 @@ local mydet = detectors.pdsp;
             // Over the somewhat enlarged domain
             nticks : $.ductor.tbin + $.binning.nticks,
         },
-        start_time : 0,
+        start_time : -self.response_plane / $.lar.drift_speed,
         readout_time : self.binning.nticks * self.binning.tick,
     },
 
     // A "splat" (DepoFluxSplat) is an approximation to the combination of
     // ductor+sigproc
     splat : {
+        sparse: true,
         tick: $.ductor.binning.tick,
         window_start: $.ductor.start_time,
         window_duration: $.ductor.readout_time,

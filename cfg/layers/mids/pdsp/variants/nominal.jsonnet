@@ -1,12 +1,20 @@
-// This is the base for *pdsp* variant parameter objects. 
+// This is the file cfg/layers/mids/pdsp/variant/nominal.jsonnet.
+// If this file is found at any other path, I will delete it without notice.
+
+// This is the BASE configuration for *pdsp* variant parameter objects.  It
+// yields an object of a schema expected throughout cfg/layers/mids/pdsp/.
 
 // Do NOT change this file.
 
-// Do NOT place any "if" in this file!
-
-// If a new variant is needed, make an empty, new file in this directory and
-// either import/inherit from this structure overiding only the new values.  Do
-// not copy-paste.  Refactor this file if needed to achieve breif variants.
+// If the nominal parameter do not suit your needs, follow these steps:
+//
+// 1. Pick a single, short name that describes your needs.
+//
+// 2. Start an EMPTY file in cfg/layers/mids/pdsp/variant/<name>.jsonnet
+//
+// 3. Import the nominal.jsonnet object
+//
+// 4. Yield this object with any values overridden.
 
 local wc = import "wirecell.jsonnet";
 

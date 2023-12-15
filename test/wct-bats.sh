@@ -167,6 +167,7 @@ function check () {
     info "RUNNING: $*"
     local status
     run "$@"
+
     if [ -n "$output" ] ; then
         info "OUTPUT:\n$output"
     else

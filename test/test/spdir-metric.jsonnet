@@ -24,14 +24,32 @@ local builder(mid, anode, stages, outputs, dense=true) = {
     local last_stage = stages[std.length(stages)-1],
     main : {
         drift: [
+            // explicitly filter depos in anode.
+            pg.pnode({          
+                type:"DepoSetFilter",
+                name: "predrift",
+                data:{
+                    anode: wc.tn(anode),
+                },
+            }, nin=1, nout=1, uses=[anode]),
             mid.drifter(),
         ],
         splat: [
-            // nothing, splat itself is part of the sink branch
+            // nothing inline, the pipline with the splat itself is part of the
+            // sink branch of the tap
         ],
         sim: [
             mid.sim.signal(anode),
             mid.sim.noise(anode),
+            mid.sim.digitizer(anode),
+        ],
+        sig: [
+            mid.sim.signal(anode),
+        ],
+        noi: [
+            mid.sim.noise(anode),
+        ],
+        dig: [
             mid.sim.digitizer(anode),
         ],
         nf: [
@@ -43,12 +61,12 @@ local builder(mid, anode, stages, outputs, dense=true) = {
     },
     pre_sink(stage) :: 
         if stage == "splat"
-        then [mid.sim.splat(anode)]
+        then [ mid.sim.splat(anode) ]
         else [],
 
     reframer(stage) ::
         if dense && ( stage == "splat" || stage == "sp" )
-        then [mid.sim.reframer(anode, name=outputs[stage])]
+        then [ mid.sim.reframer(anode, name=outputs[stage]) ]
         else [],
 
     file_sink(stage) :: [

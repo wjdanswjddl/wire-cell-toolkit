@@ -2,6 +2,7 @@
 #+subtitle: Converting Drifted Depos to Signal-like waveforms
 #+LATEX_HEADER: \usepackage[margin=1.0in]{geometry}
 #+options: ':t
+#+BIND: org-latex-prefer-user-labels t
 
 * Overview
 
@@ -68,3 +69,18 @@ To provide users with questionable flexibility, ~DepoFluxSplat~ accepts two type
 - ~anode~ :: names an ~IAnodePlane~ giving the context for the instance of ~DepoFluxSplat~.
 
 - ~field_response~ :: names an ~IFieldResponse~ giving the field response data to assume.  Only the ~origin~ and ~speed~ values are used to calculate the *transport time* defined above.
+
+* Example
+
+The test ~test/test/test-ssss-pdsp.bats~ uses the ~pdsp~ "simple" detector variant (not the "nominal" which meant to be close to reality) to perform splat, sim and sigproc (ssss).  
+
+The sensitive volume bounding box for anode 0 face 0 is described in table [[tab:diagonal-endpoints]].
+The two X coordinated are on the "anode" and "cathode" planes.   
+Consider an ideal line track of ionization charge connecting these two corners.
+The range in the time and X coordinates for the original depos dotting this line and after drifting are showin in table [[tab:depo-tx-ranges]].
+
+#+include: depofluxsplat-summary.org 
+
+Before drifting, depos are "piled up" in time due to the particle moving at the speed of light and their X coordinates span the full drift distance as the track is diagonal through the entire drift volume.  After drifting, the depos are "piled up" on the response plane and their times are spread due to differing drift lengths.  The negative times are due to original depos between the response and anode planes being "backed up" to the respone plane.
+
+

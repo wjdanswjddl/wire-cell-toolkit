@@ -67,11 +67,21 @@ WireCell::Configuration Gen::DepoFluxSplat::default_configuration() const
 void Gen::DepoFluxSplat::configure(const WireCell::Configuration& cfg)
 {
     // For response plane info
-    auto frname = cfg["field_response"].asString();
-    auto ifr = Factory::find_tn<IFieldResponse>(frname);
-    const auto& fr = ifr->field_response();
-    m_speed = fr.speed;
-    m_origin = fr.origin;
+    auto jfrname = cfg["field_response"];
+    if (! jfrname.isNull()) {
+        auto ifr = Factory::find_tn<IFieldResponse>(jfrname.asString());
+        const auto& fr = ifr->field_response();
+        m_speed = fr.speed;
+        m_origin = fr.origin;
+    }
+    auto jspeed = cfg["drift_speed"];
+    if (! jspeed.isNull()) {
+        m_speed = jspeed.asDouble();
+    }
+    auto jorigin = cfg["response_plane"];
+    if (! jorigin.isNull()) {
+        m_origin = jorigin.asDouble();
+    }
 
     // Anode plane for down-selecting depos.
     std::string anode_tn = cfg["anode"].asString();
@@ -121,6 +131,13 @@ void Gen::DepoFluxSplat::configure(const WireCell::Configuration& cfg)
             THROW(ValueError() << errmsg{"DepoFluxSplat: time_offsets must be empty or be a 3-array"});
         }
     }
+    log->debug("speed={} mm/us, origin={} mm, tbins: {} {}us ticks: [{},{}]us, reftime={} us, tick offsets=({},{},{})",
+               m_speed / (units::mm/units::us), m_origin/units::mm,
+               m_tbins.nbins(), m_tbins.binsize()/units::us,
+               m_tbins.min()/units::us, m_tbins.max()/units::us,
+               m_reftime/units::us,
+               m_tick_offsets[0],m_tick_offsets[1],m_tick_offsets[2]);
+
 }
 
 IAnodeFace::pointer Gen::DepoFluxSplat::find_face(const IDepo::pointer& depo)
@@ -240,18 +257,26 @@ bool Gen::DepoFluxSplat::operator()(const input_pointer& in, output_pointer& out
     }
 
     size_t ndepos_seen=0;
+    size_t ndepos_skipped=0;
+    size_t nplanes_skipped=0;
     for (const auto& depo : *in->depos()) {
-        if (!depo) continue;
+        if (!depo) {
+            ++ndepos_skipped;
+            continue;
+        }
 
         auto face = find_face(depo);
-        if (!face) continue;
+        if (!face) {
+            ++ndepos_skipped;
+            continue;
+        }
 
         ++ndepos_seen;
 
         // Depo is at response plane.  Find its time at the collection
         // plane assuming it were to continue along a uniform field.
         // After this, all times are nominal up until we add arbitrary
-        // time offsets in delivering electrons to the SimChannel
+        // time offsets.
         const double nominal_depo_time = depo->time() + m_origin / m_speed;
 
         // Allow for extra smear in time.
@@ -268,13 +293,26 @@ bool Gen::DepoFluxSplat::operator()(const input_pointer& in, output_pointer& out
             double nmax_sigma = time_desc.distance(m_tbins.max());
 
             double eff_nsigma = depo->extent_long() > 0 ? m_nsigma : 0;
-            if (nmin_sigma > eff_nsigma || nmax_sigma < -eff_nsigma) { continue; }
+            if (nmin_sigma > eff_nsigma || nmax_sigma < -eff_nsigma) {
+                ++ndepos_skipped;
+                continue;
+            }
         }
+
+        // fixme: wrap in SPDLOG_LOOGGER_DEBUG
+        log->debug("depo {}/{}/[{}] nt={} us, t={} us, x={} mm, q={}",
+                   depo->id(), ndepos_seen, ndepos_skipped,
+                   nominal_depo_time/units::us,
+                   depo->time()/units::us, depo->pos().x()/units::mm,
+                   depo->charge());
 
         // Tabulate depo flux for wire regions from each plane
         for (auto plane : face->planes()) {
             int iplane = plane->planeid().index();
-            if (iplane < 0) continue;
+            if (iplane < 0) {
+                ++nplanes_skipped;
+                continue;
+            }
 
             const Pimpos* pimpos = plane->pimpos();
             auto& wires = plane->wires();
@@ -312,6 +350,7 @@ bool Gen::DepoFluxSplat::operator()(const input_pointer& in, output_pointer& out
             const auto p_range = intersect({pbin0, pbin0 + patch.rows()},
                                            {0, wbins.nbins()});
             if (p_range.first == p_range.second) {
+                ++nplanes_skipped;
                 continue;
             }
 
@@ -322,15 +361,21 @@ bool Gen::DepoFluxSplat::operator()(const input_pointer& in, output_pointer& out
             const auto t_range = intersect({tbin0, tbin0 + patch.cols()},
                                            {0, m_tbins.nbins()});
             if (t_range.first == t_range.second) {
+                ++nplanes_skipped;
                 continue;
             }
+            // fixme: wrap in SPDLOG_LOOGGER_DEBUG
+            log->debug("pln{} tbin in [{},{}], trange=[{},{}], prange=[{},{}]",
+                       iplane, tbin0, tbin0+patch.cols(),
+                       t_range.first, t_range.second,
+                       p_range.first, p_range.second);
 
             // Iterate over the valid wires covered by the patch
             for (int pbin : irange(p_range)) {
                 auto iwire = wires[pbin];
                 const int chid = iwire->channel();
 
-                const int ncharges = p_range.second - p_range.first;
+                const int ncharges = t_range.second - t_range.first;
                 std::vector<float> charge(ncharges);
                 
                 const int prel = pbin          - pbin0;
@@ -350,8 +395,8 @@ bool Gen::DepoFluxSplat::operator()(const input_pointer& in, output_pointer& out
     }         // depos
 
     out = accum->frame(in->ident(), m_tbins.min() - m_reftime, m_tbins.binsize());
-    log->debug("splat {} ndepos={}/{} ntraces={}", 
-               out->ident(), ndepos_seen, in->depos()->size(), accum->ntraces());
+    log->debug("splat {} ndepos={}/{}/[{}] ntraces={}", 
+               out->ident(), ndepos_seen, in->depos()->size(), nplanes_skipped, accum->ntraces());
     ++m_count;
     return true;
 }
