@@ -84,3 +84,45 @@ The range in the time and X coordinates for the original depos dotting this line
 Before drifting, depos are "piled up" in time due to the particle moving at the speed of light and their X coordinates span the full drift distance as the track is diagonal through the entire drift volume.  After drifting, the depos are "piled up" on the response plane and their times are spread due to differing drift lengths.  The negative times are due to original depos between the response and anode planes being "backed up" to the respone plane.
 
 
+Figure [[fig:comp]] visualizes the ionized electron charge distribution in the three views as determined by the ~DepoFluxSplat~ ("splat") and full simulation and signal processing reconstruction ("signal").  Figure [[fig:zoom]] shows the regions at the beginning and ending of the track for the V-plane view for splat and signal and their difference.
+
+#+attr_latex:
+#+caption: Comparison of the diagonal line track for ~DepoFluxSplat~ (top, "splat") and full simulation and signal processing (bottom, "signal").  The images show channel vs time and the inset plots show activity integrated along each axis.
+#+name: fig:comp
+[[file:depofluxsplat/plots-nosmear0000.png]]
+
+#+caption: The splat and signal activity near the two ends of the track and their pixel-wise difference.
+#+name: fig:zoom
+#+begin_center
+#+attr_latex: :width 0.4\textwidth :center
+[[file:depofluxsplat/plots-nosmear0003.png]]
+#+attr_latex: :width 0.4\textwidth :center
+[[file:depofluxsplat/plots-nosmear0004.png]]
+#+end_center
+
+The substantial difference indicates a mismatch between the two.  
+Figure [[fig:wf]] selects particular channels from these two regions and show their time domain waveforms.
+
+#+caption: The splat and signal activity near the end points of the track for select channels.
+#+name: fig:wf
+#+begin_center
+#+attr_latex: :width 0.4\textwidth :center
+[[file:depofluxsplat/plots-nosmear0005.png]]
+#+attr_latex: :width 0.4\textwidth :center
+[[file:depofluxsplat/plots-nosmear0006.png]]
+#+end_center
+
+
+These clearly show differences.  Some difference is expected.  The splat shape comes from integrating regions of purely Gaussian-distributed charge from the depos while simulation applies a convolution and sum over the field response which a very non-Gaussian kernel.  Furthermore, the signal processing applies a low-pass filter which adds width to the resulting signal.  The fact that their integrals do not match is not understood.
+
+The ~DepoFluxSplat~ allows two arbitrary Gaussian widths (transverse and longitudinal) to be added in quadrature to those carried by the drifted depos.  The figure [[fig:wfss]] illustrate an approximation of what these additional 2D Gaussians can do to the waveforms by directly convolving a Gaussian along only the time dimension (not channel).  The "smear" value is the Gaussian sigma measured in units of ticks.  The "scale" value is multiplicative.
+
+
+#+caption: The splat and signal activity near the end points of the track for select channels with smearing and scaling applied.
+#+name: fig:wfss
+#+begin_center
+#+attr_latex: :width 0.4\textwidth :center
+[[file:depofluxsplat/plots-smear0005.png]]
+#+attr_latex: :width 0.4\textwidth :center
+[[file:depofluxsplat/plots-smear0006.png]]
+#+end_center

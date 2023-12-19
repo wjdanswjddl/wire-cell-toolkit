@@ -118,6 +118,24 @@ EOF
                      wirecell-gen plot-depos --single -p qzt \
                      -o drift-qzt.pdf drift.npz
 
+    local helper="$(relative_path ssss-pdsp.py)"
+
+    for ext in png pdf
+    do
+
+        run_idempotently -s "$helper" -s depos.npz -s drift.npz -s splat.npz -s signal.npz -t plots-nosmear.$ext -- \
+                         python "$helper" plots \
+                         --output=plots-nosmear.$ext \
+                         --channel-ranges '0,800,1600,2560' \
+                         {depos,drift,splat,signal}.npz
+
+        run_idempotently -s "$helper" -s depos.npz -s drift.npz -s splat.npz -s signal.npz -t plots-smear.$ext -- \
+                         python "$helper" plots \
+                         --scale 0.0 --smear 2.0 \
+                         --output=plots-smear.$ext \
+                         --channel-ranges '0,800,1600,2560' \
+                         {depos,drift,splat,signal}.npz
+    done
 }
         
 @test "ssss pdsp summary" {

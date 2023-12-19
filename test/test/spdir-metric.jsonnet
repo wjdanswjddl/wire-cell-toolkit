@@ -65,8 +65,12 @@ local builder(mid, anode, stages, outputs, dense=true) = {
         else [],
 
     reframer(stage) ::
-        if dense && ( stage == "splat" || stage == "sp" )
-        then [ mid.sim.reframer(anode, name=outputs[stage]) ]
+        local reframers = {
+            splat: [mid.sim.reframer(anode, name=outputs[stage])],
+            sp: [mid.sim.reframer(anode, name=outputs[stage], tags=["gauss0"])],
+        };
+        if dense
+        then std.get(reframers, stage, [])
         else [],
 
     file_sink(stage) :: [

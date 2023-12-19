@@ -142,7 +142,51 @@ def frame_summary(files):
     
 from matplotlib.gridspec import GridSpec, GridSpecFromSubplotSpec
 
-def plot_frame(gs, f, e, o="lower", channel_ranges=None):
+def dump_frame(name,f):
+    print(name,f.shape,numpy.sum(f))
+
+def plot_ticks(ax, t0, tf, drift, f1, f2, channel_ranges, speed = 1.565*units.mm/units.us):
+    nticks = f1.shape[1]
+    times = numpy.linspace(t0,tf,nticks+1, endpoint=True)
+    deltat = times[1]-times[0]
+    print(f'time binning: [{t0:.1f},{tf:1f}] us x {nticks}')
+    dump_frame('splat',f1)
+    dump_frame('signal',f2)
+    
+    print(f'warning: using speed of {speed/(units.mm/units.us)} mm/us')
+    ts = (drift[:,0] + 10*units.cm / speed)/units.us
+    qs = -1*drift[:,1]
+
+    sigs = drift[:,5] / speed / units.us
+    nsig=5
+    nspread = numpy.array((nsig/deltat)*sigs, dtype=int)
+
+    gt = numpy.zeros(nticks)
+    for t,q,n in zip(ts,qs,nspread):
+        tbin = int((t-t0)/deltat)
+        gt[tbin-n:tbin+n+1] += q/(2*n+1)
+
+    # h = numpy.histogram(ts, bins=times, weights=qs)
+    # ax.plot(h[1][:-1], h[0], label='depo charge')
+    ax.plot(times[:-1], gt, label='depo charge')
+
+    for p,c1,c2 in zip("UVW",channel_ranges[:-1], channel_ranges[1:]):
+        val1 = f1[c1:c2,:].sum(axis=0)
+        val2 = f2[c1:c2,:].sum(axis=0)
+        ax.plot(times[:-1], val1, label=p+' splat')
+        ax.plot(times[:-1], val2, label=p+' signal')
+    val1 = f1.sum(axis=0)
+    val2 = f2.sum(axis=0)
+    ax.plot(times[:-1], val2/3.0, label='total signal / 3')
+    ax.plot(times[:-1], val1/3.0, label='total splat / 3')
+
+    # ax.set_xlim((1400,1600))
+    # ax.set_xlim((0,200))
+    ax.legend(loc='right')
+
+
+
+def plot_frame(gs, f, e, o="lower", channel_ranges=None, which="splat", tit=""):
     t0,tf,c0,cf=e
 
     gs = GridSpecFromSubplotSpec(2,2, subplot_spec=gs,
@@ -153,10 +197,19 @@ def plot_frame(gs, f, e, o="lower", channel_ranges=None):
     tax = plt.subplot(gs[1,0], sharex=fax)
     cax = plt.subplot(gs[0,1], sharey=fax)
 
+    cax.set_xlabel(which)
+    fax.set_ylabel("channel")
+    if which=="signal":
+        tax.set_xlabel("time [us]")
+
+    if tit:
+        plt.title(tit)
     plt.setp(fax.get_xticklabels(), visible=False)
     plt.setp(cax.get_yticklabels(), visible=False)
+    if which=="splat":
+        plt.setp(tax.get_xticklabels(), visible=False)
 
-    im = fax.imshow(f, extent=e, origin=o, aspect='auto', vmax=5000)
+    im = fax.imshow(f, extent=e, origin=o, aspect='auto', vmax=500, cmap='hot_r')
 
     tval = f.sum(axis=0)
     t = numpy.linspace(e[0],e[1],f.shape[1]+1,endpoint=True)
@@ -212,10 +265,12 @@ def smear_tick(f1, sigma=3.0, nsigma=6):
     smear[:hngx] = gauss[hngx:]
     smear[-hngx:] = gauss[:hngx]
     nticks = f1[0].size
+    totals = numpy.sum(f1, axis=1)
     for irow in range(f1.shape[0]):
         wave = f1[irow]
-        f1[irow] = scipy.signal.fftconvolve(wave, smear)[:nticks]
-
+        tot = numpy.sum(wave)
+        wave = scipy.signal.fftconvolve(wave, smear)[:nticks]
+        f1[irow] = wave * tot / numpy.sum(wave)
     return f1
     
 
@@ -225,8 +280,12 @@ def plot_channels(f1, f2, chans, t0, t1, tit=""):
     if tit:
         plt.title(tit)
     for c in chans:
-        plt.plot(x, f1[c][t0:t1], label=f'ch{c}')
-        plt.plot(x, f2[c][t0:t1])
+        w1 = f1[c][t0:t1]
+        w2 = f2[c][t0:t1]
+        tot1 = numpy.sum(w1)
+        tot2 = numpy.sum(w2)
+        plt.plot(x, w1, label=f'ch{c} q={tot1:.0f} splat')
+        plt.plot(x, w2, label=f'ch{c} q={tot2:.0f} signal')
     plt.legend()
     plt.xlabel("ticks")
 
@@ -245,14 +304,22 @@ def plots(channel_ranges, smear, scale, depos, drift, splat, signal, output, **k
     '''
     Make plots comparing {depos,drift,signal,splat}.npz 
     '''
+    # dumb sanity check user gave us files in the right order
+    assert "depos" in depos
+    assert "drift" in drift
+    assert "splat" in splat
+    assert "signal" in signal
+    
+
     if channel_ranges:
         channel_ranges = list(map(int,channel_ranges.split(",")))
 
     fig = plt.figure()
 
-    d1 = load_depos(depos)
+    # d1 = load_depos(depos)
     d2 = load_depos(drift)
     f1,e1,o1 = load_frame(splat)
+    print(f'extent={e1}')
     if smear:
         f1 = smear_tick(f1, smear)
     if scale:
@@ -262,42 +329,49 @@ def plots(channel_ranges, smear, scale, depos, drift, splat, signal, output, **k
 
     with pages(output) as out:
 
-        pgs = GridSpec(1,2, figure=fig, width_ratios = [7,1])
+        plt.suptitle(f'{smear=:.1f} {scale=:.1f}')
+        pgs = GridSpec(1,2, figure=fig, width_ratios = [7,0.2])
         gs = GridSpecFromSubplotSpec(2, 1, pgs[0,0])
-        im1 = plot_frame(gs[0], f1, e1, o1, channel_ranges)
-        im2 = plot_frame(gs[1], f2, e2, o2, channel_ranges)
+        im1 = plot_frame(gs[0], f1, e1, o1, channel_ranges, which="splat")
+        im2 = plot_frame(gs[1], f2, e2, o2, channel_ranges, which="signal")
         fig.colorbar(im2, cax=plt.subplot(pgs[0,1]))
         plt.tight_layout()
         out.savefig()
 
         plt.clf()
+
+        fig, ax = plt.subplots(1,1, sharex=True, sharey=True)
+        plot_ticks(ax, e1[0], e1[1], d2, f1, f2, channel_ranges)
+        out.savefig()
+
+        plt.clf()
         plot_zoom(f1, f2, [0,400], [1400,1600],
-                  "splat - signal difference, begin of track, V-plane")
+                  f"splat - signal difference, begin of track, V-plane {smear=:.1f} {scale=:.1f}")
         out.savefig()
 
         plt.clf()
         plot_zoom(f1, f2, [4400, 4800], [1100, 1300],
-                  "splat - signal difference, end of track, V-plane")
+                  f"splat - signal difference, end of track, V-plane {smear=:.1f} {scale=:.1f}")
         out.savefig()
 
         plt.clf()
         plot_zoom(f1, f2, [100,200], [1525,1560],
-                  tit="splat - signal difference, begin of track, V-plane")
+                  tit=f"splat - signal difference, begin of track, V-plane {smear=:.1f} {scale=:.1f}")
         out.savefig()
 
         plt.clf()
         plot_zoom(f1, f2, [4600, 4800], [1190, 1230],
-                  tit="splat - signal difference, end of track, V-plane")
+                  tit=f"splat - signal difference, end of track, V-plane {smear=:.1f} {scale=:.1f}")
         out.savefig()
 
         plt.clf()
         plot_channels(f1, f2, [1540, 1530, 1520, 1510], 100, 350,
-                      tit=f'V-plane start {smear=} {scale=}')
+                      tit=f'V-plane start {smear=:.1f} {scale=:.1f}')
         out.savefig()
 
         plt.clf()
         plot_channels(f1, f2, [1200, 1210, 1220, 1230], 4550, 4750,
-                      tit=f'V-plane end {smear=} {scale=}')
+                      tit=f'V-plane end {smear=:.1f} {scale=:.1f}')
         out.savefig()
 
 

@@ -12,8 +12,9 @@ local wc = import "wirecell.jsonnet";
 
 local detectors = import "detectors.jsonnet";
 local mydet = detectors.pdsp;
+local nominal = import "nominal.jsonnet";
 
-{
+local simple = {
     // Define the LAr properties.  In principle, this is NOT subject
     // to variance though in principle it could be (eg, top/bottom of
     // DUNE-VD may have different LAr temps?).  We include this here
@@ -21,11 +22,11 @@ local mydet = detectors.pdsp;
     // used in a few places.
     lar : {
         // Longitudinal diffusion constant
-        DL : 5.0 * wc.cm2/wc.s,
+        DL : 4.0 * wc.cm2/wc.s,
         // Transverse diffusion constant
-        DT : 10.0 * wc.cm2/wc.s,
+        DT : 8.8 * wc.cm2/wc.s,
         // Electron lifetime
-        lifetime : 10.0*wc.ms,
+        lifetime : 10.4*wc.ms,
         // Electron drift speed, assumes a certain applied E-field
         // See https://github.com/WireCell/wire-cell-toolkit/issues/266
         // We do not pick a "simple" value (1.6) in order that we match
@@ -149,7 +150,7 @@ local mydet = detectors.pdsp;
         gain : 14.0*wc.mV/wc.fC,
 
         // The shaping (aka peaking) time of the amplifier shaper.
-        shaping : 2.0*wc.us,
+        shaping : 2.2*wc.us,
 
         // A realtive gain applied after shaping and before ADC.
         // 
@@ -160,12 +161,12 @@ local mydet = detectors.pdsp;
         // 
         // Pulser calibration: 41.649 ADC*tick/1ke
         // theoretical elec resp (14mV/fC): 36.6475 ADC*tick/1ke
-        postgain: 1,
+        postgain: 1.1365,
     },
 
     // The "RC" response
     rc : {
-        width: 1.0*wc.ms,
+        width: 1.1*wc.ms,
     },
 
     // The ductor transforms drifted depos to currents
@@ -301,5 +302,19 @@ local mydet = detectors.pdsp;
         tiling_strategy: "perfect",
     },
 
-}
+};
     
+local override = nominal {
+    ductor: super.ductor {
+        tbin : 0, 
+        binning: {
+            tick : $.binning.tick,
+            nticks : $.ductor.tbin + $.binning.nticks,
+        },
+        start_time : -self.response_plane / $.lar.drift_speed,
+        readout_time : self.binning.nticks * self.binning.tick,
+    }
+};
+
+simple
+//override

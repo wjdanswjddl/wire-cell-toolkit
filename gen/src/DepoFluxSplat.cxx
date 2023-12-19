@@ -343,6 +343,18 @@ bool Gen::DepoFluxSplat::operator()(const input_pointer& in, output_pointer& out
             // Transfer depo's patch to itraces
             const auto patch = gd.patch(); // 2D array
 
+            // double patch_charge = 0;
+            // {
+            //     const int np = patch.rows();
+            //     const int nt = patch.cols();
+            //     for (int ip=0; ip<np; ++ip) {
+            //         for (int it=0; it<nt; ++it) {
+            //             patch_charge += patch(ip,it);
+            //         }
+            //     }
+            // }
+            
+
             // The absolute pitch bin for the first row of the patch array.
             const int pbin0 = gd.poffset_bin();
 
@@ -365,10 +377,12 @@ bool Gen::DepoFluxSplat::operator()(const input_pointer& in, output_pointer& out
                 continue;
             }
             // fixme: wrap in SPDLOG_LOOGGER_DEBUG
-            log->debug("pln{} tbin in [{},{}], trange=[{},{}], prange=[{},{}]",
-                       iplane, tbin0, tbin0+patch.cols(),
-                       t_range.first, t_range.second,
-                       p_range.first, p_range.second);
+            // log->debug("pln{} tbin in [{},{}], trange=[{},{}], prange=[{},{}] depo.q={} patch.q={}",
+            //            iplane, tbin0, tbin0+patch.cols(),
+            //            t_range.first, t_range.second,
+            //            p_range.first, p_range.second,
+            //            depo->charge(), patch_charge
+            //     );
 
             // Iterate over the valid wires covered by the patch
             for (int pbin : irange(p_range)) {
