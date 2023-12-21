@@ -1092,6 +1092,29 @@ function download_file () {
 }
 
 
+# mv_if_diff <src> <dst>
+#
+# Move <src> to <dst> if they differ.
+#
+# This can be useful to initate a chain of run_idempotently steps.
+mv_if_diff () {
+    local src="$1" ; shift
+    local dst="$1" ; shift
+    
+    if [ ! -f "$dst" ] ; then
+        echo "dst does not exist $dst moving $src" 1>&3
+        mv "$src" "$dst"
+        return
+    fi
+    if [ -n "$( diff "$src" "$dst" )" ] ; then
+        echo "differ: $dst and $src" 1>&3
+        mv "$src" "$dst"
+        return
+    fi
+    rm -f "$src"
+}
+
+
 
 function help_one () {
     local func="$1" ; shift
