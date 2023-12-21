@@ -3,23 +3,6 @@
 
 bats_load_library "wct-bats.sh"
 
-mv_if_diff () {
-    local src="$1" ; shift
-    local dst="$1" ; shift
-    
-    if [ ! -f "$dst" ] ; then
-        echo "dst does not exist $dst moving $src" 1>&3
-        mv "$src" "$dst"
-        return
-    fi
-    if [ -n "$( diff "$src" "$dst" )" ] ; then
-        echo "differ: $dst and $src" 1>&3
-        mv "$src" "$dst"
-        return
-    fi
-    rm -f "$src"
-}
-
 
 setup_file () {
     cd_tmp
@@ -46,19 +29,22 @@ EOF
     [[ -s depos.npz ]] 
 }
 
-@test "ssss pdsp just splat" {
+@test "ssss pdsp do splats" {
     cd_tmp file
     local cfg_file="$(relative_path spdir-metric.jsonnet)"
 
-    run_idempotently -s "$cfg_file" -t just-splat.log -t just-splat.npz -- \
-                     wire-cell \
-                     -l just-splat.log -L debug \
-                     -A input="depos.npz" \
-                     --tla-code output="{splat:\"just-splat.npz\"}" \
-                     -A detector=pdsp \
-                     -A variant=simple \
-                     -A tasks="drift,splat" \
-                     "$cfg_file"
+    for what in nominal smeared
+    do
+        run_idempotently -s "$cfg_file" -t "splat-$what.log" -t "splat-$what.npz" -- \
+                         wire-cell \
+                         -l "splat-$what.log" -L debug \
+                         -A input="depos.npz" \
+                         --tla-code output="{splat:\"splat-$what.npz\"}" \
+                         -A detector=pdsp \
+                         -A variant="ssss_$what" \
+                         -A tasks="drift,splat" \
+                         "$cfg_file"
+    done                         
 }
 
 @test "ssss pdsp gen cfg" {
@@ -68,10 +54,10 @@ EOF
     run_idempotently -s "$cfg_file" -t dfp.json -- \
                      wcsonnet \
                      -A input="depos.npz" \
-                     --tla-code output="{drift:\"drift.npz\",splat:\"splat.npz\",sp:\"signal.npz\"}" \
+                     --tla-code output="{drift:\"drift.npz\",sp:\"signal.npz\"}" \
                      -A detector=pdsp \
-                     -A variant=simple \
-                     -A tasks="drift,splat,sim,sp" \
+                     -A variant="ssss_nominal" \
+                     -A tasks="drift,sim,sp" \
                      -o dfp.json \
                      "$cfg_file"
 }
@@ -120,21 +106,21 @@ EOF
 
     local helper="$(relative_path ssss-pdsp.py)"
 
-    for ext in png pdf
+    for what in nominal smeared
     do
 
-        run_idempotently -s "$helper" -s depos.npz -s drift.npz -s splat.npz -s signal.npz -t plots-nosmear.$ext -- \
-                         python "$helper" plots \
-                         --output=plots-nosmear.$ext \
-                         --channel-ranges '0,800,1600,2560' \
-                         {depos,drift,splat,signal}.npz
+        for ext in png pdf
+        do
 
-        run_idempotently -s "$helper" -s depos.npz -s drift.npz -s splat.npz -s signal.npz -t plots-smear.$ext -- \
-                         python "$helper" plots \
-                         --scale 0.0 --smear 2.0 \
-                         --output=plots-smear.$ext \
-                         --channel-ranges '0,800,1600,2560' \
-                         {depos,drift,splat,signal}.npz
+            run_idempotently -s "$helper" \
+                             -s depos.npz -s drift.npz -s "splat-$what.npz" -s signal.npz \
+                             -t "plots-$what.$ext" -- \
+                             python "$helper" plots \
+                             --output="plots-$what.$ext" \
+                             --channel-ranges '0,800,1600,2560' \
+                             {depos,drift,"splat-$what",signal}.npz
+
+        done
     done
 }
         

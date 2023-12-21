@@ -14,7 +14,9 @@
 //
 // 3. Import the nominal.jsonnet object
 //
-// 4. Yield this object with any values overridden.
+// 4. Yield the nominal object with any values overridden.
+//
+// 5. Add this new object to the variants object in mids.jsonnet.
 
 local wc = import "wirecell.jsonnet";
 
@@ -216,10 +218,12 @@ local mydet = detectors.pdsp;
     // A "splat" (DepoFluxSplat) is an approximation to the combination of
     // ductor+sigproc
     splat : {
+        sparse: true,
         tick: $.ductor.binning.tick,
         window_start: $.ductor.start_time,
         window_duration: $.ductor.readout_time,
         reference_time: 0.0,
+
     },
 
     // Simulating noise

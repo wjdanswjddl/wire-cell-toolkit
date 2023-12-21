@@ -304,8 +304,8 @@ local simple = {
 
 };
     
-local override = nominal {
-    ductor: super.ductor {
+local override = nominal + {
+    ductor: super.ductor + {
         tbin : 0, 
         binning: {
             tick : $.binning.tick,
@@ -316,5 +316,6 @@ local override = nominal {
     }
 };
 
-simple
-//override
+// simple
+override
+
