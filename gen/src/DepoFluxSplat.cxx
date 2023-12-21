@@ -64,6 +64,22 @@ WireCell::Configuration Gen::DepoFluxSplat::default_configuration() const
     return cfg;
 }
 
+static
+std::vector<double> get_n(const Configuration& cfg, size_t n=3)
+{
+    if (cfg.isDouble()) {
+        return std::vector<double>(n, cfg.asDouble());
+    }
+    if (cfg.size() == n) {
+        std::vector<double> ret;
+        for (auto const& one : cfg) {
+            ret.push_back(one.asDouble());
+        }
+        return ret;
+    }
+    return std::vector<double>(n, 0);
+}
+
 void Gen::DepoFluxSplat::configure(const WireCell::Configuration& cfg)
 {
     // For response plane info
@@ -101,18 +117,8 @@ void Gen::DepoFluxSplat::configure(const WireCell::Configuration& cfg)
     m_nsigma = get(cfg, "nsigma", m_nsigma);
 
     // Additional smearing.
-    m_smear_long = get(cfg, "smear_long", m_smear_long);
-    m_smear_tran.clear();
-    auto jst = cfg["smear_tran"];
-    if (jst.isDouble()) {
-        const double s = jst.asDouble();
-        m_smear_tran = {s, s, s};
-    }
-    else if (jst.size() == 3) {
-        for (const auto& js : jst) {
-            m_smear_tran.push_back(js.asDouble());
-        }
-    }
+    m_smear_long = get_n(cfg["smear_long"]);
+    m_smear_tran = get_n(cfg["smear_tran"]);
 
     // Arbitrary time subtracted from window_start when setting frame time
     m_reftime = get(cfg, "reference_time", m_reftime);
@@ -276,42 +282,37 @@ bool Gen::DepoFluxSplat::operator()(const input_pointer& in, output_pointer& out
         // Depo is at response plane.  Find its time at the collection
         // plane assuming it were to continue along a uniform field.
         // After this, all times are nominal up until we add arbitrary
-        // time offsets.
+        // time offsets at output.
         const double nominal_depo_time = depo->time() + m_origin / m_speed;
-
-        // Allow for extra smear in time.
-        double sigma_L = depo->extent_long(); // [length]
-        if (m_smear_long) {
-            const double extra = m_smear_long * m_tbins.binsize() * m_speed;
-            sigma_L = sqrt(sigma_L * sigma_L + extra * extra);
-        }
-        Gen::GausDesc time_desc(nominal_depo_time, sigma_L / m_speed);
-
-        // Check if patch is outside time binning
-        {
-            double nmin_sigma = time_desc.distance(m_tbins.min());
-            double nmax_sigma = time_desc.distance(m_tbins.max());
-
-            double eff_nsigma = depo->extent_long() > 0 ? m_nsigma : 0;
-            if (nmin_sigma > eff_nsigma || nmax_sigma < -eff_nsigma) {
-                ++ndepos_skipped;
-                continue;
-            }
-        }
-
-        // fixme: wrap in SPDLOG_LOOGGER_DEBUG
-        log->debug("depo {}/{}/[{}] nt={} us, t={} us, x={} mm, q={}",
-                   depo->id(), ndepos_seen, ndepos_skipped,
-                   nominal_depo_time/units::us,
-                   depo->time()/units::us, depo->pos().x()/units::mm,
-                   depo->charge());
 
         // Tabulate depo flux for wire regions from each plane
         for (auto plane : face->planes()) {
+
             int iplane = plane->planeid().index();
             if (iplane < 0) {
                 ++nplanes_skipped;
                 continue;
+            }
+
+            // Allow for extra smear in time unique to each plane.
+            double sigma_L = depo->extent_long(); // [length]
+            const double smear_long = m_smear_long[iplane];
+            if (smear_long > 0) {
+                const double extra = smear_long * m_tbins.binsize() * m_speed;
+                sigma_L = sqrt(sigma_L * sigma_L + extra * extra);
+            }
+            Gen::GausDesc time_desc(nominal_depo_time, sigma_L / m_speed);
+
+            // Check if patch is fully outside time binning
+            {
+                double nmin_sigma = time_desc.distance(m_tbins.min());
+                double nmax_sigma = time_desc.distance(m_tbins.max());
+
+                double eff_nsigma = depo->extent_long() > 0 ? m_nsigma : 0;
+                if (nmin_sigma > eff_nsigma || nmax_sigma < -eff_nsigma) {
+                    ++ndepos_skipped;
+                    continue;
+                }
             }
 
             const Pimpos* pimpos = plane->pimpos();
@@ -319,8 +320,9 @@ bool Gen::DepoFluxSplat::operator()(const input_pointer& in, output_pointer& out
             auto wbins = pimpos->region_binning(); // wire binning
 
             double sigma_T = depo->extent_tran();
-            if (m_smear_tran.size()) {
-                const double extra = m_smear_tran[iplane] * wbins.binsize();
+            const double smear_tran = m_smear_tran[iplane];
+            if (smear_tran > 0) {
+                const double extra = smear_tran * wbins.binsize();
                 sigma_T = sqrt(sigma_T * sigma_T + extra * extra);
             }
 
@@ -337,23 +339,13 @@ bool Gen::DepoFluxSplat::operator()(const input_pointer& in, output_pointer& out
                 }
             }
 
+            // The heavy lifting
             Gen::GaussianDiffusion gd(depo, time_desc, pitch_desc);
             gd.set_sampling(m_tbins, wbins, m_nsigma, 0, 1);
 
             // Transfer depo's patch to itraces
             const auto patch = gd.patch(); // 2D array
 
-            // double patch_charge = 0;
-            // {
-            //     const int np = patch.rows();
-            //     const int nt = patch.cols();
-            //     for (int ip=0; ip<np; ++ip) {
-            //         for (int it=0; it<nt; ++it) {
-            //             patch_charge += patch(ip,it);
-            //         }
-            //     }
-            // }
-            
 
             // The absolute pitch bin for the first row of the patch array.
             const int pbin0 = gd.poffset_bin();
@@ -376,13 +368,6 @@ bool Gen::DepoFluxSplat::operator()(const input_pointer& in, output_pointer& out
                 ++nplanes_skipped;
                 continue;
             }
-            // fixme: wrap in SPDLOG_LOOGGER_DEBUG
-            // log->debug("pln{} tbin in [{},{}], trange=[{},{}], prange=[{},{}] depo.q={} patch.q={}",
-            //            iplane, tbin0, tbin0+patch.cols(),
-            //            t_range.first, t_range.second,
-            //            p_range.first, p_range.second,
-            //            depo->charge(), patch_charge
-            //     );
 
             // Iterate over the valid wires covered by the patch
             for (int pbin : irange(p_range)) {

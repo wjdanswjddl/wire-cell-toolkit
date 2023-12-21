@@ -102,14 +102,20 @@ namespace WireCell::Gen {
         /// pitch distances) and it is added in quadrature with the
         /// Gaussian sigma of the depo.  If zero (default) no extra
         /// smearing is applied.
-        std::vector<double> m_smear_tran{0};
+        ///
+        /// A single scalar number may be provided which will add a common
+        /// smearing for all planes.  Or, a per-plane smearing may be provided.
+        std::vector<double> m_smear_tran;
 
         /// smear_long - Extra smearing applied to the depo in the
         /// longitudinal direction.  This given in units of tick (ie,
         /// smear_long=2.0 would additionally smear across two ticks)
         /// and added in quadrature with the Gaussian sigma of the
         /// depo.  If zero (default) no extra smearing is applied.
-        double m_smear_long{0};
+        ///
+        /// A single scalar number may be provided which will add a common
+        /// smearing for all planes.  Or, a per-plane smearing may be provided.
+        std::vector<double> m_smear_long;
 
 
         // internal, return nullptr if depo is not in anode plane.  o.w. return
