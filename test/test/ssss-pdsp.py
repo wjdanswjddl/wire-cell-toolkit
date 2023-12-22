@@ -168,7 +168,6 @@ def plot_ticks(ax, t0, tf, drift, f1, f2, channel_ranges, speed = 1.565*units.mm
 
     # h = numpy.histogram(ts, bins=times, weights=qs)
     # ax.plot(h[1][:-1], h[0], label='depo charge')
-    ax.plot(times[:-1], gt, label='depo charge')
 
     for p,c1,c2 in zip("UVW",channel_ranges[:-1], channel_ranges[1:]):
         val1 = f1[c1:c2,:].sum(axis=0)
@@ -178,7 +177,10 @@ def plot_ticks(ax, t0, tf, drift, f1, f2, channel_ranges, speed = 1.565*units.mm
     val1 = f1.sum(axis=0)
     val2 = f2.sum(axis=0)
     ax.plot(times[:-1], val2/3.0, label='total signal / 3')
+    ax.plot(times[:-1], gt, label='depo charge')
     ax.plot(times[:-1], val1/3.0, label='total splat / 3')
+
+
 
     # ax.set_xlim((1400,1600))
     # ax.set_xlim((0,200))
@@ -329,7 +331,7 @@ def plots(channel_ranges, smear, scale, depos, drift, splat, signal, output, **k
 
     with pages(output) as out:
 
-        plt.suptitle(f'{smear=:.1f} {scale=:.1f}')
+        # plt.suptitle(f'{smear=:.1f} {scale=:.1f}')
         pgs = GridSpec(1,2, figure=fig, width_ratios = [7,0.2])
         gs = GridSpecFromSubplotSpec(2, 1, pgs[0,0])
         im1 = plot_frame(gs[0], f1, e1, o1, channel_ranges, which="splat")
@@ -346,32 +348,32 @@ def plots(channel_ranges, smear, scale, depos, drift, splat, signal, output, **k
 
         plt.clf()
         plot_zoom(f1, f2, [0,400], [1400,1600],
-                  f"splat - signal difference, begin of track, V-plane {smear=:.1f} {scale=:.1f}")
+                  f"splat - signal difference, begin of track, V-plane")
         out.savefig()
 
         plt.clf()
         plot_zoom(f1, f2, [4400, 4800], [1100, 1300],
-                  f"splat - signal difference, end of track, V-plane {smear=:.1f} {scale=:.1f}")
+                  f"splat - signal difference, end of track, V-plane")
         out.savefig()
 
         plt.clf()
         plot_zoom(f1, f2, [100,200], [1525,1560],
-                  tit=f"splat - signal difference, begin of track, V-plane {smear=:.1f} {scale=:.1f}")
+                  tit=f"splat - signal difference, begin of track, V-plane")
         out.savefig()
 
         plt.clf()
         plot_zoom(f1, f2, [4600, 4800], [1190, 1230],
-                  tit=f"splat - signal difference, end of track, V-plane {smear=:.1f} {scale=:.1f}")
+                  tit=f"splat - signal difference, end of track, V-plane")
         out.savefig()
 
         plt.clf()
         plot_channels(f1, f2, [1540, 1530, 1520, 1510], 100, 350,
-                      tit=f'V-plane start {smear=:.1f} {scale=:.1f}')
+                      tit=f'V-plane start')
         out.savefig()
 
         plt.clf()
         plot_channels(f1, f2, [1200, 1210, 1220, 1230], 4550, 4750,
-                      tit=f'V-plane end {smear=:.1f} {scale=:.1f}')
+                      tit=f'V-plane end')
         out.savefig()
 
 
