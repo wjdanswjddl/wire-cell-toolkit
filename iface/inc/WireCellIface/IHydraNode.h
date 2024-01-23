@@ -282,6 +282,7 @@ namespace WireCell {
         using HydraInput = IHydraInputV<InputType, FaninMultiplicity>;
         using HydraOutput = IHydraOutputT<OutputTuple>;
 
+        using typename HydraInput::input_pointer;
         using typename IHydraNodeBase::any_queue_vector;
         using typename HydraInput::input_queue;
         using typename HydraInput::input_queues;
@@ -292,10 +293,12 @@ namespace WireCell {
         virtual bool operator()(any_queue_vector& anyinqs, any_queue_vector& anyoutqs)
         {
             // vector input
-            const size_t isize = HydraInput::input_types().size();
+            const size_t isize = anyinqs.size();
             input_queues iqs(isize);
             for (size_t ind=0; ind<isize; ++ind) {
-                iqs[ind] = boost::any_cast<input_queue>(anyinqs[ind]);
+                for (auto any : anyinqs[ind]) {
+                    iqs[ind].push_back(boost::any_cast<input_pointer>(any));
+                }
             }
 
             // cross over
