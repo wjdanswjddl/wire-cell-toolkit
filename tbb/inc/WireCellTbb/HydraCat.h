@@ -123,12 +123,11 @@ namespace WireCellTbb {
                         const any_queue_vector& oqv,
                         std::vector<size_t>& counts)
     {
-        for (const auto& oq : oqv) {
-            for (const auto& o : oq) {
-                bool accepted = std::get<N>(out).try_put(msg_t(counts[N]++, o));
-                if (!accepted) {
-                    std::cerr << "TbbFlow: hydra node input return false when try put on " << N << "\n";
-                }
+        const auto& oq = oqv[N];
+        for (const auto& o : oq) {
+            bool accepted = std::get<N>(out).try_put(msg_t(counts[N]++, o));
+            if (!accepted) {
+                std::cerr << "TbbFlow: hydra node input return false when try put on " << N << "\n";
             }
         }
         if constexpr (N + 1 < Nout) {
