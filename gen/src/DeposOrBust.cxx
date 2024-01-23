@@ -10,7 +10,9 @@ WIRECELL_FACTORY(DeposOrBust,
 
 using namespace WireCell;
 
-Gen::DeposOrBust::DeposOrBust() { }
+Gen::DeposOrBust::DeposOrBust()
+    : Aux::Logger("DeposOrBust", "glue")
+    { }
 Gen::DeposOrBust::~DeposOrBust() { }
 
 // When I get an empty deposet, this is what comes out of port 1.
@@ -63,9 +65,11 @@ bool Gen::DeposOrBust::operator()(input_queues& iqs, output_queues& oqs)
         }
 
         if (ds->depos()->empty()) {
+            log->debug("DeposOrBust: got empty deposet");
             get<1>(oqs).push_back(std::make_shared<EmptyFrame>(ds->ident()));
         }
         else {
+            log->debug("DeposOrBust: forward deposet");
             get<0>(oqs).push_back(ds);
         }
     }

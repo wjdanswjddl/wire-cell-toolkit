@@ -14,10 +14,11 @@
 
 #include "WireCellIface/IDepos2DeposOrFrame.h"
 #include "WireCellIface/IConfigurable.h"
+#include "WireCellAux/Logger.h"
 
 namespace WireCell::Gen {
 
-    class DeposOrBust : public WireCell::IDepos2DeposOrFrame
+    class DeposOrBust : Aux::Logger, public WireCell::IDepos2DeposOrFrame
     {
       public:
 
