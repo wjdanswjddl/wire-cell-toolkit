@@ -151,7 +151,9 @@ bool Gen::FrameFanin::operator()(const input_vector& invec, output_pointer& out)
         }
 
         // Insert one intput frames traces.
-        out_traces.insert(out_traces.end(), traces->begin(), traces->end());
+        if (traces) {
+            out_traces.insert(out_traces.end(), traces->begin(), traces->end());
+        }
     }
 
     auto sf = new Aux::SimpleFrame(one->ident(), one->time(), out_traces, one->tick(), out_cmm);

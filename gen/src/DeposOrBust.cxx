@@ -59,6 +59,7 @@ bool Gen::DeposOrBust::operator()(input_queues& iqs, output_queues& oqs)
         iq.pop_front();
         
         if (!ds) {              // EOS on every ouput
+            log->debug("EOS sync");
             get<0>(oqs).push_back(nullptr);
             get<1>(oqs).push_back(nullptr);
             continue;
