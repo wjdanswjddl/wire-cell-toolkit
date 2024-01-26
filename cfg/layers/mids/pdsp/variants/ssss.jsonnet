@@ -36,6 +36,13 @@ local smeared = override + {
 
 
 {
+    // Used for test-morse-pdsp
+    morse_nominal: override,
+
+    // Used for test-ssss-pdsp
     ssss_nominal: override,
-    ssss_smeared: smeared
+    ssss_smeared: smeared,
+
+    // Used for test-spdir 
+    spdir: smeared
 }

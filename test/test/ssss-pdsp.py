@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 import numpy
+import numpy.ma as ma
+
 import scipy
 import matplotlib.pyplot as plt
 import click
@@ -7,6 +9,11 @@ from pathlib import Path
 from wirecell import units
 from wirecell.util.cli import log, context
 from wirecell.util.plottools import pages
+from wirecell.util.peaks import (
+    baseline_noise, select_activity,
+    find1d as find_peaks,
+    gauss as gauss_func
+)
 
 @context("ssss-pdsp")
 def cli(ctx):
@@ -169,9 +176,9 @@ def plot_ticks(ax, t0, tf, drift, f1, f2, channel_ranges, speed = 1.565*units.mm
     # h = numpy.histogram(ts, bins=times, weights=qs)
     # ax.plot(h[1][:-1], h[0], label='depo charge')
 
-    for p,c1,c2 in zip("UVW",channel_ranges[:-1], channel_ranges[1:]):
-        val1 = f1[c1:c2,:].sum(axis=0)
-        val2 = f2[c1:c2,:].sum(axis=0)
+    for p,chans in zip("UVW",channel_ranges):
+        val1 = f1[chans,:].sum(axis=0)
+        val2 = f2[chans,:].sum(axis=0)
         ax.plot(times[:-1], val1, label=p+' splat')
         ax.plot(times[:-1], val2, label=p+' signal')
     val1 = f1.sum(axis=0)
@@ -217,8 +224,10 @@ def plot_frame(gs, f, e, o="lower", channel_ranges=None, which="splat", tit=""):
     t = numpy.linspace(e[0],e[1],f.shape[1]+1,endpoint=True)
     tax.plot(t[:-1], tval)
     if channel_ranges:
-        for p,c1,c2 in zip("UVW",channel_ranges[:-1], channel_ranges[1:]):
-            val = f[c1:c2,:].sum(axis=0)
+        for p,chans in zip("UVW",channel_ranges):
+            val = f[chans,:].sum(axis=0)
+            c1 = chans.start
+            c2 = chans.stop
             print(c1,c2,numpy.sum(val))
             tax.plot(t[:-1], val, label=p)
             fax.plot([t0,tf], [c1,c1])
@@ -293,10 +302,10 @@ def plot_channels(f1, f2, chans, t0, t1, tit=""):
 
 
 @cli.command("plots")
-@click.option("--channel-ranges", default=None,
+@click.option("--channel-ranges", default="0,800,1600,2560",
               help="comma-separated list of channel idents defining ranges")
-@click.option("--smear", default=0.0)
-@click.option("--scale", default=0.0)
+@click.option("--smear", default=0.0, help="Apply post-hoc smearing across tick dimension")
+@click.option("--scale", default=0.0, help="Apply post-hoc multiplicative scale to waveforms")
 @click.option("-o",'--output', default='plots.pdf')
 @click.argument("depos")
 @click.argument("drift")
@@ -315,6 +324,7 @@ def plots(channel_ranges, smear, scale, depos, drift, splat, signal, output, **k
 
     if channel_ranges:
         channel_ranges = list(map(int,channel_ranges.split(",")))
+        channel_ranges = list(zip(channel_ranges[:-1], channel_ranges[1:]))
 
     fig = plt.figure()
 
@@ -376,7 +386,209 @@ def plots(channel_ranges, smear, scale, depos, drift, splat, signal, output, **k
                       tit=f'V-plane end')
         out.savefig()
 
+def relbias(a,b):
+    rb = numpy.zeros_like(a)
+    ok = b>0
+    rb[ok] = a[ok]/b[ok] - 1
+    return rb
 
+@cli.command("plot-ssss")
+@click.option("--channel-ranges", default="0,800,1600,2560",
+              help="comma-separated list of channel idents defining ranges")
+@click.option("--nsigma", default=3.0,
+              help="Relative threshold on signal in units of number of sigma of noise width")
+@click.option("-o",'--output', default='plots.pdf')
+@click.argument("depos")
+@click.argument("drift")
+@click.argument("splat")
+@click.argument("signal")
+def plot_ssss(channel_ranges, depos, drift, splat, signal,
+              nsigma, output, **kwds):
+    '''
+    Plot splat and sim+SP signals.
+    '''
+    # dumb sanity check user gave us files in the right order
+    assert "depos" in depos
+    assert "drift" in drift
+    assert "splat" in splat
+    assert "signal" in signal
+
+    if channel_ranges:
+        channel_ranges = list(map(int,channel_ranges.split(",")))
+        channel_ranges = [slice(*cr) for cr in zip(channel_ranges[:-1], channel_ranges[1:])]
+
+    fig = plt.figure()
+
+    # d1 = load_depos(depos)
+    d2 = load_depos(drift)
+
+    f1,e1,o1 = load_frame(splat)
+    f2,e2,o2 = load_frame(signal)
+
+    tick_us = (e2[1] - e2[0])/(f1.shape[1]+1)
+    print(f'{tick_us=}')
+
+
+    with pages(output) as out:
+
+        pgs = GridSpec(1,2, figure=fig, width_ratios = [7,0.2])
+        gs = GridSpecFromSubplotSpec(2, 1, pgs[0,0])
+        im1 = plot_frame(gs[0], f1, e1, o1, channel_ranges, which="splat")
+        im2 = plot_frame(gs[1], f2, e2, o2, channel_ranges, which="signal")
+        fig.colorbar(im2, cax=plt.subplot(pgs[0,1]))
+        plt.tight_layout()
+        out.savefig()
+
+        byplane = list()
+
+        # Per channel range plots.
+        for pln, ch in enumerate(channel_ranges):
+            letter = "UVW"[pln]
+
+            spl = select_activity(f1, ch, nsigma)
+            sig = select_activity(f2, ch, nsigma)
+            print(f'selection: {ch} {spl.selection.shape} {sig.selection.shape}')
+
+            # Find the bbox that bounds the biggest splat object.
+            biggest = spl.plats.sort_by("sums")[-1]
+            bbox = spl.plats.bboxes[biggest]
+            print(f'{bbox=}')
+
+            byplane.append((spl, sig, bbox))
+
+            spl_act = spl.thresholded[bbox]
+            sig_act = sig.thresholded[bbox]
+
+            print('shapes',spl_act.shape, sig_act.shape)
+
+
+            # bias of first w.r.t. second
+            bias1 = relbias(sig_act, spl_act)
+            bias2 = relbias(spl_act, sig_act)
+
+            plt.clf()
+            fig, axes = plt.subplots(nrows=2, ncols=2, sharex=True, sharey=True)
+            plt.suptitle(f'{letter}-plane')
+            args=dict(aspect='auto')
+            im1 = axes[0,0].imshow(sig_act, **args)
+            fig.colorbar(im1, ax=axes[0,0])
+            im2 = axes[0,1].imshow(spl_act, **args)
+            fig.colorbar(im2, ax=axes[0,1])
+
+            args = dict(args, cmap='jet', vmin=-50, vmax=50)
+
+            im3 = axes[1,0].imshow(100*bias1, **args)
+            fig.colorbar(im3, ax=axes[1,0])
+
+            im4 = axes[1,1].imshow(100*bias2, **args)
+            fig.colorbar(im4, ax=axes[1,1])
+
+            axes[0,0].set_title(f'signal {nsigma=}')
+            axes[0,1].set_title(f'splat {nsigma=}')
+
+            axes[1,0].set_title(f'splat/signal - 1 [%]')
+            axes[1,1].set_title(f'signal/splat - 1 [%]')
+
+            chan_tit = 'chans (rel)'
+            tick_tit = 'ticks (rel)'
+            axes[0,0].set_ylabel(chan_tit)
+            axes[1,0].set_ylabel(chan_tit)
+            axes[1,0].set_xlabel(tick_tit)
+            axes[1,1].set_xlabel(tick_tit)
+
+            fig.subplots_adjust(right=0.85)
+
+            plt.tight_layout()
+            out.savefig()
+
+        plt.clf()
+        plt.suptitle('By channel')
+        fig, axes = plt.subplots(nrows=2, ncols=3, sharey="row")
+        for pln, (spl, sig, bbox) in enumerate(byplane):
+
+            spl_qch = numpy.sum(spl.activity[bbox], axis=1)
+            spl_tot = numpy.sum(spl_qch)
+            sig_qch = numpy.sum(sig.activity[bbox], axis=1)
+            sig_tot = numpy.sum(sig_qch)                
+
+            print('ch tots:', spl_qch.shape, sig_qch.shape)
+
+            ### MD SP paper definitions:
+            # Charge bias - the mean fractional difference between the total
+            # deconvolved charge and the true charge. In terms of a track (line
+            # charge), the mean value of the distribution of each wire’s
+            # integrated deconvolved charges from a range of wires will be used
+            # to calculate the charge bias with respect to the true charge
+            # within one wire pitch.
+            #
+            # Charge resolution - the standard deviation of the total
+            # deconvolved charge relative to the mean deconvolved charge. In
+            # analogy to the definition of charge bias, in terms of a track
+            # (line charge), the distribution of each wire’s integrated
+            # deconvolved charges from a range of wires will apply.
+            #
+            # Charge inefficiency - specifically associated with tracks (line
+            # charges), the fraction of the wires which have ZERO deconvolved
+            # charge (no ROI found). Note that these wires will not be involved
+            # in the calculation of charge bias or charge resolution.
+            ####
+            
+            # However, while a channel that has no signal is "inefficient" it is
+            # possible for a channel to be "over efficient" by having signal
+            # where there is no splat.  This has as much to do with (smeared)
+            # "splat" being an imperfect "true signal" as it has anything to do
+            # with "real" sim+SP signals.  So, we interpret MB's "ROI" above to
+            # mean channels that have both signal and splat and then inefficient
+            # channels have only splat and over efficient channels have only
+            # signal.
+
+            # either-or, exclude channels where both are zero
+            eor   = numpy.logical_or (spl_qch  > 0, sig_qch  > 0)
+            # both are nonzero
+            both  = numpy.logical_and(spl_qch  > 0, sig_qch  > 0)
+            nosig = numpy.logical_and(spl_qch  > 0, sig_qch == 0)
+            nospl = numpy.logical_and(spl_qch == 0, sig_qch  > 0)
+
+            neor = numpy.sum(eor)
+            # inefficiency percent
+            nnosig = numpy.sum(nosig)
+            ineff = 100*nnosig/neor
+            # over efficiency percent
+            nnospl = numpy.sum(nospl)
+            oveff = 100*nnospl/neor
+            print(f'{neor=} {nnosig=} {nnospl=}')
+
+            nbins = 50
+            reldiff = 100.0*(spl_qch[both] - sig_qch[both])/spl_qch[both],
+            bln = baseline_noise(reldiff, nbins, nbins//2)
+            counts, edges = bln.hist
+
+            # we plot:
+            # 1. The total charge on each channel for signal and splat
+            # 2. The histogram of their difference
+
+            letter = "UVW"[pln]
+
+            ax1,ax2 = axes[:,pln]
+
+            ax1.plot(sig_qch, label='signal')
+            ax1.plot(spl_qch, label='splat')
+            ax1.set_xlabel('chans (rel)')
+            ax1.set_ylabel('electrons')
+            ax1.set_title(f'{letter} ineff={ineff:.1f}%')
+            ax1.legend()
+
+            ax2.step(edges[:-1], counts, label='data')
+            model = gauss_func(edges[:-1], bln.A, bln.mu, bln.sigma)
+            ax2.plot(edges[:-1], model, label='fit')
+            ax2.set_title(f'mu={bln.mu:.2f}%\nsig={bln.sigma:.2f}%')
+            ax2.set_xlabel('difference [%]')
+            ax2.set_ylabel('counts')
+            ax2.legend()
+
+        plt.suptitle('(splat - signal) / splat')
+        plt.tight_layout()
+        out.savefig()
 
 def main():
     cli()

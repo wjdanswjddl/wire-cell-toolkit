@@ -27,7 +27,7 @@ setup_file () {
                      -A input="depos.npz" \
                      --tla-code output="{drift:\"drift.npz\",splat:\"splat.npz\",sim:\"digit.npz\",sp:\"signal.npz\"}" \
                      -A detector=pdsp \
-                     -A variant=ssss_nominal \
+                     -A variant=morse_nominal \
                      -A tasks="drift,splat,sim,sp" \
                      "$cfg_file"
 }
