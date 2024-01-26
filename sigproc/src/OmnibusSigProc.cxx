@@ -733,6 +733,7 @@ void OmnibusSigProc::init_overall_response(IFrame::pointer frame)
         m_pad_nticks = m_fft_nticks - m_nticks;
     }
 
+    // Fixme: this should be moved into configure()
     auto ifr = Factory::find_tn<IFieldResponse>(m_field_response);
     // Get full, "fine-grained" field responses defined at impact
     // positions.

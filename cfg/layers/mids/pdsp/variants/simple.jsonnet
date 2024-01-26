@@ -1,29 +1,20 @@
-// This is the file cfg/layers/mids/pdsp/variant/nominal.jsonnet.
+// This is the file cfg/layers/mids/pdsp/variant/simple.jsonnet.
 // If this file is found at any other path, I will delete it without notice.
 
-// This is the BASE configuration for *pdsp* variant parameter objects.  It
-// yields an object of a schema expected throughout cfg/layers/mids/pdsp/.
+// This files defines a simple VARIANT for pdsp which is NOT MEANT TO BE
+// CORRECT.  Do not "improve" it.  It is meant to provide simple parameters to
+// make debugging easier.
 
-// Do NOT change this file.
-
-// If the nominal parameter do not suit your needs, follow these steps:
-//
-// 1. Pick a single, short name that describes your needs.
-//
-// 2. Start an EMPTY file in cfg/layers/mids/pdsp/variant/<name>.jsonnet
-//
-// 3. Import the nominal.jsonnet object
-//
-// 4. Yield the nominal object with any values overridden.
-//
-// 5. Add this new object to the variants object in mids.jsonnet.
+// If you require a new variant, read and follow the comments at the top of
+// "nominal.jsonnet".
 
 local wc = import "wirecell.jsonnet";
 
 local detectors = import "detectors.jsonnet";
 local mydet = detectors.pdsp;
+local nominal = import "nominal.jsonnet";
 
-{
+local simple = {
     // Define the LAr properties.  In principle, this is NOT subject
     // to variance though in principle it could be (eg, top/bottom of
     // DUNE-VD may have different LAr temps?).  We include this here
@@ -37,6 +28,9 @@ local mydet = detectors.pdsp;
         // Electron lifetime
         lifetime : 10.4*wc.ms,
         // Electron drift speed, assumes a certain applied E-field
+        // See https://github.com/WireCell/wire-cell-toolkit/issues/266
+        // We do not pick a "simple" value (1.6) in order that we match
+        // what is *likely* in the FR file. 
         drift_speed : 1.565*wc.mm/wc.us, // at 500 V/cm
         // LAr density
         density: 1.389*wc.g/wc.centimeter3,
@@ -190,28 +184,16 @@ local mydet = detectors.pdsp;
         // "geometry" section.
         response_plane : 10*wc.cm,
 
-        // The "absolute" time (ie, in G4 time) that the lower edge of
-        // of final readout tick #0 should correspond to.  This is a
-        // "fixed" notion.
-        local tzero = -250*wc.us,
-
-        // Simulate extra time so we can see the tail of response
-        // from activity from depos that fall outside the readout
-        // window.  This amount of extra is somewhat arbitrary but
-        // the duration of the field response calculation is a
-        // good measure.
-        local pre = self.response_plane / $.lar.drift_speed,
-
         // The time bin where the readout should be considered to
         // actually start given the pre-signal simulated.
-        tbin : wc.roundToInt(pre / self.binning.tick),
+        tbin : 0, 
         binning: {
             // Ductor ticks at same speed as ADC
             tick : $.binning.tick,
             // Over the somewhat enlarged domain
             nticks : $.ductor.tbin + $.binning.nticks,
         },
-        start_time : tzero - pre,
+        start_time : -self.response_plane / $.lar.drift_speed,
         readout_time : self.binning.nticks * self.binning.tick,
     },
 
@@ -223,7 +205,6 @@ local mydet = detectors.pdsp;
         window_start: $.ductor.start_time,
         window_duration: $.ductor.readout_time,
         reference_time: 0.0,
-
     },
 
     // Simulating noise
@@ -321,5 +302,20 @@ local mydet = detectors.pdsp;
         tiling_strategy: "perfect",
     },
 
-}
+};
     
+local override = nominal + {
+    ductor: super.ductor + {
+        tbin : 0, 
+        binning: {
+            tick : $.binning.tick,
+            nticks : $.ductor.tbin + $.binning.nticks,
+        },
+        start_time : -self.response_plane / $.lar.drift_speed,
+        readout_time : self.binning.nticks * self.binning.tick,
+    }
+};
+
+// simple
+override
+
