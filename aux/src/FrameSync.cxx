@@ -11,7 +11,8 @@ using namespace WireCell;
 
 Aux::FrameSync::FrameSync(const size_t multiplicity)
     : Aux::Logger("FrameSync", "glue")
-    , m_multiplicity(multiplicity) { }
+    , m_multiplicity(multiplicity)
+    , m_iqs(m_multiplicity) { }
 Aux::FrameSync::~FrameSync() { }
 
 std::vector<std::string> Aux::FrameSync::input_types()
@@ -21,10 +22,8 @@ std::vector<std::string> Aux::FrameSync::input_types()
     return ret;
 }
 
-bool Aux::FrameSync::operator()(input_queues& iqs, output_queues& oqs)
+void Aux::FrameSync::flush(input_queues& iqs, output_queues& oqs)
 {
-    log->debug("iqs size: {} oqs size: {}", iqs.size(), std::tuple_size<output_queues>::value);
-
     size_t neos=0, nmin=0, nempty=0;
     int min_ident=std::numeric_limits<int>::max();
     size_t min_index=0;
@@ -51,7 +50,7 @@ bool Aux::FrameSync::operator()(input_queues& iqs, output_queues& oqs)
             ++nmin;
         }
     }
-    log->debug("neos: {} nmin: {} nempty: {}", neos, nmin, nempty);
+    // log->debug("neos: {} nmin: {} nempty: {}", neos, nmin, nempty);
 
     // found min (good)
     if (nmin > 0) {
@@ -60,22 +59,8 @@ bool Aux::FrameSync::operator()(input_queues& iqs, output_queues& oqs)
         std::get<0>(oqs).push_back(frame);
 
         // May have more
-        return (*this)(iqs, oqs);
+        return flush(iqs, oqs);
     }
-
-    // push eos
-    // for (size_t ind=0; ind<nin; ++ind) {
-    //     auto& iq = iqs[ind];
-    //     if (iq.empty()) {
-    //         continue;
-    //     }
-    //     auto frame = iq.front();
-    //     if (!frame) {
-    //         std::get<0>(oqs).push_back(nullptr); // forward EOS
-    //         iq.pop_front();
-    //         return (*this)(iqs, oqs);
-    //     }
-    // }
 
     // eos sync
     if (neos == iqs.size()) {   // we have EOS sync
@@ -85,16 +70,30 @@ bool Aux::FrameSync::operator()(input_queues& iqs, output_queues& oqs)
         std::get<0>(oqs).push_back(nullptr); // forward EOS
 
         // May have more behind the EOS
-        return (*this)(iqs, oqs);
+        return flush(iqs, oqs);
     }
+}
 
-    // expecting all empty inputs
-    for (size_t ind=0; ind<nin; ++ind) {
-        auto& iq = iqs[ind];
-        if (!iq.empty()) {
-            log->error("port {} not empty", ind);
-            return false;
-        }
+bool Aux::FrameSync::operator()(input_queues& iqs, output_queues& oqs)
+{
+    // log->debug("iqs size: {} oqs size: {}", iqs.size(), std::tuple_size<output_queues>::value);
+
+    // concatenate input queues to buffer
+    for (size_t ind=0; ind<m_iqs.size(); ++ind) {
+        m_iqs[ind].insert(m_iqs[ind].end(), iqs[ind].begin(), iqs[ind].end());
     }
+    
+    // try to flush
+    flush(m_iqs, oqs);
+    log->debug("oqs size: {}", std::get<0>(oqs).size());
+    // for (const auto& frame : std::get<0>(oqs)) {
+    //     if (frame) {
+    //         log->debug("oqs frame: {}", frame->ident());
+    //     }
+    //     else {
+    //         log->debug("oqs frame: nullptr");
+    //     }
+    // }
+
     return true;
 }

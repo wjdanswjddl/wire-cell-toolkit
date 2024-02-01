@@ -39,6 +39,12 @@ namespace WireCell::Aux {
 
       private:
         size_t m_multiplicity {2};
+
+        // recursive processing of input queues
+        void flush(input_queues& iqs, output_queues& oqs);
+
+        // input buffer
+        input_queues m_iqs;
     };
 }
 
