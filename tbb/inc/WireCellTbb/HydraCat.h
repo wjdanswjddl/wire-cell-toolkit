@@ -145,17 +145,19 @@ namespace WireCellTbb {
       public:
         HydraOutputBody(WireCell::INode::pointer wcnode, NodeInfo& info)
             : m_seqnos(Nout, 0)
-            , nin(wcnode->input_types().size())
+            , nin(wcnode->input_types().size()) // number of input ports of the hydra node
             , m_info(info)
         {
             m_wcnode = std::dynamic_pointer_cast<WireCell::IHydraNodeBase>(wcnode);
         }
         void operator()(const tagged_msg_t& in, mfunc_ports_type<Nout>& out)
         {
+            // in: {iport, {seqno, any}}
+            // iqv: vector (nports) of queues (?) of any
             any_queue_vector iqv(nin), oqv(Nout);
 
             size_t index = in.first;
-            iqv[index].push_back(in.second);
+            iqv[index].push_back(in.second.second);
 
             m_info.start();
             bool ok = (*m_wcnode)(iqv, oqv);

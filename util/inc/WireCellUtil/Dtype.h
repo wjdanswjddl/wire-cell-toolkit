@@ -7,6 +7,7 @@
 #ifndef WIRECELL_UTIL_DTYPE
 #define WIRECELL_UTIL_DTYPE
 
+#include <cstdint>
 #include <complex>
 #include <typeinfo>
 #include <cstddef>
