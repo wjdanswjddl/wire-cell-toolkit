@@ -21,10 +21,11 @@
 #define WIRECEL_AUX_FRAMESYNC
 
 #include "WireCellIface/IFrameMerge.h"
+#include "WireCellAux/Logger.h"
 
 namespace WireCell::Aux {
 
-    class FrameSync : public IFrameMerge {
+    class FrameSync : Aux::Logger, public IFrameMerge {
         bool m_flushing{false};
       public:
 
@@ -32,11 +33,18 @@ namespace WireCell::Aux {
         virtual ~FrameSync();
         virtual std::vector<std::string> input_types();
 
-        // hydra
+        // iqs: vector of input queues, mutable
+        // oqs: tuple of output queues
         virtual bool operator()(input_queues& iqs, output_queues& oqs);
 
       private:
-        size_t m_multiplicity;
+        size_t m_multiplicity {2};
+
+        // recursive processing of input queues
+        void flush(input_queues& iqs, output_queues& oqs);
+
+        // input buffer
+        input_queues m_iqs;
     };
 }
 
