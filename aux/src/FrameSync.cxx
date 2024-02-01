@@ -76,8 +76,6 @@ void Aux::FrameSync::flush(input_queues& iqs, output_queues& oqs)
 
 bool Aux::FrameSync::operator()(input_queues& iqs, output_queues& oqs)
 {
-    // log->debug("iqs size: {} oqs size: {}", iqs.size(), std::tuple_size<output_queues>::value);
-
     // concatenate input queues to buffer
     for (size_t ind=0; ind<m_iqs.size(); ++ind) {
         m_iqs[ind].insert(m_iqs[ind].end(), iqs[ind].begin(), iqs[ind].end());
@@ -86,14 +84,6 @@ bool Aux::FrameSync::operator()(input_queues& iqs, output_queues& oqs)
     // try to flush
     flush(m_iqs, oqs);
     log->debug("oqs size: {}", std::get<0>(oqs).size());
-    // for (const auto& frame : std::get<0>(oqs)) {
-    //     if (frame) {
-    //         log->debug("oqs frame: {}", frame->ident());
-    //     }
-    //     else {
-    //         log->debug("oqs frame: nullptr");
-    //     }
-    // }
 
     return true;
 }
