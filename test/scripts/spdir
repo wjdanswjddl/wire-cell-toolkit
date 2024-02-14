@@ -1,0 +1,120 @@
+#!/usr/bin/env -S snakemake --cores all --snakefile
+# -*- snakemake -*-
+
+# Suggested running:
+#
+#     $ spdir --config detector=pdsp --directory=pdsp-spdir
+
+# This requires snakemake.  Inside a venv run:
+#
+#     pip install snakemake
+#
+# Note: as of 2024-02-14 an older version of pulp is required
+#
+#     pip install 'pulp<2.8'
+
+
+# Provide hard-wired configuration defaults.  User may over ride them with a
+# config file or CLI config parameters.
+for k,v in dict(
+        # The canonical detector name.
+        detector="pdsp",
+        # Matched arrays for track angles.
+        # theta_xz_deg=( 0,  1 ),
+        # theta_y_deg=( 90, 90 ),
+        theta_xz_deg=( 0,  1,  3,  5, 10, 20, 30, 45, 60, 75, 80, 82, 84, 89 ),
+        theta_y_deg=( 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90 ),
+).items():
+    config.setdefault(k,v)
+
+
+thetas = list(zip(config['theta_xz_deg'], config['theta_y_deg']))
+txz = config['theta_xz_deg']
+ty =  config['theta_y_deg']
+nang = len(ty)
+
+
+rule tracking:
+    output:
+        depos='{detector}-depos-{txz}-{ty}.npz',
+        meta='{detector}-depos-{txz}-{ty}.json',
+    shell: '''
+    wirecell-gen detlinegen \
+    --detector={wildcards.detector} \
+    --plane 2 \
+    --angle-coords=wire-plane \
+    --theta_xz={wildcards.txz} \
+    --theta_y={wildcards.ty} \
+    --output_depos {output.depos} \
+    --output_meta {output.meta}
+    '''
+
+rule all_depos:
+    input:
+        expand(rules.tracking.output.depos, zip,
+               detector = [config["detector"]]*nang, txz = txz, ty=ty)
+
+rule simulate:
+    input:
+        cfg=workflow.basedir + "/../../cfg/layers/omnijob.jsonnet",
+        depos=rules.tracking.output.depos
+    output:
+        drifts='{detector}-drifts-{txz}-{ty}.npz',
+        splats='{detector}-splats-{txz}-{ty}.npz',
+        digits='{detector}-digits-{txz}-{ty}.npz',
+        signals='{detector}-signals-{txz}-{ty}.npz',
+        log='{detector}-simulate-{txz}-{ty}.log'
+    shell: '''
+    wire-cell -c {input.cfg} -l {output.log} -L debug \
+    -A tasks=drift,splat,sim,sp \
+    -A input={input.depos} \
+    -A detector={wildcards.detector} \
+    -A variant=spdir \
+    --tla-code output='{{drift:"{output.drifts}",splat:"{output.splats}",sim:"{output.digits}",sp:"{output.signals}"}}'
+    '''
+
+
+rule all_signals:
+    input:
+        expand(rules.simulate.output.signals, zip,
+               detector = [config["detector"]]*nang, txz = txz, ty=ty)
+
+
+rule metrics:
+    input:
+        splats='{detector}-splats-{txz}-{ty}.npz',
+        signals='{detector}-signals-{txz}-{ty}.npz',
+        depos='{detector}-depos-{txz}-{ty}.json',
+    output:
+        metrics='{detector}-metrics-{txz}-{ty}.json'
+    shell: '''
+    wirecell-test ssss-metrics --output {output.metrics} --params {input.depos} {input.splats} {input.signals}
+    '''
+
+rule all_metrics:
+    input:
+        expand(rules.metrics.output.metrics, zip,
+               detector = [config["detector"]]*nang, txz = txz, ty=ty)
+    
+
+rule angle_plots:
+    input:
+        splats='{detector}-splats-{txz}-{ty}.npz',
+        signals='{detector}-signals-{txz}-{ty}.npz',
+    output:
+        plots='{detector}-plots-{txz}-{ty}.pdf'
+    shell: '''
+    wirecell-test plot-ssss --output {output.plots} {input.splats} {input.signals}
+    '''
+
+
+rule all_plots:
+    input:
+        expand(rules.angle_plots.output.plots, zip,
+               detector = [config["detector"]]*nang, txz = txz, ty=ty)
+    
+
+rule junk:
+    output:
+        "info.txt"
+    run: open(output[0],"w").write(workflow.basedir)
