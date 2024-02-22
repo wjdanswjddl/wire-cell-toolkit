@@ -1,7 +1,5 @@
 local wc = import "wirecell.jsonnet";
 
-local detectors = import "detectors.jsonnet";
-local mydet = detectors.pdsp;
 local nominal = import "nominal.jsonnet";
 
 local override = nominal + {
@@ -20,7 +18,8 @@ local smeared = override + {
     splat: super.splat + {
 
         // Run wirecell-gen morse-* to find these numbers that match the extra
-        // spread the sigproc induces.
+        // spread the sigproc induces.  CAVEAT: these results are inderectly
+        // tied to the field response used.
         "smear_long": [
             2.691862363980221,
             2.6750200122535057,
@@ -43,6 +42,15 @@ local smeared = override + {
     ssss_nominal: override,
     ssss_smeared: smeared,
 
-    // Used for test-spdir 
-    spdir: smeared
+    // Used for test/scripts/spdir 
+    spdir_lofr: smeared {
+        detector: super.detector {
+            fields: "pdsp-fields-lo.json.bz2"
+        },
+    },
+    spdir_hifr: smeared {
+        detector: super.detector {
+            fields: "pdsp-fields-hi.json.bz2"
+        },
+    },
 }
