@@ -100,7 +100,7 @@ local builder(mid, anode, stages, outputs, dense=true) = {
     
 
 local source(stage, input) = 
-    if stage == "drift"
+    if std.member(["drift","splat","sim"], stage)
     then high.fio.depo_file_source(input)
     else high.fio.frame_file_source(input);
 
