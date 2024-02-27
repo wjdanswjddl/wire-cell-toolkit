@@ -13,11 +13,13 @@ local idents = low.util.idents;
 
 function(services, params, options={}) {
 
+    // local res = low.resps(params).sim,
+
     // Signal binning may be extended from nominal.
     local sig_binning = params.ductor.binning,
 
     // Must be *3* field responses
-    local fr = frs(params).sims,
+    local uboone_frs = frs(params).sims,
 
     local broken_detector = [{
         regions: sr.uv+sr.vy,
@@ -51,11 +53,11 @@ function(services, params, options={}) {
     local make_pirs = function(index) [{
         type: 'PlaneImpactResponse',
         name: "p"+std.toString(plane)+"i"+std.toString(index),
-        uses: [fr[index], services.dft] + short_responses + long_responses,
+        uses: [uboone_frs[index], services.dft] + short_responses + long_responses,
         data: sig_binning {
             plane: plane,
             dft: wc.tn(services.dft),
-            field_response: wc.tn(fr[index]),
+            field_response: wc.tn(uboone_frs[index]),
             short_responses: [wc.tn(sr) for sr in short_responses],
             long_responses: [wc.tn(lr) for lr in long_responses],
             overall_short_padding: 100*wc.us,
@@ -132,7 +134,7 @@ function(services, params, options={}) {
     },
 
     // Make some depos.  Note, this does NOT have a bagger.
-    track_depos :: function(tracklist = [{
+    track_depos : function(tracklist = [{
         time: 0,
         charge: -5000,         
         ray:  {
@@ -145,7 +147,7 @@ function(services, params, options={}) {
 
     // API method sim.signal: subgraph making pure signal voltage from
     // depos.  
-    signal :: function(anode) pg.pipeline([
+    signal : function(anode) pg.pipeline([
         pg.fan.pipe('DepoSetFanout', [make_branch(anode, index) for index in [0,1,2]],
                     'FrameFanin', 'ubsigraph', ubsigtags),
         pg.pnode({
@@ -173,7 +175,7 @@ function(services, params, options={}) {
         }
     },
 
-    noise :: function(anode) 
+    noise : function(anode) 
         local model = {
             type: 'EmpiricalNoiseModel',
             name: idents(anode),
@@ -195,15 +197,6 @@ function(services, params, options={}) {
                 replacement_percentage: params.noise.replacement_percentage,
             }}, nin=1, nout=1, uses=[services.random, services.dft, model]),
 
-    digitizer :: function(anode) 
-        pg.pnode({
-            type: 'Digitizer',
-            name: idents(anode),
-            data: params.digi {
-                anode: wc.tn(anode),
-                frame_tag: "orig" + idents(anode),
-            }
-        }, nin=1, nout=1, uses=[anode]),
 
 
 }

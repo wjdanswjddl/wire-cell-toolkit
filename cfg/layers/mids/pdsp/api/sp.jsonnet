@@ -7,8 +7,6 @@ local spfilt = import "sp-filters.jsonnet";
 local low = import "../../../low.jsonnet";
 local wc = low.wc;
 
-local resps = import "resps.jsonnet";
-
 // Allow an optional argument "sparse" as this is really an end-user
 // decision.  Higher layers may expose this option to the TLA.
 function(services, params, options={}) function(anode)
@@ -19,7 +17,7 @@ function(services, params, options={}) function(anode)
     local fullscale = pars.digi.fullscale[1] - pars.digi.fullscale[0];
     local ADC_mV_ratio = ((1 << resolution) - 1 ) / fullscale;
 
-    local res = resps(params).sp;
+    local res = low.resps(params).sp;
 
     low.pg.pnode({
         type: 'OmnibusSigProc',

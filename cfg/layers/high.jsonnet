@@ -8,8 +8,6 @@ local svcs = import "high/svcs.jsonnet";
 
 local midapi = import "midapi.jsonnet";
 
-
-
 {
     // Forward the various "standard" wirecell utillities as a
     // convenience to end user.
@@ -30,9 +28,19 @@ local midapi = import "midapi.jsonnet";
     // the mid.
     services :: svcs,
 
+    // All known mid-layer detectors
+    mids :: mids,
+
+    // A parameter factory function.
+    params :: function(detector, variant="nominal")
+        mids[detector].variants[variant],
+
     // The mid-level API factory function.
-    mid :: function(detector, variant="nominal", services=svcs(), options={})
-        midapi + mids[detector](services, variant, options=options),
+    api :: function(detector, params, services=svcs(), options={})
+        local sv = svcs();      //  fixme: need a way to choose eg GPU svcs
+        local base = midapi(sv, params, options=options);
+        local det = mids[detector].api(sv, params, options=options);
+        std.mergePatch(base, det), // must use single ":" to pass mergePatch!
 }
 
 

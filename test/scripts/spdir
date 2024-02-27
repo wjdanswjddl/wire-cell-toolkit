@@ -5,6 +5,8 @@
 # This workflow ultimately produces "standard" plots showing per-plane SP
 # metrics as a function of track directions for a given detector.
 #
+# CAVEAT: only canonical detector names (pdsp, uboone) supported by cfg/layers/ can be targeted.
+#
 # Intermidate file names follow a pattern that allows expressing a variety of combinations of processing stages.
 # 
 #  {detector}-{tier}-{modifiers}-p{plane}-txz{txz}deg-ty{ty}deg.{ext}'
@@ -33,6 +35,7 @@
 # Suggested running:
 #
 #     $ spdir --config detector=pdsp --directory=pdsp-spdir
+#     $ spdir --config detector=uboone --directory=uboone-spdir
 #
 # This script requires snakemake.  Suggest to install inside a venv:
 #
@@ -148,14 +151,19 @@ rule all_depos:
 
 
 # PDSP period is broken.  We want to import the FR file anyways, so fix the
-# period along the way.  For non-PDSP, can make a symlink/copy.
-rule fix_pdsp_fr_period:
+# period along the way.  For non-PDSP we effectively copy it in as-is.
+def import_fr_params(w):
+    if w.detector == 'pdsp':
+        return '-P "100*ns"'
+    return ''
+
+rule import_fr:
     output:
         "{detector}-fields-hi.json.bz2"
-    wildcard_constraints:
-        detector="pdsp"
+    params:
+        import_fr_params
     shell: '''
-    wirecell-resp condition -P "100*ns" -o {output} {wildcards.detector}
+    wirecell-resp condition {params} -o {output} {wildcards.detector}
     '''
 
 rule make_q1dfr:

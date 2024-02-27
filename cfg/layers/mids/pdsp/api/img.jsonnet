@@ -4,7 +4,7 @@ local low = import "../../../low.jsonnet";
 local pg = low.pg;
 local wc = low.wc;
 
-function(services, params) function(anode)
+function(services, params) function(anode) 
     local ident = low.util.idents(anode);
     local img = low.img(anode);
 

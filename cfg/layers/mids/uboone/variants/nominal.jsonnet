@@ -108,11 +108,15 @@ local wc = import "wirecell.jsonnet";
 
         transform: "standard",  // see overlay
 
-        // We trifurcate the detector to deal with different
-        // problematic wire regions.
-        field_files: ["ub-10-half.json.bz2",
-                      "ub-10-uv-ground-tuned-half.json.bz2",
-                      "ub-10-vy-ground-tuned-half.json.bz2"],
+        // The nominal fields.
+        field_file:"ub-10-half.json.bz2",
+
+        // This is a non-standard form used internally to construct simulation.
+        uboone_field_files : [
+          "ub-10-half.json.bz2",
+          "ub-10-uv-ground-tuned-half.json.bz2",
+          "ub-10-vy-ground-tuned-half.json.bz2"
+        ],
 
         response_plane : 10*wc.cm,
 
@@ -135,6 +139,17 @@ local wc = import "wirecell.jsonnet";
         tbin: (81*wc.us)/($.binning.tick),
         nticks: $.binning.nticks,
         toffset: $.ductor.drift_dt - 81*wc.us,
+    },
+
+    // A "splat" (DepoFluxSplat) is an approximation to the combination of
+    // ductor+sigproc
+    splat : {
+        sparse: true,
+        tick: $.ductor.binning.tick,
+        window_start: $.ductor.start_time,
+        window_duration: $.ductor.readout_time,
+        reference_time: 0.0,
+
     },
 
     // Simulating noise

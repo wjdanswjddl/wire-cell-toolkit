@@ -13,6 +13,6 @@ function(params) {
         type: "FieldResponse",
         name: fn,
         data: { filename: fn }
-    } for fn in params.ductor.field_files],
+    } for fn in params.ductor.uboone_field_files],
 }
 
