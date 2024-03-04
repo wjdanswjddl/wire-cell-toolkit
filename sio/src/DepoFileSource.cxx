@@ -205,23 +205,28 @@ IDepoSet::pointer Sio::DepoFileSource::next()
     // second pass, save out the active and resolve the prior depos
     std::vector<std::shared_ptr<Aux::SimpleDepo>> sdepos;
     size_t npriors = 0;
+    size_t npriors_missing = 0;
     for (size_t ind=0; ind < ndepos; ++ind) {
 
         const auto gen = iarr(ind, 2);
-        if (!gen) {  
+        if (!gen) {  // active
             sdepos.push_back(all_sdepos[ind]);
             continue;
         }
 
+        // Prior
         const size_t other = iarr(ind, 3);
-        if (other >= sdepos.size()) {
-            log->warn("call={}, prior depo {} not provided in {}",
-                      m_count, other, sdepos.size());
+        if (other >= all_sdepos.size()) {
+            ++npriors_missing;
         }
         else {
             ++npriors;
             all_sdepos[other]->set_prior(all_sdepos[ind]);
         }
+    }
+    if (npriors_missing) {
+        log->warn("call={}, missing {} prior depos, active={} total={}",
+                  m_count, npriors_missing, sdepos.size(), all_sdepos.size());
     }
     all_sdepos.clear();
 
