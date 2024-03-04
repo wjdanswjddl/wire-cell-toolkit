@@ -55,6 +55,16 @@ nominal {
         time: self.hw_time + self.time_offset,
     },
 
+    geometry : super.geometry + {
+        xplanes: super.xplanes {
+            // Comments from old config: "plane, arbitrary choice.  Microboone
+            // wires put collection plane at absolute x=-6mm, response.plane_dx
+            // is measured relative to collection plane wires.".  I (bv) do not
+            // know why this means subtracting 6mm....
+            dresponse: 10*wc.cm - 6*wc.mm,
+        }
+    },
+
     ductor: super.ductor {
 
         // Note, in another variant, perhaps one named 'larsoft', the transform
@@ -69,10 +79,9 @@ nominal {
         local tzero = 0*wc.us,
         drift_dt : self.response_plane / $.lar.drift_speed,
         tbin : wc.roundToInt(self.drift_dt / self.binning.tick),
-        binning: {
-            tick : $.binning.tick,
-
-            nticks : $.ductor.tbin + $.binning.nticks,
+        local nticks = super.binning.nticks,
+        binning: super.binning {
+          nticks : $.ductor.tbin + nticks,
         },
         start_time : tzero - self.drift_dt + $.trigger.time,
         readout_time : self.binning.nticks * self.binning.tick,

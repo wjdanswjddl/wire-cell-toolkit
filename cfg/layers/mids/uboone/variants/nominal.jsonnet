@@ -21,7 +21,7 @@ base_variants.nominal {
     //   | jsonnetfmt -n 4 --max-blank-lines 1 - \
     //   > cfg/layers/mids/uboone/geometry.jsonnet
     geometry_data : import "geometry.jsonnet",
-    geometry : std.mergePatch($.geometry_data, {
+    geometry : $.geometry_data + {
         xplanes: {
             // Distances between collection plane and a logical plane.
             danode: 0.0,
@@ -30,7 +30,7 @@ base_variants.nominal {
             // of ubcore/v06_83_00/gdml/microboonev11.gdml by Matt Toups
             dcathode: 2.5480*wc.m,
         }
-    }),
+    },
 
     // The nominal time binning for data produced by the detector.
     binning : {
