@@ -3,5 +3,9 @@
 local ssss = import "variants/ssss.jsonnet";
 local resample = import "variants/resample.jsonnet" ;
 local nominal = import "variants/nominal.jsonnet";
+local actual = import "variants/actual.jsonnet";
 
-{nominal: nominal} + ssss + resample
+{
+    nominal: nominal,
+    actual: actual
+} + ssss + resample

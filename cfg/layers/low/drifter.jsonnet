@@ -27,7 +27,7 @@ function(random, xregions, lar, offset=0, fluctuate=true, name="")
     pg.pnode({
         type: 'DepoSetDrifter',
         name: name,
-        data: { drifter: "Drifter" }
+        data: { drifter: "Drifter:"+name }
     }, nin=1, nout=1, uses = [
         pg.pnode({
             type: 'Drifter',

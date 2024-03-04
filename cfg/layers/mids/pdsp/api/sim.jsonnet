@@ -52,11 +52,11 @@ function(services, params, options={}) {
     
     // API method sim.signal: subgraph making pure signal voltage from
     // depos.
-    signal : function(anode, tags=[])
+    signal : function(anode, name=null)
         pg.pipeline([
             pg.pnode({
                 type: 'DepoTransform',
-                name: idents(anode),
+                name: name,
                 data: {
                     rng: wc.tn(services.random),
                     dft: wc.tn(services.dft),
@@ -71,13 +71,13 @@ function(services, params, options={}) {
                     nsigma: 3,
                 },
             }, nin=1, nout=1, uses = pirs + [anode, services.random, services.dft]),
-            low.reframer(params, anode, tags=tags, name=idents(anode))]),
+            low.reframer(params, anode, name=name)]),
 
     // API method sim.noise: subgraph adding noise to voltage
-    noise : function(anode)
+    noise : function(anode, name)
         local model = {
             type: 'EmpiricalNoiseModel',
-            name: idents(anode),
+            name: name,
             data: params.noise.model {
                 anode: wc.tn(anode),
                 dft: wc.tn(services.dft),
@@ -87,7 +87,7 @@ function(services, params, options={}) {
         };
         pg.pnode({
             type: 'AddNoise',
-            name: idents(anode),
+            name: name,
             data: {
                 rng: wc.tn(services.random),
                 dft: wc.tn(services.dft),

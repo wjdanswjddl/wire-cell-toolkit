@@ -2,19 +2,7 @@ local wc = import "wirecell.jsonnet";
 
 local nominal = import "nominal.jsonnet";
 
-local override = nominal + {
-    ductor: super.ductor + {
-        tbin : 0, 
-        binning: {
-            tick : $.binning.tick,
-            nticks : $.ductor.tbin + $.binning.nticks,
-        },
-        start_time : -self.response_plane / $.lar.drift_speed,
-        readout_time : self.binning.nticks * self.binning.tick,
-    }
-};
-
-local smeared = override + {
+local smeared = nominal + {
     splat: super.splat + {
 
         // Run wirecell-gen morse-* to find these numbers that match the extra
@@ -36,21 +24,21 @@ local smeared = override + {
 
 {
     // Used for test-morse-pdsp
-    morse_nominal: override,
+    morse_nominal: nominal,
 
     // Used for test-ssss-pdsp
-    ssss_nominal: override,
+    ssss_nominal: nominal,
     ssss_smeared: smeared,
 
-    // Used for test/scripts/spdir 
+    // Used for test/scripts/spdir.  Note, these files are generated.
     spdir_lofr: smeared {
-        detector: super.detector {
-            fields: "pdsp-fields-lo.json.bz2"
+        detector_data: super.detector_data {
+            field: "pdsp-fields-lo.json.bz2"
         },
     },
     spdir_hifr: smeared {
-        detector: super.detector {
-            fields: "pdsp-fields-hi.json.bz2"
+        detector_data: super.detector_data {
+            field: "pdsp-fields-hi.json.bz2"
         },
     },
 }
