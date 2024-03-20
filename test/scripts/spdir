@@ -67,10 +67,14 @@ for k,v in dict(
         # The plane numbers.  Probably universal.
         planes = [0,1,2],
         # location of uvcgan returns.  Set on CLI: --config uvcgan_output=....
-        # uvcgan_output = "uvcgan-output"
-        uvcgan_output = None
+        # uvcgan_output = "uvcgan-output".  If this is left "None" then UVCGAN
+        # related subgraphs are not built.
+        uvcgan_output = None,
+
 ).items():
     config.setdefault(k,v)
+
+import json
 
 # Break out some config into simple vars
 thetas = list(zip(config['theta_xz_deg'], config['theta_y_deg']))
@@ -126,6 +130,7 @@ def fname(tier=None, ext='npz', **kwds):
     dat = FailsafeDict(kwds, tier=tier, ext=ext)
     ret = pattern.format_map(dat)
     debug(f'fname({tier=},{ext=},{kwds=})\n\t{ret}')
+
     return ret
 
 def expand_thetas(**kwds):
@@ -209,7 +214,7 @@ rule all_frs:
 rule drift:
     input:
         cfg=workflow.basedir + "/../../cfg/layers/omnijob.jsonnet",
-        depos=rules.tracking.output.depos,
+        depos=fname(tier='depos'),
         fr='{detector}-fields-hi.json.bz2'
     output:
         drifts=fname(tier='drifts'),
@@ -300,7 +305,7 @@ rule sigproc:
         gen="sim"
     shell: '''
     wire-cell -c {input.cfg} -l {output.log} -L debug \
-    -A tasks=nf,sp \
+    -A tasks=sp \
     -A input={input.digits} \
     -A detector={wildcards.detector} \
     -A variant=spdir_{wildcards.spfr}fr \
@@ -311,41 +316,51 @@ rule sigproc:
 # 
 #   {uvcgan_output}/tgthi/pdsp-uvcgan-tgthi-p0-txz30deg-ty90deg.npz
 #
-# and etc for tgtlo and need to convert them to WCT format.
-uvcgan_output=config['uvcgan_output']
-rule import_uvcgan:
-    input:
-        uvcgan_output + '/tgt{simfr}/' + fname(tier='uvcgan', gen='tgt')
-    output:
-        fname(tier='uvcgan', gen='tgt')
-    wildcard_constraints:
-        simfr='lo|hi',
-        gen="tgt"
-    shell: '''
-    wirecell-ls4gan npz-to-wct \
-    -n '*' \
-    -o {output} {input}
-    '''
+# and etc for tgtlo and need to convert them to WCT format.  Part of this
+# conversion involves digging out the t0 of the "digits" file that was exported
+# for UVCGAN translation.
+#
+# CRITICAL: to be hermetic, one must freeze the output directory and all code
+# while data is out for translation!
+if config.get('uvcgan_output', None):
+    uvcgan_output=config['uvcgan_output']
+    rule import_uvcgan:
+        input:
+            digits = fname(tier='digits', gen='tgt'),
+            uvcgan = uvcgan_output + '/tgt{simfr}/' + fname(tier='uvcgan', gen='tgt')
+        output:
+            fname(tier='uvcgan', gen='tgt')
+        wildcard_constraints:
+            simfr='lo|hi',
+            gen="tgt"
+        run:
+            # No way to get raw text from shell()?
+            jtext = '\n'.join(shell('wirecell-util framels {input.digits}', iterable=True))
+            print(f'{jtext=}')
+            jdat = json.loads(jtext)
+            ti = '{t0},{tick},{tbin}'.format(**jdat)
+            shell(f"wirecell-ls4gan npz-to-wct --tinfo '{ti}' -n '*' -o {output} {input.uvcgan}")
 
-rule sigproc_uvcgan:
-    input:
-        cfg=workflow.basedir + "/../../cfg/layers/omnijob.jsonnet",
-        digits=fname(tier='uvcgan', gen='tgt'),
-        fr='{detector}-fields-{spfr}.json.bz2'
-    output:
-        signals=fname(tier='signals', gen='tgt'),
-        log=fname(tier='signals', gen='tgt', ext='log')
-    wildcard_constraints:
-        simfr='lo|hi',
-        gen="tgt"
-    shell: '''
-    wire-cell -c {input.cfg} -l {output.log} -L debug \
-    -A tasks=nf,sp \
-    -A input={input.digits} \
-    -A detector={wildcards.detector} \
-    -A variant=spdir_{wildcards.spfr}fr \
-    --tla-code output='{{sp:"{output.signals}"}}'
-    '''
+    rule sigproc_uvcgan:
+        input:
+            cfg=workflow.basedir + "/../../cfg/layers/omnijob.jsonnet",
+            digits=fname(tier='uvcgan', gen='tgt'),
+            fr='{detector}-fields-{spfr}.json.bz2'
+        output:
+            signals=fname(tier='signals', gen='tgt'),
+            log=fname(tier='signals', gen='tgt', ext='log')
+        wildcard_constraints:
+            simfr='lo|hi',
+            gen="tgt"
+        shell: '''
+        wire-cell -c {input.cfg} -l {output.log} -L debug \
+        -A tasks=sp \
+        -A input={input.digits} \
+        -A detector={wildcards.detector} \
+        -A variant=spdir_{wildcards.spfr}fr \
+        --tla-code output='{{sp:"{output.signals}"}}'
+        '''
+
 
 rule sigproc_dag:
     input:

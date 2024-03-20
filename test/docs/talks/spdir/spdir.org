@@ -1,6 +1,8 @@
-#+title: SP Directional Metrics Process (spdir)
+#+title: Wire-Cell Signal Processing Directional Metrics (spdir)
 #+setupfile: ~/sync/talks/setup.org
 #+LATEX_HEADER: \usepackage{siunitx}
+
+
 
 * Stuff needed to rebuild this document                            :noexport:
 
@@ -51,6 +53,25 @@ wget -q -c https://raw.githubusercontent.com/LS4GAN/toyzero/master/plots/real-re
 #+end_src
 
 #+RESULTS:
+
+** UVCGAN comes back.
+
+The UVCGAN data comes back not in WCT frame file format so needs an "import" step done by ~wirecell-ls4gan npz-to-wct~.  Besides array reformatting, UVCGAN format drops any ~tickinfo~.
+
+Checking ~tickinfo~ I sent digits to UVCGAN with $t_0 = -63897.76357827$ and $tbin=0$.  Even though I kept working on this while UCVGAN was processing, rerunning still makes digits with this ~tickinfo~.  Fix this by adding ~wirecell-util framels~ to spit out a JSON summary of the frame and update ~spdir~ so that it uses this to form a ~tickinfo~ to give to ~wirecell-ls4gan npz-to-wct~.
+
+** NF is bad
+
+It seems PDSP NF kills collection channels hit by the tracks.  Probably bad-channel list.  Remove it and rerun SP on both ~digits~ and ~uvcgan~.  To avoid rerunning sim, use
+
+#+begin_example
+$ ../test/scripts/spdir --configfile ../spdir-few.json  --config detector=pdsp -p --touch all
+$ rm pdsp-mplots* pdsp-signals* pdsp-plots* pdsp-metrics*
+$ ../test/scripts/spdir --configfile ../spdir-few.json  --config detector=pdsp --config uvcgan_output=uvcgan-output -p all
+#+end_example
+
+Once that looks okay, remove the ~--configfile~ to do all angles ("few" still does 251 jobs, then 1007 more with it removed).
+
 
 
 
