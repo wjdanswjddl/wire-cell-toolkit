@@ -1,4 +1,8 @@
 
+# if you get weird error like:
+# json-read: Invalid number format: 5
+# then "pip install jupyter".  nfc.
+
 
 #+begin_export latex
 \colorlet{punct}{red!60!black}

@@ -24,7 +24,6 @@ local epoch = std.extVar('epoch');  // eg "dynamic", "after", "before", "perfect
 local reality = std.extVar('reality');
 local sigoutform = std.extVar('signal_output_form');  // eg "sparse" or "dense"
 
-
 local wc = import 'wirecell.jsonnet';
 local g = import 'pgraph.jsonnet';
 
@@ -32,13 +31,60 @@ local raw_input_label = std.extVar('raw_input_label');  // eg "daq"
 local volume_label = std.extVar('tpc_volume_label');  // eg "",0,1,2,3
 local volume = if volume_label == '' then -1 else std.parseInt(volume_label);
 
-local data_params = import 'params.jsonnet';
-local simu_params = import 'simparams.jsonnet';
-local params = if reality == 'data' then data_params else simu_params;
+// local data_params = import 'params.jsonnet';
+// local simu_params = import 'simparams.jsonnet';
+// local params_init = if reality == 'data' then data_params else simu_params;
+local base = import 'pgrapher/experiment/icarus/simparams.jsonnet';
+
+// load the electronics response parameters
+local er_params = [
+  {
+    gain: std.extVar('gain0')*wc.mV/wc.fC,
+    shaping: std.extVar('shaping0')*wc.us,
+  },
+
+  {
+    gain: std.extVar('gain1')*wc.mV/wc.fC,
+    shaping: std.extVar('shaping1')*wc.us,
+  },
+
+  {
+    gain: std.extVar('gain2')*wc.mV/wc.fC,
+    shaping: std.extVar('shaping2')*wc.us,
+  },
+];
 
 
-local tools_maker = import 'pgrapher/common/tools.jsonnet';
+local params = base {
+  files: super.files {
+    fields: [ std.extVar('files_fields'), ],
+    chresp: "icarus-channel-responses-v1.json.bz2",
+  },
+
+  rc_resp: if std.extVar('file_rcresp') != "" then
+  {
+    // "icarus_fnal_rc_tail.json"
+    filename: std.extVar('file_rcresp'),
+    postgain: 1.0,
+    start: 0.0,
+    tick: 0.4*wc.us,
+    nticks: params.daq.nticks,// 4255,
+    type: "JsonElecResponse",
+  }
+  else super.rc_resp,
+
+  elec: std.mapWithIndex(function (n, eparam)
+    super.elec[n] + {
+      gain: eparam.gain,
+      shaping: eparam.shaping,
+    }, er_params),
+
+};
+
+// local tools_maker = import 'pgrapher/common/tools.jsonnet';
+local tools_maker = import 'pgrapher/experiment/icarus/icarus_tools.jsonnet';
 local tools = tools_maker(params);
+
 
 local wcls_maker = import 'pgrapher/ui/wcls/nodes.jsonnet';
 local wcls = wcls_maker(params, tools);
@@ -60,6 +106,7 @@ local wcls_input = {
     data: {
       art_tag: raw_input_label,
       frame_tags: ['orig'],  // this is a WCT designator
+      tick: params.daq.tick,
       // nticks: params.daq.nticks,
     },
   }, nin=0, nout=1),
@@ -107,8 +154,10 @@ local wcls_output = {
       // anode: wc.tn(tools.anode),
       anode: wc.tn(mega_anode),
       digitize: false,  // true means save as RawDigit, else recob::Wire
-      frame_tags: ['gauss', 'wiener'],
-      frame_scale: [0.1, 0.1],
+      // frame_tags: ['gauss', 'wiener', 'looseLf'],
+      // frame_scale: [0.1, 0.1, 0.1],
+      frame_tags: ['looseLf'],
+      frame_scale: [0.009],
       // nticks: params.daq.nticks,
       chanmaskmaps: [],
       nticks: -1,
@@ -123,13 +172,13 @@ local chndb = [{
   name: 'ocndbperfect%d' % n,
   // data: perfect(params, tools.anodes[n], tools.field, n),
   data: base(params, tools.anodes[n], tools.field, n){dft:wc.tn(tools.dft)},
-  uses: [tools.anodes[n], tools.field, tools.dft],
+  uses: [tools.anodes[n], tools.field, tools.dft],  // pnode extension
 } for n in std.range(0, std.length(tools.anodes) - 1)];
 
 local nf_maker = import 'pgrapher/experiment/icarus/nf.jsonnet';
-local nf_pipes = [nf_maker(params, tools.anodes[n], chndb[n], n, name='nf%d' % n) for n in std.range(0, std.length(tools.anodes) - 1)];
+local nf_pipes = [nf_maker(params, tools.anodes[n], chndb[n], tools, name='nf%d' % n) for n in std.range(0, std.length(tools.anodes) - 1)];
 
-local sp = sp_maker(params, tools, { sparse: sigoutform == 'sparse', use_roi_debug_mode: false, });
+local sp = sp_maker(params, tools, { sparse: sigoutform == 'sparse', use_roi_debug_mode: true, });
 local sp_pipes = [sp.make_sigproc(a) for a in tools.anodes];
 
 local util = import 'pgrapher/experiment/icarus/funcs.jsonnet';
@@ -191,6 +240,8 @@ local fanin_tag_rules = [
               ['gauss%d'%ind]:'gauss%d'%ind,
               ['wiener%d'%ind]:'wiener%d'%ind,
               ['threshold%d'%ind]:'threshold%d'%ind,
+              // ['tight_lf%d'%ind]:'tight_lf%d'%ind,
+              ['loose_lf%d'%ind]:'loose_lf%d'%ind,
             },
 
           }
@@ -211,6 +262,8 @@ local retagger = g.pnode({
       merge: {
         'gauss\\d\\d\\d': 'gauss',
         'wiener\\d\\d\\d': 'wiener',
+        // 'tight_lf\\d\\d\\d': 'tightLf',
+        'loose_lf\\d\\d\\d': 'looseLf',
       },
     }],
   },

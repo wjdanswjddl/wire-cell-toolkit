@@ -145,7 +145,7 @@ void OmnibusSigProc::configure(const WireCell::Configuration& config)
     m_mp3_roi_tag = get(config, "mp3_roi_tag", m_mp3_roi_tag);
     m_mp2_roi_tag = get(config, "mp2_roi_tag", m_mp2_roi_tag);
     m_mp_th1 = get(config, "mp_th1", m_mp_th1);
-    m_mp_th2 = get(config, "mp_th1", m_mp_th2);
+    m_mp_th2 = get(config, "mp_th2", m_mp_th2);
     m_mp_tick_resolution = get(config, "mp_tick_resolution", m_mp_tick_resolution);
     
 
@@ -733,6 +733,7 @@ void OmnibusSigProc::init_overall_response(IFrame::pointer frame)
         m_pad_nticks = m_fft_nticks - m_nticks;
     }
 
+    // Fixme: this should be moved into configure()
     auto ifr = Factory::find_tn<IFieldResponse>(m_field_response);
     // Get full, "fine-grained" field responses defined at impact
     // positions.
@@ -1466,9 +1467,10 @@ bool OmnibusSigProc::operator()(const input_pointer& in, output_pointer& out)
         }
         check_data(iplane, "after 2D tight ROI");
 
-        // [wgu] save decon result after tight LF
+        // save_data passes perwire_rmses to dummy, which will not be used
         std::vector<double> dummy;
-        if (m_use_roi_debug_mode and m_use_roi_refinement) {
+        // [wgu] save decon result after tight LF
+        if (m_use_roi_debug_mode and !m_tight_lf_tag.empty()) {
             save_data(*itraces, tight_lf_traces, iplane, perwire_rmses, dummy, "tight_lf");
         }
 
@@ -1477,7 +1479,9 @@ bool OmnibusSigProc::operator()(const input_pointer& in, output_pointer& out)
             // [wgu] save decon result after loose LF
             if (m_use_roi_debug_mode) {
                 decon_2D_looseROI_debug_mode(iplane);
-                save_data(*itraces, loose_lf_traces, iplane, perwire_rmses, dummy, "loose_lf");
+                if (!m_loose_lf_tag.empty()) {
+                    save_data(*itraces, loose_lf_traces, iplane, perwire_rmses, dummy, "loose_lf");
+                }
             }
 
             if (m_use_roi_refinement) {
@@ -1490,7 +1494,9 @@ bool OmnibusSigProc::operator()(const input_pointer& in, output_pointer& out)
         // [wgu] collection plane does not need loose LF
         // but save something to be consistent
         if (m_use_roi_debug_mode and iplane == 2) {
-            save_data(*itraces, loose_lf_traces, iplane, perwire_rmses, dummy, "loose_lf");
+            if (!m_loose_lf_tag.empty()) {
+                save_data(*itraces, loose_lf_traces, iplane, perwire_rmses, dummy, "loose_lf");
+            }
         }
 
         check_data(iplane, "after 2D ROI refine");
@@ -1498,8 +1504,14 @@ bool OmnibusSigProc::operator()(const input_pointer& in, output_pointer& out)
         // Refine ROIs
         if (m_use_roi_refinement) roi_refine.load_data(iplane, m_r_data[iplane], roi_form);
         else {
-          m_c_data[iplane].resize(0, 0);  // clear memory
-          m_r_data[iplane].resize(0, 0);  // clear memory
+            /// TODO: streamline the logics
+            // special case to dump decon without needs of ROIs
+            if (m_use_roi_debug_mode and !m_decon_charge_tag.empty()) {
+                decon_2D_charge(iplane);
+                save_data(*itraces, decon_charge_traces, iplane, perwire_rmses, dummy, "decon");
+            }
+            m_c_data[iplane].resize(0, 0);  // clear memory
+            m_r_data[iplane].resize(0, 0);  // clear memory
         }
     }
 
@@ -1513,7 +1525,7 @@ bool OmnibusSigProc::operator()(const input_pointer& in, output_pointer& out)
             roi_refine.CleanUpROIs(iplane);
             roi_refine.generate_merge_ROIs(iplane);
 
-            if (m_use_roi_debug_mode) {
+            if (m_use_roi_debug_mode and !m_cleanup_roi_tag.empty()) {
                 save_roi(*itraces, cleanup_roi_traces, iplane, roi_refine.get_rois_by_plane(iplane));
             }
 
@@ -1521,9 +1533,9 @@ bool OmnibusSigProc::operator()(const input_pointer& in, output_pointer& out)
                 for (const auto& f : m_anode->faces()) {
                     // mp3: 3 plane protection based on cleaup ROI
                     // f->which(): per-Anode face index
-                    roi_refine.MultiPlaneProtection(iplane, m_anode, m_roi_ch_ch_ident, roi_form, m_mp_th1, m_mp_th2, f->which(), m_mp_tick_resolution);
+                    roi_refine.MP3ROI(iplane, m_anode, f, m_roi_ch_ch_ident, roi_form, m_mp_th1, m_mp_th2, m_mp_tick_resolution);
                     // mp2: 2 plane protection based on cleaup ROI
-                    roi_refine.MultiPlaneROI(iplane, m_anode, m_roi_ch_ch_ident, roi_form, m_mp_th1, m_mp_th2, f->which(), m_mp_tick_resolution);
+                    roi_refine.MP2ROI(iplane, m_anode, f, m_roi_ch_ch_ident, roi_form, m_mp_th1, m_mp_th2, m_mp_tick_resolution);
                 }
                 save_mproi(*itraces, mp3_roi_traces, iplane, roi_refine.get_mp3_rois());
                 save_mproi(*itraces, mp2_roi_traces, iplane, roi_refine.get_mp2_rois());
@@ -1541,10 +1553,10 @@ bool OmnibusSigProc::operator()(const input_pointer& in, output_pointer& out)
                 roi_refine.CheckROIs(iplane, roi_form);
                 roi_refine.CleanUpROIs(iplane);
                 if (m_use_roi_debug_mode) {
-                    if (qx == 0) {
+                    if (qx == 0 and !m_break_roi_loop1_tag.empty()) {
                         save_roi(*itraces, break_roi_loop1_traces, iplane, roi_refine.get_rois_by_plane(iplane));
                     }
-                    if (qx == 1) {
+                    if (qx == 1 and !m_break_roi_loop2_tag.empty()) {
                         save_roi(*itraces, break_roi_loop2_traces, iplane, roi_refine.get_rois_by_plane(iplane));
                     }
                 }
@@ -1555,7 +1567,7 @@ bool OmnibusSigProc::operator()(const input_pointer& in, output_pointer& out)
             roi_refine.CheckROIs(iplane, roi_form);
             check_data(iplane, "after roi refine check");
             roi_refine.CleanUpROIs(iplane);
-            if (m_use_roi_debug_mode) {
+            if (m_use_roi_debug_mode and !m_shrink_roi_tag.empty()) {
                 save_roi(*itraces, shrink_roi_traces, iplane, roi_refine.get_rois_by_plane(iplane));
             }
 
@@ -1570,7 +1582,7 @@ bool OmnibusSigProc::operator()(const input_pointer& in, output_pointer& out)
             roi_refine.ExtendROIs(iplane);
             check_data(iplane, "after roi refine extend");
 
-            if (m_use_roi_debug_mode) {
+            if (m_use_roi_debug_mode and !m_extend_roi_tag.empty()) {
                 save_ext_roi(*itraces, extend_roi_traces, iplane, roi_refine.get_rois_by_plane(iplane));
             }
 
@@ -1580,7 +1592,7 @@ bool OmnibusSigProc::operator()(const input_pointer& in, output_pointer& out)
             roi_refine.apply_roi(iplane, m_r_data[iplane]);
             check_data(iplane, "after roi refine apply");
             // roi_form.apply_roi(iplane, m_r_data[plane],1);
-            {
+            if (!m_wiener_tag.empty()) {
                 // We only use an intermediate index list here to give
                 // some clarity to log msg about range added
                 IFrame::trace_list_t perframe;
@@ -1590,12 +1602,12 @@ bool OmnibusSigProc::operator()(const input_pointer& in, output_pointer& out)
 
             decon_2D_charge(iplane);
             std::vector<double> dummy_thresholds;
-            if (m_use_roi_debug_mode) {
-                save_data(*itraces, decon_charge_traces, iplane, perwire_rmses, thresholds, "decon");
+            if (m_use_roi_debug_mode and !m_decon_charge_tag.empty()) {
+                save_data(*itraces, decon_charge_traces, iplane, perwire_rmses, dummy_thresholds, "decon");
             }
             roi_refine.apply_roi(iplane, m_r_data[iplane]);
             // roi_form.apply_roi(iplane, m_r_data[plane],1);
-            {
+            if (!m_gauss_tag.empty()) {
                 // We only use an intermediate index list here to give
                 // some clarity to log msg about range added
                 IFrame::trace_list_t perframe;
@@ -1605,8 +1617,8 @@ bool OmnibusSigProc::operator()(const input_pointer& in, output_pointer& out)
 
             m_c_data[iplane].resize(0, 0);  // clear memory
             m_r_data[iplane].resize(0, 0);  // clear memory
-        }
-    }
+        } // loop over planes
+    } // m_use_roi_refinement
 
     // clear the overall response
     // for (int i = 0; i != 3; i++) {
@@ -1631,19 +1643,37 @@ bool OmnibusSigProc::operator()(const input_pointer& in, output_pointer& out)
     // }
 
     if (m_use_roi_refinement) {
-        sframe->tag_traces(m_wiener_tag, wiener_traces, thresholds);
-        sframe->tag_traces(m_gauss_tag, gauss_traces);
+        if (!m_wiener_tag.empty()) {
+            sframe->tag_traces(m_wiener_tag, wiener_traces, thresholds);
+        }
+        if (!m_gauss_tag.empty()) {
+            sframe->tag_traces(m_gauss_tag, gauss_traces);
+        }
     }
 
     if (m_use_roi_debug_mode) {
-        sframe->tag_traces(m_loose_lf_tag, loose_lf_traces);
-        if (m_use_roi_refinement) {
+        if (!m_loose_lf_tag.empty()) {
+            sframe->tag_traces(m_loose_lf_tag, loose_lf_traces);
+        }
+        if(!m_decon_charge_tag.empty()) {
             sframe->tag_traces(m_decon_charge_tag, decon_charge_traces);
+        }
+        if(!m_tight_lf_tag.empty()) {
             sframe->tag_traces(m_tight_lf_tag, tight_lf_traces);
+        }
+        if (!m_cleanup_roi_tag.empty()) {
             sframe->tag_traces(m_cleanup_roi_tag, cleanup_roi_traces);
+        }
+        if(!m_break_roi_loop1_tag.empty()) {
             sframe->tag_traces(m_break_roi_loop1_tag, break_roi_loop1_traces);
+        }
+        if (!m_break_roi_loop2_tag.empty()) {
             sframe->tag_traces(m_break_roi_loop2_tag, break_roi_loop2_traces);
+        }
+        if (!m_shrink_roi_tag.empty()) {
             sframe->tag_traces(m_shrink_roi_tag, shrink_roi_traces);
+        }
+        if (!m_extend_roi_tag.empty()) {
             sframe->tag_traces(m_extend_roi_tag, extend_roi_traces);
         }
     }

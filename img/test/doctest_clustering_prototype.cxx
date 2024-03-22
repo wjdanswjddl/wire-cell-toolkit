@@ -11,18 +11,21 @@ using namespace WireCell;
 using namespace WireCell::PointTesting;
 using namespace WireCell::PointCloud;
 using namespace WireCell::PointCloud::Tree;
+// WireCell::PointCloud::Tree::scoped_pointcloud_t
 using spdlog::debug;
 
 using node_ptr = std::unique_ptr<Points::node_t>;
 
-static void print_dds(const DisjointDataset& dds) {
-    for (size_t idx=0; idx<dds.values().size(); ++idx) {
-        const Dataset& ds = dds.values()[idx];
+// No more explicit DisjointDataset.  It is a PointCloud::Tree::scoped_pointcloud_t.
+template <typename DisjointDataset>
+void print_dds(const DisjointDataset& dds) {
+    for (size_t idx=0; idx<dds.size(); ++idx) {
+        const Dataset& ds = dds[idx];
         std::stringstream ss;
         ss << "ds: " << idx << std::endl;
-        //const size_t len = ds.size_major();
+        // const size_t len = ds.size_major();
         for (const auto& key : ds.keys()) {
-            auto arr = ds.get(key).elements<double>();
+            auto arr = ds.get(key)->elements<double>();
             ss << key << ": ";
             for(auto elem : arr) {
                 ss << elem << " ";
@@ -43,8 +46,14 @@ Points::node_ptr make_simple_pctree()
 
     // Insert a child with a set of named points clouds with one point
     // cloud from a track.
+
     /// QUESTION: can only do this on construction?
+    /// bv: see NaryTree.h for several insert()'s
+
     /// QUESTION: units?
+    /// bv: units are always assumed in WCT system-of-units.  To be correct
+    ///     here, we should be multiplying by some [length] unit.
+
     auto* n1 = root->insert(Points({
         {"center", make_janky_track(Ray(Point(0.5, 0, 0), Point(0.7, 0, 0)))},
         {"3d", make_janky_track(Ray(Point(0, 0, 0), Point(1, 0, 0)))}
@@ -102,18 +111,26 @@ TEST_CASE("PointCloudFacade test")
 
     // name, coords, [depth]
     Scope scope{ "3d", {"x","y","z"}};
-    const DisjointDataset& pc3d = rval.scoped_pc(scope);
-    CHECK(pc3d.values().size() == 2);
+    auto const& s3d = rval.scoped_view({ "3d", {"x","y","z"}});
+
+    auto const& pc3d = s3d.pcs();
+    CHECK(pc3d.size() == 2);
     print_dds(pc3d);
 
-    const DisjointDataset& pccenter = rval.scoped_pc({ "center", {"x","y","z"}});
+    auto const& pccenter = rval.scoped_view({ "center", {"x","y","z"}}).pcs();
     print_dds(pccenter);
 
-    const auto& kd = rval.scoped_kd(scope);
-    // CHECK(&kd.pointclouds() == &pc3d);
+    const auto& kd = s3d.kd();
 
     /// QUESTION: how to get it -> node?
-    auto knn = kd.knn(2, {1, 0, 0});
+    /// bv: get the "major index" of the iterator and use that to index in whatever "node like" container
+    ///     auto pts = kd.points();
+    ///     size_t ind = pts.major_index(it);
+    ///     auto& thing = vector_of_node_like_things[ind];
+    /// see doctest-pointtree-example for details.
+
+    std::vector<double> some_point = {1, 0, 0};
+    auto knn = kd.knn(2, some_point);
     for (auto [it,dist] : knn) {
         auto& pt = *it;
         debug("knn: pt=({},{},{}) dist={}",
@@ -121,8 +138,20 @@ TEST_CASE("PointCloudFacade test")
     }
     CHECK(knn.size() == 2);
 
+    const auto& all_points = kd.points();
+    for (size_t pt_ind = 0; pt_ind<knn.size(); ++pt_ind) {
+        auto& [pit,dist] = knn[pt_ind];
+        const size_t maj_ind = all_points.major_index(pit);
+        const size_t min_ind = all_points.minor_index(pit);
+        debug("knn point {} at distance {} from query is in local point cloud {} at index {}",
+              pt_ind, dist, maj_ind, min_ind);
+        const Dataset& pc = pc3d[maj_ind];
+        for (const auto& name : scope.coords) {
+            debug("\t{} = {}", name, pc.get(name)->element<double>(min_ind));
+        }
+    }
 
-    auto rad = kd.radius(.01, {1, 0, 0});
+    auto rad = kd.radius(.01, some_point);
     for (auto [it,dist] : rad) {
         auto& pt = *it;
         debug("rad: pt=({},{},{}) dist={}",

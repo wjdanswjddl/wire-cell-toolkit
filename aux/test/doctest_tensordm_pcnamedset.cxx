@@ -16,7 +16,7 @@ TEST_CASE("tensordm pcnamedset")
 {
     const std::string datapath = "pcns";
     const std::string store = "pcns/the-named-point-clouds";
-    std::map<std::string, Dataset> pcns;
+    named_pointclouds_t pcns;
     pcns["one"] = Dataset();
     pcns["two"] = Dataset();
     auto tens = pcnamedset_as_tensors(pcns.begin(), pcns.end(), datapath, store);

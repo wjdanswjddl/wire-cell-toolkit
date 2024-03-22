@@ -32,15 +32,15 @@ namespace WireCell {
             void refine_data(int plane, ROI_formation& roi_form);
             void refine_data_debug_mode(int plane, ROI_formation& roi_form, const std::string& cmd);
 
-            void MultiPlaneProtection(const int plane, const IAnodePlane::pointer anode,
-                                      const std::map<int, int>& map_ch, ROI_formation& roi_form,
-                                      const double mp_th1 = 0., const double mp_th2 = 0., const int faceid = 1, const int tick_resolution = 10,
-                                      const int wire_resolution = 2, const int nbounds_layers = 2);
+            void MP3ROI(const int plane, const IAnodePlane::pointer anode, const IAnodeFace::pointer face,
+                        const std::map<int, int>& map_ch, ROI_formation& roi_form, const double mp_th1 = 0.,
+                        const double mp_th2 = 0., const int tick_resolution = 10, const int wire_resolution = 2,
+                        const int nbounds_layers = 2);
 
-            void MultiPlaneROI(const int plane, const IAnodePlane::pointer anode, const std::map<int, int>& map_ch,
-                               ROI_formation& roi_form, const double mp_th1 = 0., const double mp_th2 = 0., const int faceid = 1,
-                               const int tick_resolution = 10, const int wire_resolution = 2,
-                               const int nbounds_layers = 2);
+            void MP2ROI(const int plane, const IAnodePlane::pointer anode, const IAnodeFace::pointer face,
+                        const std::map<int, int>& map_ch, ROI_formation& roi_form, const double mp_th1 = 0.,
+                        const double mp_th2 = 0., const int tick_resolution = 10, const int wire_resolution = 2,
+                        const int nbounds_layers = 2);
 
             typedef std::multimap<std::pair<int, int>, std::pair<int, int>> MapMPROI;
             MapMPROI get_mp2_rois() const { return mp_rois; }

@@ -7,6 +7,8 @@
 #include "WireCellUtil/PointCloudDataset.h"
 #include "WireCellIface/ITensorSet.h"
 
+#include <unordered_map>
+
 namespace WireCell::Aux::TensorDM {
 
     /// PointCloud support

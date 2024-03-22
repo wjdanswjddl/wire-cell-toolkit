@@ -9,10 +9,15 @@
 
 #include "WireCellUtil/PointCloudDataset.h"
 #include "WireCellUtil/PointCloudCoordinates.h"
-#include "WireCellUtil/PointCloudDisjoint.h"
 #include "WireCellUtil/NFKD.h"
 #include "WireCellUtil/NaryTree.h"
 #include "WireCellUtil/KDTree.h"
+
+#include "WireCellUtil/Logging.h" // debug
+
+#include <boost/range/adaptors.hpp>
+#include <boost/iterator/transform_iterator.hpp>
+
 #include <ostream>
 
 namespace WireCell::PointCloud::Tree {
@@ -27,6 +32,7 @@ namespace WireCell::PointCloud::Tree {
         std::string pcname{""};
 
         // The list of PC attribute array names to interpret as coordinates.
+        using name_list_t = std::vector<std::string>;
         name_list_t coords{};
 
         // The depth of the descent.
@@ -53,77 +59,37 @@ namespace std {
 
 namespace WireCell::PointCloud::Tree {
 
-    struct KDTreeBase {
+    // An atomic, contiguous point cloud.
+    using pointcloud_t = Dataset;
 
-        // Append more points.
-        virtual void append(const Dataset& ds) = 0;
-    };
+    // A set of point clouds each identified by a name.
+    using named_pointclouds_t = std::map<std::string, pointcloud_t>;
 
+    // We refer to point clouds held elsewhere.
+    using pointcloud_ref = std::reference_wrapper<Dataset>;
 
-    // Bind together a disjoint store of selection coordinates and
-    // their k-d tree. 
-    template<typename ValueType>
-    struct KDTree : public KDTreeBase {
+    // Collect scoped things, see below
+    class ScopedBase;
+    template<typename ElementType> class ScopedView;
 
-        using value_type = ValueType;
-        using point_type = std::vector<ValueType>;
-        using point_group = coordinates<point_type>;
-        using group_vector = std::vector<point_group>;
-        
-        using kdtree_type = NFKD::Tree<typename point_group::iterator>;
+    /** Points is a payload value type for a NaryTree::Node.
 
-        group_vector store;
-        kdtree_type kdtree;
-        name_list_t names;
+        A Points instance stores a set of point clouds local to the node.
+        Individual point clouds in the set are accessed by a name of type
+        string.
 
-        explicit KDTree(const name_list_t& names)
-            : kdtree(names.size())
-            , names(names)
-        {
-        }
-
-        KDTree(const DisjointDataset& djds, const name_list_t& names)
-            : kdtree(names.size())
-            , names(names)
-        {
-            for (const Dataset& ds : djds.values()) {
-                append(ds);
-            }
-        }
-
-        
-        virtual void append(const Dataset& ds) {
-            point_group grp(ds.selection(names));
-            store.push_back(grp);
-            kdtree.append(grp.begin(), grp.end());
-        }
-    };
-
-
-    /** Points is a payload value type for a NaryTree::Node<Points> node.
-
-        A Points stores node-local point clouds by name, provides
-        results of a scoped query on the n-ary tree of node-local
-        point clouds in the form of "disjoint dataset" and allows
-        forming k-d trees upon these.
-
-        See Scope, DisjointDataset and NFKD for more explanation.
-
+        A Points also provides access to "scoped" objects.
      */
     class Points : public NaryTree::Notified<Points> {
         
       public:
 
-
         using node_t = NaryTree::Node<Points>;
         using node_ptr = std::unique_ptr<node_t>;
         using node_path_t = std::vector<node_t*>;
 
-        using pointcloud_t = Dataset;
-        using named_pointclouds_t = std::map<std::string, pointcloud_t>;
-
-        template<typename ValueType>
-        using kdtree_t = typename KDTree<ValueType>::kdtree_type;
+        // template<typename ElementType>
+        // using kdtree_t = typename KDTree<ElementType>::kdtree_type;
 
         Points() = default;
         virtual ~Points() = default;
@@ -151,36 +117,14 @@ namespace WireCell::PointCloud::Tree {
         node_t* node() { return m_node; };
 
         /// Access the set of point clouds local to this node.
+        named_pointclouds_t& local_pcs() { return m_lpcs; }
         const named_pointclouds_t& local_pcs() const { return m_lpcs; }
 
-        /// Access local PCs in mutable form.  Note, manipulating the
-        /// PCs directly may circumvent their use in up-tree scoped
-        /// PCs.
-        // named_pointclouds_t& local_pcs() { return m_lpcs; }
-
-        /// Access a scoped PC.
-        const DisjointDataset& scoped_pc(const Scope& scope) const;
-        
-        /// Access the scoped k-d tree.
-        template<typename ValueType=double>
-        const kdtree_t<ValueType>&
-        scoped_kd(const Scope& scope) const {
-            using kd_t = KDTree<ValueType>;
-            auto it = m_nfkds.find(scope);
-            if (it != m_nfkds.end()) {
-                const auto* ptr = it->second.get();
-                const auto* dptr = dynamic_cast<const kd_t*>(ptr);
-                if (!dptr) {
-                    raise<ValueError>("Tree::Points::scoped_kd(): type collision");
-                }
-                return dptr->kdtree;
-            }
-            const DisjointDataset& dds = scoped_pc(scope);
-            kd_t* ptr = new kd_t(dds, scope.coords);
-            m_nfkds[scope] = std::unique_ptr<KDTreeBase>(ptr);
-            return ptr->kdtree;
-
-        }
+        /// Access a scoped view.  The returned Scoped instance WILL be mutated
+        /// when any new node is inserted into the scope.  The Scoped WILL be
+        /// invalidated if any existing node is removed from the scope.
+        template<typename ElementType=double>
+        const ScopedView<ElementType>& scoped_view(const Scope& scope) const;
 
         // Receive notification from n-ary tree to learn of our node.
         virtual void on_construct(node_t* node);
@@ -200,13 +144,141 @@ namespace WireCell::PointCloud::Tree {
 
         // our node
         node_t* m_node {nullptr};
+
         // our node-local point clouds
         named_pointclouds_t m_lpcs;
 
-        // nanoflann k-d tree interfaces for a given scope.
-        mutable std::unordered_map<Scope, DisjointDataset> m_djds;
-        mutable std::unordered_map<Scope, std::unique_ptr<KDTreeBase>> m_nfkds;
+        // mutable cache
+        using unique_scoped_t = std::unique_ptr<ScopedBase>;
+        mutable std::unordered_map<Scope, unique_scoped_t> m_scoped;
+
+        void init(const Scope& scope) const;
+        const ScopedBase* get_scoped(const Scope& scope) const;
+        
+      public:
+        
     };
+
+    template<typename ElementType>
+    const ScopedView<ElementType>& Points::scoped_view(const Scope& scope) const
+    {
+        using SV = ScopedView<ElementType>;
+        auto const* sbptr = get_scoped(scope);
+        if (sbptr) {
+            auto const* svptr = dynamic_cast<const SV*>(sbptr);
+            if (svptr) {
+                return *svptr;
+            }
+        }
+        auto uptr = std::make_unique<SV>(scope);
+        auto& sv = *uptr;
+        m_scoped[scope] = std::move(uptr);
+        init(scope);
+        return sv;
+    }
+
+    // A scoped view on a subset of nodes in a NaryTree::Node<Points>.
+    //
+    // See also ScopedView<ElementType>.
+    class ScopedBase {
+      public:
+
+        // The disjoint point clouds in scope
+        using pointclouds_t = std::vector<pointcloud_ref>;
+
+        // The nodes providing those point clouds
+        using node_t = typename Points::node_t;
+        using nodes_t = std::vector<node_t*>;
+
+        // The arrays from each local PC that are in scope
+        using selection_t = Dataset::selection_t;
+
+        // This is a bit awkward but important.  We can not store the
+        // selection_t by value AND assure stable memory locations AND
+        // allow the store to grow AND keep the k-d tree updated as it
+        // grows.  So, we store by pointer.
+        using unique_selection_t = std::unique_ptr<selection_t>;
+
+        // The selected arrays over all our PCs
+        using selections_t = std::vector<unique_selection_t>;
+
+        explicit ScopedBase(const Scope& scope) : m_scope(scope) {}
+        virtual ~ScopedBase() {}
+
+        const Scope& scope() const { return m_scope; }
+
+        const nodes_t& nodes() const { return m_nodes; }
+
+        // Access the full point clouds in scope
+        const pointclouds_t& pcs() const { return m_pcs; }
+
+        // Total number of points
+        size_t npoints() const { return m_npoints; }
+
+        // Access the selected arrays
+        const selections_t& selections() const { return m_selections; }
+
+        // Add a node in to our scope.
+        virtual void append(node_t* node);
+
+      private:
+        size_t m_npoints{0};
+        Scope m_scope;
+        nodes_t m_nodes;
+        pointclouds_t m_pcs;
+      protected:
+        selections_t m_selections;
+    };
+
+
+    // A scoped view with additional information that requires a specific
+    // element type.
+    template<typename ElementType>
+    class ScopedView : public ScopedBase {
+      public:
+        
+        // The point type giving a vector-like object that spans elements of a
+        // common index "down" the rows of arrays.
+        using point_type = coordinate_point<ElementType>;
+
+        // Iterate over the selection to yield a point_type.
+        using point_range = coordinate_range<point_type>;
+
+        // The underlying type of kdtree.
+        using nfkd_t = NFKD::Tree<point_range>; // dynamic index        
+
+        explicit ScopedView(const Scope& scope)
+            : ScopedBase(scope)
+            , m_nfkd(std::make_unique<nfkd_t>(scope.coords.size()))
+        {
+        }
+
+        // Access the kdtree.
+        const nfkd_t& kd() const {
+            if (m_nfkd) { return *m_nfkd; }
+
+            const auto& s = scope();
+            m_nfkd = std::make_unique<nfkd_t>(s.coords.size());
+
+            for (auto& sel : selections()) {
+                m_nfkd->append(point_range(*sel));
+            }
+            return *m_nfkd;
+        }
+
+        // Override and update k-d tree if we've made it.
+        virtual void append(node_t* node) {
+            this->ScopedBase::append(node);
+            if (m_nfkd) {
+                m_nfkd->append(point_range(*m_selections.back()));
+            }
+        }
+
+      private:
+
+        mutable std::unique_ptr<nfkd_t> m_nfkd;
+    };
+
 
 }
 

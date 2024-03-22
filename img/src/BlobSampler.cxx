@@ -121,7 +121,7 @@ struct BlobSampler::Sampler : public Aux::Logger
     // Current blob index in the iterated IBlob::vector
     size_t blob_index;
     IBlob::pointer iblob;
-    size_t points_added{0};
+    // size_t points_added{0};
 
     explicit Sampler(const Configuration& cfg, size_t ident)
         : Aux::Logger("BlobSampler", "img")
@@ -136,14 +136,14 @@ struct BlobSampler::Sampler : public Aux::Logger
     IAnodeFace::pointer anodeface;
     void begin_sample(size_t bind, IBlob::pointer fresh_iblob)
     {
-        points_added = 0;
+        // points_added = 0;
         blob_index = bind;
         iblob = fresh_iblob;
         anodeface = fresh_iblob->face();
     }
     void end_sample()
     {
-        points_added=0;
+        // points_added=0;
         anodeface = nullptr;
         blob_index=0;
         iblob = nullptr;
@@ -352,7 +352,7 @@ struct BlobSampler::Sampler : public Aux::Logger
         for (int tbin : irange(bins.nbins())) {
             const double time = bins.edge(tbin);
             const double x = time2drift(time);
-            points_added += npts;
+            // points_added += npts;
             for (size_t ind=0; ind<npts; ++ind) {
                 points[ind].x(x);
             }
@@ -378,12 +378,12 @@ PointCloud::Dataset BlobSampler::sample_blob(const IBlob::pointer& iblob,
     }
 
     PointCloud::Dataset ret;
-    size_t points_added = 0;
+    // size_t points_added = 0;
 
     for (auto& sampler : m_samplers) {
         sampler->begin_sample(blob_index, iblob);
         sampler->sample(ret);
-        points_added += sampler->points_added;
+        // points_added += sampler->points_added;
         sampler->end_sample();
     }
     // log->debug("got {} blobs, sampled {} points with {} samplers, returning {}",
