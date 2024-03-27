@@ -340,13 +340,13 @@ double Response::coldelec(double time, double gain, double shaping)
  */
 double Response::paramscoldelec(double time, double gain, double shaping, double k3, double k4, double k5, double k6)
 {
-    if (time <= 0 || time >= 30 * units::microsecond) {  // range of validity
+    if (time <= 0 || time >= 50 * units::microsecond) {  // range of validity
         return 0.0;                                      // do we want to ignore long tail?
     }
 
     // const double reltime = time / shaping;
     double t = time / units::microsecond;
-    double A0 = gain *10.0 / (units::mV/units::fC);
+    double A0 = gain *10.0;
     double tp = shaping / units::microsecond;
     double CT = 1./1.996;
     double A = A0 * 2.7433/pow(tp*CT,4);
