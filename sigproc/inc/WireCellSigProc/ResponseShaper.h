@@ -41,6 +41,7 @@ namespace WireCell {
                 WireCell::Configuration default_configuration() const;
 
                private:
+                std::string m_elecresponse_tn{"ColdElec"};
                 std::string m_anode_tn, m_noisedb_tn;
                 IAnodePlane::pointer m_anode;
                 IChannelNoiseDatabase::pointer m_noisedb;

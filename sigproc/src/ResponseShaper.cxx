@@ -36,6 +36,7 @@ ResponseShaper::OneChannelResponse::~OneChannelResponse() {}
 
 void ResponseShaper::OneChannelResponse::configure(const WireCell::Configuration& cfg)
 {
+    m_elecresponse_tn = get(cfg, "elecresponse", m_elecresponse_tn); 
     m_anode_tn = get(cfg, "anode", m_anode_tn);
     m_anode = Factory::find_tn<IAnodePlane>(m_anode_tn);
     m_noisedb_tn = get(cfg, "noisedb", m_noisedb_tn);
@@ -47,6 +48,7 @@ void ResponseShaper::OneChannelResponse::configure(const WireCell::Configuration
 WireCell::Configuration ResponseShaper::OneChannelResponse::default_configuration() const
 {
     Configuration cfg;
+    cfg["elecresponse"] = m_elecresponse_tn;
     cfg["anode"] = m_anode_tn;
     cfg["noisedb"] = m_noisedb_tn;
     cfg["dft"] = "FftwDFT";     // type-name for the DFT to use
@@ -68,10 +70,15 @@ WireCell::Waveform::ChannelMaskMap ResponseShaper::OneChannelResponse::apply(int
     // }
     auto period = cr_bins.binsize();
     WireCell::Binning tbins(signal.size(), cr_bins.min(), cr_bins.min() + signal.size() * period);
-    Response::ColdElec ce(14 * units::mV / units::fC, 2.2 * units::us);
-    auto ewave = ce.generate(tbins);
-    // auto elecresponse = Factory::find_tn<IWaveform>("ColdElecResponse");
-    // auto ewave = elecresponse.waveform_samples(tbins);
+
+    // Option 1: declare response function explicitly
+    // Response::ColdElec ce(14 * units::mV / units::fC, 2.2 * units::us);
+    // auto ewave = ce.generate(tbins);
+    
+    // Option 2: retrieve response function from configuration
+    auto elecresponse = Factory::find_tn<IWaveform>(m_elecresponse_tn);
+    auto ewave = elecresponse->waveform_samples(tbins);
+
     const WireCell::Waveform::compseq_t elec = fwd_r2c(m_dft, ewave);
 
     Waveform::realseq_t tch_resp = cr->channel_response(ch);
