@@ -5,7 +5,7 @@ local g = import 'pgraph.jsonnet';
 {
   // Build a fanout-[pipelines]-fanin graph.  pipelines is a list of
   // pnode objects, one for each spine of the fan.
-  fanpipe:: function(fout, pipelines, fin, name='fanpipe', outtags=[]) {
+  fanpipe:: function(fout, pipelines, fin, name='fanpipe', outtags=[], usesimfanout="false") {
 
     local fanmult = std.length(pipelines),
     local fannums = std.range(0, fanmult - 1),
@@ -15,7 +15,8 @@ local g = import 'pgraph.jsonnet';
       name: name,
       data: {
         multiplicity: fanmult,
-        tag_rules: [  // example in gen/test/test_fans.jsonnet
+        tag_rules: if usesimfanout=="true" then [] else
+        [  // example in gen/test/test_fans.jsonnet
           {
             frame: {
               //'.*': 'number%d' % n,
@@ -47,10 +48,12 @@ local g = import 'pgraph.jsonnet';
               '.*': 'framefanin',
             },
             trace: {
-              //gauss: 'gauss%d' % n,
-              //wiener: 'wiener%d' % n,
+              gauss: 'gauss%d' % n,
+              wiener: 'wiener%d' % n,
+              dnnsp: 'dnnsp%d' % n,
               ['gauss%d' % n]: ['gauss%d' % n],
               ['wiener%d' % n]: ['wiener%d' % n],
+              ['dnnsp%d' % n]: ['dnnsp%d' % n],
               ['threshold%d' % n]: ['threshold%d' % n],
             },
 
